@@ -7,13 +7,9 @@ use std::fmt;
 pub enum Key {
   /// Both Enter (or Return) and numpad Enter
   Enter,
-  /// Tabulation key
   Tab,
-  /// Backspace key
   Backspace,
-  /// Escape key
   Esc,
-
   /// Left arrow
   Left,
   /// Right arrow
@@ -22,7 +18,6 @@ pub enum Key {
   Up,
   /// Down arrow
   Down,
-
   /// Insert key
   Ins,
   /// Delete key
@@ -35,7 +30,6 @@ pub enum Key {
   PageUp,
   /// Page Down key
   PageDown,
-
   /// F0 key
   F0,
   /// F1 key

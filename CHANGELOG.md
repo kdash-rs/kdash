@@ -2,20 +2,15 @@
 
 ## [Unreleased]
 
-- Add ability to seek from the CLI [#692](https://github.com/Rigellute/spotify-tui/pull/692)
+- Initial release
 
-
-## [0.23.0] - 2021-01-06
+## [0.23.0] - 2021-04-25
 
 ### Fixed
 
-- Fix app crash when pressing Enter before a screen has loaded [#599](https://github.com/Rigellute/spotify-tui/pull/599)
-
-
 ### Added
 
-- Implement next/previous page behavior for the Artists table [#604](https://github.com/Rigellute/spotify-tui/pull/604)
-
+- Overview dashboard
 
 # What is this?
 

@@ -1,15 +1,15 @@
-name: spt-temp
+name: kdash-temp
 base: core18
-adopt-info: spotify-tui
-summary: Spotify TUI
+adopt-info: kdash
+summary: KDash
 description: |
-  Spotify for the terminal written in Rust
+  A fast and simple dashboard for Kubernetes
 
 grade: stable
 confinement: strict
 
 parts:
-  spotify-tui:
+  kdash:
     plugin: rust
     source: .
     build-packages:
@@ -35,12 +35,11 @@ parts:
       snapcraftctl set-version "${VERSION}"
 
 apps:
-  spt-temp:
+  kdash-temp:
     environment:
-      LD_LIBRARY_PATH: $SNAP/usr/lib/$SNAPCRAFT_ARCH_TRIPLET/pulseaudio:$LD_LIBRARY_PATH
-    command: spt
+      LD_LIBRARY_PATH: $LD_LIBRARY_PATH
+    command: kdash
     plugs:
       - desktop
       - network
       - network-bind
-      - pulseaudio

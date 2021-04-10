@@ -56,7 +56,7 @@ jobs:
           cd target/${{ matrix.target }}/release
           BINARY_NAME=spt${{ matrix.binary_postfix }}
           strip $BINARY_NAME
-          RELEASE_NAME=spotify-tui-${{ matrix.artifact_prefix }}
+          RELEASE_NAME=kdash-${{ matrix.artifact_prefix }}
           tar czvf $RELEASE_NAME.tar.gz $BINARY_NAME
           if [[ ${{ runner.os }} == 'Windows' ]]; then
             certutil -hashfile $RELEASE_NAME.tar.gz sha256 | grep -E [A-Fa-f0-9]{64} > $RELEASE_NAME.sha256
@@ -67,8 +67,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            target/${{ matrix.target }}/release/spotify-tui-${{ matrix.artifact_prefix }}.tar.gz
-            target/${{ matrix.target }}/release/spotify-tui-${{ matrix.artifact_prefix }}.sha256
+            target/${{ matrix.target }}/release/kdash-${{ matrix.artifact_prefix }}.tar.gz
+            target/${{ matrix.target }}/release/kdash-${{ matrix.artifact_prefix }}.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
