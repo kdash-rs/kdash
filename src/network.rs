@@ -1,9 +1,9 @@
 // adapted from https://github.com/Rigellute/spotify-tui
-use crate::app::{self, App, KubeContext, KubeNode, StatefulTable};
+use crate::app::{self, App, KubeContext, KubeNode, KubeNs, KubePods, KubeSvs, StatefulTable};
 use crate::config::ClientConfig;
 use anyhow::{anyhow, Result};
 use duct::cmd;
-use k8s_openapi::api::core::v1::{Event, Node};
+use k8s_openapi::api::core::v1::{Event, Namespace, Node, Pod, Service};
 use kube::{
   api::{Api, ListParams, Resource},
   config::Kubeconfig,
@@ -25,7 +25,9 @@ pub enum IoEvent {
   GetCLIInfo,
   GetKubeConfig,
   GetNodes,
+  GetNamespaces,
   GetPods,
+  GetServices,
 }
 
 pub async fn get_client() -> kube::Result<Client> {
@@ -57,11 +59,17 @@ impl<'a> Network<'a> {
       IoEvent::GetKubeConfig => {
         self.get_kube_config().await;
       }
+      IoEvent::GetNodes => {
+        self.get_nodes().await;
+      }
+      IoEvent::GetNamespaces => {
+        self.get_namespaces().await;
+      }
       IoEvent::GetPods => {
         self.get_pods().await;
       }
-      IoEvent::GetNodes => {
-        self.get_nodes().await;
+      IoEvent::GetServices => {
+        self.get_services().await;
       }
     };
 
@@ -178,7 +186,6 @@ impl<'a> Network<'a> {
 
   async fn get_nodes(&mut self) {
     let nodes: Api<Node> = Api::all(self.client.clone());
-
     let unknown: String = String::from("Unknown");
 
     let lp = ListParams::default();
@@ -201,6 +208,8 @@ impl<'a> Network<'a> {
             KubeNode {
               name: it.name(),
               status,
+              cpu: 0,
+              mem: 0,
             }
           })
           .collect::<Vec<_>>();
@@ -210,28 +219,110 @@ impl<'a> Network<'a> {
         self.handle_error(anyhow!(e)).await;
       }
     }
-    // let store = reflector::store::Writer::<Node>::default();
-    // let reader = store.as_reader();
-    // let rf = reflector(store, watcher(nodes, lp));
+  }
 
-    // let mut app = self.app.lock().await;
-    // app.nodes = reader
-    //   .state()
-    //   .iter()
-    //   .map(Resource::name)
-    //   .collect::<Vec<_>>();
+  async fn get_namespaces(&mut self) {
+    let ns: Api<Namespace> = Api::all(self.client.clone());
+    let unknown: String = String::from("Unknown");
+
+    let lp = ListParams::default();
+    match ns.list(&lp).await {
+      Ok(ns_list) => {
+        let mut app = self.app.lock().await;
+        let nss = ns_list
+          .iter()
+          .map(|it| {
+            let status = match &it.status {
+              Some(stat) => match &stat.phase {
+                Some(phase) => phase.clone(),
+                _ => unknown.clone(),
+              },
+              _ => unknown.clone(),
+            };
+
+            KubeNs {
+              name: it.name(),
+              status,
+            }
+          })
+          .collect::<Vec<_>>();
+        app.namespaces = nss;
+      }
+      Err(e) => {
+        self.handle_error(anyhow!(e)).await;
+      }
+    }
   }
 
   async fn get_pods(&mut self) {
-    // match self.client.current_user().await {
-    //   Ok(user) => {
-    //     let mut app = self.app.lock().await;
-    //     app.user = Some(user);
-    //   }
-    //   Err(e) => {
-    //     self.handle_error(anyhow!(e)).await;
-    //   }
-    // }
+    let pods: Api<Pod> = Api::all(self.client.clone());
+    let unknown: String = String::from("Unknown");
+
+    let lp = ListParams::default();
+    match pods.list(&lp).await {
+      Ok(pod_list) => {
+        let mut app = self.app.lock().await;
+        let pods = pod_list
+          .iter()
+          .map(|it| {
+            let status = match &it.status {
+              Some(stat) => match &stat.phase {
+                Some(phase) => phase.clone(),
+                _ => unknown.clone(),
+              },
+              _ => unknown.clone(),
+            };
+
+            KubePods {
+              name: it.name(),
+              namespace: it.namespace().unwrap_or("".to_string()),
+              ready: "".to_string(),
+              restarts: 0,
+              cpu: "".to_string(),
+              mem: "".to_string(),
+              status,
+            }
+          })
+          .collect::<Vec<_>>();
+        app.pods = pods;
+      }
+      Err(e) => {
+        self.handle_error(anyhow!(e)).await;
+      }
+    }
+  }
+
+  async fn get_services(&mut self) {
+    let svs: Api<Service> = Api::all(self.client.clone());
+    let unknown: String = String::from("Unknown");
+
+    let lp = ListParams::default();
+    match svs.list(&lp).await {
+      Ok(svc_list) => {
+        let mut app = self.app.lock().await;
+        let svs = svc_list
+          .iter()
+          .map(|it| {
+            let type_ = match &it.spec {
+              Some(spec) => match &spec.type_ {
+                Some(type_) => type_.clone(),
+                _ => unknown.clone(),
+              },
+              _ => unknown.clone(),
+            };
+
+            KubeSvs {
+              name: it.name(),
+              type_,
+            }
+          })
+          .collect::<Vec<_>>();
+        app.services = svs;
+      }
+      Err(e) => {
+        self.handle_error(anyhow!(e)).await;
+      }
+    }
   }
 }
 

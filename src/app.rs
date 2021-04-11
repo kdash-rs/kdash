@@ -134,6 +134,27 @@ pub struct KubeContext {
 pub struct KubeNode {
   pub name: String,
   pub status: String,
+  pub cpu: u8,
+  pub mem: u8,
+}
+
+pub struct KubeNs {
+  pub name: String,
+  pub status: String,
+}
+pub struct KubeSvs {
+  pub name: String,
+  pub type_: String,
+}
+
+pub struct KubePods {
+  pub name: String,
+  pub namespace: String,
+  pub ready: String,
+  pub restarts: u8,
+  pub status: String,
+  pub cpu: String,
+  pub mem: String,
 }
 
 pub struct App {
@@ -162,6 +183,9 @@ pub struct App {
   pub active_context: Option<KubeContext>,
   //   pub cluster_metrics:
   pub nodes: Vec<KubeNode>,
+  pub namespaces: Vec<KubeNs>,
+  pub pods: Vec<KubePods>,
+  pub services: Vec<KubeSvs>,
 
   // TODO useless
   pub progress: f64,
@@ -194,6 +218,9 @@ impl Default for App {
       contexts: StatefulTable::new(),
       active_context: None,
       nodes: vec![],
+      namespaces: vec![],
+      pods: vec![],
+      services: vec![],
       // todo remove
       progress: 0.0,
     }
@@ -317,12 +344,15 @@ impl App {
   }
 
   pub fn on_tick(&mut self) {
-    self.tick_count = self.tick_count + 1;
-
-    if self.tick_count == self.poll_tick_count {
+    if self.tick_count == 0 {
       self.dispatch(IoEvent::GetNodes);
+      self.dispatch(IoEvent::GetNamespaces);
+      self.dispatch(IoEvent::GetPods);
+      self.dispatch(IoEvent::GetServices);
+    } else if self.tick_count == self.poll_tick_count {
       self.tick_count = 0;
     }
+    self.tick_count = self.tick_count + 1;
 
     // TODO remove temp code
     self.progress += 0.001;

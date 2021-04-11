@@ -280,7 +280,21 @@ where
     .borders(Borders::ALL)
     .title(title_style("Namespaces"));
 
-  f.render_widget(block, area);
+  let rows = app
+    .namespaces
+    .iter()
+    .map(|c| Row::new(vec![c.name.as_ref(), c.status.as_ref()]).style(style_primary()));
+
+  let table = Table::new(rows)
+    .header(
+      Row::new(vec!["Name", "Status"])
+        .style(style_secondary())
+        .bottom_margin(0),
+    )
+    .block(block)
+    .widths(&[Constraint::Percentage(85), Constraint::Percentage(15)]);
+
+  f.render_widget(table, area);
 }
 
 fn draw_pods<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
@@ -291,7 +305,33 @@ where
     .borders(Borders::ALL)
     .title(title_style("Pods"));
 
-  f.render_widget(block, area);
+  let rows = app.pods.iter().map(|c| {
+    Row::new(vec![
+      c.namespace.as_ref(),
+      c.name.as_ref(),
+      c.ready.as_ref(),
+      c.status.as_ref(),
+      "",
+    ])
+    .style(style_primary())
+  });
+
+  let table = Table::new(rows)
+    .header(
+      Row::new(vec!["Namespace", "Name", "Ready", "Status", "Restarts"])
+        .style(style_secondary())
+        .bottom_margin(0),
+    )
+    .block(block)
+    .widths(&[
+      Constraint::Percentage(30),
+      Constraint::Percentage(40),
+      Constraint::Percentage(10),
+      Constraint::Percentage(10),
+      Constraint::Percentage(10),
+    ]);
+
+  f.render_widget(table, area);
 }
 
 fn draw_services<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
@@ -302,7 +342,21 @@ where
     .borders(Borders::ALL)
     .title(title_style("Services"));
 
-  f.render_widget(block, area);
+  let rows = app
+    .services
+    .iter()
+    .map(|c| Row::new(vec![c.name.as_ref(), c.type_.as_ref()]).style(style_primary()));
+
+  let table = Table::new(rows)
+    .header(
+      Row::new(vec!["Name", "Type"])
+        .style(style_secondary())
+        .bottom_margin(0),
+    )
+    .block(block)
+    .widths(&[Constraint::Percentage(85), Constraint::Percentage(15)]);
+
+  f.render_widget(table, area);
 }
 
 fn draw_help<B>(f: &mut Frame<B>, area: Rect)
