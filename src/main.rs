@@ -42,6 +42,8 @@ use tui::{
 struct Cli {
   /// time in ms between two ticks.
   tick_rate: u64,
+  /// time in ms between two network calls.
+  poll_rate: u64,
   /// whether unicode symbols are used to improve the overall look of the app
   enhanced_graphics: bool,
 }
@@ -104,10 +106,18 @@ async fn main() -> Result<()> {
         .long("tick-rate")
         .help("Set the tick rate (milliseconds): the lower the number the higher the FPS.")
         .takes_value(true),
+    )
+    .arg(
+      Arg::with_name("poll-rate")
+        .short("p")
+        .long("poll-rate")
+        .help("Set the network call polling rate (milliseconds, should be multiples of tick-rate): the lower the number the higher the network calls.")
+        .takes_value(true),
     );
 
   let mut cli: Cli = Cli {
     tick_rate: 250,
+    poll_rate: 2000,
     enhanced_graphics: true,
   };
   let matches = clap_app.clone().get_matches();
@@ -123,12 +133,27 @@ async fn main() -> Result<()> {
     }
   }
 
+  if let Some(poll_rate) = matches
+    .value_of("poll-rate")
+    .and_then(|poll_rate| poll_rate.parse().ok())
+  {
+    if (poll_rate % cli.tick_rate) > 0u64 {
+      panic!("Poll rate must be multiple of tick-rate");
+    } else {
+      cli.poll_rate = poll_rate;
+    }
+  }
+
   let mut client_config = ClientConfig::new();
 
   let (sync_io_tx, sync_io_rx) = std::sync::mpsc::channel::<IoEvent>();
 
   // Initialise app state
-  let app = Arc::new(Mutex::new(App::new(sync_io_tx, cli.enhanced_graphics)));
+  let app = Arc::new(Mutex::new(App::new(
+    sync_io_tx,
+    cli.enhanced_graphics,
+    cli.poll_rate / cli.tick_rate,
+  )));
 
   // Launch the UI (async)
   let cloned_app = Arc::clone(&app);
@@ -250,18 +275,8 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
         if key == Key::Ctrl('c') {
           break;
         }
-        // quit when q is pressed
-        if key == Key::Char('q') {
-          break;
-        }
 
-        match key {
-          Key::Left => app.on_left(),
-          Key::Right => app.on_right(),
-          Key::Up => app.on_up(),
-          Key::Down => app.on_down(),
-          _ => (),
-        }
+        app.on_key(key);
 
         let current_active_block = app.get_current_route().active_block;
 

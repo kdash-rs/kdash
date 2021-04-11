@@ -41,18 +41,15 @@ where
     .tabs
     .titles
     .iter()
-    .map(|t| Spans::from(Span::styled(*t, Style::default().fg(Color::Green))))
+    .map(|t| Spans::from(Span::styled(*t, style_success())))
     .collect();
   let tabs = Tabs::new(titles)
     .block(
-      Block::default().borders(Borders::ALL).title(Span::styled(
-        app.title,
-        Style::default()
-          .fg(Color::Cyan)
-          .add_modifier(Modifier::BOLD),
-      )),
+      Block::default()
+        .borders(Borders::ALL)
+        .title(Span::styled(app.title, style_primary_bold())),
     )
-    .highlight_style(Style::default().fg(Color::Yellow))
+    .highlight_style(style_secondary())
     .select(app.tabs.index);
 
   f.render_widget(tabs, chunks[0]);
@@ -90,13 +87,11 @@ fn draw_cli_status<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
 where
   B: Backend,
 {
-  let up_style = Style::default().fg(Color::Green);
-  let failure_style = Style::default().fg(Color::Red);
   let rows = app.clis.iter().map(|s| {
     let style = if s.status == true {
-      up_style
+      style_success()
     } else {
-      failure_style
+      style_failure()
     };
     Row::new(vec![s.name.as_ref(), s.version.as_ref()]).style(style)
   });
@@ -115,13 +110,11 @@ fn draw_contexts<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
 where
   B: Backend,
 {
-  let normal_style = Style::default().fg(Color::Cyan);
-  let active_style = Style::default().fg(Color::Green);
   let rows = app.contexts.items.iter().map(|c| {
     let style = if c.is_active == true {
-      active_style
+      style_success()
     } else {
-      normal_style
+      style_primary()
     };
     Row::new(vec![c.name.as_ref(), c.cluster.as_ref(), c.user.as_ref()]).style(style)
   });
@@ -129,7 +122,7 @@ where
   let table = Table::new(rows)
     .header(
       Row::new(vec!["Context", "Cluster", "User"])
-        .style(Style::default().fg(Color::Yellow))
+        .style(style_secondary())
         .bottom_margin(0),
     )
     .block(
@@ -142,7 +135,7 @@ where
       Constraint::Percentage(33),
       Constraint::Percentage(33),
     ])
-    .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
+    .highlight_style(style_highlight())
     .highlight_symbol("=> ");
 
   f.render_stateful_widget(table, area, &mut app.contexts.state);
@@ -162,7 +155,7 @@ where
   let chunks = Layout::default()
     .constraints([Constraint::Length(10), Constraint::Min(10)].as_ref())
     .horizontal_margin(1)
-    .vertical_margin(2)
+    .vertical_margin(1)
     .split(area);
 
   let top_chunks = Layout::default()
@@ -215,23 +208,23 @@ where
     Some(active_context) => {
       text = vec![
         Spans::from(vec![
-          Span::from("Context: "),
-          Span::styled(active_context.name, Style::default().fg(Color::Yellow)),
+          Span::styled("Context: ", style_secondary()),
+          Span::styled(active_context.name, style_primary()),
         ]),
         Spans::from(vec![
-          Span::raw("Cluster: "),
-          Span::styled(active_context.cluster, Style::default().fg(Color::Yellow)),
+          Span::styled("Cluster: ", style_secondary()),
+          Span::styled(active_context.cluster, style_primary()),
         ]),
         Spans::from(vec![
-          Span::raw("User: "),
-          Span::styled(active_context.user, Style::default().fg(Color::Yellow)),
+          Span::styled("User: ", style_secondary()),
+          Span::styled(active_context.user, style_primary()),
         ]),
       ];
     }
     None => {
       text = vec![Spans::from(Span::styled(
         "Context information not found",
-        Style::default().fg(Color::Red),
+        style_failure(),
       ))]
     }
   }
@@ -241,14 +234,14 @@ where
 
   let cpu_gauge = LineGauge::default()
     .block(Block::default().title("CPU:"))
-    .gauge_style(Style::default().fg(Color::Yellow))
+    .gauge_style(style_secondary())
     .line_set(get_gauge_style(app.enhanced_graphics))
     .ratio(app.progress);
   f.render_widget(cpu_gauge, chunks[1]);
 
   let mem_gauge = LineGauge::default()
     .block(Block::default().title("Memory:"))
-    .gauge_style(Style::default().fg(Color::Yellow))
+    .gauge_style(style_secondary())
     .line_set(get_gauge_style(app.enhanced_graphics))
     .ratio(app.progress);
   f.render_widget(mem_gauge, chunks[2]);
@@ -262,7 +255,21 @@ where
     .borders(Borders::ALL)
     .title(title_style("Nodes"));
 
-  f.render_widget(block, area);
+  let rows = app
+    .nodes
+    .iter()
+    .map(|c| Row::new(vec![c.name.as_ref(), c.status.as_ref()]).style(style_primary()));
+
+  let table = Table::new(rows)
+    .header(
+      Row::new(vec!["Name", "Status"])
+        .style(style_secondary())
+        .bottom_margin(0),
+    )
+    .block(block)
+    .widths(&[Constraint::Percentage(85), Constraint::Percentage(15)]);
+
+  f.render_widget(table, area);
 }
 
 fn draw_namespaces<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
@@ -373,6 +380,27 @@ fn title_style_spl(txt: &'static str) -> Span {
       .fg(Color::Green)
       .add_modifier(Modifier::BOLD),
   )
+}
+
+fn style_success() -> Style {
+  Style::default().fg(Color::Green)
+}
+fn style_failure() -> Style {
+  Style::default().fg(Color::Red)
+}
+fn style_highlight() -> Style {
+  Style::default().add_modifier(Modifier::REVERSED)
+}
+fn style_primary() -> Style {
+  Style::default().fg(Color::Cyan)
+}
+fn style_primary_bold() -> Style {
+  Style::default()
+    .fg(Color::Cyan)
+    .add_modifier(Modifier::BOLD)
+}
+fn style_secondary() -> Style {
+  Style::default().fg(Color::Yellow)
 }
 
 fn get_gauge_style(enhanced_graphics: bool) -> symbols::line::Set {

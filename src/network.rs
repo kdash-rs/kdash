@@ -1,9 +1,15 @@
 // adapted from https://github.com/Rigellute/spotify-tui
-use crate::app::{self, App, KubeContext, StatefulTable};
+use crate::app::{self, App, KubeContext, KubeNode, StatefulTable};
 use crate::config::ClientConfig;
 use anyhow::{anyhow, Result};
 use duct::cmd;
-use kube::{config::Kubeconfig, Api, Client};
+use k8s_openapi::api::core::v1::{Event, Node};
+use kube::{
+  api::{Api, ListParams, Resource},
+  config::Kubeconfig,
+  Client,
+};
+use kube_runtime::{reflector, utils::try_flatten_applied, watcher};
 use regex::Regex;
 use serde_json::{map::Map, Value as JValue};
 use serde_yaml::Value as YValue;
@@ -18,6 +24,7 @@ use tokio::try_join;
 pub enum IoEvent {
   GetCLIInfo,
   GetKubeConfig,
+  GetNodes,
   GetPods,
 }
 
@@ -44,14 +51,17 @@ impl<'a> Network<'a> {
   #[allow(clippy::cognitive_complexity)]
   pub async fn handle_network_event(&mut self, io_event: IoEvent) {
     match io_event {
-      IoEvent::GetPods => {
-        self.get_pods().await;
-      }
       IoEvent::GetCLIInfo => {
         self.get_cli_info().await;
       }
       IoEvent::GetKubeConfig => {
         self.get_kube_config().await;
+      }
+      IoEvent::GetPods => {
+        self.get_pods().await;
+      }
+      IoEvent::GetNodes => {
+        self.get_nodes().await;
       }
     };
 
@@ -164,6 +174,52 @@ impl<'a> Network<'a> {
         self.handle_error(anyhow!(e)).await;
       }
     }
+  }
+
+  async fn get_nodes(&mut self) {
+    let nodes: Api<Node> = Api::all(self.client.clone());
+
+    let unknown: String = String::from("Unknown");
+
+    let lp = ListParams::default();
+    match nodes.list(&lp).await {
+      Ok(node_list) => {
+        let mut app = self.app.lock().await;
+        let nodes = node_list
+          .iter()
+          .map(|it| {
+            let status = match &it.status {
+              Some(stat) => match &stat.conditions {
+                Some(conds) => match conds.into_iter().last() {
+                  Some(cond) => cond.type_.clone(),
+                  _ => unknown.clone(),
+                },
+                _ => unknown.clone(),
+              },
+              _ => unknown.clone(),
+            };
+            KubeNode {
+              name: it.name(),
+              status,
+            }
+          })
+          .collect::<Vec<_>>();
+        app.nodes = nodes;
+      }
+      Err(e) => {
+        self.handle_error(anyhow!(e)).await;
+      }
+    }
+    // let store = reflector::store::Writer::<Node>::default();
+    // let reader = store.as_reader();
+    // let rf = reflector(store, watcher(nodes, lp));
+
+    // let mut app = self.app.lock().await;
+    // app.nodes = reader
+    //   .state()
+    //   .iter()
+    //   .map(Resource::name)
+    //   .collect::<Vec<_>>();
   }
 
   async fn get_pods(&mut self) {

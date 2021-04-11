@@ -1,7 +1,11 @@
-use crate::network::IoEvent;
+use crate::{event::Key, network::IoEvent};
 use anyhow::anyhow;
 use duct::cmd;
-use kube::config::{AuthInfo, Cluster, Context, Kubeconfig};
+use k8s_openapi::api::core::v1::{Event, Node};
+use kube::{
+  api::{Api, ListParams},
+  config::{AuthInfo, Cluster, Context, Kubeconfig},
+};
 use std::{io, str::FromStr, sync::mpsc::Sender};
 use tui::{
   layout::Rect,
@@ -67,10 +71,6 @@ pub struct CLI {
   pub status: bool,
 }
 
-pub struct Node {
-  pub value: String,
-}
-
 pub struct TabsState {
   pub titles: Vec<&'static str>,
   pub index: usize,
@@ -131,15 +131,22 @@ pub struct KubeContext {
   pub is_active: bool,
 }
 
+pub struct KubeNode {
+  pub name: String,
+  pub status: String,
+}
+
 pub struct App {
   navigation_stack: Vec<Route>,
+  io_tx: Option<Sender<IoEvent>>,
   pub title: &'static str,
   pub should_quit: bool,
   pub tabs: TabsState,
   pub show_chart: bool,
   pub is_loading: bool,
+  pub poll_tick_count: u64,
+  pub tick_count: u64,
   pub enhanced_graphics: bool,
-  io_tx: Option<Sender<IoEvent>>,
   pub help_docs_size: u32,
   pub help_menu_page: u32,
   pub help_menu_max_lines: u32,
@@ -154,6 +161,7 @@ pub struct App {
   pub contexts: StatefulTable<KubeContext>,
   pub active_context: Option<KubeContext>,
   //   pub cluster_metrics:
+  pub nodes: Vec<KubeNode>,
 
   // TODO useless
   pub progress: f64,
@@ -163,26 +171,29 @@ impl Default for App {
   fn default() -> Self {
     App {
       title: " KDash - The only Kubernetes dashboard you will ever need! ",
-      should_quit: false,
       tabs: TabsState::new(vec!["Overview", "Logs"]),
+      should_quit: false,
+      poll_tick_count: 0,
+      tick_count: 0,
       show_chart: true,
+      is_loading: false,
+      confirm: false,
       enhanced_graphics: false,
       home_scroll: 0,
-      api_error: String::new(),
       help_docs_size: 0,
       help_menu_page: 0,
       help_menu_max_lines: 0,
       help_menu_offset: 0,
-      is_loading: false,
+      api_error: String::new(),
       io_tx: None,
       dialog: None,
-      confirm: false,
       size: Rect::default(),
       navigation_stack: vec![DEFAULT_ROUTE],
       clis: vec![],
       kubeconfig: None,
       contexts: StatefulTable::new(),
       active_context: None,
+      nodes: vec![],
       // todo remove
       progress: 0.0,
     }
@@ -190,10 +201,11 @@ impl Default for App {
 }
 
 impl App {
-  pub fn new(io_tx: Sender<IoEvent>, enhanced_graphics: bool) -> App {
+  pub fn new(io_tx: Sender<IoEvent>, enhanced_graphics: bool, poll_tick_count: u64) -> App {
     App {
       io_tx: Some(io_tx),
       enhanced_graphics,
+      poll_tick_count,
       ..App::default()
     }
   }
@@ -285,20 +297,34 @@ impl App {
     self.tabs.previous();
   }
 
-  pub fn on_key(&mut self, c: char) {
+  pub fn on_key(&mut self, c: Key) {
     match c {
-      'q' => {
+      Key::Char('q') => {
         self.should_quit = true;
       }
-      't' => {
+      Key::Char('t') => {
         self.show_chart = !self.show_chart;
       }
-      _ => {}
+      Key::Char('?') => {
+        // TODO show help
+      }
+      Key::Left => self.on_left(),
+      Key::Right => self.on_right(),
+      Key::Up => self.on_up(),
+      Key::Down => self.on_down(),
+      _ => (),
     }
   }
 
   pub fn on_tick(&mut self) {
-    // Update progress
+    self.tick_count = self.tick_count + 1;
+
+    if self.tick_count == self.poll_tick_count {
+      self.dispatch(IoEvent::GetNodes);
+      self.tick_count = 0;
+    }
+
+    // TODO remove temp code
     self.progress += 0.001;
     if self.progress > 1.0 {
       self.progress = 0.0;
