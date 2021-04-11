@@ -1,5 +1,4 @@
 use crate::network::IoEvent;
-use crate::util::{RandomSignal, SinSignal, StatefulList};
 use anyhow::anyhow;
 use duct::cmd;
 use kube::config::{AuthInfo, Cluster, Context, Kubeconfig};
@@ -9,54 +8,6 @@ use tui::{
   widgets::{ListState, TableState},
 };
 
-const TASKS: [&str; 24] = [
-  "Item1", "Item2", "Item3", "Item4", "Item5", "Item6", "Item7", "Item8", "Item9", "Item10",
-  "Item11", "Item12", "Item13", "Item14", "Item15", "Item16", "Item17", "Item18", "Item19",
-  "Item20", "Item21", "Item22", "Item23", "Item24",
-];
-
-const LOGS: [(&str, &str); 3] = [
-  ("Event1", "INFO"),
-  ("Event2", "INFO"),
-  ("Event3", "CRITICAL"),
-];
-
-const EVENTS: [(&str, u64); 3] = [("B1", 9), ("B2", 12), ("B3", 5)];
-
-pub struct Signal<S: Iterator> {
-  source: S,
-  pub points: Vec<S::Item>,
-  tick_rate: usize,
-}
-
-impl<S> Signal<S>
-where
-  S: Iterator,
-{
-  fn on_tick(&mut self) {
-    for _ in 0..self.tick_rate {
-      self.points.remove(0);
-    }
-    self
-      .points
-      .extend(self.source.by_ref().take(self.tick_rate));
-  }
-}
-
-pub struct Signals {
-  pub sin1: Signal<SinSignal>,
-  pub sin2: Signal<SinSignal>,
-  pub window: [f64; 2],
-}
-
-impl Signals {
-  fn on_tick(&mut self) {
-    self.sin1.on_tick();
-    self.sin2.on_tick();
-    self.window[0] += 1.0;
-    self.window[1] += 1.0;
-  }
-}
 pub struct StatefulTable<T> {
   pub state: TableState,
   pub items: Vec<T>,
@@ -206,19 +157,10 @@ pub struct App {
 
   // TODO useless
   pub progress: f64,
-  pub tasks: StatefulList<&'static str>,
-  pub logs: StatefulList<(&'static str, &'static str)>,
-  pub signals: Signals,
-  pub barchart: Vec<(&'static str, u64)>,
 }
 
 impl Default for App {
   fn default() -> Self {
-    let mut sin_signal = SinSignal::new(0.2, 3.0, 18.0);
-    let sin1_points = sin_signal.by_ref().take(100).collect();
-    let mut sin_signal2 = SinSignal::new(0.1, 2.0, 10.0);
-    let sin2_points = sin_signal2.by_ref().take(200).collect();
-
     App {
       title: " KDash - The only Kubernetes dashboard you will ever need! ",
       should_quit: false,
@@ -243,22 +185,6 @@ impl Default for App {
       active_context: None,
       // todo remove
       progress: 0.0,
-      tasks: StatefulList::with_items(TASKS.to_vec()),
-      logs: StatefulList::with_items(LOGS.to_vec()),
-      signals: Signals {
-        sin1: Signal {
-          source: sin_signal,
-          points: sin1_points,
-          tick_rate: 5,
-        },
-        sin2: Signal {
-          source: sin_signal2,
-          points: sin2_points,
-          tick_rate: 10,
-        },
-        window: [0.0, 20.0],
-      },
-      barchart: EVENTS.to_vec(),
     }
   }
 }
@@ -377,13 +303,5 @@ impl App {
     if self.progress > 1.0 {
       self.progress = 0.0;
     }
-
-    self.signals.on_tick();
-
-    let log = self.logs.items.pop().unwrap();
-    self.logs.items.insert(0, log);
-
-    let event = self.barchart.pop().unwrap();
-    self.barchart.insert(0, event);
   }
 }
