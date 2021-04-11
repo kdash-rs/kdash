@@ -295,6 +295,7 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
     // startup speed
     if is_first_render {
       app.dispatch(IoEvent::GetCLIInfo);
+      app.dispatch(IoEvent::GetKubeConfig);
       //   app.help_docs_size = ui::help::get_help_docs(&app.user_config.keys).len() as u32;
 
       is_first_render = false;

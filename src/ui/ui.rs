@@ -2,28 +2,28 @@ use crate::app::App;
 use duct::cmd;
 use tui::{
   backend::Backend,
-  layout::{Constraint, Direction, Layout, Rect},
+  layout::{Alignment, Constraint, Direction, Layout, Rect},
   style::{Color, Modifier, Style},
   symbols,
   text::{Span, Spans},
   widgets::canvas::{Canvas, Line, Map, MapResolution, Rectangle},
   widgets::{
-    Axis, BarChart, Block, Borders, Cell, Chart, Dataset, Gauge, LineGauge, List, ListItem,
-    Paragraph, Row, Sparkline, Table, Tabs, Wrap,
+    Axis, BarChart, Block, BorderType, Borders, Cell, Chart, Dataset, Gauge, LineGauge, List,
+    ListItem, Paragraph, Row, Sparkline, Table, Tabs, Wrap,
   },
   Frame,
 };
 
 pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
   let chunks = Layout::default()
-    .constraints([Constraint::Length(3), Constraint::Min(0)].as_ref())
+    .constraints([Constraint::Length(3), Constraint::Min(10)].as_ref())
     .split(f.size());
   // draw tabs and help
   draw_header(f, app, chunks[0]);
   // render tab content
   match app.tabs.index {
     0 => draw_overview(f, app, chunks[1]),
-    1 => draw_contexts(f, app, chunks[1]),
+    1 => draw_logs(f, app, chunks[1]),
     _ => {}
   };
 }
@@ -33,7 +33,7 @@ where
   B: Backend,
 {
   let chunks = Layout::default()
-    .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+    .constraints([Constraint::Length(75), Constraint::Min(0)].as_ref())
     .direction(Direction::Horizontal)
     .split(area);
 
@@ -63,7 +63,7 @@ where
   B: Backend,
 {
   let chunks = Layout::default()
-    .constraints([Constraint::Percentage(30), Constraint::Percentage(70)].as_ref())
+    .constraints([Constraint::Length(9), Constraint::Min(10)].as_ref())
     .direction(Direction::Vertical)
     .split(area);
 
@@ -76,6 +76,97 @@ where
   B: Backend,
 {
   let chunks = Layout::default()
+    .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
+    .direction(Direction::Horizontal)
+    .split(area);
+
+  draw_cli_status(f, app, chunks[0]);
+  draw_contexts(f, app, chunks[1]);
+}
+
+fn draw_cli_status<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
+where
+  B: Backend,
+{
+  let up_style = Style::default().fg(Color::Green);
+  let failure_style = Style::default().fg(Color::Red);
+  let rows = app.clis.iter().map(|s| {
+    let style = if s.status == true {
+      up_style
+    } else {
+      failure_style
+    };
+    Row::new(vec![s.name.as_ref(), s.version.as_ref()]).style(style)
+  });
+
+  let table = Table::new(rows)
+    .block(
+      Block::default()
+        .title(title_style("CLIs"))
+        .borders(Borders::ALL),
+    )
+    .widths(&[Constraint::Percentage(50), Constraint::Percentage(50)]);
+  f.render_widget(table, area);
+}
+
+fn draw_contexts<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
+where
+  B: Backend,
+{
+  let normal_style = Style::default().fg(Color::Cyan);
+  let active_style = Style::default().fg(Color::Green);
+  let rows = app.contexts.items.iter().map(|c| {
+    let style = if c.is_active == true {
+      active_style
+    } else {
+      normal_style
+    };
+    Row::new(vec![c.name.as_ref(), c.cluster.as_ref(), c.user.as_ref()]).style(style)
+  });
+
+  let table = Table::new(rows)
+    .header(
+      Row::new(vec!["Context", "Cluster", "User"])
+        .style(Style::default().fg(Color::Yellow))
+        .bottom_margin(0),
+    )
+    .block(
+      Block::default()
+        .title(title_style("Contexts"))
+        .borders(Borders::ALL),
+    )
+    .widths(&[
+      Constraint::Percentage(34),
+      Constraint::Percentage(33),
+      Constraint::Percentage(33),
+    ])
+    .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
+    .highlight_symbol("=> ");
+
+  f.render_stateful_widget(table, area, &mut app.contexts.state);
+}
+
+fn draw_active_context<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
+where
+  B: Backend,
+{
+  let main_chunks = Layout::default()
+    .constraints([Constraint::Length(1), Constraint::Min(10)].as_ref())
+    .split(area);
+
+  let block = Block::default()
+    .borders(Borders::TOP)
+    .border_type(BorderType::Double)
+    .title(title_style_spl("Current Context"));
+
+  f.render_widget(block, main_chunks[0]);
+
+  let chunks = Layout::default()
+    .constraints([Constraint::Length(10), Constraint::Min(10)].as_ref())
+    .margin(1)
+    .split(main_chunks[1]);
+
+  let top_chunks = Layout::default()
     .constraints(
       [
         Constraint::Percentage(30),
@@ -85,78 +176,21 @@ where
       .as_ref(),
     )
     .direction(Direction::Horizontal)
-    .split(area);
+    .split(chunks[0]);
 
-  let up_style = Style::default().fg(Color::Green);
-  let failure_style = Style::default().fg(Color::Red);
-  let cli_rows = app.CLIs.iter().map(|s| {
-    let style = if s.status == true {
-      up_style
-    } else {
-      failure_style
-    };
-    Row::new(vec![s.name.as_ref(), s.version.as_ref()]).style(style)
-  });
+  let bottom_chunks = Layout::default()
+    .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+    .direction(Direction::Horizontal)
+    .split(chunks[1]);
 
-  let cli_table = Table::new(cli_rows)
-    .block(
-      Block::default()
-        .title(title_style("CLIs"))
-        .borders(Borders::ALL),
-    )
-    .widths(&[Constraint::Length(15), Constraint::Length(15)]);
-  f.render_widget(cli_table, chunks[0]);
-
-  // TODO temp solution
-  // let node_out = vec![Spans::from(cmd!("kubectl", "top", "node").read().unwrap())];
-  let node_out = vec![Spans::from("test")];
-
-  let nodes = Block::default()
-    .borders(Borders::ALL)
-    .title(title_style("Contexts"));
-
-  let nodes_text = Paragraph::new(node_out)
-    .block(nodes)
-    .wrap(Wrap { trim: true });
-  f.render_widget(nodes_text, chunks[1]);
-
-  // TODO temp solution
-  // let ns_out = vec![Spans::from(cmd!("kubectl", "get", "ns").read().unwrap())];
-  let ns_out = vec![Spans::from("test")];
-
-  let ns = Block::default()
-    .borders(Borders::ALL)
-    .title(title_style("Namespaces"));
-
-  let ns_text = Paragraph::new(ns_out).block(ns).wrap(Wrap { trim: true });
-  f.render_widget(ns_text, chunks[2]);
-
-  // let ns_rows = app
-  //     .CLIs
-  //     .iter()
-  //     .map(|s| Row::new(vec![s.name, s.version]).style(up_style));
-  // let ns_table = Table::new(ns_rows)
-  //     .block(
-  //         Block::default()
-  //             .title(title_style("Namespaces"))
-  //             .borders(Borders::ALL),
-  //     )
-  //     .widths(&[Constraint::Length(15), Constraint::Length(15)]);
-  // f.render_widget(ns_table, chunks[2]);
+  draw_context_info(f, app, top_chunks[0]);
+  //   draw_nodes(f, app, top_chunks[1]);
+  //   draw_namespaces(f, app, top_chunks[2]);
+  //   draw_pods(f, app, bottom_chunks[0]);
+  //   draw_services(f, app, bottom_chunks[1]);
 }
 
-fn draw_active_context<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
-where
-  B: Backend,
-{
-  let chunks = Layout::default()
-    .constraints([Constraint::Length(9), Constraint::Min(8)].as_ref())
-    .split(area);
-  draw_gauges(f, app, chunks[0]);
-  draw_charts(f, app, chunks[1]);
-}
-
-fn draw_gauges<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
+fn draw_context_info<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
 where
   B: Backend,
 {
@@ -173,36 +207,19 @@ where
     .split(area);
   let block = Block::default()
     .borders(Borders::ALL)
-    .title(title_style("Current Context"));
+    .title(title_style("Context Info"));
 
   f.render_widget(block, area);
 
-  let label = format!("{:.2}%", app.progress * 100.0);
-  let gauge = Gauge::default()
-    .block(Block::default().title("Gauge:"))
-    .gauge_style(
-      Style::default()
-        .fg(Color::Magenta)
-        .bg(Color::Black)
-        .add_modifier(Modifier::ITALIC | Modifier::BOLD),
-    )
-    .label(label)
-    .ratio(app.progress);
-  f.render_widget(gauge, chunks[0]);
+    match app.contexts.items.iter().find(|it| it.is_active) {
+        Some(active_context) => {
 
-  //   let sparkline = Sparkline::default()
-  //     .block(Block::default().title("Sparkline:"))
-  //     .style(Style::default().fg(Color::Green))
-  //     .data(&app.sparkline.points)
-  //     .bar_set(if app.enhanced_graphics {
-  //       symbols::bar::NINE_LEVELS
-  //     } else {
-  //       symbols::bar::THREE_LEVELS
-  //     });
-  //   f.render_widget(sparkline, chunks[1]);
+        }
+        None => ()
+    }
 
   let line_gauge = LineGauge::default()
-    .block(Block::default().title("LineGauge:"))
+    .block(Block::default().title("CPU:"))
     .gauge_style(Style::default().fg(Color::Magenta))
     .line_set(if app.enhanced_graphics {
       symbols::line::THICK
@@ -210,7 +227,18 @@ where
       symbols::line::NORMAL
     })
     .ratio(app.progress);
-  f.render_widget(line_gauge, chunks[2]);
+  f.render_widget(line_gauge, chunks[0]);
+
+  let line_gauge = LineGauge::default()
+    .block(Block::default().title("Memory:"))
+    .gauge_style(Style::default().fg(Color::Magenta))
+    .line_set(if app.enhanced_graphics {
+      symbols::line::THICK
+    } else {
+      symbols::line::NORMAL
+    })
+    .ratio(app.progress);
+  f.render_widget(line_gauge, chunks[1]);
 }
 
 fn draw_charts<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
@@ -365,7 +393,7 @@ where
   B: Backend,
 {
   let text = vec![Spans::from(
-    "Use left/right arrow keys to switch tabs. Press 'q' to quit. Press '?' for more help.",
+    "Use left/right keys to switch tabs. up/down keys to select context. Press '?' for more help.",
   )];
   let block = Block::default()
     .borders(Borders::ALL)
@@ -374,7 +402,7 @@ where
   f.render_widget(paragraph, area);
 }
 
-fn draw_contexts<B>(f: &mut Frame<B>, _app: &mut App, area: Rect)
+fn draw_logs<B>(f: &mut Frame<B>, _app: &mut App, area: Rect)
 where
   B: Backend,
 {
@@ -426,4 +454,13 @@ where
 
 fn title_style(txt: &'static str) -> Span {
   Span::styled(txt, Style::default().add_modifier(Modifier::BOLD))
+}
+
+fn title_style_spl(txt: &'static str) -> Span {
+  Span::styled(
+    txt,
+    Style::default()
+      .fg(Color::Green)
+      .add_modifier(Modifier::BOLD),
+  )
 }

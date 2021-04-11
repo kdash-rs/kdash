@@ -1,9 +1,9 @@
 // adapted from https://github.com/Rigellute/spotify-tui
-use crate::app::{self, App};
+use crate::app::{self, App, KubeContext, StatefulTable};
 use crate::config::ClientConfig;
 use anyhow::{anyhow, Result};
 use duct::cmd;
-use kube::{api::ListParams, Api, Client};
+use kube::{config::Kubeconfig, Api, Client};
 use regex::Regex;
 use serde_json::{map::Map, Value as JValue};
 use serde_yaml::Value as YValue;
@@ -17,6 +17,7 @@ use tokio::try_join;
 #[derive(Debug)]
 pub enum IoEvent {
   GetCLIInfo,
+  GetKubeConfig,
   GetPods,
 }
 
@@ -49,6 +50,9 @@ impl<'a> Network<'a> {
       IoEvent::GetCLIInfo => {
         self.get_cli_info().await;
       }
+      IoEvent::GetKubeConfig => {
+        self.get_kube_config().await;
+      }
     };
 
     let mut app = self.app.lock().await;
@@ -61,7 +65,7 @@ impl<'a> Network<'a> {
   }
 
   async fn get_cli_info(&mut self) {
-    let NOT_FOUND: String = String::from("Not found");
+    let not_found = String::from("Not found");
     let mut app = self.app.lock().await;
 
     let (version, status) = match cmd!("kubectl", "version", "--client", "-o", "json").read() {
@@ -69,13 +73,13 @@ impl<'a> Network<'a> {
         let v: serde_json::Result<JValue> = serde_json::from_str(&*out);
         match v {
           Ok(val) => (val["clientVersion"]["gitVersion"].to_string(), true),
-          _ => (NOT_FOUND.clone(), false),
+          _ => (not_found.clone(), false),
         }
       }
-      _ => (NOT_FOUND.clone(), false),
+      _ => (not_found.clone(), false),
     };
 
-    app.CLIs.push(app::CLI {
+    app.clis.push(app::CLI {
       name: "kubectl".to_string(),
       version: version.replace('"', ""),
       status,
@@ -84,10 +88,10 @@ impl<'a> Network<'a> {
     let (version, status) =
       match cmd!("docker", "version", "--format", "'{{.Client.Version}}'").read() {
         Ok(out) => (out, true),
-        _ => (NOT_FOUND.clone(), false),
+        _ => (not_found.clone(), false),
       };
 
-    app.CLIs.push(app::CLI {
+    app.clis.push(app::CLI {
       name: "docker".to_string(),
       version: format!("v{}", version.replace("'", "")),
       status,
@@ -95,19 +99,19 @@ impl<'a> Network<'a> {
 
     let (version, status) = match cmd!("docker-compose", "version", "--short").read() {
       Ok(out) => (out, true),
-      _ => (NOT_FOUND.clone(), false),
+      _ => (not_found.clone(), false),
     };
 
-    app.CLIs.push(app::CLI {
+    app.clis.push(app::CLI {
       name: "docker-compose".to_string(),
       version: format!("v{}", version.replace("'", "")),
       status,
     });
 
     let (version, status) =
-      get_info_by_regex("kind", &vec!["version"], r"(v[0-9.]+)", NOT_FOUND.clone());
+      get_info_by_regex("kind", &vec!["version"], r"(v[0-9.]+)", not_found.clone());
 
-    app.CLIs.push(app::CLI {
+    app.clis.push(app::CLI {
       name: "kind".to_string(),
       version,
       status,
@@ -117,10 +121,10 @@ impl<'a> Network<'a> {
       "helm",
       &vec!["version", "-c"],
       r"(v[0-9.]+)",
-      NOT_FOUND.clone(),
+      not_found.clone(),
     );
 
-    app.CLIs.push(app::CLI {
+    app.clis.push(app::CLI {
       name: "helm".to_string(),
       version,
       status,
@@ -130,20 +134,33 @@ impl<'a> Network<'a> {
       "istioctl",
       &vec!["version"],
       r"([0-9.]+)",
-      NOT_FOUND.clone(),
+      not_found.clone(),
     );
 
-    app.CLIs.push(app::CLI {
+    app.clis.push(app::CLI {
       name: "istioctl".to_string(),
       version: format!("v{}", version),
       status,
     });
 
-    app.CLIs.push(app::CLI {
+    app.clis.push(app::CLI {
       name: "kdash".to_string(),
       version: format!("v{}", env!("CARGO_PKG_VERSION")),
       status,
     });
+  }
+
+  async fn get_kube_config(&mut self) {
+    match Kubeconfig::read() {
+      Ok(config) => {
+        let mut app = self.app.lock().await;
+        app.contexts = StatefulTable::with_items(get_contexts(&config));
+        app.kubeconfig = Some(config);
+      }
+      Err(e) => {
+        self.handle_error(anyhow!(e)).await;
+      }
+    }
   }
 
   async fn get_pods(&mut self) {
@@ -156,6 +173,27 @@ impl<'a> Network<'a> {
     //     self.handle_error(anyhow!(e)).await;
     //   }
     // }
+  }
+}
+
+fn get_contexts(config: &Kubeconfig) -> Vec<KubeContext> {
+  config
+    .contexts
+    .iter()
+    .map(|it| KubeContext {
+      name: it.name.clone(),
+      cluster: it.context.cluster.clone(),
+      user: it.context.user.clone(),
+      namespace: it.context.namespace.clone(),
+      is_active: is_active_context(it.name.clone(), config.current_context.clone()),
+    })
+    .collect::<Vec<KubeContext>>()
+}
+
+fn is_active_context(name: String, current_ctx: Option<String>) -> bool {
+  match current_ctx {
+    Some(ctx) => name == ctx,
+    None => false,
   }
 }
 

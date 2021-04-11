@@ -1,11 +1,13 @@
 use crate::network::IoEvent;
-use crate::util::{RandomSignal, SinSignal, StatefulList};
+use crate::util::{RandomSignal, SinSignal};
 use anyhow::anyhow;
 use duct::cmd;
-use std::io;
-use std::str::FromStr;
-use std::sync::mpsc::Sender;
-use tui::layout::Rect;
+use kube::config::{AuthInfo, Cluster, Context, Kubeconfig};
+use std::{io, str::FromStr, sync::mpsc::Sender};
+use tui::{
+  layout::Rect,
+  widgets::{ListState, TableState},
+};
 
 const TASKS: [&str; 24] = [
   "Item1", "Item2", "Item3", "Item4", "Item5", "Item6", "Item7", "Item8", "Item9", "Item10",
@@ -53,6 +55,112 @@ impl Signals {
     self.sin2.on_tick();
     self.window[0] += 1.0;
     self.window[1] += 1.0;
+  }
+}
+
+pub struct StatefulList<T> {
+  pub state: ListState,
+  pub items: Vec<T>,
+}
+
+impl<T> StatefulList<T> {
+  pub fn new() -> StatefulList<T> {
+    StatefulList {
+      state: ListState::default(),
+      items: Vec::new(),
+    }
+  }
+
+  pub fn with_items(items: Vec<T>) -> StatefulList<T> {
+    StatefulList {
+      state: ListState::default(),
+      items,
+    }
+  }
+
+  pub fn next(&mut self) {
+    let i = match self.state.selected() {
+      Some(i) => {
+        if i >= self.items.len() - 1 {
+          0
+        } else {
+          i + 1
+        }
+      }
+      None => 0,
+    };
+    self.state.select(Some(i));
+  }
+
+  pub fn previous(&mut self) {
+    let i = match self.state.selected() {
+      Some(i) => {
+        if i == 0 {
+          self.items.len() - 1
+        } else {
+          i - 1
+        }
+      }
+      None => 0,
+    };
+    self.state.select(Some(i));
+  }
+
+  pub fn unselect(&mut self) {
+    self.state.select(None);
+  }
+}
+
+pub struct StatefulTable<T> {
+  pub state: TableState,
+  pub items: Vec<T>,
+}
+
+impl<T> StatefulTable<T> {
+  pub fn new() -> StatefulTable<T> {
+    StatefulTable {
+      state: TableState::default(),
+      items: Vec::new(),
+    }
+  }
+
+  pub fn with_items(items: Vec<T>) -> StatefulTable<T> {
+    StatefulTable {
+      state: TableState::default(),
+      items,
+    }
+  }
+
+  pub fn next(&mut self) {
+    let i = match self.state.selected() {
+      Some(i) => {
+        if i >= self.items.len() - 1 {
+          0
+        } else {
+          i + 1
+        }
+      }
+      None => 0,
+    };
+    self.state.select(Some(i));
+  }
+
+  pub fn previous(&mut self) {
+    let i = match self.state.selected() {
+      Some(i) => {
+        if i == 0 {
+          self.items.len() - 1
+        } else {
+          i - 1
+        }
+      }
+      None => 0,
+    };
+    self.state.select(Some(i));
+  }
+
+  pub fn unselect(&mut self) {
+    self.state.select(None);
   }
 }
 
@@ -117,6 +225,14 @@ const DEFAULT_ROUTE: Route = Route {
   hovered_block: ActiveBlock::Home,
 };
 
+pub struct KubeContext {
+  pub name: String,
+  pub cluster: String,
+  pub user: String,
+  pub namespace: Option<String>,
+  pub is_active: bool,
+}
+
 pub struct App {
   navigation_stack: Vec<Route>,
   pub title: &'static str,
@@ -135,7 +251,9 @@ pub struct App {
   pub dialog: Option<String>,
   pub confirm: bool,
   pub size: Rect,
-  pub CLIs: Vec<CLI>,
+  pub clis: Vec<CLI>,
+  pub kubeconfig: Option<Kubeconfig>,
+  pub contexts: StatefulTable<KubeContext>,
 
   // TODO useless
   pub progress: f64,
@@ -158,7 +276,6 @@ impl Default for App {
       should_quit: false,
       tabs: TabsState::new(vec!["Overview", "Logs"]),
       show_chart: true,
-      CLIs: vec![],
       enhanced_graphics: false,
       home_scroll: 0,
       api_error: String::new(),
@@ -172,7 +289,9 @@ impl Default for App {
       confirm: false,
       size: Rect::default(),
       navigation_stack: vec![DEFAULT_ROUTE],
-
+      clis: vec![],
+      kubeconfig: None,
+      contexts: StatefulTable::new(),
       // todo remove
       progress: 0.0,
       tasks: StatefulList::with_items(TASKS.to_vec()),
@@ -276,11 +395,11 @@ impl App {
   }
 
   pub fn on_up(&mut self) {
-    self.tasks.previous();
+    self.contexts.previous();
   }
 
   pub fn on_down(&mut self) {
-    self.tasks.next();
+    self.contexts.next();
   }
 
   pub fn on_right(&mut self) {
