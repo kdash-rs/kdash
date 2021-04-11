@@ -95,7 +95,7 @@ where
     } else {
       failure_style
     };
-    Row::new(vec![s.name, s.version]).style(style)
+    Row::new(vec![s.name.as_ref(), s.version.as_ref()]).style(style)
   });
 
   let cli_table = Table::new(cli_rows)
@@ -113,7 +113,7 @@ where
 
   let nodes = Block::default()
     .borders(Borders::ALL)
-    .title(title_style("Nodes"));
+    .title(title_style("Contexts"));
 
   let nodes_text = Paragraph::new(node_out)
     .block(nodes)
@@ -190,16 +190,16 @@ where
     .ratio(app.progress);
   f.render_widget(gauge, chunks[0]);
 
-//   let sparkline = Sparkline::default()
-//     .block(Block::default().title("Sparkline:"))
-//     .style(Style::default().fg(Color::Green))
-//     .data(&app.sparkline.points)
-//     .bar_set(if app.enhanced_graphics {
-//       symbols::bar::NINE_LEVELS
-//     } else {
-//       symbols::bar::THREE_LEVELS
-//     });
-//   f.render_widget(sparkline, chunks[1]);
+  //   let sparkline = Sparkline::default()
+  //     .block(Block::default().title("Sparkline:"))
+  //     .style(Style::default().fg(Color::Green))
+  //     .data(&app.sparkline.points)
+  //     .bar_set(if app.enhanced_graphics {
+  //       symbols::bar::NINE_LEVELS
+  //     } else {
+  //       symbols::bar::THREE_LEVELS
+  //     });
+  //   f.render_widget(sparkline, chunks[1]);
 
   let line_gauge = LineGauge::default()
     .block(Block::default().title("LineGauge:"))

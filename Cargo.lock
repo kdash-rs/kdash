@@ -615,6 +615,7 @@ dependencies = [
  "kube-runtime",
  "openssl-sys",
  "rand",
+ "regex",
  "serde",
  "serde_json",
  "serde_yaml",

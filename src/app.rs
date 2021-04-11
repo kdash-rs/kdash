@@ -57,13 +57,13 @@ impl Signals {
 }
 
 pub struct CLI {
-  pub name: &'static str,
-  pub version: &'static str,
+  pub name: String,
+  pub version: String,
   pub status: bool,
 }
 
 pub struct Node {
-  pub value: &'static str,
+  pub value: String,
 }
 
 pub struct TabsState {
@@ -135,7 +135,6 @@ pub struct App {
   pub dialog: Option<String>,
   pub confirm: bool,
   pub size: Rect,
-
   pub CLIs: Vec<CLI>,
 
   // TODO useless
@@ -155,7 +154,7 @@ impl Default for App {
     let sin2_points = sin_signal2.by_ref().take(200).collect();
 
     App {
-      title: " KDash - The only Kubernetes dashboard you ever need! ",
+      title: " KDash - The only Kubernetes dashboard you will ever need! ",
       should_quit: false,
       tabs: TabsState::new(vec!["Overview", "Logs"]),
       show_chart: true,
@@ -200,43 +199,6 @@ impl App {
   pub fn new(io_tx: Sender<IoEvent>, enhanced_graphics: bool) -> App {
     App {
       io_tx: Some(io_tx),
-      CLIs: vec![
-        CLI {
-          name: "kubectl",
-          version: "v1.0.0",
-          status: true,
-        },
-        CLI {
-          name: "docker",
-          version: "v1.0.0",
-          status: true,
-        },
-        CLI {
-          name: "docker-compose",
-          version: "v1.0.0",
-          status: true,
-        },
-        CLI {
-          name: "kind",
-          version: "v1.0.0",
-          status: true,
-        },
-        CLI {
-          name: "helm",
-          version: "Not installed",
-          status: false,
-        },
-        CLI {
-          name: "istioctl",
-          version: "v1.0.0",
-          status: true,
-        },
-      ],
-      // nodes: vec![
-      //     Node {
-      //         value: &nodes,
-      //     },
-      // ],
       enhanced_graphics,
       ..App::default()
     }

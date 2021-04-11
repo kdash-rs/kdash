@@ -11,7 +11,7 @@ use crate::event::Key;
 use app::{ActiveBlock, App};
 use banner::BANNER;
 use config::ClientConfig;
-use network::{IoEvent, Network};
+use network::{get_client, IoEvent, Network};
 
 use anyhow::{anyhow, Result};
 use backtrace::Backtrace;
@@ -25,7 +25,7 @@ use crossterm::{
 use kube::Client;
 use std::{
   cmp::{max, min},
-  io::{self, stdout},
+  io::{self, stdout, Stdout},
   panic::{self, PanicInfo},
   path::PathBuf,
   sync::Arc,
@@ -47,22 +47,16 @@ struct Cli {
 }
 
 // shutdown the CLI and show terminal
-fn close_application() -> Result<()> {
+fn shutdown(mut terminal: Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
   disable_raw_mode()?;
-  let mut stdout = io::stdout();
-  execute!(stdout, LeaveAlternateScreen, DisableMouseCapture)?;
+  execute!(
+    terminal.backend_mut(),
+    LeaveAlternateScreen,
+    DisableMouseCapture
+  )?;
+  terminal.show_cursor()?;
   Ok(())
 }
-// fn shutdown(mut terminal: Terminal<CrosstermBackend<Stdout>>) -> Result<(), Box<dyn Error>> {
-//   disable_raw_mode()?;
-//   execute!(
-//     terminal.backend_mut(),
-//     LeaveAlternateScreen,
-//     DisableMouseCapture
-//   )?;
-//   terminal.show_cursor()?;
-//   Ok(())
-// }
 
 fn panic_hook(info: &PanicInfo<'_>) {
   if cfg!(debug_assertions) {
@@ -109,11 +103,6 @@ async fn main() -> Result<()> {
         .short("t")
         .long("tick-rate")
         .help("Set the tick rate (milliseconds): the lower the number the higher the FPS.")
-        .long_help(
-          "Specify the tick rate in milliseconds: the lower the number the \
-higher the FPS. It can be nicer to have a lower value when you want to use the audio analysis view \
-of the app. Beware that this comes at a CPU cost!",
-        )
         .takes_value(true),
     );
 
@@ -143,10 +132,10 @@ of the app. Beware that this comes at a CPU cost!",
 
   // Launch the UI (async)
   let cloned_app = Arc::clone(&app);
-  let client = Client::try_default().await?;
+  let client = get_client().await?;
 
   std::thread::spawn(move || {
-    let mut network = Network::new(client.clone(), client_config, &app);
+    let mut network = Network::new(client, client_config, &app);
     start_tokio(sync_io_rx, &mut network);
   });
   // The UI must run in the "main" thread
@@ -305,7 +294,7 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
     // Delay requests until first render, will have the effect of improving
     // startup speed
     if is_first_render {
-      //   app.dispatch(IoEvent::GetPods);
+      app.dispatch(IoEvent::GetCLIInfo);
       //   app.help_docs_size = ui::help::get_help_docs(&app.user_config.keys).len() as u32;
 
       is_first_render = false;
@@ -317,7 +306,7 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
   }
 
   terminal.show_cursor()?;
-  close_application()?;
+  shutdown(terminal)?;
 
   Ok(())
 }

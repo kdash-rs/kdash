@@ -29,6 +29,7 @@ rand = "0.8"
 duct = "0.13"
 anyhow = "1.0.38"
 backtrace = "0.3.56"
+regex = "1"
 # Add openssl-sys as a direct dependency so it can be cross compiled using the "vendored" feature below
 openssl-sys = "*"
 kube = "0.52"
@@ -43,4 +44,4 @@ vendored = ["openssl-sys/vendored"]
 [[bin]]
 bench = false
 path = "src/main.rs"
-name = "spt"
+name = "kdash"
