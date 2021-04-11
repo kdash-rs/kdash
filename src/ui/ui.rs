@@ -54,7 +54,9 @@ where
     )
     .highlight_style(Style::default().fg(Color::Yellow))
     .select(app.tabs.index);
+
   f.render_widget(tabs, chunks[0]);
+
   draw_help(f, chunks[1])
 }
 
@@ -102,7 +104,7 @@ where
   let table = Table::new(rows)
     .block(
       Block::default()
-        .title(title_style("CLIs"))
+        .title(title_style("CLI Info"))
         .borders(Borders::ALL),
     )
     .widths(&[Constraint::Percentage(50), Constraint::Percentage(50)]);
@@ -150,28 +152,25 @@ fn draw_active_context<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
 where
   B: Backend,
 {
-  let main_chunks = Layout::default()
-    .constraints([Constraint::Length(1), Constraint::Min(10)].as_ref())
-    .split(area);
-
   let block = Block::default()
-    .borders(Borders::TOP)
-    .border_type(BorderType::Double)
+    .borders(Borders::ALL)
+    .border_type(BorderType::Rounded)
     .title(title_style_spl("Current Context"));
 
-  f.render_widget(block, main_chunks[0]);
+  f.render_widget(block, area);
 
   let chunks = Layout::default()
     .constraints([Constraint::Length(10), Constraint::Min(10)].as_ref())
-    .margin(1)
-    .split(main_chunks[1]);
+    .horizontal_margin(1)
+    .vertical_margin(2)
+    .split(area);
 
   let top_chunks = Layout::default()
     .constraints(
       [
+        Constraint::Percentage(35),
+        Constraint::Percentage(35),
         Constraint::Percentage(30),
-        Constraint::Percentage(35),
-        Constraint::Percentage(35),
       ]
       .as_ref(),
     )
@@ -184,10 +183,10 @@ where
     .split(chunks[1]);
 
   draw_context_info(f, app, top_chunks[0]);
-  //   draw_nodes(f, app, top_chunks[1]);
-  //   draw_namespaces(f, app, top_chunks[2]);
-  //   draw_pods(f, app, bottom_chunks[0]);
-  //   draw_services(f, app, bottom_chunks[1]);
+  draw_nodes(f, app, top_chunks[1]);
+  draw_namespaces(f, app, top_chunks[2]);
+  draw_pods(f, app, bottom_chunks[0]);
+  draw_services(f, app, bottom_chunks[1]);
 }
 
 fn draw_context_info<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
@@ -197,9 +196,9 @@ where
   let chunks = Layout::default()
     .constraints(
       [
-        Constraint::Length(2),
-        Constraint::Length(3),
-        Constraint::Length(1),
+        Constraint::Length(4),
+        Constraint::Min(2),
+        Constraint::Min(2),
       ]
       .as_ref(),
     )
@@ -207,38 +206,96 @@ where
     .split(area);
   let block = Block::default()
     .borders(Borders::ALL)
-    .title(title_style("Context Info"));
+    .title(title_style("Info"));
 
   f.render_widget(block, area);
 
-    match app.contexts.items.iter().find(|it| it.is_active) {
-        Some(active_context) => {
-
-        }
-        None => ()
+  let text;
+  match app.active_context.clone() {
+    Some(active_context) => {
+      text = vec![
+        Spans::from(vec![
+          Span::from("Context: "),
+          Span::styled(active_context.name, Style::default().fg(Color::Yellow)),
+        ]),
+        Spans::from(vec![
+          Span::raw("Cluster: "),
+          Span::styled(active_context.cluster, Style::default().fg(Color::Yellow)),
+        ]),
+        Spans::from(vec![
+          Span::raw("User: "),
+          Span::styled(active_context.user, Style::default().fg(Color::Yellow)),
+        ]),
+      ];
     }
+    None => {
+      text = vec![Spans::from(Span::styled(
+        "Context information not found",
+        Style::default().fg(Color::Red),
+      ))]
+    }
+  }
 
-  let line_gauge = LineGauge::default()
+  let paragraph = Paragraph::new(text).block(Block::default());
+  f.render_widget(paragraph, chunks[0]);
+
+  let cpu_gauge = LineGauge::default()
     .block(Block::default().title("CPU:"))
-    .gauge_style(Style::default().fg(Color::Magenta))
-    .line_set(if app.enhanced_graphics {
-      symbols::line::THICK
-    } else {
-      symbols::line::NORMAL
-    })
+    .gauge_style(Style::default().fg(Color::Yellow))
+    .line_set(get_gauge_style(app.enhanced_graphics))
     .ratio(app.progress);
-  f.render_widget(line_gauge, chunks[0]);
+  f.render_widget(cpu_gauge, chunks[1]);
 
-  let line_gauge = LineGauge::default()
+  let mem_gauge = LineGauge::default()
     .block(Block::default().title("Memory:"))
-    .gauge_style(Style::default().fg(Color::Magenta))
-    .line_set(if app.enhanced_graphics {
-      symbols::line::THICK
-    } else {
-      symbols::line::NORMAL
-    })
+    .gauge_style(Style::default().fg(Color::Yellow))
+    .line_set(get_gauge_style(app.enhanced_graphics))
     .ratio(app.progress);
-  f.render_widget(line_gauge, chunks[1]);
+  f.render_widget(mem_gauge, chunks[2]);
+}
+
+fn draw_nodes<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
+where
+  B: Backend,
+{
+  let block = Block::default()
+    .borders(Borders::ALL)
+    .title(title_style("Nodes"));
+
+  f.render_widget(block, area);
+}
+
+fn draw_namespaces<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
+where
+  B: Backend,
+{
+  let block = Block::default()
+    .borders(Borders::ALL)
+    .title(title_style("Namespaces"));
+
+  f.render_widget(block, area);
+}
+
+fn draw_pods<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
+where
+  B: Backend,
+{
+  let block = Block::default()
+    .borders(Borders::ALL)
+    .title(title_style("Pods"));
+
+  f.render_widget(block, area);
+}
+
+fn draw_services<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
+where
+  B: Backend,
+{
+  let block = Block::default()
+    .borders(Borders::ALL)
+    .title(title_style("Services"));
+
+  f.render_widget(block, area);
 }
 
 fn draw_charts<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
@@ -463,4 +520,12 @@ fn title_style_spl(txt: &'static str) -> Span {
       .fg(Color::Green)
       .add_modifier(Modifier::BOLD),
   )
+}
+
+fn get_gauge_style(enhanced_graphics: bool) -> symbols::line::Set {
+  if enhanced_graphics {
+    symbols::line::THICK
+  } else {
+    symbols::line::NORMAL
+  }
 }

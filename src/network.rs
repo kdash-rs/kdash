@@ -154,7 +154,10 @@ impl<'a> Network<'a> {
     match Kubeconfig::read() {
       Ok(config) => {
         let mut app = self.app.lock().await;
-        app.contexts = StatefulTable::with_items(get_contexts(&config));
+        let contexts = get_contexts(&config);
+        let active_context = contexts.clone().into_iter().find(|it| it.is_active);
+        app.contexts = StatefulTable::with_items(contexts);
+        app.active_context = active_context;
         app.kubeconfig = Some(config);
       }
       Err(e) => {

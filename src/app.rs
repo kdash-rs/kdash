@@ -1,5 +1,5 @@
 use crate::network::IoEvent;
-use crate::util::{RandomSignal, SinSignal};
+use crate::util::{RandomSignal, SinSignal, StatefulList};
 use anyhow::anyhow;
 use duct::cmd;
 use kube::config::{AuthInfo, Cluster, Context, Kubeconfig};
@@ -57,60 +57,6 @@ impl Signals {
     self.window[1] += 1.0;
   }
 }
-
-pub struct StatefulList<T> {
-  pub state: ListState,
-  pub items: Vec<T>,
-}
-
-impl<T> StatefulList<T> {
-  pub fn new() -> StatefulList<T> {
-    StatefulList {
-      state: ListState::default(),
-      items: Vec::new(),
-    }
-  }
-
-  pub fn with_items(items: Vec<T>) -> StatefulList<T> {
-    StatefulList {
-      state: ListState::default(),
-      items,
-    }
-  }
-
-  pub fn next(&mut self) {
-    let i = match self.state.selected() {
-      Some(i) => {
-        if i >= self.items.len() - 1 {
-          0
-        } else {
-          i + 1
-        }
-      }
-      None => 0,
-    };
-    self.state.select(Some(i));
-  }
-
-  pub fn previous(&mut self) {
-    let i = match self.state.selected() {
-      Some(i) => {
-        if i == 0 {
-          self.items.len() - 1
-        } else {
-          i - 1
-        }
-      }
-      None => 0,
-    };
-    self.state.select(Some(i));
-  }
-
-  pub fn unselect(&mut self) {
-    self.state.select(None);
-  }
-}
-
 pub struct StatefulTable<T> {
   pub state: TableState,
   pub items: Vec<T>,
@@ -225,6 +171,7 @@ const DEFAULT_ROUTE: Route = Route {
   hovered_block: ActiveBlock::Home,
 };
 
+#[derive(Clone, PartialEq)]
 pub struct KubeContext {
   pub name: String,
   pub cluster: String,
@@ -254,6 +201,8 @@ pub struct App {
   pub clis: Vec<CLI>,
   pub kubeconfig: Option<Kubeconfig>,
   pub contexts: StatefulTable<KubeContext>,
+  pub active_context: Option<KubeContext>,
+  //   pub cluster_metrics:
 
   // TODO useless
   pub progress: f64,
@@ -261,7 +210,6 @@ pub struct App {
   pub logs: StatefulList<(&'static str, &'static str)>,
   pub signals: Signals,
   pub barchart: Vec<(&'static str, u64)>,
-  // pub nodes: Vec<Node<'a>>,
 }
 
 impl Default for App {
@@ -292,6 +240,7 @@ impl Default for App {
       clis: vec![],
       kubeconfig: None,
       contexts: StatefulTable::new(),
+      active_context: None,
       // todo remove
       progress: 0.0,
       tasks: StatefulList::with_items(TASKS.to_vec()),
@@ -429,7 +378,6 @@ impl App {
       self.progress = 0.0;
     }
 
-    // self.sparkline.on_tick();
     self.signals.on_tick();
 
     let log = self.logs.items.pop().unwrap();
@@ -439,8 +387,3 @@ impl App {
     self.barchart.insert(0, event);
   }
 }
-
-// fn run_command() -> &'static str {
-//     let res = cmd!("kubectl", "top", "node").read().unwrap();
-//     return &*res;
-// }
