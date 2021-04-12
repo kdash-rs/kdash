@@ -1,23 +1,14 @@
 use crate::{event::Key, network::IoEvent};
-use anyhow::anyhow;
-use duct::cmd;
-use k8s_openapi::api::core::v1::{Event, Node};
-use kube::{
-  api::{Api, ListParams},
-  config::{AuthInfo, Cluster, Context, Kubeconfig},
-};
-use std::{io, str::FromStr, sync::mpsc::Sender};
-use tui::{
-  layout::Rect,
-  widgets::{ListState, TableState},
-};
+use kube::config::Kubeconfig;
+use std::sync::mpsc::Sender;
+use tui::{layout::Rect, widgets::TableState};
 
 #[derive(Clone)]
 pub struct KeyBindings {
   pub esc: Key,
   pub quit: Key,
-  pub next_tab: Key,
-  pub previous_tab: Key,
+  pub left: Key,
+  pub right: Key,
   pub up: Key,
   pub down: Key,
   pub jump_to_all_context: Key,
@@ -31,18 +22,18 @@ pub struct KeyBindings {
 
 pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
   esc: Key::Esc,
-  quit: Key::Char('q'),
-  next_tab: Key::Left,
-  previous_tab: Key::Right,
+  left: Key::Left,
+  right: Key::Right,
   up: Key::Up,
   down: Key::Down,
+  submit: Key::Enter,
+  quit: Key::Char('q'),
+  help: Key::Char('?'),
   jump_to_all_context: Key::Char('a'),
   jump_to_current_context: Key::Char('c'),
   jump_to_namespace: Key::Char('n'),
   jump_to_pods: Key::Char('p'),
   jump_to_services: Key::Char('s'),
-  help: Key::Char('?'),
-  submit: Key::Enter,
 };
 
 pub struct StatefulTable<T> {
@@ -107,25 +98,48 @@ pub struct CLI {
 pub struct TabsState {
   pub titles: Vec<&'static str>,
   pub index: usize,
+  pub active_block_ids: Option<Vec<ActiveBlock>>,
+  pub active_block: Option<ActiveBlock>,
 }
 
 impl TabsState {
   pub fn new(titles: Vec<&'static str>) -> TabsState {
-    TabsState { titles, index: 0 }
+    TabsState {
+      titles,
+      index: 0,
+      active_block_ids: None,
+      active_block: None,
+    }
   }
-  pub fn next(&mut self) {
-    self.index = (self.index + 1) % self.titles.len();
+  pub fn with_active_blocks(titles: Vec<&'static str>, blocks: Vec<ActiveBlock>) -> TabsState {
+    TabsState {
+      titles,
+      index: 0,
+      active_block: Some(blocks[0]),
+      active_block_ids: Some(blocks),
+    }
   }
   pub fn set_index(&mut self, index: usize) {
     self.index = index;
+    self.set_active();
   }
-
+  pub fn set_active(&mut self) {
+    self.active_block = match &self.active_block_ids {
+      Some(ids) => Some(ids[self.index]),
+      None => None,
+    }
+  }
+  pub fn next(&mut self) {
+    self.index = (self.index + 1) % self.titles.len();
+    self.set_active();
+  }
   pub fn previous(&mut self) {
     if self.index > 0 {
       self.index -= 1;
     } else {
       self.index = self.titles.len() - 1;
     }
+    self.set_active();
   }
 }
 
@@ -137,11 +151,11 @@ pub enum ActiveBlock {
   Nodes,
   Namespaces,
   Contexts,
+  Dialog(),
 }
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum RouteId {
-  BasicView,
   Error,
   Home,
   Contexts,
@@ -159,6 +173,7 @@ const DEFAULT_ROUTE: Route = Route {
   active_block: ActiveBlock::Pods,
 };
 
+// struts for kubernetes data
 #[derive(Clone, PartialEq)]
 pub struct KubeContext {
   pub name: String,
@@ -194,6 +209,7 @@ pub struct KubePods {
   pub mem: String,
 }
 
+// main app state
 pub struct App {
   navigation_stack: Vec<Route>,
   io_tx: Option<Sender<IoEvent>>,
@@ -219,10 +235,10 @@ pub struct App {
   pub kubeconfig: Option<Kubeconfig>,
   pub contexts: StatefulTable<KubeContext>,
   pub active_context: Option<KubeContext>,
-  pub nodes: Vec<KubeNode>,
-  pub namespaces: Vec<KubeNs>,
-  pub pods: Vec<KubePods>,
-  pub services: Vec<KubeSvs>,
+  pub nodes: StatefulTable<KubeNode>,
+  pub namespaces: StatefulTable<KubeNs>,
+  pub pods: StatefulTable<KubePods>,
+  pub services: StatefulTable<KubeSvs>,
 
   // TODO useless remove
   pub progress: f64,
@@ -231,34 +247,37 @@ pub struct App {
 impl Default for App {
   fn default() -> Self {
     App {
+      navigation_stack: vec![DEFAULT_ROUTE],
+      io_tx: None,
       title: " KDash - The only Kubernetes dashboard you will ever need! ",
-      main_tabs: TabsState::new(vec!["Active Context (c)", "All Contexts (a)"]),
-      context_tabs: TabsState::new(vec!["Pods (p)", "Services (s)", "Nodes"]),
       should_quit: false,
-      poll_tick_count: 0,
-      tick_count: 0,
+      main_tabs: TabsState::new(vec!["Active Context (c)", "All Contexts (a)"]),
+      context_tabs: TabsState::with_active_blocks(
+        vec!["Pods (p)", "Services (s)", "Nodes"],
+        vec![ActiveBlock::Pods, ActiveBlock::Services, ActiveBlock::Nodes],
+      ),
       show_chart: true,
       is_loading: false,
-      confirm: false,
+      poll_tick_count: 0,
+      tick_count: 0,
       enhanced_graphics: false,
-      home_scroll: 0,
       help_docs_size: 0,
       help_menu_page: 0,
       help_menu_max_lines: 0,
       help_menu_offset: 0,
+      home_scroll: 0,
       api_error: String::new(),
-      io_tx: None,
       dialog: None,
+      confirm: false,
       size: Rect::default(),
-      navigation_stack: vec![DEFAULT_ROUTE],
       clis: vec![],
       kubeconfig: None,
       contexts: StatefulTable::new(),
       active_context: None,
-      nodes: vec![],
-      namespaces: vec![],
-      pods: vec![],
-      services: vec![],
+      nodes: StatefulTable::new(),
+      namespaces: StatefulTable::new(),
+      pods: StatefulTable::new(),
+      services: StatefulTable::new(),
       // TODO remove
       progress: 0.0,
     }
@@ -344,52 +363,6 @@ impl App {
   pub fn route_contexts(&mut self) {
     self.main_tabs.set_index(1);
     self.push_navigation_stack(RouteId::Contexts, ActiveBlock::Contexts);
-  }
-
-  pub fn on_up(&mut self) {
-    self.contexts.previous();
-  }
-
-  pub fn on_down(&mut self) {
-    self.contexts.next();
-  }
-
-  pub fn on_right(&mut self) {
-    self.context_tabs.next();
-  }
-
-  pub fn on_left(&mut self) {
-    self.context_tabs.previous();
-  }
-
-  pub fn on_key(&mut self, c: Key) {
-    if c == DEFAULT_KEYBINDING.quit {
-      self.should_quit = true;
-    } else if c == DEFAULT_KEYBINDING.esc {
-      self.route_home();
-    } else if c == DEFAULT_KEYBINDING.next_tab {
-      self.on_left();
-    } else if c == DEFAULT_KEYBINDING.previous_tab {
-      self.on_right();
-    } else if c == DEFAULT_KEYBINDING.up {
-      self.on_up();
-    } else if c == DEFAULT_KEYBINDING.down {
-      self.on_down();
-    } else if c == DEFAULT_KEYBINDING.help {
-      self.push_navigation_stack(RouteId::HelpMenu, ActiveBlock::Empty)
-    } else if c == DEFAULT_KEYBINDING.submit {
-      // todo
-    } else if c == DEFAULT_KEYBINDING.jump_to_all_context {
-      self.route_contexts();
-    } else if c == DEFAULT_KEYBINDING.jump_to_current_context {
-      self.route_home();
-    } else if c == DEFAULT_KEYBINDING.jump_to_namespace {
-      self.set_active_block(Some(ActiveBlock::Namespaces))
-    } else if c == DEFAULT_KEYBINDING.jump_to_pods {
-      self.context_tabs.set_index(0)
-    } else if c == DEFAULT_KEYBINDING.jump_to_services {
-      self.context_tabs.set_index(1)
-    }
   }
 
   pub fn on_tick(&mut self) {

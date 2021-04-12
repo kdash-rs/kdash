@@ -2,34 +2,29 @@ mod app;
 mod banner;
 mod config;
 mod event;
+mod handlers;
 mod network;
 mod ui;
-mod util;
 
-use crate::app::RouteId;
 use crate::event::Key;
-use app::{ActiveBlock, App};
+use app::App;
 use banner::BANNER;
 use config::ClientConfig;
 use network::{get_client, IoEvent, Network};
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use backtrace::Backtrace;
-use clap::{App as ClapApp, Arg, Shell};
+use clap::{App as ClapApp, Arg};
 use crossterm::{
   event::{DisableMouseCapture, EnableMouseCapture},
   execute,
   style::Print,
   terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use kube::Client;
 use std::{
-  cmp::{max, min},
   io::{self, stdout, Stdout},
   panic::{self, PanicInfo},
-  path::PathBuf,
   sync::Arc,
-  time::SystemTime,
 };
 use tokio::sync::Mutex;
 use tui::{
@@ -94,7 +89,7 @@ async fn main() -> Result<()> {
     panic_hook(info);
   }));
 
-  let mut clap_app = ClapApp::new(env!("CARGO_PKG_NAME"))
+  let clap_app = ClapApp::new(env!("CARGO_PKG_NAME"))
     .version(env!("CARGO_PKG_VERSION"))
     .author(env!("CARGO_PKG_AUTHORS"))
     .about(env!("CARGO_PKG_DESCRIPTION"))
@@ -144,7 +139,7 @@ async fn main() -> Result<()> {
     }
   }
 
-  let mut client_config = ClientConfig::new();
+  let client_config = ClientConfig::new();
 
   let (sync_io_tx, sync_io_rx) = std::sync::mpsc::channel::<IoEvent>();
 
@@ -226,7 +221,7 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
           break;
         }
         // handle all other keys
-        app.on_key(key);
+        handlers::handle_app(key, &mut app)
       }
       event::Event::Tick => {
         app.on_tick();

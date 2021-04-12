@@ -1,20 +1,17 @@
 use crate::app::{App, RouteId};
-use duct::cmd;
 use tui::{
   backend::Backend,
-  layout::{Alignment, Constraint, Direction, Layout, Rect},
+  layout::{Constraint, Direction, Layout, Rect},
   style::{Color, Modifier, Style},
   symbols,
   text::{Span, Spans},
-  widgets::canvas::{Canvas, Line, Map, MapResolution, Rectangle},
-  widgets::{
-    Axis, BarChart, Block, BorderType, Borders, Cell, Chart, Dataset, Gauge, LineGauge, List,
-    ListItem, Paragraph, Row, Sparkline, Table, Tabs, Wrap,
-  },
+  widgets::{Block, Borders, Cell, LineGauge, Paragraph, Row, Table, Tabs, Wrap},
   Frame,
 };
 
 use super::get_help_docs;
+
+static HIGHLIGHT: &'static str = "=> ";
 
 pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
   let chunks = vertical_chunks(vec![Constraint::Length(3), Constraint::Min(0)], f.size());
@@ -204,15 +201,18 @@ fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 
   let rows = app
     .namespaces
+    .items
     .iter()
     .map(|c| Row::new(vec![c.name.as_ref(), c.status.as_ref()]).style(style_primary()));
 
   let table = Table::new(rows)
     .header(table_header_style(vec!["Name", "Status"]))
     .block(block)
+    .highlight_style(style_highlight())
+    .highlight_symbol(HIGHLIGHT)
     .widths(&[Constraint::Percentage(85), Constraint::Percentage(15)]);
 
-  f.render_widget(table, area);
+  f.render_stateful_widget(table, area, &mut app.namespaces.state);
 }
 
 fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
@@ -220,21 +220,24 @@ fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 
   let rows = app
     .nodes
+    .items
     .iter()
     .map(|c| Row::new(vec![c.name.as_ref(), c.status.as_ref()]).style(style_primary()));
 
   let table = Table::new(rows)
     .header(table_header_style(vec!["Name", "Status"]))
     .block(block)
+    .highlight_style(style_highlight())
+    .highlight_symbol(HIGHLIGHT)
     .widths(&[Constraint::Percentage(85), Constraint::Percentage(15)]);
 
-  f.render_widget(table, area);
+  f.render_stateful_widget(table, area, &mut app.nodes.state);
 }
 
 fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let block = layout_block_top_border("Pods (ns: all)");
 
-  let rows = app.pods.iter().map(|c| {
+  let rows = app.pods.items.iter().map(|c| {
     Row::new(vec![
       c.namespace.as_ref(),
       c.name.as_ref(),
@@ -254,6 +257,8 @@ fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
       "Restarts",
     ]))
     .block(block)
+    .highlight_style(style_highlight())
+    .highlight_symbol(HIGHLIGHT)
     .widths(&[
       Constraint::Percentage(30),
       Constraint::Percentage(40),
@@ -262,7 +267,7 @@ fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
       Constraint::Percentage(10),
     ]);
 
-  f.render_widget(table, area);
+  f.render_stateful_widget(table, area, &mut app.pods.state);
 }
 
 fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
@@ -270,15 +275,18 @@ fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 
   let rows = app
     .services
+    .items
     .iter()
     .map(|c| Row::new(vec![c.name.as_ref(), c.type_.as_ref()]).style(style_primary()));
 
   let table = Table::new(rows)
     .header(table_header_style(vec!["Name", "Type"]))
     .block(block)
+    .highlight_style(style_highlight())
+    .highlight_symbol(HIGHLIGHT)
     .widths(&[Constraint::Percentage(85), Constraint::Percentage(15)]);
 
-  f.render_widget(table, area);
+  f.render_stateful_widget(table, area, &mut app.services.state);
 }
 
 fn draw_contexts<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
@@ -300,7 +308,7 @@ fn draw_contexts<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
       Constraint::Percentage(33),
     ])
     .highlight_style(style_highlight())
-    .highlight_symbol("=> ");
+    .highlight_symbol(HIGHLIGHT);
 
   f.render_stateful_widget(table, area, &mut app.contexts.state);
 }

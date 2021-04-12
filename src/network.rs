@@ -1,24 +1,18 @@
 // adapted from https://github.com/Rigellute/spotify-tui
 use crate::app::{self, App, KubeContext, KubeNode, KubeNs, KubePods, KubeSvs, StatefulTable};
 use crate::config::ClientConfig;
-use anyhow::{anyhow, Result};
+use anyhow::anyhow;
 use duct::cmd;
-use k8s_openapi::api::core::v1::{Event, Namespace, Node, Pod, Service};
+use k8s_openapi::api::core::v1::{Namespace, Node, Pod, Service};
 use kube::{
   api::{Api, ListParams, Resource},
   config::Kubeconfig,
   Client,
 };
-use kube_runtime::{reflector, utils::try_flatten_applied, watcher};
 use regex::Regex;
-use serde_json::{map::Map, Value as JValue};
-use serde_yaml::Value as YValue;
-use std::{
-  sync::Arc,
-  time::{Duration, Instant, SystemTime},
-};
+use serde_json::Value as JValue;
+use std::sync::Arc;
 use tokio::sync::Mutex;
-use tokio::try_join;
 
 #[derive(Debug)]
 pub enum IoEvent {
@@ -40,6 +34,9 @@ pub struct Network<'a> {
   pub client_config: ClientConfig,
   pub app: &'a Arc<Mutex<App>>,
 }
+
+static UNKNOWN: &'static str = "Unknown";
+static NOT_FOUND: &'static str = "Not found";
 
 impl<'a> Network<'a> {
   pub fn new(client: Client, client_config: ClientConfig, app: &'a Arc<Mutex<App>>) -> Self {
@@ -83,7 +80,6 @@ impl<'a> Network<'a> {
   }
 
   async fn get_cli_info(&mut self) {
-    let not_found = String::from("Not found");
     let mut app = self.app.lock().await;
 
     let (version, status) = match cmd!("kubectl", "version", "--client", "-o", "json").read() {
@@ -91,10 +87,10 @@ impl<'a> Network<'a> {
         let v: serde_json::Result<JValue> = serde_json::from_str(&*out);
         match v {
           Ok(val) => (val["clientVersion"]["gitVersion"].to_string(), true),
-          _ => (not_found.clone(), false),
+          _ => (NOT_FOUND.to_string(), false),
         }
       }
-      _ => (not_found.clone(), false),
+      _ => (NOT_FOUND.to_string(), false),
     };
 
     app.clis.push(app::CLI {
@@ -106,7 +102,7 @@ impl<'a> Network<'a> {
     let (version, status) =
       match cmd!("docker", "version", "--format", "'{{.Client.Version}}'").read() {
         Ok(out) => (out, true),
-        _ => (not_found.clone(), false),
+        _ => (NOT_FOUND.to_string(), false),
       };
 
     app.clis.push(app::CLI {
@@ -117,7 +113,7 @@ impl<'a> Network<'a> {
 
     let (version, status) = match cmd!("docker-compose", "version", "--short").read() {
       Ok(out) => (out, true),
-      _ => (not_found.clone(), false),
+      _ => (NOT_FOUND.to_string(), false),
     };
 
     app.clis.push(app::CLI {
@@ -126,8 +122,12 @@ impl<'a> Network<'a> {
       status,
     });
 
-    let (version, status) =
-      get_info_by_regex("kind", &vec!["version"], r"(v[0-9.]+)", not_found.clone());
+    let (version, status) = get_info_by_regex(
+      "kind",
+      &vec!["version"],
+      r"(v[0-9.]+)",
+      NOT_FOUND.to_string(),
+    );
 
     app.clis.push(app::CLI {
       name: "kind".to_string(),
@@ -139,7 +139,7 @@ impl<'a> Network<'a> {
       "helm",
       &vec!["version", "-c"],
       r"(v[0-9.]+)",
-      not_found.clone(),
+      NOT_FOUND.to_string(),
     );
 
     app.clis.push(app::CLI {
@@ -152,7 +152,7 @@ impl<'a> Network<'a> {
       "istioctl",
       &vec!["version"],
       r"([0-9.]+)",
-      not_found.clone(),
+      NOT_FOUND.to_string(),
     );
 
     app.clis.push(app::CLI {
@@ -186,7 +186,6 @@ impl<'a> Network<'a> {
 
   async fn get_nodes(&mut self) {
     let nodes: Api<Node> = Api::all(self.client.clone());
-    let unknown: String = String::from("Unknown");
 
     let lp = ListParams::default();
     match nodes.list(&lp).await {
@@ -199,11 +198,11 @@ impl<'a> Network<'a> {
               Some(stat) => match &stat.conditions {
                 Some(conds) => match conds.into_iter().last() {
                   Some(cond) => cond.type_.clone(),
-                  _ => unknown.clone(),
+                  _ => UNKNOWN.to_string(),
                 },
-                _ => unknown.clone(),
+                _ => UNKNOWN.to_string(),
               },
-              _ => unknown.clone(),
+              _ => UNKNOWN.to_string(),
             };
             KubeNode {
               name: it.name(),
@@ -213,7 +212,7 @@ impl<'a> Network<'a> {
             }
           })
           .collect::<Vec<_>>();
-        app.nodes = nodes;
+        app.nodes = StatefulTable::with_items(nodes);
       }
       Err(e) => {
         self.handle_error(anyhow!(e)).await;
@@ -223,7 +222,6 @@ impl<'a> Network<'a> {
 
   async fn get_namespaces(&mut self) {
     let ns: Api<Namespace> = Api::all(self.client.clone());
-    let unknown: String = String::from("Unknown");
 
     let lp = ListParams::default();
     match ns.list(&lp).await {
@@ -235,9 +233,9 @@ impl<'a> Network<'a> {
             let status = match &it.status {
               Some(stat) => match &stat.phase {
                 Some(phase) => phase.clone(),
-                _ => unknown.clone(),
+                _ => UNKNOWN.to_string(),
               },
-              _ => unknown.clone(),
+              _ => UNKNOWN.to_string(),
             };
 
             KubeNs {
@@ -246,7 +244,7 @@ impl<'a> Network<'a> {
             }
           })
           .collect::<Vec<_>>();
-        app.namespaces = nss;
+        app.namespaces = StatefulTable::with_items(nss);
       }
       Err(e) => {
         self.handle_error(anyhow!(e)).await;
@@ -256,7 +254,6 @@ impl<'a> Network<'a> {
 
   async fn get_pods(&mut self) {
     let pods: Api<Pod> = Api::all(self.client.clone());
-    let unknown: String = String::from("Unknown");
 
     let lp = ListParams::default();
     match pods.list(&lp).await {
@@ -268,9 +265,9 @@ impl<'a> Network<'a> {
             let status = match &it.status {
               Some(stat) => match &stat.phase {
                 Some(phase) => phase.clone(),
-                _ => unknown.clone(),
+                _ => UNKNOWN.to_string(),
               },
-              _ => unknown.clone(),
+              _ => UNKNOWN.to_string(),
             };
 
             KubePods {
@@ -284,7 +281,7 @@ impl<'a> Network<'a> {
             }
           })
           .collect::<Vec<_>>();
-        app.pods = pods;
+        app.pods = StatefulTable::with_items(pods);
       }
       Err(e) => {
         self.handle_error(anyhow!(e)).await;
@@ -294,7 +291,6 @@ impl<'a> Network<'a> {
 
   async fn get_services(&mut self) {
     let svs: Api<Service> = Api::all(self.client.clone());
-    let unknown: String = String::from("Unknown");
 
     let lp = ListParams::default();
     match svs.list(&lp).await {
@@ -306,9 +302,9 @@ impl<'a> Network<'a> {
             let type_ = match &it.spec {
               Some(spec) => match &spec.type_ {
                 Some(type_) => type_.clone(),
-                _ => unknown.clone(),
+                _ => UNKNOWN.to_string(),
               },
-              _ => unknown.clone(),
+              _ => UNKNOWN.to_string(),
             };
 
             KubeSvs {
@@ -317,7 +313,7 @@ impl<'a> Network<'a> {
             }
           })
           .collect::<Vec<_>>();
-        app.services = svs;
+        app.services = StatefulTable::with_items(svs);
       }
       Err(e) => {
         self.handle_error(anyhow!(e)).await;
@@ -326,6 +322,7 @@ impl<'a> Network<'a> {
   }
 }
 
+// utils
 fn get_contexts(config: &Kubeconfig) -> Vec<KubeContext> {
   config
     .contexts
