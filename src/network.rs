@@ -160,12 +160,6 @@ impl<'a> Network<'a> {
       version: format!("v{}", version),
       status,
     });
-
-    app.clis.push(app::CLI {
-      name: "kdash".to_string(),
-      version: format!("v{}", env!("CARGO_PKG_VERSION")),
-      status,
-    });
   }
 
   async fn get_kube_config(&mut self) {

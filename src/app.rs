@@ -251,9 +251,9 @@ impl Default for App {
       io_tx: None,
       title: " KDash - The only Kubernetes dashboard you will ever need! ",
       should_quit: false,
-      main_tabs: TabsState::new(vec!["Active Context (c)", "All Contexts (a)"]),
+      main_tabs: TabsState::new(vec!["Active Context <c>", "All Contexts <a>"]),
       context_tabs: TabsState::with_active_blocks(
-        vec!["Pods (p)", "Services (s)", "Nodes"],
+        vec!["Pods <p>", "Services <s>", "Nodes <N>"],
         vec![ActiveBlock::Pods, ActiveBlock::Services, ActiveBlock::Nodes],
       ),
       show_chart: true,

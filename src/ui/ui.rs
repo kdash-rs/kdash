@@ -1,15 +1,20 @@
 use crate::app::{App, RouteId};
 use tui::{
   backend::Backend,
-  layout::{Constraint, Direction, Layout, Rect},
-  style::{Color, Modifier, Style},
-  symbols,
-  text::{Span, Spans},
-  widgets::{Block, Borders, Cell, LineGauge, Paragraph, Row, Table, Tabs, Wrap},
+  layout::{Constraint, Rect},
+  text::{Span, Spans, Text},
+  widgets::{Block, Borders, LineGauge, Paragraph, Row, Table, Tabs, Wrap},
   Frame,
 };
 
 use super::get_help_docs;
+use super::utils::{
+  get_gauge_style, horizontal_chunks, horizontal_chunks_with_margin, layout_block,
+  layout_block_default, layout_block_top_border, style_failure, style_help, style_highlight,
+  style_primary, style_secondary, style_success, table_header_style, title_style_primary,
+  title_style_secondary, vertical_chunks, vertical_chunks_with_margin,
+};
+use crate::banner::BANNER;
 
 static HIGHLIGHT: &'static str = "=> ";
 
@@ -51,15 +56,22 @@ fn draw_app_header<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     .select(app.main_tabs.index);
 
   f.render_widget(tabs, area);
-  draw_logo(f, chunks[1]);
+  draw_header_text(f, app, chunks[1]);
 }
 
-fn draw_logo<B: Backend>(f: &mut Frame<B>, area: Rect) {
-  let text = vec![Spans::from(
-    "Use left/right keys to switch tabs. up/down keys to select context. Press '?' for more help.",
-  )];
-  let block = Block::default();
-  let paragraph = Paragraph::new(text).block(block).wrap(Wrap { trim: true });
+fn draw_header_text<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let text = match app.get_current_route().id {
+    RouteId::Contexts => vec![Spans::from(
+      "<up|down>: scroll context | <enter>: change context | <?> more help",
+    )],
+    _ => vec![Spans::from(
+      "<left|right>: switch resource tabs | <up|down>: scroll selected block | <?> more help",
+    )],
+  };
+  let paragraph = Paragraph::new(text)
+    .style(style_help())
+    .block(Block::default())
+    .wrap(Wrap { trim: true });
   f.render_widget(paragraph, area);
 }
 
@@ -70,12 +82,16 @@ fn draw_overview<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   draw_active_context_tabs(f, app, chunks[1]);
 }
 
-fn draw_help<B: Backend>(f: &mut Frame<B>, area: Rect) {
-  let text = vec![Spans::from(
-    "Use left/right keys to switch tabs. up/down keys to select context. Press '?' for more help.",
-  )];
-  let block = layout_block_default("Help (?)");
-  let paragraph = Paragraph::new(text).block(block).wrap(Wrap { trim: true });
+fn draw_logo<B: Backend>(f: &mut Frame<B>, area: Rect) {
+  // Banner text with correct styling
+  let text = format!("{}\nv{} with ♥ in Rust", BANNER, env!("CARGO_PKG_VERSION"));
+  let mut text = Text::from(text);
+  text.patch_style(style_success());
+
+  // Contains the banner
+  let paragraph = Paragraph::new(text)
+    .style(style_success())
+    .block(Block::default().borders(Borders::ALL));
   f.render_widget(paragraph, area);
 }
 
@@ -93,7 +109,7 @@ fn draw_status<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   draw_cli_status(f, app, chunks[0]);
   draw_context_info(f, app, chunks[1]);
   draw_namespaces(f, app, chunks[2]);
-  draw_help(f, chunks[3])
+  draw_logo(f, chunks[3])
 }
 
 fn draw_cli_status<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
@@ -197,7 +213,7 @@ fn draw_context_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let block = layout_block_default("Namespaces (n)");
+  let block = layout_block_default("Namespaces <n>");
 
   let rows = app
     .namespaces
@@ -210,7 +226,7 @@ fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     .block(block)
     .highlight_style(style_highlight())
     .highlight_symbol(HIGHLIGHT)
-    .widths(&[Constraint::Percentage(85), Constraint::Percentage(15)]);
+    .widths(&[Constraint::Percentage(80), Constraint::Percentage(20)]);
 
   f.render_stateful_widget(table, area, &mut app.namespaces.state);
 }
@@ -235,7 +251,8 @@ fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let block = layout_block_top_border("Pods (ns: all)");
+  let title = format!("Pods (all) [{}]", app.pods.items.len());
+  let block = layout_block_top_border(title.as_str());
 
   let rows = app.pods.items.iter().map(|c| {
     Row::new(vec![
@@ -340,152 +357,4 @@ fn draw_help_menu<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     .block(layout_block_default("Help (press <Esc> to go back)"))
     .widths(&[Constraint::Max(110)]);
   f.render_widget(help_menu, chunks[0]);
-}
-
-fn draw_logs<B: Backend>(f: &mut Frame<B>, _app: &mut App, area: Rect) {
-  let chunks = Layout::default()
-    .direction(Direction::Horizontal)
-    .constraints([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
-    .split(area);
-  let colors = [
-    Color::Reset,
-    Color::Black,
-    Color::Red,
-    Color::Green,
-    Color::Yellow,
-    Color::Blue,
-    Color::Magenta,
-    Color::Cyan,
-    Color::Gray,
-    Color::DarkGray,
-    Color::LightRed,
-    Color::LightGreen,
-    Color::LightYellow,
-    Color::LightBlue,
-    Color::LightMagenta,
-    Color::LightCyan,
-    Color::White,
-  ];
-  let items: Vec<Row> = colors
-    .iter()
-    .map(|c| {
-      let cells = vec![
-        Cell::from(Span::raw(format!("{:?}: ", c))),
-        Cell::from(Span::styled("Foreground", Style::default().fg(*c))),
-        Cell::from(Span::styled("Background", Style::default().bg(*c))),
-      ];
-      Row::new(cells)
-    })
-    .collect();
-  let table = Table::new(items)
-    .block(Block::default().title("Colors").borders(Borders::ALL))
-    .widths(&[
-      Constraint::Ratio(1, 3),
-      Constraint::Ratio(1, 3),
-      Constraint::Ratio(1, 3),
-    ]);
-  f.render_widget(table, chunks[0]);
-}
-
-// Utils
-
-fn title_style<'a>(txt: &'a str) -> Span<'a> {
-  Span::styled(txt, style_bold())
-}
-
-fn title_style_primary<'a>(txt: &'a str) -> Span<'a> {
-  Span::styled(txt, style_primary_bold())
-}
-
-fn title_style_secondary<'a>(txt: &'a str) -> Span<'a> {
-  Span::styled(txt, style_secondary_bold())
-}
-
-fn title_style_success<'a>(txt: &'a str) -> Span<'a> {
-  Span::styled(txt, style_success().add_modifier(Modifier::BOLD))
-}
-
-fn style_bold() -> Style {
-  Style::default().add_modifier(Modifier::BOLD)
-}
-fn style_success() -> Style {
-  Style::default().fg(Color::Green)
-}
-fn style_failure() -> Style {
-  Style::default().fg(Color::Red)
-}
-fn style_highlight() -> Style {
-  Style::default().add_modifier(Modifier::REVERSED)
-}
-fn style_primary() -> Style {
-  Style::default().fg(Color::Cyan)
-}
-fn style_primary_bold() -> Style {
-  style_primary().add_modifier(Modifier::BOLD)
-}
-fn style_secondary() -> Style {
-  Style::default().fg(Color::Yellow)
-}
-fn style_secondary_bold() -> Style {
-  style_secondary().add_modifier(Modifier::BOLD)
-}
-
-fn get_gauge_style(enhanced_graphics: bool) -> symbols::line::Set {
-  if enhanced_graphics {
-    symbols::line::THICK
-  } else {
-    symbols::line::NORMAL
-  }
-}
-
-fn table_header_style<'a>(cells: Vec<&'a str>) -> Row<'a> {
-  Row::new(cells).style(style_secondary()).bottom_margin(0)
-}
-
-fn horizontal_chunks(constraints: Vec<Constraint>, size: Rect) -> Vec<Rect> {
-  Layout::default()
-    .constraints(constraints.as_ref())
-    .direction(Direction::Horizontal)
-    .split(size)
-}
-
-fn horizontal_chunks_with_margin(
-  constraints: Vec<Constraint>,
-  size: Rect,
-  margin: u16,
-) -> Vec<Rect> {
-  Layout::default()
-    .constraints(constraints.as_ref())
-    .direction(Direction::Horizontal)
-    .margin(margin)
-    .split(size)
-}
-
-fn vertical_chunks(constraints: Vec<Constraint>, size: Rect) -> Vec<Rect> {
-  Layout::default()
-    .constraints(constraints.as_ref())
-    .direction(Direction::Vertical)
-    .split(size)
-}
-
-fn vertical_chunks_with_margin(constraints: Vec<Constraint>, size: Rect, margin: u16) -> Vec<Rect> {
-  Layout::default()
-    .constraints(constraints.as_ref())
-    .direction(Direction::Vertical)
-    .margin(margin)
-    .split(size)
-}
-
-fn layout_block<'a>(title: Span<'a>) -> Block<'a> {
-  Block::default().borders(Borders::ALL).title(title)
-}
-
-fn layout_block_default<'a>(title: &'a str) -> Block<'a> {
-  layout_block(title_style(title))
-}
-
-fn layout_block_top_border<'a>(title: &'a str) -> Block<'a> {
-  Block::default()
-    .borders(Borders::TOP)
-    .title(title_style(title))
 }
