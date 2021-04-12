@@ -12,6 +12,39 @@ use tui::{
   widgets::{ListState, TableState},
 };
 
+#[derive(Clone)]
+pub struct KeyBindings {
+  pub esc: Key,
+  pub quit: Key,
+  pub next_tab: Key,
+  pub previous_tab: Key,
+  pub up: Key,
+  pub down: Key,
+  pub jump_to_all_context: Key,
+  pub jump_to_current_context: Key,
+  pub jump_to_namespace: Key,
+  pub jump_to_pods: Key,
+  pub jump_to_services: Key,
+  pub help: Key,
+  pub submit: Key,
+}
+
+pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
+  esc: Key::Esc,
+  quit: Key::Char('q'),
+  next_tab: Key::Left,
+  previous_tab: Key::Right,
+  up: Key::Up,
+  down: Key::Down,
+  jump_to_all_context: Key::Char('a'),
+  jump_to_current_context: Key::Char('c'),
+  jump_to_namespace: Key::Char('n'),
+  jump_to_pods: Key::Char('p'),
+  jump_to_services: Key::Char('s'),
+  help: Key::Char('?'),
+  submit: Key::Enter,
+};
+
 pub struct StatefulTable<T> {
   pub state: TableState,
   pub items: Vec<T>,
@@ -83,6 +116,9 @@ impl TabsState {
   pub fn next(&mut self) {
     self.index = (self.index + 1) % self.titles.len();
   }
+  pub fn set_index(&mut self, index: usize) {
+    self.index = index;
+  }
 
   pub fn previous(&mut self) {
     if self.index > 0 {
@@ -96,10 +132,11 @@ impl TabsState {
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum ActiveBlock {
   Empty,
-  Error,
-  HelpMenu,
-  Home,
-  BasicView,
+  Pods,
+  Services,
+  Nodes,
+  Namespaces,
+  Contexts,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -107,19 +144,19 @@ pub enum RouteId {
   BasicView,
   Error,
   Home,
+  Contexts,
+  HelpMenu,
 }
 
 #[derive(Debug)]
 pub struct Route {
   pub id: RouteId,
   pub active_block: ActiveBlock,
-  pub hovered_block: ActiveBlock,
 }
 
 const DEFAULT_ROUTE: Route = Route {
   id: RouteId::Home,
-  active_block: ActiveBlock::Empty,
-  hovered_block: ActiveBlock::Home,
+  active_block: ActiveBlock::Pods,
 };
 
 #[derive(Clone, PartialEq)]
@@ -162,7 +199,8 @@ pub struct App {
   io_tx: Option<Sender<IoEvent>>,
   pub title: &'static str,
   pub should_quit: bool,
-  pub tabs: TabsState,
+  pub main_tabs: TabsState,
+  pub context_tabs: TabsState,
   pub show_chart: bool,
   pub is_loading: bool,
   pub poll_tick_count: u64,
@@ -181,13 +219,12 @@ pub struct App {
   pub kubeconfig: Option<Kubeconfig>,
   pub contexts: StatefulTable<KubeContext>,
   pub active_context: Option<KubeContext>,
-  //   pub cluster_metrics:
   pub nodes: Vec<KubeNode>,
   pub namespaces: Vec<KubeNs>,
   pub pods: Vec<KubePods>,
   pub services: Vec<KubeSvs>,
 
-  // TODO useless
+  // TODO useless remove
   pub progress: f64,
 }
 
@@ -195,7 +232,8 @@ impl Default for App {
   fn default() -> Self {
     App {
       title: " KDash - The only Kubernetes dashboard you will ever need! ",
-      tabs: TabsState::new(vec!["Overview", "Logs"]),
+      main_tabs: TabsState::new(vec!["Active Context (c)", "All Contexts (a)"]),
+      context_tabs: TabsState::new(vec!["Pods (p)", "Services (s)", "Nodes"]),
       should_quit: false,
       poll_tick_count: 0,
       tick_count: 0,
@@ -221,7 +259,7 @@ impl Default for App {
       namespaces: vec![],
       pods: vec![],
       services: vec![],
-      // todo remove
+      // TODO remove
       progress: 0.0,
     }
   }
@@ -251,17 +289,14 @@ impl App {
   }
 
   pub fn handle_error(&mut self, e: anyhow::Error) {
-    self.push_navigation_stack(RouteId::Error, ActiveBlock::Error);
+    self.push_navigation_stack(RouteId::Error, ActiveBlock::Empty);
     self.api_error = e.to_string();
   }
 
-  // The navigation_stack actually only controls the large block to the right of `library` and
-  // `playlists`
   pub fn push_navigation_stack(&mut self, next_route_id: RouteId, next_active_block: ActiveBlock) {
     self.navigation_stack.push(Route {
       id: next_route_id,
       active_block: next_active_block,
-      hovered_block: next_active_block,
     });
   }
 
@@ -282,17 +317,10 @@ impl App {
     self.navigation_stack.last_mut().unwrap()
   }
 
-  pub fn set_current_route_state(
-    &mut self,
-    active_block: Option<ActiveBlock>,
-    hovered_block: Option<ActiveBlock>,
-  ) {
+  pub fn set_active_block(&mut self, active_block: Option<ActiveBlock>) {
     let mut current_route = self.get_current_route_mut();
     if let Some(active_block) = active_block {
       current_route.active_block = active_block;
-    }
-    if let Some(hovered_block) = hovered_block {
-      current_route.hovered_block = hovered_block;
     }
   }
 
@@ -308,6 +336,16 @@ impl App {
     }
   }
 
+  pub fn route_home(&mut self) {
+    self.main_tabs.set_index(0);
+    self.push_navigation_stack(RouteId::Home, ActiveBlock::Pods);
+  }
+
+  pub fn route_contexts(&mut self) {
+    self.main_tabs.set_index(1);
+    self.push_navigation_stack(RouteId::Contexts, ActiveBlock::Contexts);
+  }
+
   pub fn on_up(&mut self) {
     self.contexts.previous();
   }
@@ -317,29 +355,40 @@ impl App {
   }
 
   pub fn on_right(&mut self) {
-    self.tabs.next();
+    self.context_tabs.next();
   }
 
   pub fn on_left(&mut self) {
-    self.tabs.previous();
+    self.context_tabs.previous();
   }
 
   pub fn on_key(&mut self, c: Key) {
-    match c {
-      Key::Char('q') => {
-        self.should_quit = true;
-      }
-      Key::Char('t') => {
-        self.show_chart = !self.show_chart;
-      }
-      Key::Char('?') => {
-        // TODO show help
-      }
-      Key::Left => self.on_left(),
-      Key::Right => self.on_right(),
-      Key::Up => self.on_up(),
-      Key::Down => self.on_down(),
-      _ => (),
+    if c == DEFAULT_KEYBINDING.quit {
+      self.should_quit = true;
+    } else if c == DEFAULT_KEYBINDING.esc {
+      self.route_home();
+    } else if c == DEFAULT_KEYBINDING.next_tab {
+      self.on_left();
+    } else if c == DEFAULT_KEYBINDING.previous_tab {
+      self.on_right();
+    } else if c == DEFAULT_KEYBINDING.up {
+      self.on_up();
+    } else if c == DEFAULT_KEYBINDING.down {
+      self.on_down();
+    } else if c == DEFAULT_KEYBINDING.help {
+      self.push_navigation_stack(RouteId::HelpMenu, ActiveBlock::Empty)
+    } else if c == DEFAULT_KEYBINDING.submit {
+      // todo
+    } else if c == DEFAULT_KEYBINDING.jump_to_all_context {
+      self.route_contexts();
+    } else if c == DEFAULT_KEYBINDING.jump_to_current_context {
+      self.route_home();
+    } else if c == DEFAULT_KEYBINDING.jump_to_namespace {
+      self.set_active_block(Some(ActiveBlock::Namespaces))
+    } else if c == DEFAULT_KEYBINDING.jump_to_pods {
+      self.context_tabs.set_index(0)
+    } else if c == DEFAULT_KEYBINDING.jump_to_services {
+      self.context_tabs.set_index(1)
     }
   }
 
@@ -352,7 +401,7 @@ impl App {
     } else if self.tick_count == self.poll_tick_count {
       self.tick_count = 0;
     }
-    self.tick_count = self.tick_count + 1;
+    self.tick_count += 1;
 
     // TODO remove temp code
     self.progress += 0.001;

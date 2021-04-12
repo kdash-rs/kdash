@@ -148,7 +148,7 @@ async fn main() -> Result<()> {
 
   let (sync_io_tx, sync_io_rx) = std::sync::mpsc::channel::<IoEvent>();
 
-  // Initialise app state
+  // Initialize app state
   let app = Arc::new(Mutex::new(App::new(
     sync_io_tx,
     cli.enhanced_graphics,
@@ -159,6 +159,7 @@ async fn main() -> Result<()> {
   let cloned_app = Arc::clone(&app);
   let client = get_client().await?;
 
+  // Launch network thread
   std::thread::spawn(move || {
     let mut network = Network::new(client, client_config, &app);
     start_tokio(sync_io_rx, &mut network);
@@ -190,15 +191,13 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
 
   let events = event::Events::new(cli.tick_rate);
 
-  // play music on, if not send them to the device selection view
-
   let mut is_first_render = true;
 
   loop {
     let mut app = app.lock().await;
     // Get the size of the screen on each loop to account for resize event
     if let Ok(size) = terminal.backend().size() {
-      // Reset the help menu is the terminal was resized
+      // Reset the help menu if the terminal was resized
       if is_first_render || app.size != size {
         app.help_menu_max_lines = 0;
         app.help_menu_offset = 0;
@@ -206,19 +205,8 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
 
         app.size = size;
 
-        // Based on the size of the terminal, adjust the search limit.
-        let potential_limit = max((app.size.height as i32) - 13, 0) as u32;
-        let max_limit = min(potential_limit, 50);
-        // let large_search_limit = min((f32::from(size.height) / 1.4) as u32, max_limit);
-        // let small_search_limit = min((f32::from(size.height) / 2.85) as u32, max_limit / 2);
-
-        // app.dispatch(IoEvent::UpdateSearchLimits(
-        //   large_search_limit,
-        //   small_search_limit,
-        // ));
-
         // Based on the size of the terminal, adjust how many lines are
-        // dislayed in the help menu
+        // displayed in the help menu
         if app.size.height > 8 {
           app.help_menu_max_lines = (app.size.height as u32) - 8;
         } else {
@@ -227,91 +215,29 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
       }
     };
 
-    // let current_route = app.get_current_route();
+    // draw the UI layout
     terminal.draw(|f| ui::draw(f, &mut app))?;
 
-    // terminal.draw(|mut f| match current_route.active_block {
-    //   ActiveBlock::HelpMenu => {
-    //     ui::draw_help_menu(&mut f, &app);
-    //   }
-    //   ActiveBlock::Error => {
-    //     ui::draw_error_screen(&mut f, &app);
-    //   }
-    //   ActiveBlock::SelectDevice => {
-    //     ui::draw_device_list(&mut f, &app);
-    //   }
-    //   ActiveBlock::Analysis => {
-    //     ui::audio_analysis::draw(&mut f, &app);
-    //   }
-    //   ActiveBlock::BasicView => {
-    //     ui::draw_basic_view(&mut f, &app);
-    //   }
-    //   _ => {
-    //     ui::draw_main_layout(&mut f, &app);
-    //   }
-    // })?;
-
-    // if current_route.active_block == ActiveBlock::Input {
-    //   terminal.show_cursor()?;
-    // } else {
-    //   terminal.hide_cursor()?;
-    // }
-
-    // let cursor_offset = if app.size.height > ui::util::SMALL_TERMINAL_HEIGHT {
-    //   2
-    // } else {
-    //   1
-    // };
-
-    // // Put the cursor back inside the input box
-    // terminal.backend_mut().execute(MoveTo(
-    //   cursor_offset + app.input_cursor_position,
-    //   cursor_offset,
-    // ))?;
-
+    // handle key vents
     match events.next()? {
       event::Event::Input(key) => {
         // handle CTRL + C
         if key == Key::Ctrl('c') {
           break;
         }
-
+        // handle all other keys
         app.on_key(key);
-
-        let current_active_block = app.get_current_route().active_block;
-
-        // To avoid swallowing the global key presses `q` and `-` make a special
-        // case for the input handler
-        // if current_active_block == ActiveBlock::Input {
-        //   handlers::input_handler(key, &mut app);
-        // } else if key == app.user_config.keys.back {
-        //   if app.get_current_route().active_block != ActiveBlock::Input {
-        //     // Go back through navigation stack when not in search input mode and exit the app if there are no more places to back to
-
-        //     let pop_result = match app.pop_navigation_stack() {
-        //       Some(ref x) if x.id == RouteId::Search => app.pop_navigation_stack(),
-        //       Some(x) => Some(x),
-        //       None => None,
-        //     };
-        //     if pop_result.is_none() {
-        //       break; // Exit application
-        //     }
-        //   }
-        // } else {
-        //   handlers::handle_app(key, &mut app);
-        // }
       }
       event::Event::Tick => {
         app.on_tick();
       }
     }
 
-    // Delay requests until first render, will have the effect of improving
+    // Delay one time requests until first render, will have the effect of improving
     // startup speed
     if is_first_render {
       app.dispatch(IoEvent::GetCLIInfo);
       app.dispatch(IoEvent::GetKubeConfig);
-      //   app.help_docs_size = ui::help::get_help_docs(&app.user_config.keys).len() as u32;
 
       is_first_render = false;
     }

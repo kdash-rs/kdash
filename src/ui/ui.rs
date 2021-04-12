@@ -1,4 +1,4 @@
-use crate::app::App;
+use crate::app::{App, RouteId};
 use duct::cmd;
 use tui::{
   backend::Backend,
@@ -14,79 +14,92 @@ use tui::{
   Frame,
 };
 
+use super::get_help_docs;
+
 pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
-  let chunks = Layout::default()
-    .constraints([Constraint::Length(3), Constraint::Min(10)].as_ref())
-    .split(f.size());
-  // draw tabs and help
-  draw_header(f, app, chunks[0]);
-  // render tab content
-  match app.tabs.index {
-    0 => draw_overview(f, app, chunks[1]),
-    1 => draw_logs(f, app, chunks[1]),
-    _ => {}
-  };
+  let chunks = vertical_chunks(vec![Constraint::Length(3), Constraint::Min(0)], f.size());
+
+  // draw header and logo
+  draw_app_header(f, app, chunks[0]);
+
+  match app.get_current_route().id {
+    RouteId::HelpMenu => {
+      draw_help_menu(f, app, chunks[1]);
+    }
+    //   RouteId::Error => {
+    //     draw_error_screen(f, app);
+    //   }
+    RouteId::Contexts => {
+      draw_contexts(f, app, chunks[1]);
+    }
+    _ => {
+      draw_overview(f, app, chunks[1]);
+    }
+  }
 }
 
-fn draw_header<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
-where
-  B: Backend,
-{
-  let chunks = Layout::default()
-    .constraints([Constraint::Length(75), Constraint::Min(0)].as_ref())
-    .direction(Direction::Horizontal)
-    .split(area);
+fn draw_app_header<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let chunks =
+    horizontal_chunks_with_margin(vec![Constraint::Length(75), Constraint::Min(0)], area, 1);
 
   let titles = app
-    .tabs
+    .main_tabs
     .titles
     .iter()
     .map(|t| Spans::from(Span::styled(*t, style_success())))
     .collect();
   let tabs = Tabs::new(titles)
-    .block(
-      Block::default()
-        .borders(Borders::ALL)
-        .title(Span::styled(app.title, style_primary_bold())),
-    )
+    .block(layout_block(title_style_primary(app.title)))
     .highlight_style(style_secondary())
-    .select(app.tabs.index);
+    .select(app.main_tabs.index);
 
-  f.render_widget(tabs, chunks[0]);
-
-  draw_help(f, chunks[1])
+  f.render_widget(tabs, area);
+  draw_logo(f, chunks[1]);
 }
 
-fn draw_overview<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
-where
-  B: Backend,
-{
-  let chunks = Layout::default()
-    .constraints([Constraint::Length(9), Constraint::Min(10)].as_ref())
-    .direction(Direction::Vertical)
-    .split(area);
+fn draw_logo<B: Backend>(f: &mut Frame<B>, area: Rect) {
+  let text = vec![Spans::from(
+    "Use left/right keys to switch tabs. up/down keys to select context. Press '?' for more help.",
+  )];
+  let block = Block::default();
+  let paragraph = Paragraph::new(text).block(block).wrap(Wrap { trim: true });
+  f.render_widget(paragraph, area);
+}
+
+fn draw_overview<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let chunks = vertical_chunks(vec![Constraint::Length(9), Constraint::Min(10)], area);
 
   draw_status(f, app, chunks[0]);
-  draw_active_context(f, app, chunks[1]);
+  draw_active_context_tabs(f, app, chunks[1]);
 }
 
-fn draw_status<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
-where
-  B: Backend,
-{
-  let chunks = Layout::default()
-    .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
-    .direction(Direction::Horizontal)
-    .split(area);
+fn draw_help<B: Backend>(f: &mut Frame<B>, area: Rect) {
+  let text = vec![Spans::from(
+    "Use left/right keys to switch tabs. up/down keys to select context. Press '?' for more help.",
+  )];
+  let block = layout_block_default("Help (?)");
+  let paragraph = Paragraph::new(text).block(block).wrap(Wrap { trim: true });
+  f.render_widget(paragraph, area);
+}
+
+fn draw_status<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let chunks = horizontal_chunks(
+    vec![
+      Constraint::Length(30),
+      Constraint::Min(10),
+      Constraint::Length(40),
+      Constraint::Length(30),
+    ],
+    area,
+  );
 
   draw_cli_status(f, app, chunks[0]);
-  draw_contexts(f, app, chunks[1]);
+  draw_context_info(f, app, chunks[1]);
+  draw_namespaces(f, app, chunks[2]);
+  draw_help(f, chunks[3])
 }
 
-fn draw_cli_status<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
-where
-  B: Backend,
-{
+fn draw_cli_status<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let rows = app.clis.iter().map(|s| {
     let style = if s.status == true {
       style_success()
@@ -97,109 +110,48 @@ where
   });
 
   let table = Table::new(rows)
-    .block(
-      Block::default()
-        .title(title_style("CLI Info"))
-        .borders(Borders::ALL),
-    )
+    .block(layout_block_default("CLI Info"))
     .widths(&[Constraint::Percentage(50), Constraint::Percentage(50)]);
   f.render_widget(table, area);
 }
 
-fn draw_contexts<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
-where
-  B: Backend,
-{
-  let rows = app.contexts.items.iter().map(|c| {
-    let style = if c.is_active == true {
-      style_success()
-    } else {
-      style_primary()
-    };
-    Row::new(vec![c.name.as_ref(), c.cluster.as_ref(), c.user.as_ref()]).style(style)
-  });
+fn draw_active_context_tabs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let chunks =
+    vertical_chunks_with_margin(vec![Constraint::Length(2), Constraint::Min(0)], area, 1);
 
-  let table = Table::new(rows)
-    .header(
-      Row::new(vec!["Context", "Cluster", "User"])
-        .style(style_secondary())
-        .bottom_margin(0),
-    )
-    .block(
-      Block::default()
-        .title(title_style("Contexts"))
-        .borders(Borders::ALL),
-    )
-    .widths(&[
-      Constraint::Percentage(34),
-      Constraint::Percentage(33),
-      Constraint::Percentage(33),
-    ])
-    .highlight_style(style_highlight())
-    .highlight_symbol("=> ");
+  let titles = app
+    .context_tabs
+    .titles
+    .iter()
+    .map(|t| Spans::from(Span::styled(*t, style_success())))
+    .collect();
+  let tabs = Tabs::new(titles)
+    .block(layout_block_default("Resources"))
+    .highlight_style(style_secondary())
+    .select(app.context_tabs.index);
 
-  f.render_stateful_widget(table, area, &mut app.contexts.state);
+  f.render_widget(tabs, area);
+  // render tab content
+  match app.context_tabs.index {
+    0 => draw_pods(f, app, chunks[1]),
+    1 => draw_services(f, app, chunks[1]),
+    2 => draw_nodes(f, app, chunks[1]),
+    _ => {}
+  };
 }
 
-fn draw_active_context<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
-where
-  B: Backend,
-{
-  let block = Block::default()
-    .borders(Borders::ALL)
-    .border_type(BorderType::Rounded)
-    .title(title_style_spl("Current Context"));
+fn draw_context_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let chunks = vertical_chunks_with_margin(
+    vec![
+      Constraint::Length(3),
+      Constraint::Min(2),
+      Constraint::Min(2),
+    ],
+    area,
+    1,
+  );
 
-  f.render_widget(block, area);
-
-  let chunks = Layout::default()
-    .constraints([Constraint::Length(10), Constraint::Min(10)].as_ref())
-    .horizontal_margin(1)
-    .vertical_margin(1)
-    .split(area);
-
-  let top_chunks = Layout::default()
-    .constraints(
-      [
-        Constraint::Percentage(35),
-        Constraint::Percentage(35),
-        Constraint::Percentage(30),
-      ]
-      .as_ref(),
-    )
-    .direction(Direction::Horizontal)
-    .split(chunks[0]);
-
-  let bottom_chunks = Layout::default()
-    .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-    .direction(Direction::Horizontal)
-    .split(chunks[1]);
-
-  draw_context_info(f, app, top_chunks[0]);
-  draw_nodes(f, app, top_chunks[1]);
-  draw_namespaces(f, app, top_chunks[2]);
-  draw_pods(f, app, bottom_chunks[0]);
-  draw_services(f, app, bottom_chunks[1]);
-}
-
-fn draw_context_info<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
-where
-  B: Backend,
-{
-  let chunks = Layout::default()
-    .constraints(
-      [
-        Constraint::Length(4),
-        Constraint::Min(2),
-        Constraint::Min(2),
-      ]
-      .as_ref(),
-    )
-    .margin(1)
-    .split(area);
-  let block = Block::default()
-    .borders(Borders::ALL)
-    .title(title_style("Info"));
+  let block = layout_block_default("Context Info");
 
   f.render_widget(block, area);
 
@@ -233,52 +185,22 @@ where
   f.render_widget(paragraph, chunks[0]);
 
   let cpu_gauge = LineGauge::default()
-    .block(Block::default().title("CPU:"))
-    .gauge_style(style_secondary())
+    .block(Block::default().title(title_style_secondary("CPU:")))
+    .gauge_style(style_primary())
     .line_set(get_gauge_style(app.enhanced_graphics))
     .ratio(app.progress);
   f.render_widget(cpu_gauge, chunks[1]);
 
   let mem_gauge = LineGauge::default()
-    .block(Block::default().title("Memory:"))
-    .gauge_style(style_secondary())
+    .block(Block::default().title(title_style_secondary("Memory:")))
+    .gauge_style(style_primary())
     .line_set(get_gauge_style(app.enhanced_graphics))
     .ratio(app.progress);
   f.render_widget(mem_gauge, chunks[2]);
 }
 
-fn draw_nodes<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
-where
-  B: Backend,
-{
-  let block = Block::default()
-    .borders(Borders::ALL)
-    .title(title_style("Nodes"));
-
-  let rows = app
-    .nodes
-    .iter()
-    .map(|c| Row::new(vec![c.name.as_ref(), c.status.as_ref()]).style(style_primary()));
-
-  let table = Table::new(rows)
-    .header(
-      Row::new(vec!["Name", "Status"])
-        .style(style_secondary())
-        .bottom_margin(0),
-    )
-    .block(block)
-    .widths(&[Constraint::Percentage(85), Constraint::Percentage(15)]);
-
-  f.render_widget(table, area);
-}
-
-fn draw_namespaces<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
-where
-  B: Backend,
-{
-  let block = Block::default()
-    .borders(Borders::ALL)
-    .title(title_style("Namespaces"));
+fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let block = layout_block_default("Namespaces (n)");
 
   let rows = app
     .namespaces
@@ -286,24 +208,31 @@ where
     .map(|c| Row::new(vec![c.name.as_ref(), c.status.as_ref()]).style(style_primary()));
 
   let table = Table::new(rows)
-    .header(
-      Row::new(vec!["Name", "Status"])
-        .style(style_secondary())
-        .bottom_margin(0),
-    )
+    .header(table_header_style(vec!["Name", "Status"]))
     .block(block)
     .widths(&[Constraint::Percentage(85), Constraint::Percentage(15)]);
 
   f.render_widget(table, area);
 }
 
-fn draw_pods<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
-where
-  B: Backend,
-{
-  let block = Block::default()
-    .borders(Borders::ALL)
-    .title(title_style("Pods"));
+fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let block = layout_block_top_border("Nodes");
+
+  let rows = app
+    .nodes
+    .iter()
+    .map(|c| Row::new(vec![c.name.as_ref(), c.status.as_ref()]).style(style_primary()));
+
+  let table = Table::new(rows)
+    .header(table_header_style(vec!["Name", "Status"]))
+    .block(block)
+    .widths(&[Constraint::Percentage(85), Constraint::Percentage(15)]);
+
+  f.render_widget(table, area);
+}
+
+fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let block = layout_block_top_border("Pods (ns: all)");
 
   let rows = app.pods.iter().map(|c| {
     Row::new(vec![
@@ -317,11 +246,13 @@ where
   });
 
   let table = Table::new(rows)
-    .header(
-      Row::new(vec!["Namespace", "Name", "Ready", "Status", "Restarts"])
-        .style(style_secondary())
-        .bottom_margin(0),
-    )
+    .header(table_header_style(vec![
+      "Namespace",
+      "Name",
+      "Ready",
+      "Status",
+      "Restarts",
+    ]))
     .block(block)
     .widths(&[
       Constraint::Percentage(30),
@@ -334,13 +265,8 @@ where
   f.render_widget(table, area);
 }
 
-fn draw_services<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
-where
-  B: Backend,
-{
-  let block = Block::default()
-    .borders(Borders::ALL)
-    .title(title_style("Services"));
+fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let block = layout_block_top_border("Services (ns: all)");
 
   let rows = app
     .services
@@ -348,35 +274,67 @@ where
     .map(|c| Row::new(vec![c.name.as_ref(), c.type_.as_ref()]).style(style_primary()));
 
   let table = Table::new(rows)
-    .header(
-      Row::new(vec!["Name", "Type"])
-        .style(style_secondary())
-        .bottom_margin(0),
-    )
+    .header(table_header_style(vec!["Name", "Type"]))
     .block(block)
     .widths(&[Constraint::Percentage(85), Constraint::Percentage(15)]);
 
   f.render_widget(table, area);
 }
 
-fn draw_help<B>(f: &mut Frame<B>, area: Rect)
-where
-  B: Backend,
-{
-  let text = vec![Spans::from(
-    "Use left/right keys to switch tabs. up/down keys to select context. Press '?' for more help.",
-  )];
-  let block = Block::default()
-    .borders(Borders::ALL)
-    .title(title_style("Help"));
-  let paragraph = Paragraph::new(text).block(block).wrap(Wrap { trim: true });
-  f.render_widget(paragraph, area);
+fn draw_contexts<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let rows = app.contexts.items.iter().map(|c| {
+    let style = if c.is_active == true {
+      style_success()
+    } else {
+      style_primary()
+    };
+    Row::new(vec![c.name.as_ref(), c.cluster.as_ref(), c.user.as_ref()]).style(style)
+  });
+
+  let table = Table::new(rows)
+    .header(table_header_style(vec!["Context", "Cluster", "User"]))
+    .block(layout_block_default("Contexts"))
+    .widths(&[
+      Constraint::Percentage(34),
+      Constraint::Percentage(33),
+      Constraint::Percentage(33),
+    ])
+    .highlight_style(style_highlight())
+    .highlight_symbol("=> ");
+
+  f.render_stateful_widget(table, area, &mut app.contexts.state);
 }
 
-fn draw_logs<B>(f: &mut Frame<B>, _app: &mut App, area: Rect)
-where
-  B: Backend,
-{
+fn draw_help_menu<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let chunks = vertical_chunks(vec![Constraint::Percentage(100)], area);
+
+  // Create a one-column table to avoid flickering due to non-determinism when
+  // resolving constraints on widths of table columns.
+  let format_row =
+    |r: Vec<String>| -> Vec<String> { vec![format!("{:50}{:40}{:20}", r[0], r[1], r[2])] };
+
+  let header = ["Description", "Event", "Context"];
+  let header = format_row(header.iter().map(|s| s.to_string()).collect());
+
+  let help_docs = get_help_docs();
+  let help_docs = help_docs
+    .into_iter()
+    .map(format_row)
+    .collect::<Vec<Vec<String>>>();
+  let help_docs = &help_docs[app.help_menu_offset as usize..];
+
+  let rows = help_docs
+    .iter()
+    .map(|item| Row::new(item.clone()).style(style_primary()));
+
+  let help_menu = Table::new(rows)
+    .header(Row::new(header).style(style_secondary()).bottom_margin(0))
+    .block(layout_block_default("Help (press <Esc> to go back)"))
+    .widths(&[Constraint::Max(110)]);
+  f.render_widget(help_menu, chunks[0]);
+}
+
+fn draw_logs<B: Backend>(f: &mut Frame<B>, _app: &mut App, area: Rect) {
   let chunks = Layout::default()
     .direction(Direction::Horizontal)
     .constraints([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
@@ -423,19 +381,25 @@ where
 
 // Utils
 
-fn title_style(txt: &'static str) -> Span {
-  Span::styled(txt, Style::default().add_modifier(Modifier::BOLD))
+fn title_style<'a>(txt: &'a str) -> Span<'a> {
+  Span::styled(txt, style_bold())
 }
 
-fn title_style_spl(txt: &'static str) -> Span {
-  Span::styled(
-    txt,
-    Style::default()
-      .fg(Color::Green)
-      .add_modifier(Modifier::BOLD),
-  )
+fn title_style_primary<'a>(txt: &'a str) -> Span<'a> {
+  Span::styled(txt, style_primary_bold())
 }
 
+fn title_style_secondary<'a>(txt: &'a str) -> Span<'a> {
+  Span::styled(txt, style_secondary_bold())
+}
+
+fn title_style_success<'a>(txt: &'a str) -> Span<'a> {
+  Span::styled(txt, style_success().add_modifier(Modifier::BOLD))
+}
+
+fn style_bold() -> Style {
+  Style::default().add_modifier(Modifier::BOLD)
+}
 fn style_success() -> Style {
   Style::default().fg(Color::Green)
 }
@@ -449,12 +413,13 @@ fn style_primary() -> Style {
   Style::default().fg(Color::Cyan)
 }
 fn style_primary_bold() -> Style {
-  Style::default()
-    .fg(Color::Cyan)
-    .add_modifier(Modifier::BOLD)
+  style_primary().add_modifier(Modifier::BOLD)
 }
 fn style_secondary() -> Style {
   Style::default().fg(Color::Yellow)
+}
+fn style_secondary_bold() -> Style {
+  style_secondary().add_modifier(Modifier::BOLD)
 }
 
 fn get_gauge_style(enhanced_graphics: bool) -> symbols::line::Set {
@@ -463,4 +428,56 @@ fn get_gauge_style(enhanced_graphics: bool) -> symbols::line::Set {
   } else {
     symbols::line::NORMAL
   }
+}
+
+fn table_header_style<'a>(cells: Vec<&'a str>) -> Row<'a> {
+  Row::new(cells).style(style_secondary()).bottom_margin(0)
+}
+
+fn horizontal_chunks(constraints: Vec<Constraint>, size: Rect) -> Vec<Rect> {
+  Layout::default()
+    .constraints(constraints.as_ref())
+    .direction(Direction::Horizontal)
+    .split(size)
+}
+
+fn horizontal_chunks_with_margin(
+  constraints: Vec<Constraint>,
+  size: Rect,
+  margin: u16,
+) -> Vec<Rect> {
+  Layout::default()
+    .constraints(constraints.as_ref())
+    .direction(Direction::Horizontal)
+    .margin(margin)
+    .split(size)
+}
+
+fn vertical_chunks(constraints: Vec<Constraint>, size: Rect) -> Vec<Rect> {
+  Layout::default()
+    .constraints(constraints.as_ref())
+    .direction(Direction::Vertical)
+    .split(size)
+}
+
+fn vertical_chunks_with_margin(constraints: Vec<Constraint>, size: Rect, margin: u16) -> Vec<Rect> {
+  Layout::default()
+    .constraints(constraints.as_ref())
+    .direction(Direction::Vertical)
+    .margin(margin)
+    .split(size)
+}
+
+fn layout_block<'a>(title: Span<'a>) -> Block<'a> {
+  Block::default().borders(Borders::ALL).title(title)
+}
+
+fn layout_block_default<'a>(title: &'a str) -> Block<'a> {
+  layout_block(title_style(title))
+}
+
+fn layout_block_top_border<'a>(title: &'a str) -> Block<'a> {
+  Block::default()
+    .borders(Borders::TOP)
+    .title(title_style(title))
 }
