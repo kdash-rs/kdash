@@ -9,16 +9,18 @@ use tui::{
 
 use super::get_help_docs;
 use super::utils::{
-  get_gauge_style, horizontal_chunks, horizontal_chunks_with_margin, layout_block,
+  centered_rect, get_gauge_style, horizontal_chunks, horizontal_chunks_with_margin, layout_block,
   layout_block_default, layout_block_top_border, style_failure, style_help, style_highlight,
-  style_primary, style_secondary, style_success, table_header_style, title_style_primary,
-  title_style_secondary, vertical_chunks, vertical_chunks_with_margin,
+  style_main_background, style_primary, style_secondary, style_success, table_header_style,
+  title_style_primary, title_style_secondary, vertical_chunks, vertical_chunks_with_margin,
 };
 use crate::banner::BANNER;
 
 static HIGHLIGHT: &'static str = "=> ";
 
 pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
+  let block = Block::default().style(style_main_background(app.light_theme));
+  f.render_widget(block, f.size());
   let chunks = vertical_chunks(vec![Constraint::Length(3), Constraint::Min(0)], f.size());
 
   // draw header and logo
@@ -28,9 +30,13 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     RouteId::HelpMenu => {
       draw_help_menu(f, app, chunks[1]);
     }
-    //   RouteId::Error => {
-    //     draw_error_screen(f, app);
-    //   }
+    RouteId::Error => {
+      if app.api_error.is_empty() {
+        draw_overview(f, app, chunks[1]);
+      } else {
+        draw_error_popup(f, app, chunks[1]);
+      }
+    }
     RouteId::Contexts => {
       draw_contexts(f, app, chunks[1]);
     }
@@ -213,7 +219,11 @@ fn draw_context_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let block = layout_block_default("Namespaces <n>");
+  let title = format!(
+    "Namespaces <n> (selected: {})",
+    app.selected_ns.as_ref().unwrap_or(&String::from("all"))
+  );
+  let block = layout_block_default(title.as_str());
 
   let rows = app
     .namespaces
@@ -251,7 +261,11 @@ fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = format!("Pods (all) [{}]", app.pods.items.len());
+  let title = format!(
+    "Pods ({}) [{}]",
+    app.selected_ns.as_ref().unwrap_or(&String::from("all")),
+    app.pods.items.len()
+  );
   let block = layout_block_top_border(title.as_str());
 
   let rows = app.pods.items.iter().map(|c| {
@@ -357,4 +371,15 @@ fn draw_help_menu<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     .block(layout_block_default("Help (press <Esc> to go back)"))
     .widths(&[Constraint::Max(110)]);
   f.render_widget(help_menu, chunks[0]);
+}
+
+fn draw_error_popup<B: Backend>(f: &mut Frame<B>, app: &mut App, size: Rect) {
+  let block = Block::default().title("Error").borders(Borders::ALL);
+  let area = centered_rect(60, 20, size);
+
+  let mut text = Text::from(app.api_error.clone());
+  text.patch_style(style_failure());
+
+  let paragraph = Paragraph::new(text).style(style_primary()).block(block);
+  f.render_widget(paragraph, area);
 }

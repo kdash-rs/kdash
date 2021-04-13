@@ -4,11 +4,17 @@ use crate::event::Key;
 pub fn handle_app(key: Key, app: &mut App) {
   // First handle any global event and then move to block event
   match key {
-    Key::Esc => {
+    _ if key == DEFAULT_KEYBINDING.esc => {
       handle_escape(app);
     }
     _ if key == DEFAULT_KEYBINDING.quit => {
       app.should_quit = true;
+    }
+    _ if key == DEFAULT_KEYBINDING.toggle_theme => {
+      app.light_theme = !app.light_theme;
+    }
+    _ if key == DEFAULT_KEYBINDING.refresh => {
+      app.refresh = true;
     }
     _ if key == DEFAULT_KEYBINDING.help => {
       app.push_navigation_stack(RouteId::HelpMenu, ActiveBlock::Empty)
@@ -38,33 +44,43 @@ pub fn handle_app(key: Key, app: &mut App) {
   }
 }
 
-fn handle_table_up_down<T>(key: Key, item: &mut StatefulTable<T>) {
+fn handle_table_events<T: Clone>(key: Key, item: &mut StatefulTable<T>) -> Option<T> {
   match key {
     _ if key == DEFAULT_KEYBINDING.up => {
       item.previous();
+      None
     }
     _ if key == DEFAULT_KEYBINDING.down => {
       item.next();
+      None
     }
-    _ => {}
-  };
-}
-
-fn handle_submit(){
-    
+    _ if key == DEFAULT_KEYBINDING.submit => item.get_selected_item(),
+    _ => None,
+  }
 }
 
 // Handle event for the current active block
 fn handle_block_events(key: Key, app: &mut App) {
   match app.get_current_route().active_block {
-    ActiveBlock::Pods => handle_table_up_down(key, &mut app.pods),
-    ActiveBlock::Services => handle_table_up_down(key, &mut app.services),
-    ActiveBlock::Nodes => handle_table_up_down(key, &mut app.nodes),
+    ActiveBlock::Pods => {
+      let _pod = handle_table_events(key, &mut app.pods);
+    }
+    ActiveBlock::Services => {
+      let _svc = handle_table_events(key, &mut app.services);
+    }
+    ActiveBlock::Nodes => {
+      let _node = handle_table_events(key, &mut app.nodes);
+    }
     ActiveBlock::Namespaces => {
-        handle_table_up_down(key, &mut app.namespaces);
-        handle_submit();
-    },
-    ActiveBlock::Contexts => handle_table_up_down(key, &mut app.contexts),
+      let ns = handle_table_events(key, &mut app.namespaces);
+      match ns {
+        Some(v) => app.selected_ns = Some(v.name),
+        None => { /*Do nothing */ }
+      }
+    }
+    ActiveBlock::Contexts => {
+      let _ctx = handle_table_events(key, &mut app.contexts);
+    }
     // ActiveBlock::Dialog(_) => {
     //   dialog::handler(key, app);
     // }
@@ -90,13 +106,17 @@ fn handle_block_events(key: Key, app: &mut App) {
       // do nothing
     }
   }
+  // reset tick_count so that network requests are made faster
+  if key == DEFAULT_KEYBINDING.submit {
+    app.tick_count = 0;
+  }
 }
 
 fn handle_escape(app: &mut App) {
   match app.get_current_route().id {
-    RouteId::HelpMenu => {
-      app.route_home();
-    }
+    // RouteId::HelpMenu => {
+    //   app.route_home();
+    // }
     _ => {
       app.route_home();
     }

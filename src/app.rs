@@ -7,29 +7,33 @@ use tui::{layout::Rect, widgets::TableState};
 pub struct KeyBindings {
   pub esc: Key,
   pub quit: Key,
+  pub help: Key,
+  pub submit: Key,
   pub left: Key,
   pub right: Key,
   pub up: Key,
   pub down: Key,
+  pub refresh: Key,
+  pub toggle_theme: Key,
   pub jump_to_all_context: Key,
   pub jump_to_current_context: Key,
   pub jump_to_namespace: Key,
   pub jump_to_pods: Key,
   pub jump_to_services: Key,
   pub jump_to_nodes: Key,
-  pub help: Key,
-  pub submit: Key,
 }
 
 pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
   esc: Key::Esc,
+  quit: Key::Char('q'),
+  help: Key::Char('?'),
+  submit: Key::Enter,
   left: Key::Left,
   right: Key::Right,
   up: Key::Up,
   down: Key::Down,
-  submit: Key::Enter,
-  quit: Key::Char('q'),
-  help: Key::Char('?'),
+  refresh: Key::Ctrl('r'),
+  toggle_theme: Key::Char('t'),
   jump_to_all_context: Key::Char('a'),
   jump_to_current_context: Key::Char('c'),
   jump_to_namespace: Key::Char('n'),
@@ -51,38 +55,36 @@ impl<T> StatefulTable<T> {
     }
   }
 
-  pub fn with_items(items: Vec<T>) -> StatefulTable<T> {
-    StatefulTable {
-      state: TableState::default(),
-      items,
+  pub fn set_items(&mut self, items: Vec<T>) {
+    self.items = items;
+    if self.items.len() > 0 {
+      let i = self
+        .state
+        .selected()
+        .map_or(0, |i| if i > 0 { i } else { 0 });
+      self.state.select(Some(i));
     }
   }
 
   pub fn next(&mut self) {
-    let i = match self.state.selected() {
-      Some(i) => {
-        if i >= self.items.len() - 1 {
-          0
-        } else {
-          i + 1
-        }
+    let i = self.state.selected().map_or(0, |i| {
+      if i >= self.items.len().wrapping_sub(1) {
+        0
+      } else {
+        i + 1
       }
-      None => 0,
-    };
+    });
     self.state.select(Some(i));
   }
 
   pub fn previous(&mut self) {
-    let i = match self.state.selected() {
-      Some(i) => {
-        if i == 0 {
-          self.items.len() - 1
-        } else {
-          i - 1
-        }
+    let i = self.state.selected().map_or(0, |i| {
+      if i == 0 {
+        self.items.len().wrapping_sub(1)
+      } else {
+        i - 1
       }
-      None => 0,
-    };
+    });
     self.state.select(Some(i));
   }
 
@@ -91,10 +93,13 @@ impl<T> StatefulTable<T> {
   }
 }
 
-pub struct CLI {
-  pub name: String,
-  pub version: String,
-  pub status: bool,
+impl<T: Clone> StatefulTable<T> {
+  pub fn get_selected_item(&mut self) -> Option<T> {
+    self
+      .state
+      .selected()
+      .and_then(|i| Some(self.items[i].clone()))
+  }
 }
 
 pub struct TabsState {
@@ -126,10 +131,10 @@ impl TabsState {
     self.set_active();
   }
   pub fn set_active(&mut self) {
-    self.active_block = match &self.active_block_ids {
-      Some(ids) => Some(ids[self.index]),
-      None => None,
-    }
+    self.active_block = self
+      .active_block_ids
+      .as_ref()
+      .and_then(|ids| Some(ids[self.index]));
   }
   pub fn next(&mut self) {
     self.index = (self.index + 1) % self.titles.len();
@@ -143,6 +148,12 @@ impl TabsState {
     }
     self.set_active();
   }
+}
+
+pub struct CLI {
+  pub name: String,
+  pub version: String,
+  pub status: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -176,7 +187,7 @@ const DEFAULT_ROUTE: Route = Route {
 };
 
 // struts for kubernetes data
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 pub struct KubeContext {
   pub name: String,
   pub cluster: String,
@@ -185,6 +196,7 @@ pub struct KubeContext {
   pub is_active: bool,
 }
 
+#[derive(Clone)]
 pub struct KubeNode {
   pub name: String,
   pub status: String,
@@ -192,15 +204,19 @@ pub struct KubeNode {
   pub mem: u8,
 }
 
+#[derive(Clone)]
 pub struct KubeNs {
   pub name: String,
   pub status: String,
 }
+
+#[derive(Clone)]
 pub struct KubeSvs {
   pub name: String,
   pub type_: String,
 }
 
+#[derive(Clone)]
 pub struct KubePods {
   pub name: String,
   pub namespace: String,
@@ -214,14 +230,14 @@ pub struct KubePods {
 // main app state
 pub struct App {
   navigation_stack: Vec<Route>,
-  io_tx: Option<Sender<IoEvent>>,
+  pub io_tx: Option<Sender<IoEvent>>,
   pub title: &'static str,
   pub should_quit: bool,
   pub main_tabs: TabsState,
   pub context_tabs: TabsState,
   pub show_chart: bool,
   pub is_loading: bool,
-  pub poll_tick_count: u64,
+  pub tick_until_poll: u64,
   pub tick_count: u64,
   pub enhanced_graphics: bool,
   pub help_docs_size: u32,
@@ -233,6 +249,8 @@ pub struct App {
   pub dialog: Option<String>,
   pub confirm: bool,
   pub size: Rect,
+  pub light_theme: bool,
+  pub refresh: bool,
   pub clis: Vec<CLI>,
   pub kubeconfig: Option<Kubeconfig>,
   pub contexts: StatefulTable<KubeContext>,
@@ -241,7 +259,7 @@ pub struct App {
   pub namespaces: StatefulTable<KubeNs>,
   pub pods: StatefulTable<KubePods>,
   pub services: StatefulTable<KubeSvs>,
-
+  pub selected_ns: Option<String>,
   // TODO useless remove
   pub progress: f64,
 }
@@ -260,7 +278,9 @@ impl Default for App {
       ),
       show_chart: true,
       is_loading: false,
-      poll_tick_count: 0,
+      light_theme: false,
+      refresh: true,
+      tick_until_poll: 0,
       tick_count: 0,
       enhanced_graphics: false,
       help_docs_size: 0,
@@ -268,10 +288,10 @@ impl Default for App {
       help_menu_max_lines: 0,
       help_menu_offset: 0,
       home_scroll: 0,
-      api_error: String::new(),
       dialog: None,
       confirm: false,
       size: Rect::default(),
+      api_error: String::new(),
       clis: vec![],
       kubeconfig: None,
       contexts: StatefulTable::new(),
@@ -280,6 +300,7 @@ impl Default for App {
       namespaces: StatefulTable::new(),
       pods: StatefulTable::new(),
       services: StatefulTable::new(),
+      selected_ns: None,
       // TODO remove
       progress: 0.0,
     }
@@ -287,13 +308,27 @@ impl Default for App {
 }
 
 impl App {
-  pub fn new(io_tx: Sender<IoEvent>, enhanced_graphics: bool, poll_tick_count: u64) -> App {
+  pub fn new(io_tx: Sender<IoEvent>, enhanced_graphics: bool, tick_until_poll: u64) -> App {
     App {
       io_tx: Some(io_tx),
       enhanced_graphics,
-      poll_tick_count,
+      tick_until_poll: tick_until_poll,
       ..App::default()
     }
+  }
+
+  // TODO find a better way to do this
+  pub fn reset(&mut self) {
+    self.api_error = String::new();
+    self.clis = vec![];
+    self.kubeconfig = None;
+    self.contexts = StatefulTable::new();
+    self.active_context = None;
+    self.nodes = StatefulTable::new();
+    self.namespaces = StatefulTable::new();
+    self.pods = StatefulTable::new();
+    self.services = StatefulTable::new();
+    self.selected_ns = None;
   }
 
   // Send a network event to the network thread
@@ -314,7 +349,7 @@ impl App {
       contexts
         .iter()
         .find_map(|it| if it.is_active { Some(it.clone()) } else { None });
-    self.contexts = StatefulTable::with_items(contexts);
+    self.contexts.set_items(contexts);
   }
 
   pub fn handle_error(&mut self, e: anyhow::Error) {
@@ -375,17 +410,36 @@ impl App {
     self.push_navigation_stack(RouteId::Contexts, ActiveBlock::Contexts);
   }
 
-  pub fn on_tick(&mut self) {
+  pub fn on_tick(&mut self, first_render: bool) {
+    // Make one time requests on first render or refresh
+    if self.refresh {
+      if !first_render {
+        self.dispatch(IoEvent::RefreshClient);
+        self.route_home();
+      }
+      self.dispatch(IoEvent::GetCLIInfo);
+      self.dispatch(IoEvent::GetKubeConfig);
+    }
+    // make network requests only in intervals to avoid hogging up the network
     if self.tick_count == 0 {
       self.dispatch(IoEvent::GetNodes);
       self.dispatch(IoEvent::GetNamespaces);
       self.dispatch(IoEvent::GetPods);
       self.dispatch(IoEvent::GetServices);
-    } else if self.tick_count == self.poll_tick_count {
-      self.tick_count = 0;
     }
+
     self.tick_count += 1;
 
+    if self.tick_count > self.tick_until_poll {
+      self.tick_count = 0; // reset ticks
+    }
+
+    if self.refresh {
+      if !first_render {
+        self.route_home();
+      }
+      self.refresh = false;
+    }
     // TODO remove temp code
     self.progress += 0.001;
     if self.progress > 1.0 {

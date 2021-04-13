@@ -1,5 +1,5 @@
 // adapted from https://github.com/Rigellute/spotify-tui
-use crate::app::{self, App, KubeContext, KubeNode, KubeNs, KubePods, KubeSvs, StatefulTable};
+use crate::app::{self, App, KubeContext, KubeNode, KubeNs, KubePods, KubeSvs};
 use anyhow::anyhow;
 use duct::cmd;
 use k8s_openapi::api::core::v1::{Namespace, Node, Pod, Service};
@@ -21,6 +21,7 @@ pub enum IoEvent {
   GetNamespaces,
   GetPods,
   GetServices,
+  RefreshClient,
 }
 
 pub async fn get_client() -> kube::Result<Client> {
@@ -41,9 +42,24 @@ impl<'a> Network<'a> {
     Network { client, app }
   }
 
+  pub async fn refresh_client(&mut self) {
+    // TODO find a better way to do this
+    match get_client().await {
+      Ok(client) => {
+        self.client = client;
+        let mut app = self.app.lock().await;
+        app.reset();
+      }
+      Err(e) => self.handle_error(anyhow!(e)).await,
+    };
+  }
+
   #[allow(clippy::cognitive_complexity)]
   pub async fn handle_network_event(&mut self, io_event: IoEvent) {
     match io_event {
+      IoEvent::RefreshClient => {
+        self.refresh_client().await;
+      }
       IoEvent::GetCLIInfo => {
         self.get_cli_info().await;
       }
@@ -93,11 +109,9 @@ impl<'a> Network<'a> {
       status,
     });
 
-    let (version, status) =
-      match cmd!("docker", "version", "--format", "'{{.Client.Version}}'").read() {
-        Ok(out) => (out, true),
-        _ => (NOT_FOUND.to_string(), false),
-      };
+    let (version, status) = cmd!("docker", "version", "--format", "'{{.Client.Version}}'")
+      .read()
+      .map_or((NOT_FOUND.to_string(), false), |out| (out, true));
 
     app.clis.push(app::CLI {
       name: "docker".to_string(),
@@ -105,10 +119,9 @@ impl<'a> Network<'a> {
       status,
     });
 
-    let (version, status) = match cmd!("docker-compose", "version", "--short").read() {
-      Ok(out) => (out, true),
-      _ => (NOT_FOUND.to_string(), false),
-    };
+    let (version, status) = cmd!("docker-compose", "version", "--short")
+      .read()
+      .map_or((NOT_FOUND.to_string(), false), |out| (out, true));
 
     app.clis.push(app::CLI {
       name: "docker-compose".to_string(),
@@ -197,7 +210,7 @@ impl<'a> Network<'a> {
             }
           })
           .collect::<Vec<_>>();
-        app.nodes = StatefulTable::with_items(nodes);
+        app.nodes.set_items(nodes);
       }
       Err(e) => {
         self.handle_error(anyhow!(e)).await;
@@ -229,7 +242,7 @@ impl<'a> Network<'a> {
             }
           })
           .collect::<Vec<_>>();
-        app.namespaces = StatefulTable::with_items(nss);
+        app.namespaces.set_items(nss);
       }
       Err(e) => {
         self.handle_error(anyhow!(e)).await;
@@ -238,7 +251,13 @@ impl<'a> Network<'a> {
   }
 
   async fn get_pods(&mut self) {
-    let pods: Api<Pod> = Api::all(self.client.clone());
+    let pods: Api<Pod> = {
+      let app = self.app.lock().await;
+      match &app.selected_ns {
+        Some(ns) => Api::namespaced(self.client.clone(), &ns),
+        None => Api::all(self.client.clone()),
+      }
+    };
 
     let lp = ListParams::default();
     match pods.list(&lp).await {
@@ -266,7 +285,7 @@ impl<'a> Network<'a> {
             }
           })
           .collect::<Vec<_>>();
-        app.pods = StatefulTable::with_items(pods);
+        app.pods.set_items(pods);
       }
       Err(e) => {
         self.handle_error(anyhow!(e)).await;
@@ -298,7 +317,7 @@ impl<'a> Network<'a> {
             }
           })
           .collect::<Vec<_>>();
-        app.services = StatefulTable::with_items(svs);
+        app.services.set_items(svs);
       }
       Err(e) => {
         self.handle_error(anyhow!(e)).await;

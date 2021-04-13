@@ -169,7 +169,7 @@ async fn start_tokio<'a>(io_rx: mpsc::Receiver<IoEvent>, app: &Arc<Mutex<App>>) 
         network.handle_network_event(io_event).await;
       }
     }
-    Err(e) => panic!("Unable to obtain Kubernetes client"),
+    Err(e) => panic!("Unable to obtain Kubernetes client {}", e),
   }
 }
 
@@ -186,7 +186,6 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
   terminal.clear()?;
 
   let events = event::Events::new(cli.tick_rate);
-
   let mut is_first_render = true;
 
   loop {
@@ -194,7 +193,7 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
     // Get the size of the screen on each loop to account for resize event
     if let Ok(size) = terminal.backend().size() {
       // Reset the help menu if the terminal was resized
-      if is_first_render || app.size != size {
+      if app.refresh || app.size != size {
         app.help_menu_max_lines = 0;
         app.help_menu_offset = 0;
         app.help_menu_page = 0;
@@ -225,18 +224,11 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
         handlers::handle_app(key, &mut app)
       }
       event::Event::Tick => {
-        app.on_tick();
+        app.on_tick(is_first_render);
       }
     }
 
-    // Delay one time requests until first render, will have the effect of improving
-    // startup speed
-    if is_first_render {
-      app.dispatch(IoEvent::GetCLIInfo);
-      app.dispatch(IoEvent::GetKubeConfig);
-
-      is_first_render = false;
-    }
+    is_first_render = false;
 
     if app.should_quit {
       break;

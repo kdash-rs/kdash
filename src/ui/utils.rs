@@ -50,6 +50,12 @@ pub fn style_secondary() -> Style {
 pub fn style_secondary_bold() -> Style {
   style_secondary().add_modifier(Modifier::BOLD)
 }
+pub fn style_main_background(light: bool) -> Style {
+  match light {
+    true => Style::default().bg(Color::White).fg(Color::Magenta),
+    false => Style::default().bg(Color::Rgb(35, 50, 55)).fg(Color::White),
+  }
+}
 
 pub fn get_gauge_style(enhanced_graphics: bool) -> symbols::line::Set {
   if enhanced_graphics {
@@ -113,4 +119,32 @@ pub fn layout_block_top_border<'a>(title: &'a str) -> Block<'a> {
   Block::default()
     .borders(Borders::TOP)
     .title(title_style(title))
+}
+
+/// helper function to create a centered rect using up
+/// certain percentage of the available rect `r`
+pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+  let popup_layout = Layout::default()
+    .direction(Direction::Vertical)
+    .constraints(
+      [
+        Constraint::Percentage((100 - percent_y) / 2),
+        Constraint::Percentage(percent_y),
+        Constraint::Percentage((100 - percent_y) / 2),
+      ]
+      .as_ref(),
+    )
+    .split(r);
+
+  Layout::default()
+    .direction(Direction::Horizontal)
+    .constraints(
+      [
+        Constraint::Percentage((100 - percent_x) / 2),
+        Constraint::Percentage(percent_x),
+        Constraint::Percentage((100 - percent_x) / 2),
+      ]
+      .as_ref(),
+    )
+    .split(popup_layout[1])[1]
 }
