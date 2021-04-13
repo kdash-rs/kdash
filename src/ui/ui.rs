@@ -169,20 +169,20 @@ fn draw_context_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   f.render_widget(block, area);
 
   let text;
-  match app.active_context.clone() {
+  match &app.active_context {
     Some(active_context) => {
       text = vec![
         Spans::from(vec![
           Span::styled("Context: ", style_secondary()),
-          Span::styled(active_context.name, style_primary()),
+          Span::styled(&active_context.name, style_primary()),
         ]),
         Spans::from(vec![
           Span::styled("Cluster: ", style_secondary()),
-          Span::styled(active_context.cluster, style_primary()),
+          Span::styled(&active_context.cluster, style_primary()),
         ]),
         Spans::from(vec![
           Span::styled("User: ", style_secondary()),
-          Span::styled(active_context.user, style_primary()),
+          Span::styled(&active_context.user, style_primary()),
         ]),
       ];
     }

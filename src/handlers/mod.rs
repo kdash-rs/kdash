@@ -13,9 +13,6 @@ pub fn handle_app(key: Key, app: &mut App) {
     _ if key == DEFAULT_KEYBINDING.help => {
       app.push_navigation_stack(RouteId::HelpMenu, ActiveBlock::Empty)
     }
-    _ if key == DEFAULT_KEYBINDING.submit => {
-      // todo
-    }
     _ if key == DEFAULT_KEYBINDING.jump_to_all_context => {
       app.route_contexts();
     }
@@ -33,6 +30,10 @@ pub fn handle_app(key: Key, app: &mut App) {
       app.context_tabs.set_index(1);
       app.set_active_block(Some(ActiveBlock::Services));
     }
+    _ if key == DEFAULT_KEYBINDING.jump_to_nodes => {
+      app.context_tabs.set_index(2);
+      app.set_active_block(Some(ActiveBlock::Nodes));
+    }
     _ => handle_block_events(key, app),
   }
 }
@@ -49,13 +50,20 @@ fn handle_table_up_down<T>(key: Key, item: &mut StatefulTable<T>) {
   };
 }
 
+fn handle_submit(){
+    
+}
+
 // Handle event for the current active block
 fn handle_block_events(key: Key, app: &mut App) {
   match app.get_current_route().active_block {
     ActiveBlock::Pods => handle_table_up_down(key, &mut app.pods),
     ActiveBlock::Services => handle_table_up_down(key, &mut app.services),
     ActiveBlock::Nodes => handle_table_up_down(key, &mut app.nodes),
-    ActiveBlock::Namespaces => handle_table_up_down(key, &mut app.namespaces),
+    ActiveBlock::Namespaces => {
+        handle_table_up_down(key, &mut app.namespaces);
+        handle_submit();
+    },
     ActiveBlock::Contexts => handle_table_up_down(key, &mut app.contexts),
     // ActiveBlock::Dialog(_) => {
     //   dialog::handler(key, app);

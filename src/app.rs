@@ -16,6 +16,7 @@ pub struct KeyBindings {
   pub jump_to_namespace: Key,
   pub jump_to_pods: Key,
   pub jump_to_services: Key,
+  pub jump_to_nodes: Key,
   pub help: Key,
   pub submit: Key,
 }
@@ -34,6 +35,7 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
   jump_to_namespace: Key::Char('n'),
   jump_to_pods: Key::Char('p'),
   jump_to_services: Key::Char('s'),
+  jump_to_nodes: Key::Char('N'),
 };
 
 pub struct StatefulTable<T> {
@@ -305,6 +307,14 @@ impl App {
         // TODO: handle error
       };
     }
+  }
+
+  pub fn set_contexts(&mut self, contexts: Vec<KubeContext>) {
+    self.active_context =
+      contexts
+        .iter()
+        .find_map(|it| if it.is_active { Some(it.clone()) } else { None });
+    self.contexts = StatefulTable::with_items(contexts);
   }
 
   pub fn handle_error(&mut self, e: anyhow::Error) {

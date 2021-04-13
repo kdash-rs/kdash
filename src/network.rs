@@ -1,6 +1,5 @@
 // adapted from https://github.com/Rigellute/spotify-tui
 use crate::app::{self, App, KubeContext, KubeNode, KubeNs, KubePods, KubeSvs, StatefulTable};
-use crate::config::ClientConfig;
 use anyhow::anyhow;
 use duct::cmd;
 use k8s_openapi::api::core::v1::{Namespace, Node, Pod, Service};
@@ -31,7 +30,6 @@ pub async fn get_client() -> kube::Result<Client> {
 #[derive(Clone)]
 pub struct Network<'a> {
   pub client: Client,
-  pub client_config: ClientConfig,
   pub app: &'a Arc<Mutex<App>>,
 }
 
@@ -39,12 +37,8 @@ static UNKNOWN: &'static str = "Unknown";
 static NOT_FOUND: &'static str = "Not found";
 
 impl<'a> Network<'a> {
-  pub fn new(client: Client, client_config: ClientConfig, app: &'a Arc<Mutex<App>>) -> Self {
-    Network {
-      client,
-      client_config,
-      app,
-    }
+  pub fn new(client: Client, app: &'a Arc<Mutex<App>>) -> Self {
+    Network { client, app }
   }
 
   #[allow(clippy::cognitive_complexity)]
@@ -166,10 +160,7 @@ impl<'a> Network<'a> {
     match Kubeconfig::read() {
       Ok(config) => {
         let mut app = self.app.lock().await;
-        let contexts = get_contexts(&config);
-        let active_context = contexts.clone().into_iter().find(|it| it.is_active);
-        app.contexts = StatefulTable::with_items(contexts);
-        app.active_context = active_context;
+        app.set_contexts(get_contexts(&config));
         app.kubeconfig = Some(config);
       }
       Err(e) => {
@@ -326,12 +317,12 @@ fn get_contexts(config: &Kubeconfig) -> Vec<KubeContext> {
       cluster: it.context.cluster.clone(),
       user: it.context.user.clone(),
       namespace: it.context.namespace.clone(),
-      is_active: is_active_context(it.name.clone(), config.current_context.clone()),
+      is_active: is_active_context(&it.name, &config.current_context),
     })
     .collect::<Vec<KubeContext>>()
 }
 
-fn is_active_context(name: String, current_ctx: Option<String>) -> bool {
+fn is_active_context(name: &String, current_ctx: &Option<String>) -> bool {
   match current_ctx {
     Some(ctx) => name == ctx,
     None => false,

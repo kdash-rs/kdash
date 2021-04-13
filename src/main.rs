@@ -1,6 +1,5 @@
 mod app;
 mod banner;
-mod config;
 mod event;
 mod handlers;
 mod network;
@@ -9,7 +8,6 @@ mod ui;
 use crate::event::Key;
 use app::App;
 use banner::BANNER;
-use config::ClientConfig;
 use network::{get_client, IoEvent, Network};
 
 use anyhow::Result;
@@ -115,7 +113,7 @@ async fn main() -> Result<()> {
     poll_rate: 2000,
     enhanced_graphics: true,
   };
-  let matches = clap_app.clone().get_matches();
+  let matches = clap_app.get_matches();
 
   if let Some(tick_rate) = matches
     .value_of("tick-rate")
@@ -139,8 +137,6 @@ async fn main() -> Result<()> {
     }
   }
 
-  let client_config = ClientConfig::new();
-
   let (sync_io_tx, sync_io_rx) = std::sync::mpsc::channel::<IoEvent>();
 
   // Initialize app state
@@ -156,7 +152,7 @@ async fn main() -> Result<()> {
 
   // Launch network thread
   std::thread::spawn(move || {
-    let mut network = Network::new(client, client_config, &app);
+    let mut network = Network::new(client, &app);
     start_tokio(sync_io_rx, &mut network);
   });
   // The UI must run in the "main" thread
