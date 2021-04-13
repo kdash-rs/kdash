@@ -22,7 +22,7 @@ use crossterm::{
 use std::{
   io::{self, stdout, Stdout},
   panic::{self, PanicInfo},
-  sync::Arc,
+  sync::{mpsc, Arc},
 };
 use tokio::sync::Mutex;
 use tui::{
@@ -137,7 +137,7 @@ async fn main() -> Result<()> {
     }
   }
 
-  let (sync_io_tx, sync_io_rx) = std::sync::mpsc::channel::<IoEvent>();
+  let (sync_io_tx, sync_io_rx) = mpsc::channel::<IoEvent>();
 
   // Initialize app state
   let app = Arc::new(Mutex::new(App::new(
@@ -146,15 +146,13 @@ async fn main() -> Result<()> {
     cli.poll_rate / cli.tick_rate,
   )));
 
-  // Launch the UI (async)
   let cloned_app = Arc::clone(&app);
-  let client = get_client().await?;
 
   // Launch network thread
   std::thread::spawn(move || {
-    let mut network = Network::new(client, &app);
-    start_tokio(sync_io_rx, &mut network);
+    start_tokio(sync_io_rx, &app);
   });
+  // Launch the UI (async)
   // The UI must run in the "main" thread
   start_ui(cli, &cloned_app).await?;
 
@@ -162,9 +160,16 @@ async fn main() -> Result<()> {
 }
 
 #[tokio::main]
-async fn start_tokio<'a>(io_rx: std::sync::mpsc::Receiver<IoEvent>, network: &mut Network) {
-  while let Ok(io_event) = io_rx.recv() {
-    network.handle_network_event(io_event).await;
+async fn start_tokio<'a>(io_rx: mpsc::Receiver<IoEvent>, app: &Arc<Mutex<App>>) {
+  match get_client().await {
+    Ok(client) => {
+      let mut network = Network::new(client, app);
+
+      while let Ok(io_event) = io_rx.recv() {
+        network.handle_network_event(io_event).await;
+      }
+    }
+    Err(e) => panic!("Unable to obtain Kubernetes client"),
   }
 }
 
