@@ -80,6 +80,11 @@ pub fn get_help_docs() -> Vec<Vec<String>> {
       HContext::Overview,
     ),
     help_row(
+      DEFAULT_KEYBINDING.toggle_info,
+      "Show/Hide info bar",
+      HContext::Overview,
+    ),
+    help_row(
       DEFAULT_KEYBINDING.jump_to_namespace,
       "Select namespace block",
       HContext::Overview,

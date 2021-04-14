@@ -25,6 +25,9 @@ pub fn handle_app(key: Key, app: &mut App) {
     _ if key == DEFAULT_KEYBINDING.jump_to_current_context => {
       app.route_home();
     }
+    _ if key == DEFAULT_KEYBINDING.toggle_info => {
+      app.show_info_bar = !app.show_info_bar;
+    }
     _ if key == DEFAULT_KEYBINDING.jump_to_namespace => {
       app.set_active_block(Some(ActiveBlock::Namespaces));
     }

@@ -82,10 +82,13 @@ fn draw_header_text<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_overview<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let chunks = vertical_chunks(vec![Constraint::Length(9), Constraint::Min(10)], area);
-
-  draw_status(f, app, chunks[0]);
-  draw_active_context_tabs(f, app, chunks[1]);
+  if app.show_info_bar {
+    let chunks = vertical_chunks(vec![Constraint::Length(9), Constraint::Min(10)], area);
+    draw_status(f, app, chunks[0]);
+    draw_active_context_tabs(f, app, chunks[1]);
+  } else {
+    draw_active_context_tabs(f, app, area);
+  }
 }
 
 fn draw_status<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
