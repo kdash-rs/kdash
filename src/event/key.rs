@@ -98,7 +98,7 @@ impl fmt::Display for Key {
       Key::Char(' ') => write!(f, "<Space>"),
       Key::Alt(c) => write!(f, "<Alt+{}>", c),
       Key::Ctrl(c) => write!(f, "<Ctrl+{}>", c),
-      Key::Char(c) => write!(f, "{}", c),
+      Key::Char(c) => write!(f, "<{}>", c),
       Key::Left | Key::Right | Key::Up | Key::Down => write!(f, "<{:?} Arrow Key>", self),
       Key::Enter
       | Key::Tab

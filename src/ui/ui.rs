@@ -374,7 +374,7 @@ fn draw_help_menu<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let format_row =
     |r: Vec<String>| -> Vec<String> { vec![format!("{:50}{:40}{:20}", r[0], r[1], r[2])] };
 
-  let header = ["Description", "Event", "Context"];
+  let header = ["Key", "Action", "Context"];
   let header = format_row(header.iter().map(|s| s.to_string()).collect());
 
   let help_docs = get_help_docs();
