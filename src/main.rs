@@ -110,7 +110,7 @@ async fn main() -> Result<()> {
 
   let mut cli: Cli = Cli {
     tick_rate: 250,
-    poll_rate: 2000,
+    poll_rate: 5000, // 5 seconds
     enhanced_graphics: true,
   };
   let matches = clap_app.get_matches();

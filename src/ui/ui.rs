@@ -88,19 +88,6 @@ fn draw_overview<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   draw_active_context_tabs(f, app, chunks[1]);
 }
 
-fn draw_logo<B: Backend>(f: &mut Frame<B>, area: Rect) {
-  // Banner text with correct styling
-  let text = format!("{}\nv{} with ♥ in Rust", BANNER, env!("CARGO_PKG_VERSION"));
-  let mut text = Text::from(text);
-  text.patch_style(style_success());
-
-  // Contains the banner
-  let paragraph = Paragraph::new(text)
-    .style(style_success())
-    .block(Block::default().borders(Borders::ALL));
-  f.render_widget(paragraph, area);
-}
-
 fn draw_status<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let chunks = horizontal_chunks(
     vec![
@@ -115,7 +102,33 @@ fn draw_status<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   draw_cli_status(f, app, chunks[0]);
   draw_context_info(f, app, chunks[1]);
   draw_namespaces(f, app, chunks[2]);
-  draw_logo(f, chunks[3])
+  draw_logo(f, app, chunks[3])
+}
+
+fn loading_indicator<'a>(loading: bool) -> &'a str {
+  if loading {
+    "..."
+  } else {
+    ""
+  }
+}
+
+fn draw_logo<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  // Banner text with correct styling
+  let text = format!(
+    "{}\nv{} with ♥ in Rust {}",
+    BANNER,
+    env!("CARGO_PKG_VERSION"),
+    loading_indicator(app.is_loading)
+  );
+  let mut text = Text::from(text);
+  text.patch_style(style_success());
+
+  // Contains the banner
+  let paragraph = Paragraph::new(text)
+    .style(style_success())
+    .block(Block::default().borders(Borders::ALL));
+  f.render_widget(paragraph, area);
 }
 
 fn draw_cli_status<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {

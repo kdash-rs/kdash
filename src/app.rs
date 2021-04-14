@@ -1,4 +1,5 @@
 use crate::{event::Key, network::IoEvent};
+use anyhow::anyhow;
 use kube::config::Kubeconfig;
 use std::sync::mpsc::Sender;
 use tui::{layout::Rect, widgets::TableState};
@@ -237,6 +238,7 @@ pub struct App {
   pub context_tabs: TabsState,
   pub show_chart: bool,
   pub is_loading: bool,
+  pub is_routing: bool,
   pub tick_until_poll: u64,
   pub tick_count: u64,
   pub enhanced_graphics: bool,
@@ -278,6 +280,7 @@ impl Default for App {
       ),
       show_chart: true,
       is_loading: false,
+      is_routing: false,
       light_theme: false,
       refresh: true,
       tick_until_poll: 0,
@@ -339,7 +342,7 @@ impl App {
       if let Err(e) = io_tx.send(action) {
         self.is_loading = false;
         println!("Error from dispatch {}", e);
-        // TODO: handle error
+        self.handle_error(anyhow!(e));
       };
     }
   }
@@ -362,9 +365,11 @@ impl App {
       id: next_route_id,
       active_block: next_active_block,
     });
+    self.is_routing = true;
   }
 
   pub fn pop_navigation_stack(&mut self) -> Option<Route> {
+    self.is_routing = true;
     if self.navigation_stack.len() == 1 {
       None
     } else {
@@ -386,6 +391,7 @@ impl App {
     if let Some(active_block) = active_block {
       current_route.active_block = active_block;
     }
+    self.is_routing = true;
   }
 
   pub fn calculate_help_menu_offset(&mut self) {
@@ -415,17 +421,27 @@ impl App {
     if self.refresh {
       if !first_render {
         self.dispatch(IoEvent::RefreshClient);
-        self.route_home();
       }
       self.dispatch(IoEvent::GetCLIInfo);
       self.dispatch(IoEvent::GetKubeConfig);
     }
     // make network requests only in intervals to avoid hogging up the network
-    if self.tick_count == 0 {
-      self.dispatch(IoEvent::GetNodes);
-      self.dispatch(IoEvent::GetNamespaces);
-      self.dispatch(IoEvent::GetPods);
-      self.dispatch(IoEvent::GetServices);
+    if self.tick_count == 0 || self.is_routing {
+      // make network calls based on active route and active block
+      match self.get_current_route().id {
+        RouteId::Home => {
+          self.dispatch(IoEvent::GetNamespaces);
+
+          match self.get_current_route().active_block {
+            ActiveBlock::Pods => self.dispatch(IoEvent::GetPods),
+            ActiveBlock::Services => self.dispatch(IoEvent::GetServices),
+            ActiveBlock::Nodes => self.dispatch(IoEvent::GetNodes),
+            _ => {}
+          }
+        }
+        _ => {}
+      }
+      self.is_routing = false;
     }
 
     self.tick_count += 1;
@@ -434,6 +450,7 @@ impl App {
       self.tick_count = 0; // reset ticks
     }
 
+    // route to home after all network requests to avoid showing error again
     if self.refresh {
       if !first_render {
         self.route_home();
