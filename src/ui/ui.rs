@@ -68,10 +68,10 @@ fn draw_app_header<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 fn draw_header_text<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let text = match app.get_current_route().id {
     RouteId::Contexts => vec![Spans::from(
-      "<up|down>: scroll context | <enter>: change context | <?> more help",
+      "<up|down>: scroll context | <enter>: select context | <?> more help",
     )],
     _ => vec![Spans::from(
-      "<left|right>: switch resource tabs | <up|down>: scroll selected block | <?> more help",
+      "<left|right>: switch resource tabs | <char> select block | <up|down>: scroll | <enter>: select | <?> more help",
     )],
   };
   let paragraph = Paragraph::new(text)
@@ -105,14 +105,6 @@ fn draw_status<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   draw_logo(f, app, chunks[3])
 }
 
-fn loading_indicator<'a>(loading: bool) -> &'a str {
-  if loading {
-    "..."
-  } else {
-    ""
-  }
-}
-
 fn draw_logo<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   // Banner text with correct styling
   let text = format!(
@@ -129,6 +121,14 @@ fn draw_logo<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     .style(style_success())
     .block(Block::default().borders(Borders::ALL));
   f.render_widget(paragraph, area);
+}
+
+fn loading_indicator<'a>(loading: bool) -> &'a str {
+  if loading {
+    "..."
+  } else {
+    ""
+  }
 }
 
 fn draw_cli_status<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
@@ -254,25 +254,6 @@ fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   f.render_stateful_widget(table, area, &mut app.namespaces.state);
 }
 
-fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let block = layout_block_top_border("Nodes");
-
-  let rows = app
-    .nodes
-    .items
-    .iter()
-    .map(|c| Row::new(vec![c.name.as_ref(), c.status.as_ref()]).style(style_primary()));
-
-  let table = Table::new(rows)
-    .header(table_header_style(vec!["Name", "Status"]))
-    .block(block)
-    .highlight_style(style_highlight())
-    .highlight_symbol(HIGHLIGHT)
-    .widths(&[Constraint::Percentage(85), Constraint::Percentage(15)]);
-
-  f.render_stateful_widget(table, area, &mut app.nodes.state);
-}
-
 fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = format!(
     "Pods ({}) [{}]",
@@ -314,8 +295,33 @@ fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   f.render_stateful_widget(table, area, &mut app.pods.state);
 }
 
+fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let title = format!("Nodes [{}]", app.nodes.items.len());
+  let block = layout_block_top_border(title.as_str());
+
+  let rows = app
+    .nodes
+    .items
+    .iter()
+    .map(|c| Row::new(vec![c.name.as_ref(), c.status.as_ref()]).style(style_primary()));
+
+  let table = Table::new(rows)
+    .header(table_header_style(vec!["Name", "Status"]))
+    .block(block)
+    .highlight_style(style_highlight())
+    .highlight_symbol(HIGHLIGHT)
+    .widths(&[Constraint::Percentage(85), Constraint::Percentage(15)]);
+
+  f.render_stateful_widget(table, area, &mut app.nodes.state);
+}
+
 fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let block = layout_block_top_border("Services (ns: all)");
+  let title = format!(
+    "Services ({}) [{}]",
+    app.selected_ns.as_ref().unwrap_or(&String::from("all")),
+    app.services.items.len()
+  );
+  let block = layout_block_top_border(title.as_str());
 
   let rows = app
     .services
@@ -334,6 +340,9 @@ fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_contexts<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let title = format!("Contexts [{}]", app.contexts.items.len());
+  let block = layout_block_default(title.as_str());
+
   let rows = app.contexts.items.iter().map(|c| {
     let style = if c.is_active == true {
       style_success()
@@ -345,7 +354,7 @@ fn draw_contexts<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 
   let table = Table::new(rows)
     .header(table_header_style(vec!["Context", "Cluster", "User"]))
-    .block(layout_block_default("Contexts"))
+    .block(block)
     .widths(&[
       Constraint::Percentage(34),
       Constraint::Percentage(33),
