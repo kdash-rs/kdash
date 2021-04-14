@@ -1,7 +1,7 @@
 use crate::{event::Key, network::IoEvent};
 use anyhow::anyhow;
 use kube::config::Kubeconfig;
-use std::sync::mpsc::Sender;
+use std::{sync::mpsc::Sender, u64};
 use tui::{layout::Rect, widgets::TableState};
 
 #[derive(Clone)]
@@ -203,8 +203,12 @@ pub struct KubeContext {
 pub struct KubeNode {
   pub name: String,
   pub status: String,
-  pub cpu: u8,
-  pub mem: u8,
+  pub role: String,
+  pub version: String,
+  pub pods: i32,
+  pub cpu: i64,
+  pub mem: i64,
+  pub age: String,
 }
 
 #[derive(Clone)]
@@ -273,7 +277,7 @@ impl Default for App {
     App {
       navigation_stack: vec![DEFAULT_ROUTE],
       io_tx: None,
-      title: " KDash - The only Kubernetes dashboard you will ever need! ",
+      title: " KDash - A simple Kubernetes dashboard ",
       should_quit: false,
       main_tabs: TabsState::new(vec!["Active Context <a>", "All Contexts <c>"]),
       context_tabs: TabsState::with_active_blocks(
@@ -419,6 +423,8 @@ impl App {
   }
 
   pub fn on_tick(&mut self, first_render: bool) {
+    // TODO temp
+    self.dispatch(IoEvent::GetNodes);
     // Make one time requests on first render or refresh
     if self.refresh {
       if !first_render {

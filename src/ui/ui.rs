@@ -302,18 +302,38 @@ fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = format!("Nodes [{}]", app.nodes.items.len());
   let block = layout_block_top_border(title.as_str());
 
-  let rows = app
-    .nodes
-    .items
-    .iter()
-    .map(|c| Row::new(vec![c.name.as_ref(), c.status.as_ref()]).style(style_primary()));
+  let rows = app.nodes.items.iter().map(|c| {
+    let pods = c.pods.to_string();
+    let cpu = c.cpu.to_string();
+    let mem = c.mem.to_string();
+    Row::new(vec![
+      c.name.clone(),
+      c.status.clone(),
+      c.version.clone(),
+      pods,
+      cpu,
+      mem,
+      c.age.clone(),
+    ])
+    .style(style_primary())
+  });
 
   let table = Table::new(rows)
-    .header(table_header_style(vec!["Name", "Status"]))
+    .header(table_header_style(vec![
+      "Name", "Status", "Version", "Pods", "CPU", "Mem", "Age",
+    ]))
     .block(block)
     .highlight_style(style_highlight())
     .highlight_symbol(HIGHLIGHT)
-    .widths(&[Constraint::Percentage(85), Constraint::Percentage(15)]);
+    .widths(&[
+      Constraint::Percentage(50),
+      Constraint::Percentage(15),
+      Constraint::Percentage(10),
+      Constraint::Percentage(5),
+      Constraint::Percentage(5),
+      Constraint::Percentage(5),
+      Constraint::Percentage(10),
+    ]);
 
   f.render_stateful_widget(table, area, &mut app.nodes.state);
 }
