@@ -19,10 +19,6 @@ pub fn title_style_secondary<'a>(txt: &'a str) -> Span<'a> {
   Span::styled(txt, style_secondary_bold())
 }
 
-pub fn title_style_success<'a>(txt: &'a str) -> Span<'a> {
-  Span::styled(txt, style_success().add_modifier(Modifier::BOLD))
-}
-
 pub fn style_bold() -> Style {
   Style::default().add_modifier(Modifier::BOLD)
 }

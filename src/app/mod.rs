@@ -61,8 +61,8 @@ pub struct KubeNode {
   pub role: String,
   pub version: String,
   pub pods: i32,
-  pub cpu: i64,
-  pub mem: i64,
+  pub cpu: String,
+  pub mem: String,
   pub age: String,
 }
 
