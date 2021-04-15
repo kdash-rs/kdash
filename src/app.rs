@@ -423,8 +423,6 @@ impl App {
   }
 
   pub fn on_tick(&mut self, first_render: bool) {
-    // TODO temp
-    self.dispatch(IoEvent::GetNodes);
     // Make one time requests on first render or refresh
     if self.refresh {
       if !first_render {

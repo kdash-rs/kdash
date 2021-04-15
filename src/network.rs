@@ -270,6 +270,7 @@ impl<'a> Network<'a> {
     }
   }
 
+  // TODO find a way to do this as the kube-rs lib doesn't support metrics yet
   //   async fn get_node_metrics(&mut self) {
   //     let m: Api<ResourceMetricSource> = Api::all(self.client.clone());
   //     let lp = ListParams::default();
