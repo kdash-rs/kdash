@@ -1,5 +1,5 @@
+use crate::app::models::DEFAULT_KEYBINDING;
 use crate::app::App;
-use crate::app::DEFAULT_KEYBINDING;
 use crate::event::Key;
 use std::fmt;
 use tui::{

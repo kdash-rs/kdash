@@ -1,4 +1,7 @@
-use crate::app::{ActiveBlock, App, RouteId, StatefulTable, DEFAULT_KEYBINDING};
+use crate::app::{
+  models::{StatefulTable, DEFAULT_KEYBINDING},
+  ActiveBlock, App, RouteId,
+};
 use crate::event::Key;
 
 pub fn handle_app(key: Key, app: &mut App) {
