@@ -172,7 +172,7 @@ impl Default for App {
 }
 
 impl App {
-  pub fn new(io_tx: Sender<IoEvent>, enhanced_graphics: bool, tick_until_poll: u64) -> App {
+  pub fn new(io_tx: Sender<IoEvent>, enhanced_graphics: bool, tick_until_poll: u64) -> Self {
     App {
       io_tx: Some(io_tx),
       enhanced_graphics,

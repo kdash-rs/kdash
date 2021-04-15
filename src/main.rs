@@ -1,5 +1,6 @@
 mod app;
 mod banner;
+mod cli;
 mod event;
 mod handlers;
 mod network;
@@ -7,12 +8,11 @@ mod ui;
 
 use crate::event::Key;
 use app::App;
-use banner::BANNER;
+use cli::Cli;
 use network::{get_client, IoEvent, Network};
 
 use anyhow::Result;
 use backtrace::Backtrace;
-use clap::{App as ClapApp, Arg};
 use crossterm::{
   event::{DisableMouseCapture, EnableMouseCapture},
   execute,
@@ -29,17 +29,6 @@ use tui::{
   backend::{Backend, CrosstermBackend},
   Terminal,
 };
-
-/// kdash CLI
-#[derive(Debug)]
-struct Cli {
-  /// time in ms between two ticks.
-  tick_rate: u64,
-  /// time in ms between two network calls.
-  poll_rate: u64,
-  /// whether unicode symbols are used to improve the overall look of the app
-  enhanced_graphics: bool,
-}
 
 // shutdown the CLI and show terminal
 fn shutdown(mut terminal: Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
@@ -87,32 +76,8 @@ async fn main() -> Result<()> {
     panic_hook(info);
   }));
 
-  let clap_app = ClapApp::new(env!("CARGO_PKG_NAME"))
-    .version(env!("CARGO_PKG_VERSION"))
-    .author(env!("CARGO_PKG_AUTHORS"))
-    .about(env!("CARGO_PKG_DESCRIPTION"))
-    .usage("Press `?` while running the app to see keybindings")
-    .before_help(BANNER)
-    .arg(
-      Arg::with_name("tick-rate")
-        .short("t")
-        .long("tick-rate")
-        .help("Set the tick rate (milliseconds): the lower the number the higher the FPS.")
-        .takes_value(true),
-    )
-    .arg(
-      Arg::with_name("poll-rate")
-        .short("p")
-        .long("poll-rate")
-        .help("Set the network call polling rate (milliseconds, should be multiples of tick-rate): the lower the number the higher the network calls.")
-        .takes_value(true),
-    );
-
-  let mut cli: Cli = Cli {
-    tick_rate: 250,
-    poll_rate: 5000, // 5 seconds
-    enhanced_graphics: true,
-  };
+  let mut cli: Cli = Cli::new();
+  let clap_app = cli.get_clap_app();
   let matches = clap_app.get_matches();
 
   if let Some(tick_rate) = matches
