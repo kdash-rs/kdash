@@ -23,6 +23,10 @@ pub struct KeyBindings {
   pub jump_to_pods: Key,
   pub jump_to_services: Key,
   pub jump_to_nodes: Key,
+  pub jump_to_deployments: Key,
+  pub jump_to_configmaps: Key,
+  pub jump_to_statefulsets: Key,
+  pub jump_to_replicasets: Key,
 }
 
 pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
@@ -43,6 +47,10 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
   jump_to_pods: Key::Char('p'),
   jump_to_services: Key::Char('s'),
   jump_to_nodes: Key::Char('N'),
+  jump_to_deployments: Key::Char('D'),
+  jump_to_configmaps: Key::Char('C'),
+  jump_to_statefulsets: Key::Char('S'),
+  jump_to_replicasets: Key::Char('R'),
 };
 
 pub struct StatefulTable<T> {

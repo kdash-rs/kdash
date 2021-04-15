@@ -46,6 +46,22 @@ pub fn handle_app(key: Key, app: &mut App) {
       app.context_tabs.set_index(2);
       app.set_active_block(Some(ActiveBlock::Nodes));
     }
+    _ if key == DEFAULT_KEYBINDING.jump_to_deployments => {
+      app.context_tabs.set_index(3);
+      app.set_active_block(Some(ActiveBlock::Deployments));
+    }
+    _ if key == DEFAULT_KEYBINDING.jump_to_configmaps => {
+      app.context_tabs.set_index(4);
+      app.set_active_block(Some(ActiveBlock::ConfigMaps));
+    }
+    _ if key == DEFAULT_KEYBINDING.jump_to_statefulsets => {
+      app.context_tabs.set_index(5);
+      app.set_active_block(Some(ActiveBlock::StatefulSets));
+    }
+    _ if key == DEFAULT_KEYBINDING.jump_to_replicasets => {
+      app.context_tabs.set_index(6);
+      app.set_active_block(Some(ActiveBlock::ReplicaSets));
+    }
     _ => handle_block_events(key, app),
   }
 }
