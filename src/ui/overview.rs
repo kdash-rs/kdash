@@ -223,11 +223,12 @@ fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 
   let rows = app.pods.items.iter().map(|c| {
     Row::new(vec![
-      c.namespace.as_ref(),
-      c.name.as_ref(),
-      c.ready.as_ref(),
-      c.status.as_ref(),
-      "",
+      c.namespace.clone(),
+      c.name.clone(),
+      c.ready.clone(),
+      c.status.clone(),
+      c.restarts.to_string(),
+      c.age.clone(),
     ])
     .style(style_primary())
   });
@@ -239,13 +240,15 @@ fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
       "Ready",
       "Status",
       "Restarts",
+      "Age",
     ]))
     .block(block)
     .highlight_style(style_highlight())
     .highlight_symbol(HIGHLIGHT)
     .widths(&[
-      Constraint::Percentage(30),
-      Constraint::Percentage(40),
+      Constraint::Percentage(25),
+      Constraint::Percentage(35),
+      Constraint::Percentage(10),
       Constraint::Percentage(10),
       Constraint::Percentage(10),
       Constraint::Percentage(10),

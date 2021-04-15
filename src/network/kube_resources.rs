@@ -26,7 +26,7 @@ impl<'a> Network<'a> {
     }
   }
 
-  // ideally should be done using API but the kube-rs crate doesn't support metrics yet so this is a temperory work around and is definitely the worst way to do this as top command cannot output json or yaml
+  // ideally should be done using API but the kube-rs crate doesn't support metrics yet so this is a temporary and dirty work around and is definitely the worst way to do this (yes, I almost cried doing this) as top command cannot output json or yaml
   pub async fn get_top_node(&mut self) {
     match cmd!("kubectl", "top", "node").read() {
       Ok(out) => {
@@ -229,30 +229,59 @@ impl<'a> Network<'a> {
     let lp = ListParams::default();
     match pods.list(&lp).await {
       Ok(pod_list) => {
-        let pods = pod_list
+        let render_pods = pod_list
           .iter()
-          .map(|it| {
-            let status = match &it.status {
-              Some(stat) => match &stat.phase {
-                Some(phase) => phase.clone(),
-                _ => UNKNOWN.to_string(),
-              },
-              _ => UNKNOWN.to_string(),
+          .map(|pod| {
+            let (status, cr, restarts, c_stats_len) = match &pod.status {
+              Some(stat) => {
+                let (mut cr, mut rc) = (0, 0);
+                let c_stats_len = match stat.container_statuses.as_ref() {
+                  Some(c_stats) => {
+                    c_stats.iter().for_each(|cs| {
+                      if cs.ready {
+                        cr += 1;
+                      }
+                      rc += cs.restart_count;
+                    });
+                    c_stats.len()
+                  }
+                  None => 0,
+                };
+                let status = match &stat.phase {
+                  Some(phase) => phase.clone(),
+                  _ => UNKNOWN.to_string(),
+                };
+                let status = match &stat.reason {
+                  Some(r) => {
+                    if r == "NodeLost" && pod.metadata.deletion_timestamp.is_some() {
+                      "Unknown".to_string()
+                    } else {
+                      status
+                    }
+                  }
+                  None => status,
+                };
+                // TODO handle more status possibilities from init-containers and containers
+
+                (status, cr, rc, c_stats_len)
+              }
+              _ => (UNKNOWN.to_string(), 0, 0, 0),
             };
 
             KubePods {
-              name: it.name(),
-              namespace: it.namespace().unwrap_or("".to_string()),
-              ready: "".to_string(),
-              restarts: 0,
+              namespace: pod.namespace().unwrap_or("".to_string()),
+              name: pod.name(),
+              ready: format!("{}/{}", cr, c_stats_len),
+              restarts,
               cpu: "".to_string(),
               mem: "".to_string(),
               status,
+              age: to_age(pod.metadata.creation_timestamp.as_ref(), Utc::now()),
             }
           })
           .collect::<Vec<_>>();
         let mut app = self.app.lock().await;
-        app.pods.set_items(pods);
+        app.pods.set_items(render_pods);
       }
       Err(e) => {
         self.handle_error(anyhow!(e)).await;

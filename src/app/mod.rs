@@ -97,13 +97,14 @@ pub struct KubeSvs {
 
 #[derive(Clone)]
 pub struct KubePods {
-  pub name: String,
   pub namespace: String,
+  pub name: String,
   pub ready: String,
-  pub restarts: u8,
   pub status: String,
+  pub restarts: i32,
   pub cpu: String,
   pub mem: String,
+  pub age: String,
 }
 
 // main app state
