@@ -1,4 +1,11 @@
+use super::utils::{
+  get_gauge_style, horizontal_chunks, layout_block_default, layout_block_top_border, style_failure,
+  style_highlight, style_primary, style_secondary, style_success, table_header_style,
+  title_style_secondary, vertical_chunks, vertical_chunks_with_margin,
+};
+use super::HIGHLIGHT;
 use crate::app::App;
+use crate::banner::BANNER;
 use tui::{
   backend::Backend,
   layout::{Constraint, Rect},
@@ -6,15 +13,6 @@ use tui::{
   widgets::{Block, Borders, LineGauge, Paragraph, Row, Table, Tabs},
   Frame,
 };
-
-use super::utils::{
-  get_gauge_style, horizontal_chunks, layout_block_default, layout_block_top_border, style_failure,
-  style_highlight, style_primary, style_secondary, style_success, table_header_style,
-  title_style_secondary, vertical_chunks, vertical_chunks_with_margin,
-};
-use crate::banner::BANNER;
-
-static HIGHLIGHT: &'static str = "=> ";
 
 pub fn draw_overview<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   if app.show_info_bar {

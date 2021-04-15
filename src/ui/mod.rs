@@ -21,6 +21,8 @@ use utils::{
   vertical_chunks,
 };
 
+static HIGHLIGHT: &'static str = "=> ";
+
 pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
   let block = Block::default().style(style_main_background(app.light_theme));
   f.render_widget(block, f.size());

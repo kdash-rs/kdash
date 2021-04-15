@@ -1,3 +1,4 @@
+use super::HIGHLIGHT;
 use crate::app::App;
 use tui::{
   backend::Backend,
@@ -9,8 +10,6 @@ use tui::{
 use super::utils::{
   layout_block_default, style_highlight, style_primary, style_success, table_header_style,
 };
-
-static HIGHLIGHT: &'static str = "=> ";
 
 pub fn draw_contexts<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = format!("Contexts [{}]", app.contexts.items.len());

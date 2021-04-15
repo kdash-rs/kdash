@@ -15,7 +15,6 @@ use super::utils::{layout_block_default, style_primary, style_secondary, vertica
 enum HContext {
   General,
   Overview,
-  Contexts,
 }
 
 impl fmt::Display for HContext {
