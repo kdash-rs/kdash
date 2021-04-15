@@ -1,87 +1,22 @@
-use crate::app::{App, RouteId};
+use crate::app::App;
 use tui::{
   backend::Backend,
   layout::{Constraint, Rect},
   text::{Span, Spans, Text},
-  widgets::{Block, Borders, LineGauge, Paragraph, Row, Table, Tabs, Wrap},
+  widgets::{Block, Borders, LineGauge, Paragraph, Row, Table, Tabs},
   Frame,
 };
 
-use super::get_help_docs;
 use super::utils::{
-  centered_rect, get_gauge_style, horizontal_chunks, horizontal_chunks_with_margin, layout_block,
-  layout_block_default, layout_block_top_border, style_failure, style_help, style_highlight,
-  style_main_background, style_primary, style_secondary, style_success, table_header_style,
-  title_style_primary, title_style_secondary, vertical_chunks, vertical_chunks_with_margin,
+  get_gauge_style, horizontal_chunks, layout_block_default, layout_block_top_border, style_failure,
+  style_highlight, style_primary, style_secondary, style_success, table_header_style,
+  title_style_secondary, vertical_chunks, vertical_chunks_with_margin,
 };
 use crate::banner::BANNER;
 
 static HIGHLIGHT: &'static str = "=> ";
 
-pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
-  let block = Block::default().style(style_main_background(app.light_theme));
-  f.render_widget(block, f.size());
-  let chunks = vertical_chunks(vec![Constraint::Length(3), Constraint::Min(0)], f.size());
-
-  // draw header and logo
-  draw_app_header(f, app, chunks[0]);
-
-  match app.get_current_route().id {
-    RouteId::HelpMenu => {
-      draw_help_menu(f, app, chunks[1]);
-    }
-    RouteId::Error => {
-      if app.api_error.is_empty() {
-        draw_overview(f, app, chunks[1]);
-      } else {
-        draw_error_popup(f, app, chunks[1]);
-      }
-    }
-    RouteId::Contexts => {
-      draw_contexts(f, app, chunks[1]);
-    }
-    _ => {
-      draw_overview(f, app, chunks[1]);
-    }
-  }
-}
-
-fn draw_app_header<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let chunks =
-    horizontal_chunks_with_margin(vec![Constraint::Length(75), Constraint::Min(0)], area, 1);
-
-  let titles = app
-    .main_tabs
-    .titles
-    .iter()
-    .map(|t| Spans::from(Span::styled(*t, style_success())))
-    .collect();
-  let tabs = Tabs::new(titles)
-    .block(layout_block(title_style_primary(app.title)))
-    .highlight_style(style_secondary())
-    .select(app.main_tabs.index);
-
-  f.render_widget(tabs, area);
-  draw_header_text(f, app, chunks[1]);
-}
-
-fn draw_header_text<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let text = match app.get_current_route().id {
-    RouteId::Contexts => vec![Spans::from(
-      "<up|down>: scroll context | <enter>: select context | <?> more help",
-    )],
-    _ => vec![Spans::from(
-      "<left|right>: switch resource tabs | <char> select block | <up|down>: scroll | <enter>: select | <?> more help",
-    )],
-  };
-  let paragraph = Paragraph::new(text)
-    .style(style_help())
-    .block(Block::default())
-    .wrap(Wrap { trim: true });
-  f.render_widget(paragraph, area);
-}
-
-fn draw_overview<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+pub fn draw_overview<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   if app.show_info_bar {
     let chunks = vertical_chunks(vec![Constraint::Length(9), Constraint::Min(10)], area);
     draw_status(f, app, chunks[0]);
@@ -360,71 +295,4 @@ fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     .widths(&[Constraint::Percentage(85), Constraint::Percentage(15)]);
 
   f.render_stateful_widget(table, area, &mut app.services.state);
-}
-
-fn draw_contexts<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = format!("Contexts [{}]", app.contexts.items.len());
-  let block = layout_block_default(title.as_str());
-
-  let rows = app.contexts.items.iter().map(|c| {
-    let style = if c.is_active == true {
-      style_success()
-    } else {
-      style_primary()
-    };
-    Row::new(vec![c.name.as_ref(), c.cluster.as_ref(), c.user.as_ref()]).style(style)
-  });
-
-  let table = Table::new(rows)
-    .header(table_header_style(vec!["Context", "Cluster", "User"]))
-    .block(block)
-    .widths(&[
-      Constraint::Percentage(34),
-      Constraint::Percentage(33),
-      Constraint::Percentage(33),
-    ])
-    .highlight_style(style_highlight())
-    .highlight_symbol(HIGHLIGHT);
-
-  f.render_stateful_widget(table, area, &mut app.contexts.state);
-}
-
-fn draw_help_menu<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let chunks = vertical_chunks(vec![Constraint::Percentage(100)], area);
-
-  // Create a one-column table to avoid flickering due to non-determinism when
-  // resolving constraints on widths of table columns.
-  let format_row =
-    |r: Vec<String>| -> Vec<String> { vec![format!("{:50}{:40}{:20}", r[0], r[1], r[2])] };
-
-  let header = ["Key", "Action", "Context"];
-  let header = format_row(header.iter().map(|s| s.to_string()).collect());
-
-  let help_docs = get_help_docs();
-  let help_docs = help_docs
-    .into_iter()
-    .map(format_row)
-    .collect::<Vec<Vec<String>>>();
-  let help_docs = &help_docs[app.help_menu_offset as usize..];
-
-  let rows = help_docs
-    .iter()
-    .map(|item| Row::new(item.clone()).style(style_primary()));
-
-  let help_menu = Table::new(rows)
-    .header(Row::new(header).style(style_secondary()).bottom_margin(0))
-    .block(layout_block_default("Help (press <Esc> to go back)"))
-    .widths(&[Constraint::Max(110)]);
-  f.render_widget(help_menu, chunks[0]);
-}
-
-fn draw_error_popup<B: Backend>(f: &mut Frame<B>, app: &mut App, size: Rect) {
-  let block = Block::default().title("Error").borders(Borders::ALL);
-  let area = centered_rect(60, 20, size);
-
-  let mut text = Text::from(app.api_error.clone());
-  text.patch_style(style_failure());
-
-  let paragraph = Paragraph::new(text).style(style_primary()).block(block);
-  f.render_widget(paragraph, area);
 }

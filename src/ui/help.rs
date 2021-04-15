@@ -1,6 +1,15 @@
+use crate::app::App;
 use crate::app::DEFAULT_KEYBINDING;
 use crate::event::Key;
 use std::fmt;
+use tui::{
+  backend::Backend,
+  layout::{Constraint, Rect},
+  widgets::{Row, Table},
+  Frame,
+};
+
+use super::utils::{layout_block_default, style_primary, style_secondary, vertical_chunks};
 
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Debug)]
 enum HContext {
@@ -17,11 +26,36 @@ impl fmt::Display for HContext {
   }
 }
 
-fn help_row(key: Key, desc: &str, context: HContext) -> Vec<String> {
-  vec![key.to_string(), String::from(desc), context.to_string()]
+pub fn draw_help_menu<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let chunks = vertical_chunks(vec![Constraint::Percentage(100)], area);
+
+  // Create a one-column table to avoid flickering due to non-determinism when
+  // resolving constraints on widths of table columns.
+  let format_row =
+    |r: Vec<String>| -> Vec<String> { vec![format!("{:50}{:40}{:20}", r[0], r[1], r[2])] };
+
+  let header = ["Key", "Action", "Context"];
+  let header = format_row(header.iter().map(|s| s.to_string()).collect());
+
+  let help_docs = get_help_docs();
+  let help_docs = help_docs
+    .into_iter()
+    .map(format_row)
+    .collect::<Vec<Vec<String>>>();
+  let help_docs = &help_docs[app.help_menu_offset as usize..];
+
+  let rows = help_docs
+    .iter()
+    .map(|item| Row::new(item.clone()).style(style_primary()));
+
+  let help_menu = Table::new(rows)
+    .header(Row::new(header).style(style_secondary()).bottom_margin(0))
+    .block(layout_block_default("Help (press <Esc> to go back)"))
+    .widths(&[Constraint::Max(110)]);
+  f.render_widget(help_menu, chunks[0]);
 }
 
-pub fn get_help_docs() -> Vec<Vec<String>> {
+fn get_help_docs() -> Vec<Vec<String>> {
   vec![
     help_row(
       DEFAULT_KEYBINDING.esc,
@@ -105,4 +139,8 @@ pub fn get_help_docs() -> Vec<Vec<String>> {
       HContext::Overview,
     ),
   ]
+}
+
+fn help_row(key: Key, desc: &str, context: HContext) -> Vec<String> {
+  vec![key.to_string(), String::from(desc), context.to_string()]
 }
