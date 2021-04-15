@@ -1,11 +1,9 @@
 use super::{
-  app::{self, KubeContext, CLI},
+  app::{self, CLI},
   Network, NOT_FOUND,
 };
-use anyhow::anyhow;
 use duct::cmd;
 
-use kube::config::Kubeconfig;
 use regex::Regex;
 use serde_json::Value as JValue;
 
@@ -92,44 +90,11 @@ impl<'a> Network<'a> {
     let mut app = self.app.lock().await;
     app.clis = clis;
   }
-
-  pub async fn get_kube_config(&mut self) {
-    match Kubeconfig::read() {
-      Ok(config) => {
-        let mut app = self.app.lock().await;
-        app.set_contexts(get_contexts(&config));
-        app.kubeconfig = Some(config);
-      }
-      Err(e) => {
-        self.handle_error(anyhow!(e)).await;
-      }
-    }
-  }
 }
 
 // utils
-fn get_contexts(config: &Kubeconfig) -> Vec<KubeContext> {
-  config
-    .contexts
-    .iter()
-    .map(|it| KubeContext {
-      name: it.name.clone(),
-      cluster: it.context.cluster.clone(),
-      user: it.context.user.clone(),
-      namespace: it.context.namespace.clone(),
-      is_active: is_active_context(&it.name, &config.current_context),
-    })
-    .collect::<Vec<KubeContext>>()
-}
 
-fn is_active_context(name: &String, current_ctx: &Option<String>) -> bool {
-  match current_ctx {
-    Some(ctx) => name == ctx,
-    None => false,
-  }
-}
-
-// execute a command and get info from it using regex
+/// execute a command and get info from it using regex
 fn get_info_by_regex(command: &str, args: &[&str], regex: &str, default: String) -> (String, bool) {
   match cmd(command, args).read() {
     Ok(out) => match Regex::new(regex) {

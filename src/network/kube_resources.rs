@@ -1,17 +1,74 @@
-use crate::app::{KubeNode, KubeNs, KubePods, KubeSvs};
+use crate::app::{KubeContext, KubeNode, KubeNs, KubePods, KubeSvs, NodeMetrics};
 use anyhow::anyhow;
+use duct::cmd;
 use k8s_openapi::{
   api::core::v1::{Namespace, Node, Pod, Service},
   apimachinery::pkg::apis::meta::v1::Time,
   chrono::{DateTime, Utc},
 };
-use kube::{api::ListParams, Api, Resource};
+use kube::{api::ListParams, config::Kubeconfig, Api, Resource};
 
 use super::{Network, UNKNOWN};
 
 static EMPTY_STR: &'static str = "";
 
 impl<'a> Network<'a> {
+  pub async fn get_kube_config(&mut self) {
+    match Kubeconfig::read() {
+      Ok(config) => {
+        let mut app = self.app.lock().await;
+        app.set_contexts(get_contexts(&config));
+        app.kubeconfig = Some(config);
+      }
+      Err(e) => {
+        self.handle_error(anyhow!(e)).await;
+      }
+    }
+  }
+
+  // ideally should be done using API but the kube-rs crate doesn't support metrics yet so this is a temperory work around and is definitely the worst way to do this as top command cannot output json or yaml
+  pub async fn get_top_node(&mut self) {
+    match cmd!("kubectl", "top", "node").read() {
+      Ok(out) => {
+        // the output would be a table so lets try to split into rows
+        let rows: Vec<&str> = out.split('\n').collect();
+        // lets discard first row as its header and any empty rows
+        let rows: Vec<NodeMetrics> = rows
+          .iter()
+          .filter_map(|v| {
+            if !v.trim().is_empty() && !v.trim().starts_with("NAME") {
+              let cols: Vec<&str> = v.trim().split(' ').collect();
+              let cols: Vec<&str> = cols
+                .iter()
+                .filter_map(|c| {
+                  if !c.trim().is_empty() {
+                    Some(c.trim())
+                  } else {
+                    None
+                  }
+                })
+                .collect();
+              Some(NodeMetrics {
+                name: cols[0].to_string(),
+                cpu: cols[1].to_string(),
+                cpu_percent: cols[2].to_string(),
+                mem: cols[3].to_string(),
+                mem_percent: cols[4].to_string(),
+                cpu_percent_i: convert_to_f64(cols[2].trim_end_matches('%')),
+                mem_percent_i: convert_to_f64(cols[4].trim_end_matches('%')),
+              })
+            } else {
+              None
+            }
+          })
+          .collect();
+        let mut app = self.app.lock().await;
+        app.node_metrics = rows;
+      }
+      _ => {}
+    };
+  }
+
   pub async fn get_nodes(&mut self) {
     let nodes: Api<Node> = Api::all(self.client.clone());
     let node_label_prefix = "node-role.kubernetes.io/";
@@ -19,9 +76,12 @@ impl<'a> Network<'a> {
     let none_role = "<none>";
     let lp = ListParams::default();
     let pods: Api<Pod> = Api::all(self.client.clone());
+
     match nodes.list(&lp).await {
       Ok(node_list) => {
         let pods_list = pods.list(&lp).await;
+
+        let mut app = self.app.lock().await;
 
         let render_nodes = node_list
           .iter()
@@ -98,6 +158,12 @@ impl<'a> Network<'a> {
               None => none_role.to_string(),
             };
 
+            let (cpu_percent, mem_percent) =
+              match app.node_metrics.iter().find(|nm| nm.name == node.name()) {
+                Some(nm) => (nm.cpu_percent.clone(), nm.mem_percent.clone()),
+                None => ("".to_string(), "".to_string()),
+              };
+
             KubeNode {
               name: node.name(),
               status,
@@ -111,10 +177,12 @@ impl<'a> Network<'a> {
               version,
               pods: pod_count,
               age: to_age(node.metadata.creation_timestamp.as_ref(), Utc::now()),
+              cpu_percent,
+              mem_percent,
             }
           })
           .collect::<Vec<_>>();
-        let mut app = self.app.lock().await;
+
         app.nodes.set_items(render_nodes);
       }
       Err(e) => {
@@ -225,6 +293,27 @@ impl<'a> Network<'a> {
   }
 }
 
+fn get_contexts(config: &Kubeconfig) -> Vec<KubeContext> {
+  config
+    .contexts
+    .iter()
+    .map(|it| KubeContext {
+      name: it.name.clone(),
+      cluster: it.context.cluster.clone(),
+      user: it.context.user.clone(),
+      namespace: it.context.namespace.clone(),
+      is_active: is_active_context(&it.name, &config.current_context),
+    })
+    .collect::<Vec<KubeContext>>()
+}
+
+fn is_active_context(name: &String, current_ctx: &Option<String>) -> bool {
+  match current_ctx {
+    Some(ctx) => name == ctx,
+    None => false,
+  }
+}
+
 async fn get_pods_api<'a>(network: &mut Network<'a>) -> Api<Pod> {
   let app = network.app.lock().await;
   match &app.selected_ns {
@@ -269,6 +358,10 @@ fn kb_to_mb(v: String) -> String {
   let vint = v.trim_end_matches("Ki").parse::<i64>().unwrap_or(0);
 
   (vint / 1024).to_string()
+}
+
+fn convert_to_f64(s: &str) -> f64 {
+  s.parse().unwrap_or(0f64)
 }
 
 // TODO find a way to do this as the kube-rs lib doesn't support metrics yet

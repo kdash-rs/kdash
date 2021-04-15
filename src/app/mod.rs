@@ -59,6 +59,17 @@ pub struct KubeContext {
 }
 
 #[derive(Clone)]
+pub struct NodeMetrics {
+  pub name: String,
+  pub cpu: String,
+  pub cpu_percent: String,
+  pub cpu_percent_i: f64,
+  pub mem: String,
+  pub mem_percent: String,
+  pub mem_percent_i: f64,
+}
+
+#[derive(Clone)]
 pub struct KubeNode {
   pub name: String,
   pub status: String,
@@ -67,6 +78,8 @@ pub struct KubeNode {
   pub pods: i32,
   pub cpu: String,
   pub mem: String,
+  pub cpu_percent: String,
+  pub mem_percent: String,
   pub age: String,
 }
 
@@ -123,12 +136,11 @@ pub struct App {
   pub contexts: StatefulTable<KubeContext>,
   pub active_context: Option<KubeContext>,
   pub nodes: StatefulTable<KubeNode>,
+  pub node_metrics: Vec<NodeMetrics>,
   pub namespaces: StatefulTable<KubeNs>,
   pub pods: StatefulTable<KubePods>,
   pub services: StatefulTable<KubeSvs>,
   pub selected_ns: Option<String>,
-  // TODO useless remove
-  pub progress: f64,
 }
 
 impl Default for App {
@@ -181,12 +193,11 @@ impl Default for App {
       contexts: StatefulTable::new(),
       active_context: None,
       nodes: StatefulTable::new(),
+      node_metrics: vec![],
       namespaces: StatefulTable::new(),
       pods: StatefulTable::new(),
       services: StatefulTable::new(),
       selected_ns: None,
-      // TODO remove
-      progress: 0.0,
     }
   }
 }
@@ -312,7 +323,7 @@ impl App {
       match self.get_current_route().id {
         RouteId::Home => {
           self.dispatch(IoEvent::GetNamespaces);
-
+          self.dispatch(IoEvent::GetTopNodes);
           match self.get_current_route().active_block {
             ActiveBlock::Pods => self.dispatch(IoEvent::GetPods),
             ActiveBlock::Services => self.dispatch(IoEvent::GetServices),
@@ -337,11 +348,6 @@ impl App {
         self.route_home();
       }
       self.refresh = false;
-    }
-    // TODO remove temp code
-    self.progress += 0.001;
-    if self.progress > 1.0 {
-      self.progress = 0.0;
     }
   }
 }

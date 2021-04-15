@@ -4,7 +4,7 @@ use super::utils::{
   title_style_secondary, vertical_chunks, vertical_chunks_with_margin,
 };
 use super::HIGHLIGHT;
-use crate::app::App;
+use crate::app::{App, NodeMetrics};
 use crate::banner::BANNER;
 use tui::{
   backend::Backend,
@@ -104,6 +104,7 @@ fn draw_active_context_tabs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: R
     0 => draw_pods(f, app, chunks[1]),
     1 => draw_services(f, app, chunks[1]),
     2 => draw_nodes(f, app, chunks[1]),
+    3..=7 => draw_placeholder(f, chunks[1]),
     _ => {}
   };
 }
@@ -156,15 +157,37 @@ fn draw_context_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     .block(Block::default().title(title_style_secondary("CPU:")))
     .gauge_style(style_primary())
     .line_set(get_gauge_style(app.enhanced_graphics))
-    .ratio(app.progress);
+    .ratio(get_cpu_ratio(app.node_metrics.as_ref()));
   f.render_widget(cpu_gauge, chunks[1]);
 
   let mem_gauge = LineGauge::default()
     .block(Block::default().title(title_style_secondary("Memory:")))
     .gauge_style(style_primary())
     .line_set(get_gauge_style(app.enhanced_graphics))
-    .ratio(app.progress);
+    .ratio(get_mem_ratio(app.node_metrics.as_ref()));
   f.render_widget(mem_gauge, chunks[2]);
+}
+
+fn get_cpu_ratio(node_metrics: &Vec<NodeMetrics>) -> f64 {
+  if !node_metrics.is_empty() {
+    let sum = node_metrics
+      .iter()
+      .fold(0f64, |acc, nm| acc + nm.cpu_percent_i);
+    (sum / node_metrics.len() as f64) / 100f64
+  } else {
+    0f64
+  }
+}
+
+fn get_mem_ratio(node_metrics: &Vec<NodeMetrics>) -> f64 {
+  if !node_metrics.is_empty() {
+    let sum = node_metrics
+      .iter()
+      .fold(0f64, |acc, nm| acc + nm.mem_percent_i);
+    (sum / node_metrics.len() as f64) / 100f64
+  } else {
+    0f64
+  }
 }
 
 fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
@@ -245,6 +268,8 @@ fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
       pods,
       c.cpu.clone(),
       c.mem.clone(),
+      c.cpu_percent.clone(),
+      c.mem_percent.clone(),
       c.age.clone(),
     ])
     .style(style_primary())
@@ -252,16 +277,18 @@ fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 
   let table = Table::new(rows)
     .header(table_header_style(vec![
-      "Name", "Status", "Roles", "Version", "Pods", "CPU", "Mem", "Age",
+      "Name", "Status", "Roles", "Version", "Pods", "CPU", "Mem", "CPU %", "Mem %", "Age",
     ]))
     .block(block)
     .highlight_style(style_highlight())
     .highlight_symbol(HIGHLIGHT)
     .widths(&[
       Constraint::Percentage(30),
-      Constraint::Percentage(15),
-      Constraint::Percentage(20),
       Constraint::Percentage(10),
+      Constraint::Percentage(15),
+      Constraint::Percentage(10),
+      Constraint::Percentage(5),
+      Constraint::Percentage(5),
       Constraint::Percentage(5),
       Constraint::Percentage(5),
       Constraint::Percentage(5),
@@ -293,4 +320,10 @@ fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     .widths(&[Constraint::Percentage(85), Constraint::Percentage(15)]);
 
   f.render_stateful_widget(table, area, &mut app.services.state);
+}
+
+fn draw_placeholder<B: Backend>(f: &mut Frame<B>, area: Rect) {
+  let block = layout_block_top_border("TODO Placeholder");
+
+  f.render_widget(block, area);
 }

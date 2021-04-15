@@ -13,6 +13,7 @@ pub enum IoEvent {
   GetCLIInfo,
   GetKubeConfig,
   GetNodes,
+  GetTopNodes,
   GetNamespaces,
   GetPods,
   GetServices,
@@ -63,6 +64,9 @@ impl<'a> Network<'a> {
       }
       IoEvent::GetNodes => {
         self.get_nodes().await;
+      }
+      IoEvent::GetTopNodes => {
+        self.get_top_node().await;
       }
       IoEvent::GetNamespaces => {
         self.get_namespaces().await;
