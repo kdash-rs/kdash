@@ -13,7 +13,7 @@ A simple terminal dashboard for Kubernetes built with Rust
 
 ![UI](./ui.gif)
 
-## Features
+## Features & Todos
 
 - CLI Info
 - Resource Watch (configurable polling interval with `-p` flag)
@@ -21,6 +21,22 @@ A simple terminal dashboard for Kubernetes built with Rust
   - [x] Nodes
   - [x] Namespace
   - [x] Services
+  - [ ] Deployments
+  - [ ] ConfigMaps
+  - [ ] StatefulSets
+  - [ ] ReplicaSets
+- [ ] describe resources
+  - [ ] Pods
+  - [ ] Nodes
+  - [ ] Namespace
+  - [ ] Services
+  - [ ] Deployments
+  - [ ] ConfigMaps
+  - [ ] StatefulSets
+  - [ ] ReplicaSets
+- [ ] Stream logs/events
+  - [ ] Pods
+  - [ ] Services
   - [ ] Deployments
   - [ ] ConfigMaps
   - [ ] StatefulSets
@@ -34,6 +50,9 @@ A simple terminal dashboard for Kubernetes built with Rust
 - [x] Dark/Light themes
 - [ ] Custom keymap
 - [ ] Custom theme
+
+- [ ] Tests, need a lot of them
+- [ ] CI/CD
 
 ## Installation
 
