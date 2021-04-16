@@ -1,9 +1,11 @@
 use tui::{
+  backend::Backend,
   layout::{Constraint, Direction, Layout, Rect},
   style::{Color, Modifier, Style},
   symbols,
-  text::Span,
-  widgets::{Block, Borders, Row},
+  text::{Span, Text},
+  widgets::{Block, Borders, Paragraph, Row},
+  Frame,
 };
 // Utils
 
@@ -143,4 +145,24 @@ pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
       .as_ref(),
     )
     .split(popup_layout[1])[1]
+}
+
+pub fn loading<B: Backend>(f: &mut Frame<B>, block: Block, area: Rect, is_loading: bool) {
+  if is_loading {
+    let text = "\n\n Loading ...\n\n".to_string();
+    let mut text = Text::from(text);
+    text.patch_style(style_secondary());
+
+    // Contains the text
+    let paragraph = Paragraph::new(text).style(style_success()).block(block);
+    f.render_widget(paragraph, area);
+  } else {
+    f.render_widget(block, area)
+  }
+}
+
+pub fn draw_placeholder<B: Backend>(f: &mut Frame<B>, area: Rect) {
+  let block = layout_block_top_border("TODO Placeholder");
+
+  f.render_widget(block, area);
 }

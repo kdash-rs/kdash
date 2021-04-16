@@ -91,8 +91,13 @@ pub struct KubeNs {
 
 #[derive(Clone)]
 pub struct KubeSvs {
+  pub namespace: String,
   pub name: String,
   pub type_: String,
+  pub cluster_ip: String,
+  pub external_ip: String,
+  pub ports: String,
+  pub age: String,
 }
 
 #[derive(Clone)]

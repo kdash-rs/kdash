@@ -2,7 +2,7 @@ use crate::app::{KubeContext, KubeNode, KubeNs, KubePods, KubeSvs, NodeMetrics};
 use anyhow::anyhow;
 use duct::cmd;
 use k8s_openapi::{
-  api::core::v1::{Namespace, Node, Pod, Service},
+  api::core::v1::{Namespace, Node, Pod, Service, ServicePort},
   apimachinery::pkg::apis::meta::v1::Time,
   chrono::{DateTime, Utc},
 };
@@ -224,7 +224,7 @@ impl<'a> Network<'a> {
   }
 
   pub async fn get_pods(&mut self) {
-    let pods = get_pods_api(self).await;
+    let pods = self.get_pods_api().await;
 
     let lp = ListParams::default();
     match pods.list(&lp).await {
@@ -290,35 +290,119 @@ impl<'a> Network<'a> {
   }
 
   pub async fn get_services(&mut self) {
-    let svs: Api<Service> = Api::all(self.client.clone());
+    let svc: Api<Service> = Api::all(self.client.clone());
 
     let lp = ListParams::default();
-    match svs.list(&lp).await {
+    match svc.list(&lp).await {
       Ok(svc_list) => {
-        let svs = svc_list
+        let render_services = svc_list
           .iter()
-          .map(|it| {
-            let type_ = match &it.spec {
-              Some(spec) => match &spec.type_ {
-                Some(type_) => type_.clone(),
-                _ => UNKNOWN.to_string(),
-              },
-              _ => UNKNOWN.to_string(),
+          .map(|service| {
+            let (type_, cluster_ip, external_ip, ports) = match &service.spec {
+              Some(spec) => {
+                let type_ = match &spec.type_ {
+                  Some(type_) => type_.clone(),
+                  _ => UNKNOWN.to_string(),
+                };
+
+                let external_ips = match type_.as_str() {
+                  "ClusterIP" | "NodePort" => spec.external_ips.clone(),
+                  "LoadBalancer" => get_lb_ext_ips(service, spec.external_ips.clone()),
+                  "ExternalName" => {
+                    Some(vec![spec.external_name.clone().unwrap_or("".to_string())])
+                  }
+                  _ => None,
+                }
+                .unwrap_or_else(|| {
+                  if type_ == "LoadBalancer" {
+                    vec!["<pending>".to_string()]
+                  } else {
+                    vec!["".to_string()]
+                  }
+                });
+
+                (
+                  type_.clone(),
+                  spec
+                    .cluster_ip
+                    .as_ref()
+                    .unwrap_or(&"None".to_string())
+                    .clone(),
+                  external_ips.join(","),
+                  get_ports(spec.ports.clone()),
+                )
+              }
+              _ => (
+                UNKNOWN.to_string(),
+                "".to_string(),
+                "".to_string(),
+                "".to_string(),
+              ),
             };
 
             KubeSvs {
-              name: it.name(),
+              name: service.name(),
               type_,
+              namespace: service.namespace().unwrap_or("".to_string()),
+              cluster_ip,
+              external_ip,
+              ports,
+              age: to_age(service.metadata.creation_timestamp.as_ref(), Utc::now()),
             }
           })
           .collect::<Vec<_>>();
         let mut app = self.app.lock().await;
-        app.services.set_items(svs);
+        app.services.set_items(render_services);
       }
       Err(e) => {
         self.handle_error(anyhow!(e)).await;
       }
     }
+  }
+
+  async fn get_pods_api(&mut self) -> Api<Pod> {
+    let app = self.app.lock().await;
+    match &app.selected_ns {
+      Some(ns) => Api::namespaced(self.client.clone(), &ns),
+      None => Api::all(self.client.clone()),
+    }
+  }
+}
+
+fn get_ports(sports: Option<Vec<ServicePort>>) -> String {
+  // TODO
+  String::new()
+}
+
+fn get_lb_ext_ips(service: &Service, external_ips: Option<Vec<String>>) -> Option<Vec<String>> {
+  let mut lb_ips = match &service.status {
+    Some(ss) => match &ss.load_balancer {
+      Some(lb) => {
+        let ing = &lb.ingress;
+        ing
+          .clone()
+          .unwrap_or(vec![])
+          .iter()
+          .map(|it| {
+            if it.ip.is_some() {
+              it.ip.clone().unwrap_or("".to_string())
+            } else if it.hostname.is_some() {
+              it.hostname.clone().unwrap_or("".to_string())
+            } else {
+              "".to_string()
+            }
+          })
+          .collect::<Vec<String>>()
+      }
+      None => vec![],
+    },
+    None => vec![],
+  };
+  if external_ips.is_some() && !lb_ips.is_empty() {
+    lb_ips.extend(external_ips.unwrap_or(vec![]));
+    Some(lb_ips)
+  } else {
+    Some(lb_ips)
   }
 }
 
@@ -340,14 +424,6 @@ fn is_active_context(name: &String, current_ctx: &Option<String>) -> bool {
   match current_ctx {
     Some(ctx) => name == ctx,
     None => false,
-  }
-}
-
-async fn get_pods_api<'a>(network: &mut Network<'a>) -> Api<Pod> {
-  let app = network.app.lock().await;
-  match &app.selected_ns {
-    Some(ns) => Api::namespaced(network.client.clone(), &ns),
-    None => Api::all(network.client.clone()),
   }
 }
 
@@ -392,14 +468,6 @@ fn kb_to_mb(v: String) -> String {
 fn convert_to_f64(s: &str) -> f64 {
   s.parse().unwrap_or(0f64)
 }
-
-// TODO find a way to do this as the kube-rs lib doesn't support metrics yet
-//   async fn get_node_metrics(&mut self) {
-//     let m: Api<ResourceMetricSource> = Api::all(self.client.clone());
-//     let lp = ListParams::default();
-
-//     let a = m.list(lp).await.unwrap();
-//   }
 
 #[cfg(test)]
 mod tests {
