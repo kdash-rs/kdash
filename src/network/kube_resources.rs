@@ -10,8 +10,6 @@ use kube::{api::ListParams, config::Kubeconfig, Api, Resource};
 
 use super::{Network, UNKNOWN};
 
-static EMPTY_STR: &'static str = "";
-
 impl<'a> Network<'a> {
   pub async fn get_kube_config(&mut self) {
     match Kubeconfig::read() {
@@ -70,12 +68,12 @@ impl<'a> Network<'a> {
   }
 
   pub async fn get_nodes(&mut self) {
-    let nodes: Api<Node> = Api::all(self.client.clone());
     let node_label_prefix = "node-role.kubernetes.io/";
     let node_label_role = "kubernetes.io/role";
     let none_role = "<none>";
     let lp = ListParams::default();
     let pods: Api<Pod> = Api::all(self.client.clone());
+    let nodes: Api<Node> = Api::all(self.client.clone());
 
     match nodes.list(&lp).await {
       Ok(node_list) => {
@@ -94,43 +92,34 @@ impl<'a> Network<'a> {
             let (status, version, cpu, mem) = match &node.status {
               Some(stat) => {
                 let status = if *unschedulable {
-                  "Unschedulable".to_string()
+                  Some("Unschedulable".to_string())
                 } else {
                   match &stat.conditions {
                     Some(conds) => match conds
                       .into_iter()
                       .find(|c| c.type_ == "Ready" && c.status == "True")
                     {
-                      Some(cond) => cond.type_.clone(),
-                      _ => "Not Ready".to_string(),
+                      Some(cond) => Some(cond.type_.clone()),
+                      _ => Some("Not Ready".to_string()),
                     },
-                    _ => UNKNOWN.to_string(),
+                    _ => None,
                   }
                 };
                 let version = stat
                   .node_info
                   .as_ref()
-                  .map_or(String::new(), |i| i.kubelet_version.clone());
+                  .map_or(None, |i| Some(i.kubelet_version.clone()));
 
-                let (cpu, mem) = stat.allocatable.as_ref().map_or(
-                  (EMPTY_STR.to_string(), EMPTY_STR.to_string()),
-                  |a| {
-                    (
-                      a.get("cpu").map_or(EMPTY_STR.to_string(), |i| i.0.clone()),
-                      a.get("memory")
-                        .map_or(EMPTY_STR.to_string(), |i| i.0.clone()),
-                    )
-                  },
-                );
+                let (cpu, mem) = stat.allocatable.as_ref().map_or((None, None), |a| {
+                  (
+                    a.get("cpu").map(|i| i.0.clone()),
+                    a.get("memory").map(|i| i.0.clone()),
+                  )
+                });
 
                 (status, version, cpu, mem)
               }
-              None => (
-                UNKNOWN.to_string(),
-                String::new(),
-                EMPTY_STR.to_string(),
-                EMPTY_STR.to_string(),
-              ),
+              None => (None, None, None, None),
             };
 
             let pod_count = match &pods_list {
@@ -161,20 +150,20 @@ impl<'a> Network<'a> {
             let (cpu_percent, mem_percent) =
               match app.node_metrics.iter().find(|nm| nm.name == node.name()) {
                 Some(nm) => (nm.cpu_percent.clone(), nm.mem_percent.clone()),
-                None => ("".to_string(), "".to_string()),
+                None => (String::default(), String::default()),
               };
 
             KubeNode {
               name: node.name(),
-              status,
-              cpu,
-              mem: kb_to_mb(mem),
+              status: status.unwrap_or(UNKNOWN.to_string()),
+              cpu: cpu.unwrap_or_default(),
+              mem: kb_to_mb(mem.unwrap_or_default()),
               role: if role.is_empty() {
                 none_role.to_string()
               } else {
                 role
               },
-              version,
+              version: version.unwrap_or_default(),
               pods: pod_count,
               age: to_age(node.metadata.creation_timestamp.as_ref(), Utc::now()),
               cpu_percent,
@@ -269,12 +258,13 @@ impl<'a> Network<'a> {
             };
 
             KubePods {
-              namespace: pod.namespace().unwrap_or("".to_string()),
+              namespace: pod.namespace().unwrap_or_default(),
               name: pod.name(),
               ready: format!("{}/{}", cr, c_stats_len),
               restarts,
-              cpu: "".to_string(),
-              mem: "".to_string(),
+              // TODO implement pod metrics
+              cpu: String::default(),
+              mem: String::default(),
               status,
               age: to_age(pod.metadata.creation_timestamp.as_ref(), Utc::now()),
             }
@@ -308,16 +298,14 @@ impl<'a> Network<'a> {
                 let external_ips = match type_.as_str() {
                   "ClusterIP" | "NodePort" => spec.external_ips.clone(),
                   "LoadBalancer" => get_lb_ext_ips(service, spec.external_ips.clone()),
-                  "ExternalName" => {
-                    Some(vec![spec.external_name.clone().unwrap_or("".to_string())])
-                  }
+                  "ExternalName" => Some(vec![spec.external_name.clone().unwrap_or_default()]),
                   _ => None,
                 }
                 .unwrap_or_else(|| {
                   if type_ == "LoadBalancer" {
                     vec!["<pending>".to_string()]
                   } else {
-                    vec!["".to_string()]
+                    vec![String::default()]
                   }
                 });
 
@@ -329,21 +317,21 @@ impl<'a> Network<'a> {
                     .unwrap_or(&"None".to_string())
                     .clone(),
                   external_ips.join(","),
-                  get_ports(spec.ports.clone()),
+                  get_ports(spec.ports.clone()).join(" "),
                 )
               }
               _ => (
                 UNKNOWN.to_string(),
-                "".to_string(),
-                "".to_string(),
-                "".to_string(),
+                String::default(),
+                String::default(),
+                String::default(),
               ),
             };
 
             KubeSvs {
               name: service.name(),
               type_,
-              namespace: service.namespace().unwrap_or("".to_string()),
+              namespace: service.namespace().unwrap_or_default(),
               cluster_ip,
               external_ip,
               ports,
@@ -363,19 +351,30 @@ impl<'a> Network<'a> {
   async fn get_pods_api(&mut self) -> Api<Pod> {
     let app = self.app.lock().await;
     match &app.selected_ns {
-      Some(ns) => {
-          Api::namespaced(self.client.clone(), &ns)
-      },
-      None => {
-          Api::all(self.client.clone())
-      },
+      Some(ns) => Api::namespaced(self.client.clone(), &ns),
+      None => Api::all(self.client.clone()),
     }
   }
 }
 
-fn get_ports(sports: Option<Vec<ServicePort>>) -> String {
-  // TODO
-  String::new()
+fn get_ports(sports: Option<Vec<ServicePort>>) -> Vec<String> {
+  match sports {
+    Some(ports) => ports
+      .iter()
+      .map(|s| {
+        let mut port = String::new();
+        if s.name.is_some() {
+          port = format!("{}:", s.name.clone().unwrap());
+        }
+        port = format!("{}{}►{}", port, s.port, s.node_port.unwrap_or(0));
+        if s.protocol.is_some() && s.protocol.clone().unwrap() == "TCP" {
+          port = format!("{}/{}", port, s.protocol.clone().unwrap());
+        }
+        port
+      })
+      .collect(),
+    None => vec![],
+  }
 }
 
 fn get_lb_ext_ips(service: &Service, external_ips: Option<Vec<String>>) -> Option<Vec<String>> {
@@ -389,11 +388,11 @@ fn get_lb_ext_ips(service: &Service, external_ips: Option<Vec<String>>) -> Optio
           .iter()
           .map(|it| {
             if it.ip.is_some() {
-              it.ip.clone().unwrap_or("".to_string())
+              it.ip.clone().unwrap_or_default()
             } else if it.hostname.is_some() {
-              it.hostname.clone().unwrap_or("".to_string())
+              it.hostname.clone().unwrap_or_default()
             } else {
-              "".to_string()
+              String::default()
             }
           })
           .collect::<Vec<String>>()
@@ -403,7 +402,7 @@ fn get_lb_ext_ips(service: &Service, external_ips: Option<Vec<String>>) -> Optio
     None => vec![],
   };
   if external_ips.is_some() && !lb_ips.is_empty() {
-    lb_ips.extend(external_ips.unwrap_or(vec![]));
+    lb_ips.extend(external_ips.unwrap_or_default());
     Some(lb_ips)
   } else {
     Some(lb_ips)
@@ -459,7 +458,7 @@ fn to_age(timestamp: Option<&Time>, against: DateTime<Utc>) -> String {
         out
       }
     }
-    None => "".to_string(),
+    None => String::default(),
   }
 }
 
