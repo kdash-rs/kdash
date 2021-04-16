@@ -32,35 +32,35 @@ pub fn handle_app(key: Key, app: &mut App) {
       app.show_info_bar = !app.show_info_bar;
     }
     _ if key == DEFAULT_KEYBINDING.jump_to_namespace => {
-      app.set_active_block(Some(ActiveBlock::Namespaces));
+      app.push_navigation_stack(RouteId::Home, ActiveBlock::Namespaces);
     }
     _ if key == DEFAULT_KEYBINDING.jump_to_pods => {
       app.context_tabs.set_index(0);
-      app.set_active_block(Some(ActiveBlock::Pods));
+      app.push_navigation_stack(RouteId::Home, ActiveBlock::Pods);
     }
     _ if key == DEFAULT_KEYBINDING.jump_to_services => {
       app.context_tabs.set_index(1);
-      app.set_active_block(Some(ActiveBlock::Services));
+      app.push_navigation_stack(RouteId::Home, ActiveBlock::Services);
     }
     _ if key == DEFAULT_KEYBINDING.jump_to_nodes => {
       app.context_tabs.set_index(2);
-      app.set_active_block(Some(ActiveBlock::Nodes));
+      app.push_navigation_stack(RouteId::Home, ActiveBlock::Nodes);
     }
     _ if key == DEFAULT_KEYBINDING.jump_to_deployments => {
       app.context_tabs.set_index(3);
-      app.set_active_block(Some(ActiveBlock::Deployments));
+      app.push_navigation_stack(RouteId::Home, ActiveBlock::Deployments);
     }
     _ if key == DEFAULT_KEYBINDING.jump_to_configmaps => {
       app.context_tabs.set_index(4);
-      app.set_active_block(Some(ActiveBlock::ConfigMaps));
+      app.push_navigation_stack(RouteId::Home, ActiveBlock::ConfigMaps);
     }
     _ if key == DEFAULT_KEYBINDING.jump_to_statefulsets => {
       app.context_tabs.set_index(5);
-      app.set_active_block(Some(ActiveBlock::StatefulSets));
+      app.push_navigation_stack(RouteId::Home, ActiveBlock::StatefulSets);
     }
     _ if key == DEFAULT_KEYBINDING.jump_to_replicasets => {
       app.context_tabs.set_index(6);
-      app.set_active_block(Some(ActiveBlock::ReplicaSets));
+      app.push_navigation_stack(RouteId::Home, ActiveBlock::ReplicaSets);
     }
     _ => handle_block_events(key, app),
   }
@@ -96,7 +96,10 @@ fn handle_block_events(key: Key, app: &mut App) {
     ActiveBlock::Namespaces => {
       let ns = handle_table_events(key, &mut app.namespaces);
       match ns {
-        Some(v) => app.selected_ns = Some(v.name),
+        Some(v) => {
+          app.selected_ns = Some(v.name);
+          app.pop_navigation_stack();
+        }
         None => { /*Do nothing */ }
       }
     }
@@ -115,11 +118,17 @@ fn handle_block_events(key: Key, app: &mut App) {
       match key {
         _ if key == DEFAULT_KEYBINDING.right => {
           app.context_tabs.next();
-          app.set_active_block(app.context_tabs.active_block);
+          app.push_navigation_stack(
+            RouteId::Home,
+            app.context_tabs.active_block.unwrap_or(ActiveBlock::Empty),
+          );
         }
         _ if key == DEFAULT_KEYBINDING.left => {
           app.context_tabs.previous();
-          app.set_active_block(app.context_tabs.active_block);
+          app.push_navigation_stack(
+            RouteId::Home,
+            app.context_tabs.active_block.unwrap_or(ActiveBlock::Empty),
+          );
         }
         _ => {}
       };

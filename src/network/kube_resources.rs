@@ -363,8 +363,12 @@ impl<'a> Network<'a> {
   async fn get_pods_api(&mut self) -> Api<Pod> {
     let app = self.app.lock().await;
     match &app.selected_ns {
-      Some(ns) => Api::namespaced(self.client.clone(), &ns),
-      None => Api::all(self.client.clone()),
+      Some(ns) => {
+          Api::namespaced(self.client.clone(), &ns)
+      },
+      None => {
+          Api::all(self.client.clone())
+      },
     }
   }
 }
