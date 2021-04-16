@@ -207,7 +207,7 @@ impl<'a> Network<'a> {
   }
 
   pub async fn get_pods(&mut self) {
-    let pods = self.get_pods_api().await;
+    let pods: Api<Pod> = self.get_namespaced_api().await;
 
     let lp = ListParams::default();
     match pods.list(&lp).await {
@@ -274,7 +274,7 @@ impl<'a> Network<'a> {
   }
 
   pub async fn get_services(&mut self) {
-    let svc: Api<Service> = Api::all(self.client.clone());
+    let svc: Api<Service> = self.get_namespaced_api().await;
 
     let lp = ListParams::default();
     match svc.list(&lp).await {
@@ -342,7 +342,10 @@ impl<'a> Network<'a> {
     }
   }
 
-  async fn get_pods_api(&mut self) -> Api<Pod> {
+  async fn get_namespaced_api<K: Resource>(&mut self) -> Api<K>
+  where
+    <K as Resource>::DynamicType: Default,
+  {
     let app = self.app.lock().await;
     match &app.selected_ns {
       Some(ns) => Api::namespaced(self.client.clone(), &ns),
