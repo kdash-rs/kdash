@@ -26,45 +26,42 @@ impl<'a> Network<'a> {
 
   // ideally should be done using API but the kube-rs crate doesn't support metrics yet so this is a temporary and dirty work around and is definitely the worst way to do this (yes, I almost cried doing this) as top command cannot output json or yaml
   pub async fn get_top_node(&mut self) {
-    match cmd!("kubectl", "top", "node").read() {
-      Ok(out) => {
-        // the output would be a table so lets try to split into rows
-        let rows: Vec<&str> = out.split('\n').collect();
-        // lets discard first row as its header and any empty rows
-        let rows: Vec<NodeMetrics> = rows
-          .iter()
-          .filter_map(|v| {
-            if !v.trim().is_empty() && !v.trim().starts_with("NAME") {
-              let cols: Vec<&str> = v.trim().split(' ').collect();
-              let cols: Vec<&str> = cols
-                .iter()
-                .filter_map(|c| {
-                  if !c.trim().is_empty() {
-                    Some(c.trim())
-                  } else {
-                    None
-                  }
-                })
-                .collect();
-              Some(NodeMetrics {
-                name: cols[0].to_string(),
-                cpu: cols[1].to_string(),
-                cpu_percent: cols[2].to_string(),
-                mem: cols[3].to_string(),
-                mem_percent: cols[4].to_string(),
-                cpu_percent_i: convert_to_f64(cols[2].trim_end_matches('%')),
-                mem_percent_i: convert_to_f64(cols[4].trim_end_matches('%')),
+    if let Ok(out) = cmd!("kubectl", "top", "node").read() {
+      // the output would be a table so lets try to split into rows
+      let rows: Vec<&str> = out.split('\n').collect();
+      // lets discard first row as its header and any empty rows
+      let rows: Vec<NodeMetrics> = rows
+        .iter()
+        .filter_map(|v| {
+          if !v.trim().is_empty() && !v.trim().starts_with("NAME") {
+            let cols: Vec<&str> = v.trim().split(' ').collect();
+            let cols: Vec<&str> = cols
+              .iter()
+              .filter_map(|c| {
+                if !c.trim().is_empty() {
+                  Some(c.trim())
+                } else {
+                  None
+                }
               })
-            } else {
-              None
-            }
-          })
-          .collect();
-        let mut app = self.app.lock().await;
-        app.node_metrics = rows;
-      }
-      _ => {}
-    };
+              .collect();
+            Some(NodeMetrics {
+              name: cols[0].to_string(),
+              cpu: cols[1].to_string(),
+              cpu_percent: cols[2].to_string(),
+              mem: cols[3].to_string(),
+              mem_percent: cols[4].to_string(),
+              cpu_percent_i: convert_to_f64(cols[2].trim_end_matches('%')),
+              mem_percent_i: convert_to_f64(cols[4].trim_end_matches('%')),
+            })
+          } else {
+            None
+          }
+        })
+        .collect();
+      let mut app = self.app.lock().await;
+      app.node_metrics = rows;
+    }
   }
 
   pub async fn get_nodes(&mut self) {
@@ -96,7 +93,7 @@ impl<'a> Network<'a> {
                 } else {
                   match &stat.conditions {
                     Some(conds) => match conds
-                      .into_iter()
+                      .iter()
                       .find(|c| c.type_ == "Ready" && c.status == "True")
                     {
                       Some(cond) => Some(cond.type_.clone()),
@@ -105,10 +102,7 @@ impl<'a> Network<'a> {
                     _ => None,
                   }
                 };
-                let version = stat
-                  .node_info
-                  .as_ref()
-                  .map_or(None, |i| Some(i.kubelet_version.clone()));
+                let version = stat.node_info.as_ref().map(|i| i.kubelet_version.clone());
 
                 let (cpu, mem) = stat.allocatable.as_ref().map_or((None, None), |a| {
                   (
@@ -124,7 +118,7 @@ impl<'a> Network<'a> {
 
             let pod_count = match &pods_list {
               Ok(ps) => ps.iter().fold(0, |acc, p| {
-                let node_name = p.spec.as_ref().map_or(None, |s| s.node_name.clone());
+                let node_name = p.spec.as_ref().and_then(|s| s.node_name.clone());
                 node_name.map_or(acc, |v| if v == node.name() { acc + 1 } else { acc })
               }),
               _ => 0,
@@ -136,7 +130,7 @@ impl<'a> Network<'a> {
                 .filter_map(|(k, v)| {
                   return if k.starts_with(node_label_prefix) {
                     Some(k.trim_start_matches(node_label_prefix))
-                  } else if k == node_label_role && v != "" {
+                  } else if k == node_label_role && !v.is_empty() {
                     Some(v)
                   } else {
                     None
@@ -155,7 +149,7 @@ impl<'a> Network<'a> {
 
             KubeNode {
               name: node.name(),
-              status: status.unwrap_or(UNKNOWN.to_string()),
+              status: status.unwrap_or_else(|| UNKNOWN.to_string()),
               cpu: cpu.unwrap_or_default(),
               mem: kb_to_mb(mem.unwrap_or_default()),
               role: if role.is_empty() {
@@ -297,7 +291,7 @@ impl<'a> Network<'a> {
 
                 let external_ips = match type_.as_str() {
                   "ClusterIP" | "NodePort" => spec.external_ips.clone(),
-                  "LoadBalancer" => get_lb_ext_ips(service, spec.external_ips.clone()),
+                  "LoadBalancer" => Some(get_lb_ext_ips(service, spec.external_ips.clone())),
                   "ExternalName" => Some(vec![spec.external_name.clone().unwrap_or_default()]),
                   _ => None,
                 }
@@ -310,7 +304,7 @@ impl<'a> Network<'a> {
                 });
 
                 (
-                  type_.clone(),
+                  type_,
                   spec
                     .cluster_ip
                     .as_ref()
@@ -377,14 +371,14 @@ fn get_ports(sports: Option<Vec<ServicePort>>) -> Vec<String> {
   }
 }
 
-fn get_lb_ext_ips(service: &Service, external_ips: Option<Vec<String>>) -> Option<Vec<String>> {
+fn get_lb_ext_ips(service: &Service, external_ips: Option<Vec<String>>) -> Vec<String> {
   let mut lb_ips = match &service.status {
     Some(ss) => match &ss.load_balancer {
       Some(lb) => {
         let ing = &lb.ingress;
         ing
           .clone()
-          .unwrap_or(vec![])
+          .unwrap_or_default()
           .iter()
           .map(|it| {
             if it.ip.is_some() {
@@ -403,9 +397,9 @@ fn get_lb_ext_ips(service: &Service, external_ips: Option<Vec<String>>) -> Optio
   };
   if external_ips.is_some() && !lb_ips.is_empty() {
     lb_ips.extend(external_ips.unwrap_or_default());
-    Some(lb_ips)
+    lb_ips
   } else {
-    Some(lb_ips)
+    lb_ips
   }
 }
 
@@ -423,7 +417,7 @@ fn get_contexts(config: &Kubeconfig) -> Vec<KubeContext> {
     .collect::<Vec<KubeContext>>()
 }
 
-fn is_active_context(name: &String, current_ctx: &Option<String>) -> bool {
+fn is_active_context(name: &str, current_ctx: &Option<String>) -> bool {
   match current_ctx {
     Some(ctx) => name == ctx,
     None => false,

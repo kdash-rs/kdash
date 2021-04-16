@@ -10,7 +10,7 @@ use tokio::sync::Mutex;
 
 #[derive(Debug)]
 pub enum IoEvent {
-  GetCLIInfo,
+  GetCliInfo,
   GetKubeConfig,
   GetNodes,
   GetTopNodes,
@@ -30,8 +30,8 @@ pub struct Network<'a> {
   pub app: &'a Arc<Mutex<App>>,
 }
 
-static UNKNOWN: &'static str = "Unknown";
-static NOT_FOUND: &'static str = "Not found";
+static UNKNOWN: &str = "Unknown";
+static NOT_FOUND: &str = "Not found";
 
 impl<'a> Network<'a> {
   pub fn new(client: Client, app: &'a Arc<Mutex<App>>) -> Self {
@@ -56,7 +56,7 @@ impl<'a> Network<'a> {
       IoEvent::RefreshClient => {
         self.refresh_client().await;
       }
-      IoEvent::GetCLIInfo => {
+      IoEvent::GetCliInfo => {
         self.get_cli_info().await;
       }
       IoEvent::GetKubeConfig => {

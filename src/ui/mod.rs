@@ -21,7 +21,7 @@ use utils::{
   vertical_chunks,
 };
 
-static HIGHLIGHT: &'static str = "=> ";
+static HIGHLIGHT: &str = "=> ";
 
 pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
   let block = Block::default().style(style_main_background(app.light_theme));

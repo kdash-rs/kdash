@@ -1,5 +1,5 @@
 use super::{
-  app::{self, CLI},
+  app::{self, Cli},
   Network, NOT_FOUND,
 };
 use duct::cmd;
@@ -9,7 +9,7 @@ use serde_json::Value as JValue;
 
 impl<'a> Network<'a> {
   pub async fn get_cli_info(&mut self) {
-    let mut clis: Vec<CLI> = vec![];
+    let mut clis: Vec<Cli> = vec![];
 
     let (version, status) = match cmd!("kubectl", "version", "--client", "-o", "json").read() {
       Ok(out) => {
@@ -22,7 +22,7 @@ impl<'a> Network<'a> {
       _ => (NOT_FOUND.to_string(), false),
     };
 
-    clis.push(app::CLI {
+    clis.push(app::Cli {
       name: "kubectl".to_string(),
       version: version.replace('"', ""),
       status,
@@ -32,7 +32,7 @@ impl<'a> Network<'a> {
       .read()
       .map_or((NOT_FOUND.to_string(), false), |out| (out, true));
 
-    clis.push(app::CLI {
+    clis.push(app::Cli {
       name: "docker".to_string(),
       version: format!("v{}", version.replace("'", "")),
       status,
@@ -42,20 +42,16 @@ impl<'a> Network<'a> {
       .read()
       .map_or((NOT_FOUND.to_string(), false), |out| (out, true));
 
-    clis.push(app::CLI {
+    clis.push(app::Cli {
       name: "docker-compose".to_string(),
       version: format!("v{}", version.replace("'", "")),
       status,
     });
 
-    let (version, status) = get_info_by_regex(
-      "kind",
-      &vec!["version"],
-      r"(v[0-9.]+)",
-      NOT_FOUND.to_string(),
-    );
+    let (version, status) =
+      get_info_by_regex("kind", &["version"], r"(v[0-9.]+)", NOT_FOUND.to_string());
 
-    clis.push(app::CLI {
+    clis.push(app::Cli {
       name: "kind".to_string(),
       version,
       status,
@@ -63,12 +59,12 @@ impl<'a> Network<'a> {
 
     let (version, status) = get_info_by_regex(
       "helm",
-      &vec!["version", "-c"],
+      &["version", "-c"],
       r"(v[0-9.]+)",
       NOT_FOUND.to_string(),
     );
 
-    clis.push(app::CLI {
+    clis.push(app::Cli {
       name: "helm".to_string(),
       version,
       status,
@@ -76,12 +72,12 @@ impl<'a> Network<'a> {
 
     let (version, status) = get_info_by_regex(
       "istioctl",
-      &vec!["version"],
+      &["version"],
       r"([0-9.]+)",
       NOT_FOUND.to_string(),
     );
 
-    clis.push(app::CLI {
+    clis.push(app::Cli {
       name: "istioctl".to_string(),
       version: format!("v{}", version),
       status,

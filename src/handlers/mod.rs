@@ -95,12 +95,9 @@ fn handle_block_events(key: Key, app: &mut App) {
     }
     ActiveBlock::Namespaces => {
       let ns = handle_table_events(key, &mut app.namespaces);
-      match ns {
-        Some(v) => {
-          app.selected_ns = Some(v.name);
-          app.pop_navigation_stack();
-        }
-        None => { /*Do nothing */ }
+      if let Some(v) = ns {
+        app.selected_ns = Some(v.name);
+        app.pop_navigation_stack();
       }
     }
     ActiveBlock::Contexts => {
@@ -113,29 +110,24 @@ fn handle_block_events(key: Key, app: &mut App) {
       // do nothing
     }
   }
-  match app.get_current_route().id {
-    RouteId::Home => {
-      match key {
-        _ if key == DEFAULT_KEYBINDING.right => {
-          app.context_tabs.next();
-          app.push_navigation_stack(
-            RouteId::Home,
-            app.context_tabs.active_block.unwrap_or(ActiveBlock::Empty),
-          );
-        }
-        _ if key == DEFAULT_KEYBINDING.left => {
-          app.context_tabs.previous();
-          app.push_navigation_stack(
-            RouteId::Home,
-            app.context_tabs.active_block.unwrap_or(ActiveBlock::Empty),
-          );
-        }
-        _ => {}
-      };
-    }
-    _ => {
-      // do nothing
-    }
+  if app.get_current_route().id == RouteId::Home {
+    match key {
+      _ if key == DEFAULT_KEYBINDING.right => {
+        app.context_tabs.next();
+        app.push_navigation_stack(
+          RouteId::Home,
+          app.context_tabs.active_block.unwrap_or(ActiveBlock::Empty),
+        );
+      }
+      _ if key == DEFAULT_KEYBINDING.left => {
+        app.context_tabs.previous();
+        app.push_navigation_stack(
+          RouteId::Home,
+          app.context_tabs.active_block.unwrap_or(ActiveBlock::Empty),
+        );
+      }
+      _ => {}
+    };
   }
   // reset tick_count so that network requests are made faster
   if key == DEFAULT_KEYBINDING.submit {

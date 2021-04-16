@@ -68,7 +68,7 @@ impl<T> StatefulTable<T> {
 
   pub fn set_items(&mut self, items: Vec<T>) {
     self.items = items;
-    if self.items.len() > 0 {
+    if !self.items.is_empty() {
       let i = self
         .state
         .selected()
@@ -106,10 +106,7 @@ impl<T> StatefulTable<T> {
 
 impl<T: Clone> StatefulTable<T> {
   pub fn get_selected_item(&mut self) -> Option<T> {
-    self
-      .state
-      .selected()
-      .and_then(|i| Some(self.items[i].clone()))
+    self.state.selected().map(|i| self.items[i].clone())
   }
 }
 
@@ -142,10 +139,7 @@ impl TabsState {
     self.set_active();
   }
   pub fn set_active(&mut self) {
-    self.active_block = self
-      .active_block_ids
-      .as_ref()
-      .and_then(|ids| Some(ids[self.index]));
+    self.active_block = self.active_block_ids.as_ref().map(|ids| ids[self.index]);
   }
   pub fn next(&mut self) {
     self.index = (self.index + 1) % self.titles.len();

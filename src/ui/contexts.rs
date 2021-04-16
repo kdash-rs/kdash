@@ -15,9 +15,9 @@ pub fn draw_contexts<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = format!("Contexts [{}]", app.contexts.items.len());
   let block = layout_block_default(title.as_str());
 
-  if app.contexts.items.len() > 0 {
+  if !app.contexts.items.is_empty() {
     let rows = app.contexts.items.iter().map(|c| {
-      let style = if c.is_active == true {
+      let style = if c.is_active {
         style_success()
       } else {
         style_primary()

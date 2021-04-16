@@ -70,9 +70,9 @@ fn nw_loading_indicator<'a>(loading: bool) -> &'a str {
 
 fn draw_cli_status<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let block = layout_block_default("CLI Info");
-  if app.clis.len() > 0 {
+  if !app.clis.is_empty() {
     let rows = app.clis.iter().map(|s| {
-      let style = if s.status == true {
+      let style = if s.status {
         style_success()
       } else {
         style_failure()
@@ -189,7 +189,7 @@ fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   );
   let block = layout_block_default(title.as_str());
 
-  if app.namespaces.items.len() > 0 {
+  if !app.namespaces.items.is_empty() {
     let rows = app.namespaces.items.iter().map(|c| {
       Row::new(vec![
         Cell::from(c.name.as_ref()),
@@ -219,7 +219,7 @@ fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   );
   let block = layout_block_top_border(title.as_str());
 
-  if app.pods.items.len() > 0 {
+  if !app.pods.items.is_empty() {
     let rows = app.pods.items.iter().map(|c| {
       Row::new(vec![
         Cell::from(c.namespace.as_ref()),
@@ -263,7 +263,7 @@ fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = format!("Nodes [{}]", app.nodes.items.len());
   let block = layout_block_top_border(title.as_str());
 
-  if app.nodes.items.len() > 0 {
+  if !app.nodes.items.is_empty() {
     let rows = app.nodes.items.iter().map(|c| {
       let pods = c.pods.to_string();
       Row::new(vec![
@@ -315,7 +315,7 @@ fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   );
   let block = layout_block_top_border(title.as_str());
 
-  if app.services.items.len() > 0 {
+  if !app.services.items.is_empty() {
     let rows = app.services.items.iter().map(|c| {
       Row::new(vec![
         Cell::from(c.namespace.as_ref()),
@@ -359,7 +359,7 @@ fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 /// covert percent value from metrics to ratio that gauge can understand
-fn get_nm_ratio(node_metrics: &Vec<NodeMetrics>, f: fn(a: f64, b: &NodeMetrics) -> f64) -> f64 {
+fn get_nm_ratio(node_metrics: &[NodeMetrics], f: fn(a: f64, b: &NodeMetrics) -> f64) -> f64 {
   if !node_metrics.is_empty() {
     let sum = node_metrics.iter().fold(0f64, f);
     (sum / node_metrics.len() as f64) / 100f64

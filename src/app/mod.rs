@@ -42,7 +42,7 @@ const DEFAULT_ROUTE: Route = Route {
   active_block: ActiveBlock::Pods,
 };
 
-pub struct CLI {
+pub struct Cli {
   pub name: String,
   pub version: String,
   pub status: bool,
@@ -137,7 +137,7 @@ pub struct App {
   pub size: Rect,
   pub light_theme: bool,
   pub refresh: bool,
-  pub clis: Vec<CLI>,
+  pub clis: Vec<Cli>,
   pub kubeconfig: Option<Kubeconfig>,
   pub contexts: StatefulTable<KubeContext>,
   pub active_context: Option<KubeContext>,
@@ -213,7 +213,7 @@ impl App {
     App {
       io_tx: Some(io_tx),
       enhanced_graphics,
-      tick_until_poll: tick_until_poll,
+      tick_until_poll,
       ..App::default()
     }
   }
@@ -320,24 +320,21 @@ impl App {
       if !first_render {
         self.dispatch(IoEvent::RefreshClient);
       }
-      self.dispatch(IoEvent::GetCLIInfo);
+      self.dispatch(IoEvent::GetCliInfo);
       self.dispatch(IoEvent::GetKubeConfig);
     }
     // make network requests only in intervals to avoid hogging up the network
     if self.tick_count == 0 || self.is_routing {
       // make network calls based on active route and active block
-      match self.get_current_route().id {
-        RouteId::Home => {
-          self.dispatch(IoEvent::GetNamespaces);
-          self.dispatch(IoEvent::GetTopNodes);
-          match self.get_current_route().active_block {
-            ActiveBlock::Pods => self.dispatch(IoEvent::GetPods),
-            ActiveBlock::Services => self.dispatch(IoEvent::GetServices),
-            ActiveBlock::Nodes => self.dispatch(IoEvent::GetNodes),
-            _ => {}
-          }
+      if self.get_current_route().id == RouteId::Home {
+        self.dispatch(IoEvent::GetNamespaces);
+        self.dispatch(IoEvent::GetTopNodes);
+        match self.get_current_route().active_block {
+          ActiveBlock::Pods => self.dispatch(IoEvent::GetPods),
+          ActiveBlock::Services => self.dispatch(IoEvent::GetServices),
+          ActiveBlock::Nodes => self.dispatch(IoEvent::GetNodes),
+          _ => {}
         }
-        _ => {}
       }
       self.is_routing = false;
     }

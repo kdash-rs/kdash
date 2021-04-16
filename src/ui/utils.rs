@@ -9,15 +9,15 @@ use tui::{
 };
 // Utils
 
-pub fn title_style<'a>(txt: &'a str) -> Span<'a> {
+pub fn title_style(txt: &str) -> Span {
   Span::styled(txt, style_bold())
 }
 
-pub fn title_style_primary<'a>(txt: &'a str) -> Span<'a> {
+pub fn title_style_primary(txt: &str) -> Span {
   Span::styled(txt, style_primary_bold())
 }
 
-pub fn title_style_secondary<'a>(txt: &'a str) -> Span<'a> {
+pub fn title_style_secondary(txt: &str) -> Span {
   Span::styled(txt, style_secondary_bold())
 }
 
@@ -63,7 +63,7 @@ pub fn get_gauge_style(enhanced_graphics: bool) -> symbols::line::Set {
   }
 }
 
-pub fn table_header_style<'a>(cells: Vec<&'a str>) -> Row<'a> {
+pub fn table_header_style(cells: Vec<&str>) -> Row {
   Row::new(cells).style(style_secondary()).bottom_margin(0)
 }
 
@@ -105,15 +105,15 @@ pub fn vertical_chunks_with_margin(
     .split(size)
 }
 
-pub fn layout_block<'a>(title: Span<'a>) -> Block<'a> {
+pub fn layout_block(title: Span) -> Block {
   Block::default().borders(Borders::ALL).title(title)
 }
 
-pub fn layout_block_default<'a>(title: &'a str) -> Block<'a> {
+pub fn layout_block_default(title: &str) -> Block {
   layout_block(title_style(title))
 }
 
-pub fn layout_block_top_border<'a>(title: &'a str) -> Block<'a> {
+pub fn layout_block_top_border(title: &str) -> Block {
   Block::default()
     .borders(Borders::TOP)
     .title(title_style(title))
