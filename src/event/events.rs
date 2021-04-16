@@ -1,5 +1,6 @@
 //  from https://github.com/Rigellute/spotify-tui
-use crate::event::Key;
+use super::Key;
+
 use crossterm::event;
 use std::{sync::mpsc, thread, time::Duration};
 

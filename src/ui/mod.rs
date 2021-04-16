@@ -3,22 +3,22 @@ mod help;
 mod overview;
 mod utils;
 
+use self::contexts::draw_contexts;
+use self::help::draw_help_menu;
+use self::overview::draw_overview;
+use self::utils::{
+  centered_rect, horizontal_chunks_with_margin, layout_block, style_failure, style_help,
+  style_main_background, style_primary, style_secondary, style_success, title_style_primary,
+  vertical_chunks,
+};
 use super::app::{App, RouteId};
-use contexts::draw_contexts;
-use help::draw_help_menu;
-use overview::draw_overview;
+
 use tui::{
   backend::Backend,
   layout::{Constraint, Rect},
   text::{Span, Spans, Text},
   widgets::{Block, Borders, Paragraph, Tabs, Wrap},
   Frame,
-};
-
-use utils::{
-  centered_rect, horizontal_chunks_with_margin, layout_block, style_failure, style_help,
-  style_main_background, style_primary, style_secondary, style_success, title_style_primary,
-  vertical_chunks,
 };
 
 static HIGHLIGHT: &str = "=> ";

@@ -1,6 +1,8 @@
-use crate::app::models::DEFAULT_KEYBINDING;
-use crate::app::App;
-use crate::event::Key;
+use super::super::app::models::DEFAULT_KEYBINDING;
+use super::super::app::App;
+use super::super::event::Key;
+use super::utils::{layout_block_default, style_primary, style_secondary, vertical_chunks};
+
 use std::fmt;
 use tui::{
   backend::Backend,
@@ -8,8 +10,6 @@ use tui::{
   widgets::{Row, Table},
   Frame,
 };
-
-use super::utils::{layout_block_default, style_primary, style_secondary, vertical_chunks};
 
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Debug)]
 enum HContext {

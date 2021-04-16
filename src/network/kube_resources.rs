@@ -1,4 +1,6 @@
-use crate::app::{KubeContext, KubeNode, KubeNs, KubePods, KubeSvs, NodeMetrics};
+use super::super::app::{KubeContext, KubeNode, KubeNs, KubePods, KubeSvs, NodeMetrics};
+use super::{Network, UNKNOWN};
+
 use anyhow::anyhow;
 use duct::cmd;
 use k8s_openapi::{
@@ -7,8 +9,6 @@ use k8s_openapi::{
   chrono::{DateTime, Utc},
 };
 use kube::{api::ListParams, config::Kubeconfig, Api, Resource};
-
-use super::{Network, UNKNOWN};
 
 impl<'a> Network<'a> {
   pub async fn get_kube_config(&mut self) {

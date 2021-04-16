@@ -1,7 +1,6 @@
 use tui::widgets::TableState;
 
-use crate::event::Key;
-
+use super::super::event::Key;
 use super::ActiveBlock;
 
 #[derive(Clone)]

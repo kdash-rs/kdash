@@ -6,9 +6,9 @@ mod handlers;
 mod network;
 mod ui;
 
-use crate::event::Key;
 use app::App;
 use cli::Cli;
+use event::Key;
 use network::{get_client, IoEvent, Network};
 
 use anyhow::Result;
@@ -76,10 +76,11 @@ async fn main() -> Result<()> {
     panic_hook(info);
   }));
 
-  let mut cli: Cli = Cli::new();
+  let mut cli = Cli::new();
   let clap_app = cli.get_clap_app();
   let matches = clap_app.get_matches();
 
+  // parse CLI arguments
   if let Some(tick_rate) = matches
     .value_of("tick-rate")
     .and_then(|tick_rate| tick_rate.parse().ok())
@@ -102,6 +103,7 @@ async fn main() -> Result<()> {
     }
   }
 
+  // channel for communication between network & UI threads
   let (sync_io_tx, sync_io_rx) = mpsc::channel::<IoEvent>();
 
   // Initialize app state
@@ -125,7 +127,7 @@ async fn main() -> Result<()> {
 }
 
 #[tokio::main]
-async fn start_tokio<'a>(io_rx: mpsc::Receiver<IoEvent>, app: &Arc<Mutex<App>>) {
+async fn start_tokio(io_rx: mpsc::Receiver<IoEvent>, app: &Arc<Mutex<App>>) {
   match get_client().await {
     Ok(client) => {
       let mut network = Network::new(client, app);
@@ -144,15 +146,15 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
   execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
   // see https://docs.rs/crossterm/0.17.7/crossterm/terminal/#raw-mode
   enable_raw_mode()?;
-
+  // terminal backend for cross platform support
   let backend = CrosstermBackend::new(stdout);
   let mut terminal = Terminal::new(backend)?;
   terminal.hide_cursor()?;
   terminal.clear()?;
-
+  // custom events
   let events = event::Events::new(cli.tick_rate);
   let mut is_first_render = true;
-
+  // main UI loop
   loop {
     let mut app = app.lock().await;
     // Get the size of the screen on each loop to account for resize event
@@ -181,13 +183,14 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
     // handle key vents
     match events.next()? {
       event::Event::Input(key) => {
-        // handle CTRL + C
+        // quit on CTRL + C
         if key == Key::Ctrl('c') {
           break;
         }
         // handle all other keys
         handlers::handle_app(key, &mut app)
       }
+      // handle tick events
       event::Event::Tick => {
         app.on_tick(is_first_render);
       }

@@ -1,8 +1,8 @@
-use crate::app::{
+use super::app::{
   models::{StatefulTable, DEFAULT_KEYBINDING},
   ActiveBlock, App, RouteId,
 };
-use crate::event::Key;
+use super::event::Key;
 
 pub fn handle_app(key: Key, app: &mut App) {
   // First handle any global event and then move to block event

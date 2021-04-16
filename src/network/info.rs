@@ -2,8 +2,8 @@ use super::{
   app::{self, Cli},
   Network, NOT_FOUND,
 };
-use duct::cmd;
 
+use duct::cmd;
 use regex::Regex;
 use serde_json::Value as JValue;
 

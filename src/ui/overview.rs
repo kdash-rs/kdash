@@ -1,3 +1,5 @@
+use super::super::app::{App, NodeMetrics};
+use super::super::banner::BANNER;
 use super::utils::{
   draw_placeholder, get_gauge_style, horizontal_chunks, layout_block_default,
   layout_block_top_border, loading, style_failure, style_highlight, style_primary, style_secondary,
@@ -5,8 +7,7 @@ use super::utils::{
   vertical_chunks_with_margin,
 };
 use super::HIGHLIGHT;
-use crate::app::{App, NodeMetrics};
-use crate::banner::BANNER;
+
 use tui::{
   backend::Backend,
   layout::{Constraint, Rect},

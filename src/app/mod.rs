@@ -1,12 +1,12 @@
 pub(crate) mod models;
 
-use crate::network::IoEvent;
+use self::models::{StatefulTable, TabsState};
+use super::network::IoEvent;
+
 use anyhow::anyhow;
 use kube::config::Kubeconfig;
 use std::{sync::mpsc::Sender, u64};
 use tui::layout::Rect;
-
-use self::models::{StatefulTable, TabsState};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum ActiveBlock {
