@@ -46,7 +46,7 @@ jobs:
       - name: Running cargo build
         uses: actions-rs/cargo@v1
         with:
-          command: build
+          command: build --features vendored
           toolchain: ${{ matrix.rust }}
           args: --release --target ${{ matrix.target }}
 
