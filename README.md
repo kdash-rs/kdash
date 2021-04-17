@@ -25,7 +25,7 @@ A simple terminal dashboard for Kubernetes built with Rust
   - [ ] ConfigMaps
   - [ ] StatefulSets
   - [ ] ReplicaSets
-- [ ] describe resources
+- Describe resources
   - [ ] Pods
   - [ ] Nodes
   - [ ] Namespace
@@ -34,7 +34,7 @@ A simple terminal dashboard for Kubernetes built with Rust
   - [ ] ConfigMaps
   - [ ] StatefulSets
   - [ ] ReplicaSets
-- [ ] Stream logs/events
+- Stream logs/events
   - [ ] Pods
   - [ ] Services
   - [ ] Deployments
@@ -51,18 +51,21 @@ A simple terminal dashboard for Kubernetes built with Rust
 - [ ] Custom keymap
 - [ ] Custom theme
 
-- [ ] Tests, need a lot of them
-- [ ] CI/CD
+- [ ] Tests, a lot of them :)
 
 ## Installation
 
-Min cargo version: 1.48.0
+Beta release binaries for macOS, Linux and Windows are available on the [releases](https://github.com/kdash-rs/kdash/releases) page
 
-For now you can use this by cloning the repo and running `cargo run`
+If you have Cargo installed then you install KDash from crates.io
+
+```
+cargo install kdash
+```
+
+You can also clone the repo and run `cargo run` to build and run the app
 
 If you face issues with openssl then please run `cargo run --features vendored`
-
-Will publish binaries and crates once out of beta
 
 ## USAGE:
 
