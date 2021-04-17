@@ -1,6 +1,7 @@
 use super::super::app::App;
 use super::utils::{
-  layout_block_default, loading, style_highlight, style_primary, style_success, table_header_style,
+  layout_block_default, loading, style_highlight, style_primary, style_secondary,
+  table_header_style,
 };
 use super::HIGHLIGHT;
 
@@ -18,7 +19,7 @@ pub fn draw_contexts<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   if !app.contexts.items.is_empty() {
     let rows = app.contexts.items.iter().map(|c| {
       let style = if c.is_active {
-        style_success()
+        style_secondary()
       } else {
         style_primary()
       };
@@ -31,7 +32,10 @@ pub fn draw_contexts<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     });
 
     let table = Table::new(rows)
-      .header(table_header_style(vec!["Context", "Cluster", "User"]))
+      .header(table_header_style(
+        vec!["Context", "Cluster", "User"],
+        app.light_theme,
+      ))
       .block(block)
       .widths(&[
         Constraint::Percentage(34),

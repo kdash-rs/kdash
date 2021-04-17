@@ -1,10 +1,9 @@
-use super::super::app::{App, NodeMetrics};
+use super::super::app::{ActiveBlock, App, NodeMetrics};
 use super::super::banner::BANNER;
 use super::utils::{
   draw_placeholder, get_gauge_style, horizontal_chunks, layout_block_default,
-  layout_block_top_border, loading, style_failure, style_highlight, style_primary, style_secondary,
-  style_success, table_header_style, title_style_secondary, vertical_chunks,
-  vertical_chunks_with_margin,
+  layout_block_top_border, loading, style_default, style_failure, style_highlight, style_logo,
+  style_primary, style_secondary, table_header_style, vertical_chunks, vertical_chunks_with_margin,
 };
 use super::HIGHLIGHT;
 
@@ -52,12 +51,10 @@ fn draw_logo<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     nw_loading_indicator(app.is_loading)
   );
   let mut text = Text::from(text);
-  text.patch_style(style_success());
+  text.patch_style(style_logo());
 
   // Contains the banner
-  let paragraph = Paragraph::new(text)
-    .style(style_success())
-    .block(Block::default().borders(Borders::ALL));
+  let paragraph = Paragraph::new(text).block(Block::default().borders(Borders::ALL));
   f.render_widget(paragraph, area);
 }
 
@@ -74,7 +71,7 @@ fn draw_cli_status<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   if !app.clis.is_empty() {
     let rows = app.clis.iter().map(|s| {
       let style = if s.status {
-        style_success()
+        style_primary()
       } else {
         style_failure()
       };
@@ -98,14 +95,19 @@ fn draw_active_context_tabs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: R
   let chunks =
     vertical_chunks_with_margin(vec![Constraint::Length(2), Constraint::Min(0)], area, 1);
 
+  let mut block = layout_block_default("Resources");
+  if app.get_current_route().active_block != ActiveBlock::Namespaces {
+    block = block.style(style_secondary())
+  }
+
   let titles = app
     .context_tabs
     .titles
     .iter()
-    .map(|t| Spans::from(Span::styled(*t, style_success())))
+    .map(|t| Spans::from(Span::styled(t, style_default(app.light_theme))))
     .collect();
   let tabs = Tabs::new(titles)
-    .block(layout_block_default("Resources"))
+    .block(block)
     .highlight_style(style_secondary())
     .select(app.context_tabs.index);
 
@@ -140,15 +142,15 @@ fn draw_context_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     Some(active_context) => {
       text = vec![
         Spans::from(vec![
-          Span::styled("Context: ", style_secondary()),
+          Span::styled("Context: ", style_default(app.light_theme)),
           Span::styled(&active_context.name, style_primary()),
         ]),
         Spans::from(vec![
-          Span::styled("Cluster: ", style_secondary()),
+          Span::styled("Cluster: ", style_default(app.light_theme)),
           Span::styled(&active_context.cluster, style_primary()),
         ]),
         Spans::from(vec![
-          Span::styled("User: ", style_secondary()),
+          Span::styled("User: ", style_default(app.light_theme)),
           Span::styled(&active_context.user, style_primary()),
         ]),
       ];
@@ -165,7 +167,7 @@ fn draw_context_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   f.render_widget(paragraph, chunks[0]);
 
   let cpu_gauge = LineGauge::default()
-    .block(Block::default().title(title_style_secondary("CPU:")))
+    .block(Block::default().title("CPU:"))
     .gauge_style(style_primary())
     .line_set(get_gauge_style(app.enhanced_graphics))
     .ratio(get_nm_ratio(app.node_metrics.as_ref(), |acc, nm| {
@@ -174,7 +176,7 @@ fn draw_context_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   f.render_widget(cpu_gauge, chunks[1]);
 
   let mem_gauge = LineGauge::default()
-    .block(Block::default().title(title_style_secondary("Memory:")))
+    .block(Block::default().title("Memory:"))
     .gauge_style(style_primary())
     .line_set(get_gauge_style(app.enhanced_graphics))
     .ratio(get_nm_ratio(app.node_metrics.as_ref(), |acc, nm| {
@@ -184,23 +186,29 @@ fn draw_context_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = format!(
-    "Namespaces <n> (selected: {})",
-    app.selected_ns.as_ref().unwrap_or(&String::from("all"))
-  );
-  let block = layout_block_default(title.as_str());
+  let title = String::from("Namespaces <n> (all: <a>)");
+  let mut block = layout_block_default(title.as_str());
+
+  if app.get_current_route().active_block == ActiveBlock::Namespaces {
+    block = block.style(style_secondary())
+  }
 
   if !app.namespaces.items.is_empty() {
-    let rows = app.namespaces.items.iter().map(|c| {
+    let rows = app.namespaces.items.iter().map(|s| {
+      let style = if Some(s.name.clone()) == app.selected_ns {
+        style_secondary()
+      } else {
+        style_primary()
+      };
       Row::new(vec![
-        Cell::from(c.name.as_ref()),
-        Cell::from(c.status.as_ref()),
+        Cell::from(s.name.as_ref()),
+        Cell::from(s.status.as_ref()),
       ])
-      .style(style_primary())
+      .style(style)
     });
 
     let table = Table::new(rows)
-      .header(table_header_style(vec!["Name", "Status"]))
+      .header(table_header_style(vec!["Name", "Status"], app.light_theme))
       .block(block)
       .highlight_style(style_highlight())
       .highlight_symbol(HIGHLIGHT)
@@ -234,14 +242,10 @@ fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     });
 
     let table = Table::new(rows)
-      .header(table_header_style(vec![
-        "Namespace",
-        "Name",
-        "Ready",
-        "Status",
-        "Restarts",
-        "Age",
-      ]))
+      .header(table_header_style(
+        vec!["Namespace", "Name", "Ready", "Status", "Restarts", "Age"],
+        app.light_theme,
+      ))
       .block(block)
       .highlight_style(style_highlight())
       .highlight_symbol(HIGHLIGHT)
@@ -283,9 +287,12 @@ fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     });
 
     let table = Table::new(rows)
-      .header(table_header_style(vec![
-        "Name", "Status", "Roles", "Version", "Pods", "CPU", "Mem", "CPU %", "Mem %", "Age",
-      ]))
+      .header(table_header_style(
+        vec![
+          "Name", "Status", "Roles", "Version", "Pods", "CPU", "Mem", "CPU %", "Mem %", "Age",
+        ],
+        app.light_theme,
+      ))
       .block(block)
       .highlight_style(style_highlight())
       .highlight_symbol(HIGHLIGHT)
@@ -331,15 +338,18 @@ fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     });
 
     let table = Table::new(rows)
-      .header(table_header_style(vec![
-        "Namespace",
-        "Name",
-        "Type",
-        "Cluster IP",
-        "External IP",
-        "Ports",
-        "Age",
-      ]))
+      .header(table_header_style(
+        vec![
+          "Namespace",
+          "Name",
+          "Type",
+          "Cluster IP",
+          "External IP",
+          "Ports",
+          "Age",
+        ],
+        app.light_theme,
+      ))
       .block(block)
       .highlight_style(style_highlight())
       .highlight_symbol(HIGHLIGHT)

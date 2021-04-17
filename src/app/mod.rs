@@ -5,7 +5,8 @@ use super::network::IoEvent;
 
 use anyhow::anyhow;
 use kube::config::Kubeconfig;
-use std::{sync::mpsc::Sender, u64};
+use models::DEFAULT_KEYBINDING;
+use std::sync::mpsc::Sender;
 use tui::layout::Rect;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -20,7 +21,6 @@ pub enum ActiveBlock {
   ReplicaSets,
   Namespaces,
   Contexts,
-  Dialog(),
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -126,15 +126,12 @@ pub struct App {
   pub tick_until_poll: u64,
   pub tick_count: u64,
   pub enhanced_graphics: bool,
-  pub help_docs_size: u32,
-  pub help_menu_page: u32,
-  pub help_menu_max_lines: u32,
-  pub help_menu_offset: u32,
   pub home_scroll: u16,
+  pub table_cols: u16,
+  pub size: Rect,
   pub api_error: String,
   pub dialog: Option<String>,
   pub confirm: bool,
-  pub size: Rect,
   pub light_theme: bool,
   pub refresh: bool,
   pub clis: Vec<Cli>,
@@ -156,16 +153,22 @@ impl Default for App {
       io_tx: None,
       title: " KDash - A simple Kubernetes dashboard ",
       should_quit: false,
-      main_tabs: TabsState::new(vec!["Active Context <a>", "All Contexts <c>"]),
+      main_tabs: TabsState::new(vec![
+        format!(
+          "Active Context {}",
+          DEFAULT_KEYBINDING.jump_to_current_context
+        ),
+        format!("All Contexts {}", DEFAULT_KEYBINDING.jump_to_all_context),
+      ]),
       context_tabs: TabsState::with_active_blocks(
         vec![
-          "Pods <p>",
-          "Services <s>",
-          "Nodes <N>",
-          "Deployments <D>",
-          "ConfigMaps <C>",
-          "StatefulSets <S>",
-          "ReplicaSets <R>",
+          format!("Pods {}", DEFAULT_KEYBINDING.jump_to_pods),
+          format!("Services {}", DEFAULT_KEYBINDING.jump_to_services),
+          format!("Nodes {}", DEFAULT_KEYBINDING.jump_to_nodes),
+          format!("Deployments {}", DEFAULT_KEYBINDING.jump_to_deployments),
+          format!("ConfigMaps {}", DEFAULT_KEYBINDING.jump_to_configmaps),
+          format!("StatefulSets {}", DEFAULT_KEYBINDING.jump_to_statefulsets),
+          format!("ReplicaSets {}", DEFAULT_KEYBINDING.jump_to_replicasets),
         ],
         vec![
           ActiveBlock::Pods,
@@ -180,20 +183,17 @@ impl Default for App {
       show_info_bar: true,
       is_loading: false,
       is_routing: false,
-      light_theme: false,
-      refresh: true,
       tick_until_poll: 0,
       tick_count: 0,
       enhanced_graphics: false,
-      help_docs_size: 0,
-      help_menu_page: 0,
-      help_menu_max_lines: 0,
-      help_menu_offset: 0,
       home_scroll: 0,
-      dialog: None,
-      confirm: false,
+      table_cols: 0,
       size: Rect::default(),
       api_error: String::new(),
+      dialog: None,
+      confirm: false,
+      light_theme: false,
+      refresh: true,
       clis: vec![],
       kubeconfig: None,
       contexts: StatefulTable::new(),
@@ -278,30 +278,6 @@ impl App {
   pub fn get_current_route(&self) -> &Route {
     // if for some reason there is no route return the default
     self.navigation_stack.last().unwrap_or(&DEFAULT_ROUTE)
-  }
-
-  fn get_current_route_mut(&mut self) -> &mut Route {
-    self.navigation_stack.last_mut().unwrap()
-  }
-
-  pub fn set_active_block(&mut self, active_block: Option<ActiveBlock>) {
-    let mut current_route = self.get_current_route_mut();
-    if let Some(active_block) = active_block {
-      current_route.active_block = active_block;
-    }
-    self.is_routing = true;
-  }
-
-  pub fn calculate_help_menu_offset(&mut self) {
-    let old_offset = self.help_menu_offset;
-
-    if self.help_menu_max_lines < self.help_docs_size {
-      self.help_menu_offset = self.help_menu_page * self.help_menu_max_lines;
-    }
-    if self.help_menu_offset > self.help_docs_size {
-      self.help_menu_offset = old_offset;
-      self.help_menu_page -= 1;
-    }
   }
 
   pub fn route_home(&mut self) {

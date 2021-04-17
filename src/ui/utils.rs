@@ -9,16 +9,17 @@ use tui::{
 };
 // Utils
 
+const DARK_FG_COLOR: Color = Color::White;
+const DARK_BG_COLOR: Color = Color::Rgb(35, 50, 55);
+const LIGHT_FG_COLOR: Color = Color::Magenta;
+const LIGHT_BG_COLOR: Color = Color::White;
+
 pub fn title_style(txt: &str) -> Span {
   Span::styled(txt, style_bold())
 }
 
-pub fn title_style_primary(txt: &str) -> Span {
-  Span::styled(txt, style_primary_bold())
-}
-
-pub fn title_style_secondary(txt: &str) -> Span {
-  Span::styled(txt, style_secondary_bold())
+pub fn title_style_logo(txt: &str) -> Span {
+  Span::styled(txt, style_logo().add_modifier(Modifier::BOLD))
 }
 
 pub fn style_bold() -> Style {
@@ -26,6 +27,16 @@ pub fn style_bold() -> Style {
 }
 pub fn style_success() -> Style {
   Style::default().fg(Color::Green)
+}
+pub fn style_default(light: bool) -> Style {
+  if light {
+    Style::default().fg(LIGHT_FG_COLOR)
+  } else {
+    Style::default().fg(DARK_FG_COLOR)
+  }
+}
+pub fn style_logo() -> Style {
+  Style::default().fg(Color::Blue)
 }
 pub fn style_failure() -> Style {
   Style::default().fg(Color::Red)
@@ -39,19 +50,15 @@ pub fn style_primary() -> Style {
 pub fn style_help() -> Style {
   Style::default().fg(Color::Blue)
 }
-pub fn style_primary_bold() -> Style {
-  style_primary().add_modifier(Modifier::BOLD)
-}
+
 pub fn style_secondary() -> Style {
   Style::default().fg(Color::Yellow)
 }
-pub fn style_secondary_bold() -> Style {
-  style_secondary().add_modifier(Modifier::BOLD)
-}
+
 pub fn style_main_background(light: bool) -> Style {
   match light {
-    true => Style::default().bg(Color::White).fg(Color::Magenta),
-    false => Style::default().bg(Color::Rgb(35, 50, 55)).fg(Color::White),
+    true => Style::default().bg(LIGHT_BG_COLOR).fg(LIGHT_FG_COLOR),
+    false => Style::default().bg(DARK_BG_COLOR).fg(DARK_FG_COLOR),
   }
 }
 
@@ -63,8 +70,8 @@ pub fn get_gauge_style(enhanced_graphics: bool) -> symbols::line::Set {
   }
 }
 
-pub fn table_header_style(cells: Vec<&str>) -> Row {
-  Row::new(cells).style(style_secondary()).bottom_margin(0)
+pub fn table_header_style(cells: Vec<&str>, light: bool) -> Row {
+  Row::new(cells).style(style_default(light)).bottom_margin(0)
 }
 
 pub fn horizontal_chunks(constraints: Vec<Constraint>, size: Rect) -> Vec<Rect> {

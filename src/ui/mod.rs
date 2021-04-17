@@ -7,8 +7,8 @@ use self::contexts::draw_contexts;
 use self::help::draw_help_menu;
 use self::overview::draw_overview;
 use self::utils::{
-  centered_rect, horizontal_chunks_with_margin, layout_block, style_failure, style_help,
-  style_main_background, style_primary, style_secondary, style_success, title_style_primary,
+  centered_rect, horizontal_chunks_with_margin, layout_block, style_default, style_failure,
+  style_help, style_main_background, style_primary, style_secondary, title_style_logo,
   vertical_chunks,
 };
 use super::app::{App, RouteId};
@@ -33,7 +33,7 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
   match app.get_current_route().id {
     RouteId::HelpMenu => {
-      draw_help_menu(f, app, chunks[1]);
+      draw_help_menu(f, chunks[1]);
     }
     RouteId::Error => {
       if app.api_error.is_empty() {
@@ -59,10 +59,10 @@ fn draw_app_header<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     .main_tabs
     .titles
     .iter()
-    .map(|t| Spans::from(Span::styled(*t, style_success())))
+    .map(|t| Spans::from(Span::styled(t, style_default(app.light_theme))))
     .collect();
   let tabs = Tabs::new(titles)
-    .block(layout_block(title_style_primary(app.title)))
+    .block(layout_block(title_style_logo(app.title)))
     .highlight_style(style_secondary())
     .select(app.main_tabs.index);
 

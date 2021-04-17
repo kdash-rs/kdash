@@ -35,8 +35,8 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
   submit: Key::Enter,
   refresh: Key::Ctrl('r'),
   toggle_theme: Key::Char('t'),
-  jump_to_all_context: Key::Char('c'),
-  jump_to_current_context: Key::Char('a'),
+  jump_to_all_context: Key::Char('C'),
+  jump_to_current_context: Key::Char('A'),
   up: Key::Up,
   down: Key::Down,
   left: Key::Left,
@@ -46,10 +46,10 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
   jump_to_pods: Key::Char('p'),
   jump_to_services: Key::Char('s'),
   jump_to_nodes: Key::Char('N'),
-  jump_to_deployments: Key::Char('D'),
-  jump_to_configmaps: Key::Char('C'),
+  jump_to_deployments: Key::Char('d'),
+  jump_to_configmaps: Key::Char('c'),
   jump_to_statefulsets: Key::Char('S'),
-  jump_to_replicasets: Key::Char('R'),
+  jump_to_replicasets: Key::Char('r'),
 };
 
 pub struct StatefulTable<T> {
@@ -98,7 +98,7 @@ impl<T> StatefulTable<T> {
     self.state.select(Some(i));
   }
 
-  pub fn unselect(&mut self) {
+  pub fn _unselect(&mut self) {
     self.state.select(None);
   }
 }
@@ -110,14 +110,14 @@ impl<T: Clone> StatefulTable<T> {
 }
 
 pub struct TabsState {
-  pub titles: Vec<&'static str>,
+  pub titles: Vec<String>,
   pub index: usize,
   pub active_block_ids: Option<Vec<ActiveBlock>>,
   pub active_block: Option<ActiveBlock>,
 }
 
 impl TabsState {
-  pub fn new(titles: Vec<&'static str>) -> TabsState {
+  pub fn new(titles: Vec<String>) -> TabsState {
     TabsState {
       titles,
       index: 0,
@@ -125,7 +125,7 @@ impl TabsState {
       active_block: None,
     }
   }
-  pub fn with_active_blocks(titles: Vec<&'static str>, blocks: Vec<ActiveBlock>) -> TabsState {
+  pub fn with_active_blocks(titles: Vec<String>, blocks: Vec<ActiveBlock>) -> TabsState {
     TabsState {
       titles,
       index: 0,

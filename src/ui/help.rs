@@ -1,5 +1,4 @@
 use super::super::app::models::DEFAULT_KEYBINDING;
-use super::super::app::App;
 use super::super::event::Key;
 use super::utils::{layout_block_default, style_primary, style_secondary, vertical_chunks};
 
@@ -23,7 +22,7 @@ impl fmt::Display for HContext {
   }
 }
 
-pub fn draw_help_menu<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+pub fn draw_help_menu<B: Backend>(f: &mut Frame<B>, area: Rect) {
   let chunks = vertical_chunks(vec![Constraint::Percentage(100)], area);
 
   // Create a one-column table to avoid flickering due to non-determinism when
@@ -39,7 +38,7 @@ pub fn draw_help_menu<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     .into_iter()
     .map(format_row)
     .collect::<Vec<Vec<String>>>();
-  let help_docs = &help_docs[app.help_menu_offset as usize..];
+  let help_docs = &help_docs[0_usize..];
 
   let rows = help_docs
     .iter()

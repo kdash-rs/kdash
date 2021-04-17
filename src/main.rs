@@ -161,18 +161,14 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
     if let Ok(size) = terminal.backend().size() {
       // Reset the help menu if the terminal was resized
       if app.refresh || app.size != size {
-        app.help_menu_max_lines = 0;
-        app.help_menu_offset = 0;
-        app.help_menu_page = 0;
-
         app.size = size;
 
-        // Based on the size of the terminal, adjust how many lines are
-        // displayed in the help menu
-        if app.size.height > 8 {
-          app.help_menu_max_lines = (app.size.height as u32) - 8;
+        // Based on the size of the terminal, adjust how many cols are
+        // displayed in the tables
+        if app.size.width > 8 {
+          app.table_cols = app.size.width - 1;
         } else {
-          app.help_menu_max_lines = 0;
+          app.table_cols = 0;
         }
       }
     };
