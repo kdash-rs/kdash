@@ -5,9 +5,10 @@ authors = ["Deepu K Sasidharan <d4udts@gmail.com>"]
 description = """
 A fast and simple dashboard for Kubernetes
 """
-documentation = "TODO"
+documentation = "https://github.com/kdash-rs/kdash"
 keywords = ["kdash", "kubernetes", "dashboard"]
 repository = "https://github.com/kdash-rs/kdash"
+homepage = "https://github.com/kdash-rs/kdash"
 readme = "README.md"
 license = "MIT"
 exclude = ["assets/*", ".github", "Makefile.toml", "CONTRIBUTING.md", "*.log", "tags"]
