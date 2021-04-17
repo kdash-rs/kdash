@@ -1,4 +1,4 @@
-use super::super::app::{ActiveBlock, App, NodeMetrics};
+use super::super::app::{ActiveBlock, App, NodeMetrics, DEFAULT_KEYBINDING};
 use super::super::banner::BANNER;
 use super::utils::{
   draw_placeholder, get_gauge_style, horizontal_chunks, layout_block_default,
@@ -186,7 +186,10 @@ fn draw_context_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = String::from("Namespaces <n> (all: <a>)");
+  let title = format!(
+    "Namespaces {} (all: {})",
+    DEFAULT_KEYBINDING.jump_to_namespace, DEFAULT_KEYBINDING.select_all_namespace
+  );
   let mut block = layout_block_default(title.as_str());
 
   if app.get_current_route().active_block == ActiveBlock::Namespaces {

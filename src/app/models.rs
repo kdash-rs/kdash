@@ -18,6 +18,7 @@ pub struct KeyBindings {
   pub left: Key,
   pub right: Key,
   pub toggle_info: Key,
+  pub select_all_namespace: Key,
   pub jump_to_namespace: Key,
   pub jump_to_pods: Key,
   pub jump_to_services: Key,
@@ -27,30 +28,6 @@ pub struct KeyBindings {
   pub jump_to_statefulsets: Key,
   pub jump_to_replicasets: Key,
 }
-
-pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
-  esc: Key::Esc,
-  quit: Key::Char('q'),
-  help: Key::Char('?'),
-  submit: Key::Enter,
-  refresh: Key::Ctrl('r'),
-  toggle_theme: Key::Char('t'),
-  jump_to_all_context: Key::Char('C'),
-  jump_to_current_context: Key::Char('A'),
-  up: Key::Up,
-  down: Key::Down,
-  left: Key::Left,
-  right: Key::Right,
-  toggle_info: Key::Char('i'),
-  jump_to_namespace: Key::Char('n'),
-  jump_to_pods: Key::Char('p'),
-  jump_to_services: Key::Char('s'),
-  jump_to_nodes: Key::Char('N'),
-  jump_to_deployments: Key::Char('d'),
-  jump_to_configmaps: Key::Char('c'),
-  jump_to_statefulsets: Key::Char('S'),
-  jump_to_replicasets: Key::Char('r'),
-};
 
 pub struct StatefulTable<T> {
   pub state: TableState,

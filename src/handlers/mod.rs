@@ -1,7 +1,4 @@
-use super::app::{
-  models::{StatefulTable, DEFAULT_KEYBINDING},
-  ActiveBlock, App, RouteId,
-};
+use super::app::{models::StatefulTable, ActiveBlock, App, RouteId, DEFAULT_KEYBINDING};
 use super::event::Key;
 
 pub fn handle_app(key: Key, app: &mut App) {
@@ -31,6 +28,7 @@ pub fn handle_app(key: Key, app: &mut App) {
     _ if key == DEFAULT_KEYBINDING.toggle_info => {
       app.show_info_bar = !app.show_info_bar;
     }
+    _ if key == DEFAULT_KEYBINDING.select_all_namespace => app.selected_ns = None,
     _ if key == DEFAULT_KEYBINDING.jump_to_namespace => {
       app.push_navigation_stack(RouteId::Home, ActiveBlock::Namespaces);
     }

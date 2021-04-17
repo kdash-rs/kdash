@@ -1,4 +1,4 @@
-use super::super::app::models::DEFAULT_KEYBINDING;
+use super::super::app::DEFAULT_KEYBINDING;
 use super::super::event::Key;
 use super::utils::{layout_block_default, style_primary, style_secondary, vertical_chunks};
 
