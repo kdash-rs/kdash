@@ -84,7 +84,7 @@ impl<'a> Network<'a> {
     });
 
     let mut app = self.app.lock().await;
-    app.clis = clis;
+    app.data.clis = clis;
   }
 }
 

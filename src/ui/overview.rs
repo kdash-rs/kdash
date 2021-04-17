@@ -68,8 +68,8 @@ fn nw_loading_indicator<'a>(loading: bool) -> &'a str {
 
 fn draw_cli_status<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let block = layout_block_default("CLI Info");
-  if !app.clis.is_empty() {
-    let rows = app.clis.iter().map(|s| {
+  if !app.data.clis.is_empty() {
+    let rows = app.data.clis.iter().map(|s| {
       let style = if s.status {
         style_primary()
       } else {
@@ -138,7 +138,7 @@ fn draw_context_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   f.render_widget(block, area);
 
   let text;
-  match &app.active_context {
+  match &app.data.active_context {
     Some(active_context) => {
       text = vec![
         Spans::from(vec![
@@ -170,7 +170,7 @@ fn draw_context_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     .block(Block::default().title("CPU:"))
     .gauge_style(style_primary())
     .line_set(get_gauge_style(app.enhanced_graphics))
-    .ratio(get_nm_ratio(app.node_metrics.as_ref(), |acc, nm| {
+    .ratio(get_nm_ratio(app.data.node_metrics.as_ref(), |acc, nm| {
       acc + nm.cpu_percent_i
     }));
   f.render_widget(cpu_gauge, chunks[1]);
@@ -179,7 +179,7 @@ fn draw_context_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     .block(Block::default().title("Memory:"))
     .gauge_style(style_primary())
     .line_set(get_gauge_style(app.enhanced_graphics))
-    .ratio(get_nm_ratio(app.node_metrics.as_ref(), |acc, nm| {
+    .ratio(get_nm_ratio(app.data.node_metrics.as_ref(), |acc, nm| {
       acc + nm.mem_percent_i
     }));
   f.render_widget(mem_gauge, chunks[2]);
@@ -196,9 +196,9 @@ fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     block = block.style(style_secondary())
   }
 
-  if !app.namespaces.items.is_empty() {
-    let rows = app.namespaces.items.iter().map(|s| {
-      let style = if Some(s.name.clone()) == app.selected_ns {
+  if !app.data.namespaces.items.is_empty() {
+    let rows = app.data.namespaces.items.iter().map(|s| {
+      let style = if Some(s.name.clone()) == app.data.selected_ns {
         style_secondary()
       } else {
         style_primary()
@@ -217,7 +217,7 @@ fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
       .highlight_symbol(HIGHLIGHT)
       .widths(&[Constraint::Percentage(80), Constraint::Percentage(20)]);
 
-    f.render_stateful_widget(table, area, &mut app.namespaces.state);
+    f.render_stateful_widget(table, area, &mut app.data.namespaces.state);
   } else {
     loading(f, block, area, app.is_loading);
   }
@@ -226,13 +226,17 @@ fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = format!(
     "Pods ({}) [{}]",
-    app.selected_ns.as_ref().unwrap_or(&String::from("all")),
-    app.pods.items.len()
+    app
+      .data
+      .selected_ns
+      .as_ref()
+      .unwrap_or(&String::from("all")),
+    app.data.pods.items.len()
   );
   let block = layout_block_top_border(title.as_str());
 
-  if !app.pods.items.is_empty() {
-    let rows = app.pods.items.iter().map(|c| {
+  if !app.data.pods.items.is_empty() {
+    let rows = app.data.pods.items.iter().map(|c| {
       Row::new(vec![
         Cell::from(c.namespace.as_ref()),
         Cell::from(c.name.as_ref()),
@@ -261,18 +265,18 @@ fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         Constraint::Percentage(10),
       ]);
 
-    f.render_stateful_widget(table, area, &mut app.pods.state);
+    f.render_stateful_widget(table, area, &mut app.data.pods.state);
   } else {
     loading(f, block, area, app.is_loading);
   }
 }
 
 fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = format!("Nodes [{}]", app.nodes.items.len());
+  let title = format!("Nodes [{}]", app.data.nodes.items.len());
   let block = layout_block_top_border(title.as_str());
 
-  if !app.nodes.items.is_empty() {
-    let rows = app.nodes.items.iter().map(|c| {
+  if !app.data.nodes.items.is_empty() {
+    let rows = app.data.nodes.items.iter().map(|c| {
       let pods = c.pods.to_string();
       Row::new(vec![
         Cell::from(c.name.as_ref()),
@@ -312,7 +316,7 @@ fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         Constraint::Percentage(10),
       ]);
 
-    f.render_stateful_widget(table, area, &mut app.nodes.state);
+    f.render_stateful_widget(table, area, &mut app.data.nodes.state);
   } else {
     loading(f, block, area, app.is_loading);
   }
@@ -321,13 +325,17 @@ fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = format!(
     "Services ({}) [{}]",
-    app.selected_ns.as_ref().unwrap_or(&String::from("all")),
-    app.services.items.len()
+    app
+      .data
+      .selected_ns
+      .as_ref()
+      .unwrap_or(&String::from("all")),
+    app.data.services.items.len()
   );
   let block = layout_block_top_border(title.as_str());
 
-  if !app.services.items.is_empty() {
-    let rows = app.services.items.iter().map(|c| {
+  if !app.data.services.items.is_empty() {
+    let rows = app.data.services.items.iter().map(|c| {
       Row::new(vec![
         Cell::from(c.namespace.as_ref()),
         Cell::from(c.name.as_ref()),
@@ -366,7 +374,7 @@ fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         Constraint::Percentage(10),
       ]);
 
-    f.render_stateful_widget(table, area, &mut app.services.state);
+    f.render_stateful_widget(table, area, &mut app.data.services.state);
   } else {
     loading(f, block, area, app.is_loading);
   }

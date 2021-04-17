@@ -137,6 +137,18 @@ pub struct KubePods {
   pub age: String,
 }
 
+pub struct Data {
+  pub clis: Vec<Cli>,
+  pub kubeconfig: Option<Kubeconfig>,
+  pub contexts: StatefulTable<KubeContext>,
+  pub active_context: Option<KubeContext>,
+  pub nodes: StatefulTable<KubeNode>,
+  pub node_metrics: Vec<NodeMetrics>,
+  pub namespaces: StatefulTable<KubeNs>,
+  pub pods: StatefulTable<KubePods>,
+  pub services: StatefulTable<KubeSvs>,
+  pub selected_ns: Option<String>,
+}
 // main app state
 pub struct App {
   navigation_stack: Vec<Route>,
@@ -159,16 +171,24 @@ pub struct App {
   pub confirm: bool,
   pub light_theme: bool,
   pub refresh: bool,
-  pub clis: Vec<Cli>,
-  pub kubeconfig: Option<Kubeconfig>,
-  pub contexts: StatefulTable<KubeContext>,
-  pub active_context: Option<KubeContext>,
-  pub nodes: StatefulTable<KubeNode>,
-  pub node_metrics: Vec<NodeMetrics>,
-  pub namespaces: StatefulTable<KubeNs>,
-  pub pods: StatefulTable<KubePods>,
-  pub services: StatefulTable<KubeSvs>,
-  pub selected_ns: Option<String>,
+  pub data: Data,
+}
+
+impl Default for Data {
+  fn default() -> Self {
+    Data {
+      clis: vec![],
+      kubeconfig: None,
+      contexts: StatefulTable::new(),
+      active_context: None,
+      nodes: StatefulTable::new(),
+      node_metrics: vec![],
+      namespaces: StatefulTable::new(),
+      pods: StatefulTable::new(),
+      services: StatefulTable::new(),
+      selected_ns: None,
+    }
+  }
 }
 
 impl Default for App {
@@ -219,16 +239,7 @@ impl Default for App {
       confirm: false,
       light_theme: false,
       refresh: true,
-      clis: vec![],
-      kubeconfig: None,
-      contexts: StatefulTable::new(),
-      active_context: None,
-      nodes: StatefulTable::new(),
-      node_metrics: vec![],
-      namespaces: StatefulTable::new(),
-      pods: StatefulTable::new(),
-      services: StatefulTable::new(),
-      selected_ns: None,
+      data: Data::default(),
     }
   }
 }
@@ -243,18 +254,9 @@ impl App {
     }
   }
 
-  // TODO find a better way to do this
   pub fn reset(&mut self) {
     self.api_error = String::new();
-    self.clis = vec![];
-    self.kubeconfig = None;
-    self.contexts = StatefulTable::new();
-    self.active_context = None;
-    self.nodes = StatefulTable::new();
-    self.namespaces = StatefulTable::new();
-    self.pods = StatefulTable::new();
-    self.services = StatefulTable::new();
-    self.selected_ns = None;
+    self.data = Data::default();
   }
 
   // Send a network event to the network thread
@@ -271,11 +273,11 @@ impl App {
   }
 
   pub fn set_contexts(&mut self, contexts: Vec<KubeContext>) {
-    self.active_context =
+    self.data.active_context =
       contexts
         .iter()
         .find_map(|it| if it.is_active { Some(it.clone()) } else { None });
-    self.contexts.set_items(contexts);
+    self.data.contexts.set_items(contexts);
   }
 
   pub fn handle_error(&mut self, e: anyhow::Error) {

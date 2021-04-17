@@ -28,7 +28,7 @@ pub fn handle_app(key: Key, app: &mut App) {
     _ if key == DEFAULT_KEYBINDING.toggle_info => {
       app.show_info_bar = !app.show_info_bar;
     }
-    _ if key == DEFAULT_KEYBINDING.select_all_namespace => app.selected_ns = None,
+    _ if key == DEFAULT_KEYBINDING.select_all_namespace => app.data.selected_ns = None,
     _ if key == DEFAULT_KEYBINDING.jump_to_namespace => {
       app.push_navigation_stack(RouteId::Home, ActiveBlock::Namespaces);
     }
@@ -83,23 +83,23 @@ fn handle_table_events<T: Clone>(key: Key, item: &mut StatefulTable<T>) -> Optio
 fn handle_block_events(key: Key, app: &mut App) {
   match app.get_current_route().active_block {
     ActiveBlock::Pods => {
-      let _pod = handle_table_events(key, &mut app.pods);
+      let _pod = handle_table_events(key, &mut app.data.pods);
     }
     ActiveBlock::Services => {
-      let _svc = handle_table_events(key, &mut app.services);
+      let _svc = handle_table_events(key, &mut app.data.services);
     }
     ActiveBlock::Nodes => {
-      let _node = handle_table_events(key, &mut app.nodes);
+      let _node = handle_table_events(key, &mut app.data.nodes);
     }
     ActiveBlock::Namespaces => {
-      let ns = handle_table_events(key, &mut app.namespaces);
+      let ns = handle_table_events(key, &mut app.data.namespaces);
       if let Some(v) = ns {
-        app.selected_ns = Some(v.name);
+        app.data.selected_ns = Some(v.name);
         app.pop_navigation_stack();
       }
     }
     ActiveBlock::Contexts => {
-      let _ctx = handle_table_events(key, &mut app.contexts);
+      let _ctx = handle_table_events(key, &mut app.data.contexts);
     }
     // ActiveBlock::Dialog(_) => {
     //   dialog::handler(key, app);

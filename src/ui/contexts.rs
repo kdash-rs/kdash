@@ -13,11 +13,11 @@ use tui::{
 };
 
 pub fn draw_contexts<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = format!("Contexts [{}]", app.contexts.items.len());
+  let title = format!("Contexts [{}]", app.data.contexts.items.len());
   let block = layout_block_default(title.as_str());
 
-  if !app.contexts.items.is_empty() {
-    let rows = app.contexts.items.iter().map(|c| {
+  if !app.data.contexts.items.is_empty() {
+    let rows = app.data.contexts.items.iter().map(|c| {
       let style = if c.is_active {
         style_secondary()
       } else {
@@ -45,7 +45,7 @@ pub fn draw_contexts<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
       .highlight_style(style_highlight())
       .highlight_symbol(HIGHLIGHT);
 
-    f.render_stateful_widget(table, area, &mut app.contexts.state);
+    f.render_stateful_widget(table, area, &mut app.data.contexts.state);
   } else {
     loading(f, block, area, app.is_loading);
   }

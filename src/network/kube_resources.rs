@@ -16,7 +16,7 @@ impl<'a> Network<'a> {
       Ok(config) => {
         let mut app = self.app.lock().await;
         app.set_contexts(get_contexts(&config));
-        app.kubeconfig = Some(config);
+        app.data.kubeconfig = Some(config);
       }
       Err(e) => {
         self.handle_error(anyhow!(e)).await;
@@ -60,7 +60,7 @@ impl<'a> Network<'a> {
         })
         .collect();
       let mut app = self.app.lock().await;
-      app.node_metrics = rows;
+      app.data.node_metrics = rows;
     }
   }
 
@@ -142,7 +142,7 @@ impl<'a> Network<'a> {
             };
 
             let (cpu_percent, mem_percent) =
-              match app.node_metrics.iter().find(|nm| nm.name == node.name()) {
+              match app.data.node_metrics.iter().find(|nm| nm.name == node.name()) {
                 Some(nm) => (nm.cpu_percent.clone(), nm.mem_percent.clone()),
                 None => (String::default(), String::default()),
               };
@@ -166,7 +166,7 @@ impl<'a> Network<'a> {
           })
           .collect::<Vec<_>>();
 
-        app.nodes.set_items(render_nodes);
+        app.data.nodes.set_items(render_nodes);
       }
       Err(e) => {
         self.handle_error(anyhow!(e)).await;
@@ -198,7 +198,7 @@ impl<'a> Network<'a> {
             }
           })
           .collect::<Vec<_>>();
-        app.namespaces.set_items(nss);
+        app.data.namespaces.set_items(nss);
       }
       Err(e) => {
         self.handle_error(anyhow!(e)).await;
@@ -265,7 +265,7 @@ impl<'a> Network<'a> {
           })
           .collect::<Vec<_>>();
         let mut app = self.app.lock().await;
-        app.pods.set_items(render_pods);
+        app.data.pods.set_items(render_pods);
       }
       Err(e) => {
         self.handle_error(anyhow!(e)).await;
@@ -334,7 +334,7 @@ impl<'a> Network<'a> {
           })
           .collect::<Vec<_>>();
         let mut app = self.app.lock().await;
-        app.services.set_items(render_services);
+        app.data.services.set_items(render_services);
       }
       Err(e) => {
         self.handle_error(anyhow!(e)).await;
@@ -347,7 +347,7 @@ impl<'a> Network<'a> {
     <K as Resource>::DynamicType: Default,
   {
     let app = self.app.lock().await;
-    match &app.selected_ns {
+    match &app.data.selected_ns {
       Some(ns) => Api::namespaced(self.client.clone(), &ns),
       None => Api::all(self.client.clone()),
     }
