@@ -141,11 +141,15 @@ impl<'a> Network<'a> {
               None => none_role.to_string(),
             };
 
-            let (cpu_percent, mem_percent) =
-              match app.data.node_metrics.iter().find(|nm| nm.name == node.name()) {
-                Some(nm) => (nm.cpu_percent.clone(), nm.mem_percent.clone()),
-                None => (String::default(), String::default()),
-              };
+            let (cpu_percent, mem_percent) = match app
+              .data
+              .node_metrics
+              .iter()
+              .find(|nm| nm.name == node.name())
+            {
+              Some(nm) => (nm.cpu_percent.clone(), nm.mem_percent.clone()),
+              None => (String::default(), String::default()),
+            };
 
             KubeNode {
               name: node.name(),
