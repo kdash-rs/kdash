@@ -1,4 +1,4 @@
-use super::super::app::{ActiveBlock, App, NodeMetrics, DEFAULT_KEYBINDING};
+use super::super::app::{models::DEFAULT_KEYBINDING, ActiveBlock, App, KubePods, NodeMetrics};
 use super::super::banner::BANNER;
 use super::utils::{
   draw_placeholder, get_gauge_style, horizontal_chunks, layout_block_default,
@@ -10,6 +10,7 @@ use super::HIGHLIGHT;
 use tui::{
   backend::Backend,
   layout::{Constraint, Rect},
+  style::Style,
   text::{Span, Spans, Text},
   widgets::{Block, Borders, Cell, LineGauge, Paragraph, Row, Table, Tabs},
   Frame,
@@ -224,62 +225,86 @@ fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let selected_pod = app.data.pods.get_selected_item();
+  let (title_suffix, render_containers) =
+    get_container_info(&selected_pod, app.get_current_route().active_block);
   let title = format!(
-    "Pods ({}) [{}]",
+    "Pods ({}) [{}]{}",
     app
       .data
       .selected_ns
       .as_ref()
       .unwrap_or(&String::from("all")),
-    app.data.pods.items.len()
+    app.data.pods.items.len(),
+    title_suffix,
   );
   let block = layout_block_top_border(title.as_str());
 
   if !app.data.pods.items.is_empty() {
-    let rows = app.data.pods.items.iter().map(|c| {
-      let style = if ["Running", "Completed"].contains(&c.status.as_str()) {
-        style_primary()
-      } else if [
-        "ContainerCreating",
-        "PodInitializing",
-        "Pending",
-        "Initialized",
-      ]
-      .contains(&c.status.as_str())
-      {
-        style_secondary()
-      } else {
-        style_failure()
-      };
-      Row::new(vec![
-        Cell::from(c.namespace.as_ref()),
-        Cell::from(c.name.as_ref()),
-        Cell::from(c.ready.as_ref()),
-        Cell::from(c.status.as_ref()),
-        Cell::from(c.restarts.to_string()),
-        Cell::from(c.age.as_ref()),
-      ])
-      .style(style)
-    });
+    if render_containers {
+      let mut selected_pod = selected_pod.unwrap();
+      let rows = selected_pod.containers.items.iter().map(|c| {
+        let style = get_resource_row_style(&c.status.as_str());
+        Row::new(vec![
+          Cell::from(c.name.as_ref()),
+          Cell::from(c.image.as_ref()),
+          Cell::from(c.ready.as_ref()),
+          Cell::from(c.status.as_ref()),
+          Cell::from(c.restarts.to_string()),
+          Cell::from(c.age.as_ref()),
+        ])
+        .style(style)
+      });
 
-    let table = Table::new(rows)
-      .header(table_header_style(
-        vec!["Namespace", "Name", "Ready", "Status", "Restarts", "Age"],
-        app.light_theme,
-      ))
-      .block(block)
-      .highlight_style(style_highlight())
-      .highlight_symbol(HIGHLIGHT)
-      .widths(&[
-        Constraint::Percentage(25),
-        Constraint::Percentage(35),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-      ]);
+      let table = Table::new(rows)
+        .header(table_header_style(
+          vec!["Name", "Image", "Ready", "State", "Restarts", "Age"],
+          app.light_theme,
+        ))
+        .block(block)
+        .highlight_style(style_highlight())
+        .highlight_symbol(HIGHLIGHT)
+        .widths(&[
+          Constraint::Percentage(25),
+          Constraint::Percentage(35),
+          Constraint::Percentage(10),
+          Constraint::Percentage(10),
+          Constraint::Percentage(10),
+          Constraint::Percentage(10),
+        ]);
+      f.render_stateful_widget(table, area, &mut selected_pod.containers.state);
+    } else {
+      let rows = app.data.pods.items.iter().map(|c| {
+        let style = get_resource_row_style(&c.status.as_str());
+        Row::new(vec![
+          Cell::from(c.namespace.as_ref()),
+          Cell::from(c.name.as_ref()),
+          Cell::from(c.ready.as_ref()),
+          Cell::from(c.status.as_ref()),
+          Cell::from(c.restarts.to_string()),
+          Cell::from(c.age.as_ref()),
+        ])
+        .style(style)
+      });
 
-    f.render_stateful_widget(table, area, &mut app.data.pods.state);
+      let table = Table::new(rows)
+        .header(table_header_style(
+          vec!["Namespace", "Name", "Ready", "Status", "Restarts", "Age"],
+          app.light_theme,
+        ))
+        .block(block)
+        .highlight_style(style_highlight())
+        .highlight_symbol(HIGHLIGHT)
+        .widths(&[
+          Constraint::Percentage(25),
+          Constraint::Percentage(35),
+          Constraint::Percentage(10),
+          Constraint::Percentage(10),
+          Constraint::Percentage(10),
+          Constraint::Percentage(10),
+        ]);
+      f.render_stateful_widget(table, area, &mut app.data.pods.state);
+    }
   } else {
     loading(f, block, area, app.is_loading);
   }
@@ -411,5 +436,36 @@ fn get_nm_ratio(node_metrics: &[NodeMetrics], f: fn(a: f64, b: &NodeMetrics) -> 
     (sum / node_metrics.len() as f64) / 100f64
   } else {
     0f64
+  }
+}
+
+fn get_container_info(pod: &Option<KubePods>, active_block: ActiveBlock) -> (String, bool) {
+  if active_block == ActiveBlock::Containers && pod.is_some() {
+    (
+      format!(
+        " -> Containers [{}]",
+        pod.as_ref().unwrap().containers.items.len()
+      ),
+      true,
+    )
+  } else {
+    ("".to_string(), false)
+  }
+}
+
+fn get_resource_row_style(status: &str) -> Style {
+  if ["Running", "Completed"].contains(&status) {
+    style_primary()
+  } else if [
+    "ContainerCreating",
+    "PodInitializing",
+    "Pending",
+    "Initialized",
+  ]
+  .contains(&status)
+  {
+    style_secondary()
+  } else {
+    style_failure()
   }
 }

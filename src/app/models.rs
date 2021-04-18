@@ -29,6 +29,32 @@ pub struct KeyBindings {
   pub jump_to_replicasets: Key,
 }
 
+pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
+  esc: Key::Esc,
+  quit: Key::Char('q'),
+  help: Key::Char('?'),
+  submit: Key::Enter,
+  refresh: Key::Ctrl('r'),
+  toggle_theme: Key::Char('t'),
+  jump_to_all_context: Key::Char('C'),
+  jump_to_current_context: Key::Char('A'),
+  up: Key::Up,
+  down: Key::Down,
+  left: Key::Left,
+  right: Key::Right,
+  toggle_info: Key::Char('i'),
+  select_all_namespace: Key::Char('a'),
+  jump_to_namespace: Key::Char('n'),
+  jump_to_pods: Key::Char('p'),
+  jump_to_services: Key::Char('s'),
+  jump_to_nodes: Key::Char('N'),
+  jump_to_deployments: Key::Char('d'),
+  jump_to_configmaps: Key::Char('c'),
+  jump_to_statefulsets: Key::Char('S'),
+  jump_to_replicasets: Key::Char('r'),
+};
+
+#[derive(Clone)]
 pub struct StatefulTable<T> {
   pub state: TableState,
   pub items: Vec<T>,
@@ -40,6 +66,12 @@ impl<T> StatefulTable<T> {
       state: TableState::default(),
       items: Vec::new(),
     }
+  }
+
+  pub fn with_items(items: Vec<T>) -> StatefulTable<T> {
+    let mut sft = StatefulTable::new();
+    sft.set_items(items);
+    sft
   }
 
   pub fn set_items(&mut self, items: Vec<T>) {

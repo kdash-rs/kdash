@@ -1,7 +1,6 @@
 pub(crate) mod models;
 
-use self::models::{KeyBindings, StatefulTable, TabsState};
-use super::event::Key;
+use self::models::{StatefulTable, TabsState, DEFAULT_KEYBINDING};
 use super::network::IoEvent;
 
 use anyhow::anyhow;
@@ -9,35 +8,11 @@ use kube::config::Kubeconfig;
 use std::sync::mpsc::Sender;
 use tui::layout::Rect;
 
-pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
-  esc: Key::Esc,
-  quit: Key::Char('q'),
-  help: Key::Char('?'),
-  submit: Key::Enter,
-  refresh: Key::Ctrl('r'),
-  toggle_theme: Key::Char('t'),
-  jump_to_all_context: Key::Char('C'),
-  jump_to_current_context: Key::Char('A'),
-  up: Key::Up,
-  down: Key::Down,
-  left: Key::Left,
-  right: Key::Right,
-  toggle_info: Key::Char('i'),
-  select_all_namespace: Key::Char('a'),
-  jump_to_namespace: Key::Char('n'),
-  jump_to_pods: Key::Char('p'),
-  jump_to_services: Key::Char('s'),
-  jump_to_nodes: Key::Char('N'),
-  jump_to_deployments: Key::Char('d'),
-  jump_to_configmaps: Key::Char('c'),
-  jump_to_statefulsets: Key::Char('S'),
-  jump_to_replicasets: Key::Char('r'),
-};
-
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum ActiveBlock {
   Empty,
   Pods,
+  Containers,
   Services,
   Nodes,
   Deployments,
@@ -148,7 +123,7 @@ pub struct KubePods {
   pub cpu: String,
   pub mem: String,
   pub age: String,
-  pub containers: Vec<KubeContainers>,
+  pub containers: StatefulTable<KubeContainers>,
 }
 
 pub struct Data {

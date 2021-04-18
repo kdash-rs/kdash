@@ -1,4 +1,7 @@
-use super::app::{models::StatefulTable, ActiveBlock, App, RouteId, DEFAULT_KEYBINDING};
+use super::app::{
+  models::{StatefulTable, DEFAULT_KEYBINDING},
+  ActiveBlock, App, RouteId,
+};
 use super::event::Key;
 
 pub fn handle_app(key: Key, app: &mut App) {
@@ -83,7 +86,10 @@ fn handle_table_events<T: Clone>(key: Key, item: &mut StatefulTable<T>) -> Optio
 fn handle_block_events(key: Key, app: &mut App) {
   match app.get_current_route().active_block {
     ActiveBlock::Pods => {
-      let _pod = handle_table_events(key, &mut app.data.pods);
+      let pod = handle_table_events(key, &mut app.data.pods);
+      if pod.is_some() {
+        app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
+      }
     }
     ActiveBlock::Services => {
       let _svc = handle_table_events(key, &mut app.data.services);

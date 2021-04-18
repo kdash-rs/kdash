@@ -1,5 +1,6 @@
 use super::super::app::{
-  KubeContainers, KubeContext, KubeNode, KubeNs, KubePods, KubeSvs, NodeMetrics,
+  models::StatefulTable, KubeContainers, KubeContext, KubeNode, KubeNs, KubePods, KubeSvs,
+  NodeMetrics,
 };
 use super::{Network, UNKNOWN};
 
@@ -307,7 +308,7 @@ impl<'a> Network<'a> {
               mem: String::default(),
               status,
               age,
-              containers: vec![],
+              containers: StatefulTable::with_items(containers),
             }
           })
           .collect::<Vec<_>>();
@@ -405,10 +406,10 @@ fn get_container_state(os: Option<ContainerState>) -> String {
   match os {
     Some(s) => {
       if let Some(sw) = s.waiting {
-        sw.reason.unwrap_or("Waiting".to_string())
+        sw.reason.unwrap_or_else(|| "Waiting".to_string())
       } else if let Some(st) = s.terminated {
-        st.reason.unwrap_or("Terminating".to_string())
-      } else if let Some(st) = s.running {
+        st.reason.unwrap_or_else(|| "Terminating".to_string())
+      } else if s.running.is_some() {
         "Running".to_string()
       } else {
         "<none>".to_string()
