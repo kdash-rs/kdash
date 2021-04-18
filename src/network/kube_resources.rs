@@ -1,9 +1,13 @@
-use super::super::app::{KubeContext, KubeNode, KubeNs, KubePods, KubeSvs, NodeMetrics};
+use super::super::app::{
+  KubeContainers, KubeContext, KubeNode, KubeNs, KubePods, KubeSvs, NodeMetrics,
+};
 use super::{Network, UNKNOWN};
 
 use anyhow::anyhow;
 use k8s_openapi::{
-  api::core::v1::{ContainerStateWaiting, Namespace, Node, Pod, PodStatus, Service, ServicePort},
+  api::core::v1::{
+    ContainerState, ContainerStateWaiting, Namespace, Node, Pod, PodStatus, Service, ServicePort,
+  },
   apimachinery::pkg::apis::meta::v1::Time,
   chrono::{DateTime, Utc},
 };
@@ -253,7 +257,8 @@ impl<'a> Network<'a> {
         let render_pods = pod_list
           .iter()
           .map(|pod| {
-            let (status, cr, restarts, c_stats_len) = match &pod.status {
+            let age = to_age(pod.metadata.creation_timestamp.as_ref(), Utc::now());
+            let (status, cr, restarts, c_stats_len, containers) = match &pod.status {
               Some(stat) => {
                 let (mut cr, mut rc) = (0, 0);
                 let c_stats_len = match stat.container_statuses.as_ref() {
@@ -269,9 +274,27 @@ impl<'a> Network<'a> {
                   None => 0,
                 };
 
-                (get_status(stat, pod), cr, rc, c_stats_len)
+                let containers = stat
+                  .container_statuses
+                  .as_ref()
+                  .unwrap_or(&vec![])
+                  .iter()
+                  .map(|cs| KubeContainers {
+                    name: cs.name.clone(),
+                    image: cs.image.clone(),
+                    ready: cs.ready.to_string(),
+                    status: get_container_state(cs.state.clone()),
+                    restarts: cs.restart_count,
+                    liveliness_probe: false, //TODO
+                    readiness_probe: false,  //TODO
+                    ports: "".to_string(),   //TODO
+                    age: age.clone(),
+                  })
+                  .collect();
+
+                (get_status(stat, pod), cr, rc, c_stats_len, containers)
               }
-              _ => (UNKNOWN.to_string(), 0, 0, 0),
+              _ => (UNKNOWN.to_string(), 0, 0, 0, vec![]),
             };
 
             KubePods {
@@ -283,7 +306,8 @@ impl<'a> Network<'a> {
               cpu: String::default(),
               mem: String::default(),
               status,
-              age: to_age(pod.metadata.creation_timestamp.as_ref(), Utc::now()),
+              age,
+              containers: vec![],
             }
           })
           .collect::<Vec<_>>();
@@ -374,6 +398,23 @@ impl<'a> Network<'a> {
       Some(ns) => Api::namespaced(self.client.clone(), &ns),
       None => Api::all(self.client.clone()),
     }
+  }
+}
+
+fn get_container_state(os: Option<ContainerState>) -> String {
+  match os {
+    Some(s) => {
+      if let Some(sw) = s.waiting {
+        sw.reason.unwrap_or("Waiting".to_string())
+      } else if let Some(st) = s.terminated {
+        st.reason.unwrap_or("Terminating".to_string())
+      } else if let Some(st) = s.running {
+        "Running".to_string()
+      } else {
+        "<none>".to_string()
+      }
+    }
+    None => "<none>".to_string(),
   }
 }
 

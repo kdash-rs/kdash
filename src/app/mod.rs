@@ -126,6 +126,19 @@ pub struct KubeSvs {
 }
 
 #[derive(Clone)]
+pub struct KubeContainers {
+  pub name: String,
+  pub image: String,
+  pub ready: String,
+  pub status: String,
+  pub restarts: i32,
+  pub liveliness_probe: bool,
+  pub readiness_probe: bool,
+  pub ports: String,
+  pub age: String,
+}
+
+#[derive(Clone)]
 pub struct KubePods {
   pub namespace: String,
   pub name: String,
@@ -135,6 +148,7 @@ pub struct KubePods {
   pub cpu: String,
   pub mem: String,
   pub age: String,
+  pub containers: Vec<KubeContainers>,
 }
 
 pub struct Data {
@@ -325,10 +339,13 @@ impl App {
       }
       self.dispatch(IoEvent::GetCliInfo);
       self.dispatch(IoEvent::GetKubeConfig);
+      // call these once as well to pre-load data
+      self.dispatch(IoEvent::GetPods);
+      self.dispatch(IoEvent::GetServices);
     }
     // make network requests only in intervals to avoid hogging up the network
     if self.tick_count == 0 || self.is_routing {
-      // make network calls based on active route and active block
+      // make periodic network calls based on active route and active block to avoid hogging
       if self.get_current_route().id == RouteId::Home {
         self.dispatch(IoEvent::GetNamespaces);
         self.dispatch(IoEvent::GetNodes);
