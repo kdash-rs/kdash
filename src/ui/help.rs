@@ -120,6 +120,11 @@ fn get_help_docs() -> Vec<Vec<String>> {
       HContext::Overview,
     ),
     help_row(
+      DEFAULT_KEYBINDING.select_all_namespace,
+      "Select all namespaces",
+      HContext::Overview,
+    ),
+    help_row(
       DEFAULT_KEYBINDING.jump_to_pods,
       "Select pods tab",
       HContext::Overview,

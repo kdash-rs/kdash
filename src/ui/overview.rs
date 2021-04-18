@@ -443,13 +443,13 @@ fn get_container_info(pod: &Option<KubePods>, active_block: ActiveBlock) -> (Str
   if active_block == ActiveBlock::Containers && pod.is_some() {
     (
       format!(
-        " -> Containers [{}]",
+        " -> Containers [{}] | Pods <esc>",
         pod.as_ref().unwrap().containers.items.len()
       ),
       true,
     )
   } else {
-    ("".to_string(), false)
+    (" | Containers <enter>".to_string(), false)
   }
 }
 
