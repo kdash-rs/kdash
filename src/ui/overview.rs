@@ -371,11 +371,11 @@ fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
       .highlight_symbol(HIGHLIGHT)
       .widths(&[
         Constraint::Percentage(10),
-        Constraint::Percentage(30),
+        Constraint::Percentage(25),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
+        Constraint::Percentage(15),
         Constraint::Percentage(20),
-        Constraint::Percentage(10),
         Constraint::Percentage(10),
       ]);
 

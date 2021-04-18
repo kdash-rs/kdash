@@ -508,6 +508,7 @@ fn mem_to_mi(v: String) -> String {
     v
   }
 }
+
 fn cpu_to_milli(v: String) -> String {
   if v.ends_with('m') {
     v
