@@ -21,6 +21,7 @@ A simple terminal dashboard for Kubernetes built with Rust
   - [x] Nodes
   - [x] Namespace
   - [x] Services
+  - [x] Containers
   - [ ] Deployments
   - [ ] ConfigMaps
   - [ ] StatefulSets
@@ -28,7 +29,6 @@ A simple terminal dashboard for Kubernetes built with Rust
 - Describe resources
   - [ ] Pods
   - [ ] Nodes
-  - [ ] Namespace
   - [ ] Services
   - [ ] Deployments
   - [ ] ConfigMaps
@@ -36,6 +36,7 @@ A simple terminal dashboard for Kubernetes built with Rust
   - [ ] ReplicaSets
 - Stream logs/events
   - [ ] Pods
+  - [ ] Containers
   - [ ] Services
   - [ ] Deployments
   - [ ] ConfigMaps
@@ -50,7 +51,6 @@ A simple terminal dashboard for Kubernetes built with Rust
 - [x] Dark/Light themes
 - [ ] Custom keymap
 - [ ] Custom theme
-
 - [ ] Tests, a lot of them :)
 
 ## Installation

@@ -2,15 +2,20 @@
 
 ## [Unreleased]
 
-- Initial release
-
-## [0.23.0] - 2021-04-25
-
 ### Fixed
+
+- Pod status fix
+- Switch to API for metrics
 
 ### Added
 
-- Overview dashboard
+- Containers view
+
+## [0.0.1] - 2021-04-18
+
+- Initial beta release
+
+---
 
 # What is this?
 
