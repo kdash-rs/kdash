@@ -237,6 +237,20 @@ fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 
   if !app.data.pods.items.is_empty() {
     let rows = app.data.pods.items.iter().map(|c| {
+      let style = if ["Running", "Completed"].contains(&c.status.as_str()) {
+        style_primary()
+      } else if [
+        "ContainerCreating",
+        "PodInitializing",
+        "Pending",
+        "Initialized",
+      ]
+      .contains(&c.status.as_str())
+      {
+        style_secondary()
+      } else {
+        style_failure()
+      };
       Row::new(vec![
         Cell::from(c.namespace.as_ref()),
         Cell::from(c.name.as_ref()),
@@ -245,7 +259,7 @@ fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         Cell::from(c.restarts.to_string()),
         Cell::from(c.age.as_ref()),
       ])
-      .style(style_primary())
+      .style(style)
     });
 
     let table = Table::new(rows)
@@ -277,6 +291,11 @@ fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 
   if !app.data.nodes.items.is_empty() {
     let rows = app.data.nodes.items.iter().map(|c| {
+      let style = if c.status != "Ready" {
+        style_failure()
+      } else {
+        style_primary()
+      };
       let pods = c.pods.to_string();
       Row::new(vec![
         Cell::from(c.name.as_ref()),
@@ -292,7 +311,7 @@ fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         Cell::from(c.mem_a.as_ref()),
         Cell::from(c.age.as_ref()),
       ])
-      .style(style_primary())
+      .style(style)
     });
 
     let table = Table::new(rows)

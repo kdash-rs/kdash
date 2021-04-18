@@ -3,7 +3,7 @@ use super::{Network, UNKNOWN};
 
 use anyhow::anyhow;
 use k8s_openapi::{
-  api::core::v1::{Namespace, Node, Pod, Service, ServicePort},
+  api::core::v1::{ContainerStateWaiting, Namespace, Node, Pod, PodStatus, Service, ServicePort},
   apimachinery::pkg::apis::meta::v1::Time,
   chrono::{DateTime, Utc},
 };
@@ -268,23 +268,8 @@ impl<'a> Network<'a> {
                   }
                   None => 0,
                 };
-                let status = match &stat.phase {
-                  Some(phase) => phase.clone(),
-                  _ => UNKNOWN.to_string(),
-                };
-                let status = match &stat.reason {
-                  Some(r) => {
-                    if r == "NodeLost" && pod.metadata.deletion_timestamp.is_some() {
-                      "Unknown".to_string()
-                    } else {
-                      status
-                    }
-                  }
-                  None => status,
-                };
-                // TODO handle more status possibilities from init-containers and containers
 
-                (status, cr, rc, c_stats_len)
+                (get_status(stat, pod), cr, rc, c_stats_len)
               }
               _ => (UNKNOWN.to_string(), 0, 0, 0),
             };
@@ -390,6 +375,129 @@ impl<'a> Network<'a> {
       None => Api::all(self.client.clone()),
     }
   }
+}
+
+fn is_pod_init(sw: Option<ContainerStateWaiting>) -> bool {
+  sw.map(|w| w.reason.unwrap_or_default() != "PodInitializing")
+    .unwrap_or_default()
+}
+
+fn get_status(stat: &PodStatus, pod: &Pod) -> String {
+  let status = match &stat.phase {
+    Some(phase) => phase.clone(),
+    _ => UNKNOWN.to_string(),
+  };
+  let status = match &stat.reason {
+    Some(r) => {
+      if r == "NodeLost" && pod.metadata.deletion_timestamp.is_some() {
+        "Unknown".to_string()
+      } else {
+        status
+      }
+    }
+    None => status,
+  };
+
+  // get int container status
+  let status = match &stat.init_container_statuses {
+    Some(ics) => {
+      for (i, cs) in ics.iter().enumerate() {
+        let status = match &cs.state {
+          Some(s) => {
+            if let Some(st) = &s.terminated {
+              if st.exit_code == 0 {
+                "".to_string()
+              } else if st.reason.as_ref().unwrap_or(&String::default()).is_empty() {
+                format!("Init:{}", st.reason.as_ref().unwrap())
+              } else if st.signal.unwrap_or_default() != 0 {
+                format!("Init:Signal:{}", st.signal.unwrap())
+              } else {
+                format!("Init:ExitCode:{}", st.exit_code)
+              }
+            } else if is_pod_init(s.waiting.clone()) {
+              format!(
+                "Init:{}",
+                s.waiting
+                  .as_ref()
+                  .unwrap()
+                  .reason
+                  .as_ref()
+                  .unwrap_or(&String::default())
+              )
+            } else {
+              format!(
+                "Init:{}/{}",
+                i,
+                pod
+                  .spec
+                  .as_ref()
+                  .and_then(|ps| ps.init_containers.as_ref().map(|pic| pic.len()))
+                  .unwrap_or(0)
+              )
+            }
+          }
+          None => "".to_string(),
+        };
+        if !status.is_empty() {
+          return status;
+        }
+      }
+      status
+    }
+    None => status,
+  };
+
+  let (mut status, running) = match &stat.container_statuses {
+    Some(css) => {
+      let mut running = false;
+      let status = css
+        .iter()
+        .rev()
+        .find_map(|cs| {
+          cs.state.as_ref().and_then(|s| {
+            if cs.ready && s.running.is_some() {
+              running = true;
+            }
+            if s
+              .waiting
+              .as_ref()
+              .and_then(|w| w.reason.as_ref().map(|v| !v.is_empty()))
+              .unwrap_or_default()
+            {
+              s.waiting.as_ref().and_then(|w| w.reason.clone())
+            } else if s
+              .terminated
+              .as_ref()
+              .and_then(|w| w.reason.as_ref().map(|v| !v.is_empty()))
+              .unwrap_or_default()
+            {
+              s.terminated.as_ref().and_then(|w| w.reason.clone())
+            } else if let Some(st) = &s.terminated {
+              if st.signal.unwrap_or_default() != 0 {
+                Some(format!("Signal:{}", st.signal.unwrap_or_default()))
+              } else {
+                Some(format!("ExitCode:{}", st.exit_code))
+              }
+            } else {
+              Some(status.clone())
+            }
+          })
+        })
+        .unwrap_or_default();
+      (status, running)
+    }
+    None => (status, false),
+  };
+
+  if running && status == "Completed" {
+    status = "Running".to_string();
+  }
+
+  if pod.metadata.deletion_timestamp.is_none() {
+    return status;
+  }
+
+  "Terminating".to_string()
 }
 
 fn get_ports(sports: Option<Vec<ServicePort>>) -> Vec<String> {
