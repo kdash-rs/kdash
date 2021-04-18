@@ -2,13 +2,16 @@ use super::super::app::{KubeContext, KubeNode, KubeNs, KubePods, KubeSvs, NodeMe
 use super::{Network, UNKNOWN};
 
 use anyhow::anyhow;
-use duct::cmd;
 use k8s_openapi::{
   api::core::v1::{Namespace, Node, Pod, Service, ServicePort},
   apimachinery::pkg::apis::meta::v1::Time,
   chrono::{DateTime, Utc},
 };
-use kube::{api::ListParams, config::Kubeconfig, Api, Resource};
+use kube::{
+  api::{DynamicObject, GroupVersionKind, ListParams},
+  config::Kubeconfig,
+  Api, Resource,
+};
 
 impl<'a> Network<'a> {
   pub async fn get_kube_config(&mut self) {
@@ -24,44 +27,52 @@ impl<'a> Network<'a> {
     }
   }
 
-  // ideally should be done using API but the kube-rs crate doesn't support metrics yet so this is a temporary and dirty work around and is definitely the worst way to do this (yes, I almost cried doing this) as top command cannot output json or yaml
   pub async fn get_top_node(&mut self) {
-    if let Ok(out) = cmd!("kubectl", "top", "node").read() {
-      // the output would be a table so lets try to split into rows
-      let rows: Vec<&str> = out.split('\n').collect();
-      // lets discard first row as its header and any empty rows
-      let rows: Vec<NodeMetrics> = rows
-        .iter()
-        .filter_map(|v| {
-          if !v.trim().is_empty() && !v.trim().starts_with("NAME") {
-            let cols: Vec<&str> = v.trim().split(' ').collect();
-            let cols: Vec<&str> = cols
-              .iter()
-              .filter_map(|c| {
-                if !c.trim().is_empty() {
-                  Some(c.trim())
-                } else {
-                  None
-                }
-              })
-              .collect();
-            Some(NodeMetrics {
-              name: cols[0].to_string(),
-              cpu: cols[1].to_string(),
-              cpu_percent: cols[2].to_string(),
-              mem: cols[3].to_string(),
-              mem_percent: cols[4].to_string(),
-              cpu_percent_i: convert_to_f64(cols[2].trim_end_matches('%')),
-              mem_percent_i: convert_to_f64(cols[4].trim_end_matches('%')),
-            })
-          } else {
-            None
-          }
-        })
-        .collect();
-      let mut app = self.app.lock().await;
-      app.data.node_metrics = rows;
-    }
+    let gvk = GroupVersionKind::gvk("metrics.k8s.io", "v1beta1", "nodemetrics").unwrap();
+    let node_metrics: Api<DynamicObject> = Api::all_with(self.client.clone(), &gvk);
+    match node_metrics.list(&ListParams::default()).await {
+      Ok(metrics) => {
+        let mut app = self.app.lock().await;
+
+        let rows = metrics
+          .items
+          .iter()
+          .map(|it| {
+            let name = it.metadata.name.clone().unwrap_or_default();
+
+            let (cpu_percent, mem_percent) =
+              match app.data.node_metrics.iter().find(|it| it.name == name) {
+                Some(nm) => (nm.cpu_percent, nm.mem_percent),
+                None => (0f64, 0f64),
+              };
+
+            NodeMetrics {
+              name: it.metadata.name.clone().unwrap_or_default(),
+              cpu: cpu_to_milli(
+                it.data["usage"]["cpu"]
+                  .to_string()
+                  .trim_matches('"')
+                  .to_string(),
+              ),
+              mem: mem_to_mi(
+                it.data["usage"]["memory"]
+                  .to_string()
+                  .trim_matches('"')
+                  .to_string(),
+              ),
+              cpu_percent,
+              mem_percent,
+            }
+          })
+          .collect();
+
+        app.data.node_metrics = rows;
+      }
+      Err(_) => {
+        let mut app = self.app.lock().await;
+        app.data.node_metrics = vec![];
+      }
+    };
   }
 
   pub async fn get_nodes(&mut self) {
@@ -74,6 +85,7 @@ impl<'a> Network<'a> {
 
     match nodes.list(&lp).await {
       Ok(node_list) => {
+        self.get_top_node().await;
         let pods_list = pods.list(&lp).await;
 
         let mut app = self.app.lock().await;
@@ -86,7 +98,7 @@ impl<'a> Network<'a> {
               .as_ref()
               .map_or(false, |s| s.unschedulable.unwrap_or(false));
 
-            let (status, version, cpu, mem) = match &node.status {
+            let (status, version, cpu_a, mem_a) = match &node.status {
               Some(stat) => {
                 let status = if *unschedulable {
                   Some("Unschedulable".to_string())
@@ -141,21 +153,39 @@ impl<'a> Network<'a> {
               None => none_role.to_string(),
             };
 
-            let (cpu_percent, mem_percent) = match app
+            let (cpu, cpu_percent, mem, mem_percent) = match app
               .data
               .node_metrics
-              .iter()
+              .iter_mut()
               .find(|nm| nm.name == node.name())
             {
-              Some(nm) => (nm.cpu_percent.clone(), nm.mem_percent.clone()),
-              None => (String::default(), String::default()),
+              Some(nm) => {
+                let cpu_percent = to_cpu_percent(
+                  nm.cpu.clone(),
+                  cpu_to_milli(cpu_a.clone().unwrap_or_default()),
+                );
+                nm.cpu_percent = cpu_percent;
+                let mem_percent =
+                  to_mem_percent(nm.mem.clone(), mem_to_mi(mem_a.clone().unwrap_or_default()));
+                nm.mem_percent = mem_percent;
+                (
+                  nm.cpu.clone(),
+                  cpu_percent.to_string(),
+                  nm.mem.clone(),
+                  mem_percent.to_string(),
+                )
+              }
+              None => (
+                String::from("0m"),
+                String::from("0"),
+                String::from("0Mi"),
+                String::from("0"),
+              ),
             };
 
             KubeNode {
               name: node.name(),
               status: status.unwrap_or_else(|| UNKNOWN.to_string()),
-              cpu: cpu.unwrap_or_default(),
-              mem: kb_to_mb(mem.unwrap_or_default()),
               role: if role.is_empty() {
                 none_role.to_string()
               } else {
@@ -164,6 +194,10 @@ impl<'a> Network<'a> {
               version: version.unwrap_or_default(),
               pods: pod_count,
               age: to_age(node.metadata.creation_timestamp.as_ref(), Utc::now()),
+              cpu,
+              mem,
+              cpu_a: cpu_to_milli(cpu_a.unwrap_or_default()),
+              mem_a: mem_to_mi(mem_a.unwrap_or_default()),
               cpu_percent,
               mem_percent,
             }
@@ -463,10 +497,47 @@ fn to_age(timestamp: Option<&Time>, against: DateTime<Utc>) -> String {
   }
 }
 
-fn kb_to_mb(v: String) -> String {
-  let vint = v.trim_end_matches("Ki").parse::<i64>().unwrap_or(0);
+fn mem_to_mi(v: String) -> String {
+  if v.ends_with("Ki") {
+    let v_int = v.trim_end_matches("Ki").parse::<i64>().unwrap_or(0);
+    format!("{}Mi", v_int / 1024)
+  } else if v.ends_with("Gi") {
+    let v_int = v.trim_end_matches("Gi").parse::<i64>().unwrap_or(0);
+    format!("{}Mi", v_int * 1024)
+  } else {
+    v
+  }
+}
+fn cpu_to_milli(v: String) -> String {
+  if v.ends_with('m') {
+    v
+  } else if v.ends_with('n') {
+    format!(
+      "{}m",
+      (convert_to_f64(v.trim_end_matches('n')) / 1000000f64).floor()
+    )
+  } else {
+    format!("{}m", (convert_to_f64(&v) * 1000f64).floor())
+  }
+}
 
-  (vint / 1024).to_string()
+fn to_cpu_percent(used: String, total: String) -> f64 {
+  // convert from nano cpu to milli cpu
+  let used = convert_to_f64(used.trim_end_matches('m'));
+  let total = convert_to_f64(total.trim_end_matches('m'));
+
+  to_percent(used, total)
+}
+
+fn to_mem_percent(used: String, total: String) -> f64 {
+  let used = convert_to_f64(used.trim_end_matches("Mi"));
+  let total = convert_to_f64(total.trim_end_matches("Mi"));
+
+  to_percent(used, total)
+}
+
+fn to_percent(used: f64, total: f64) -> f64 {
+  ((used / total) * 100f64).floor()
 }
 
 fn convert_to_f64(s: &str) -> f64 {
@@ -476,10 +547,39 @@ fn convert_to_f64(s: &str) -> f64 {
 #[cfg(test)]
 mod tests {
   #[test]
-  fn test_kb_to_mb() {
-    use super::kb_to_mb;
-    assert_eq!(kb_to_mb(String::from("2888180")), String::from("2820"));
-    assert_eq!(kb_to_mb(String::from("2888180Ki")), String::from("2820"));
+  fn test_mem_to_mi() {
+    use super::mem_to_mi;
+    assert_eq!(mem_to_mi(String::from("2820Mi")), String::from("2820Mi"));
+    assert_eq!(mem_to_mi(String::from("2888180Ki")), String::from("2820Mi"));
+    assert_eq!(mem_to_mi(String::from("5Gi")), String::from("5120Mi"));
+    assert_eq!(mem_to_mi(String::from("5")), String::from("5"));
+  }
+  #[test]
+  fn test_to_cpu_percent() {
+    use super::to_cpu_percent;
+    assert_eq!(
+      to_cpu_percent(String::from("126m"), String::from("940m")),
+      13f64
+    );
+  }
+  #[test]
+  fn test_to_mem_percent() {
+    use super::to_mem_percent;
+    assert_eq!(
+      to_mem_percent(String::from("645784Mi"), String::from("2888184Mi")),
+      22f64
+    );
+  }
+  #[test]
+  fn test_cpu_to_milli() {
+    use super::cpu_to_milli;
+    assert_eq!(cpu_to_milli(String::from("645m")), String::from("645m"));
+    assert_eq!(
+      cpu_to_milli(String::from("126632173n")),
+      String::from("126m")
+    );
+    assert_eq!(cpu_to_milli(String::from("8")), String::from("8000m"));
+    assert_eq!(cpu_to_milli(String::from("0")), String::from("0m"));
   }
   #[test]
   fn test_to_age() {

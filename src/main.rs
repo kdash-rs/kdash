@@ -176,7 +176,7 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
     // draw the UI layout
     terminal.draw(|f| ui::draw(f, &mut app))?;
 
-    // handle key vents
+    // handle key events
     match events.next()? {
       event::Event::Input(key) => {
         // quit on CTRL + C

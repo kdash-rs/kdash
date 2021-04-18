@@ -87,11 +87,9 @@ pub struct KubeContext {
 pub struct NodeMetrics {
   pub name: String,
   pub cpu: String,
-  pub cpu_percent: String,
-  pub cpu_percent_i: f64,
+  pub cpu_percent: f64,
   pub mem: String,
-  pub mem_percent: String,
-  pub mem_percent_i: f64,
+  pub mem_percent: f64,
 }
 
 #[derive(Clone)]
@@ -103,6 +101,8 @@ pub struct KubeNode {
   pub pods: i32,
   pub cpu: String,
   pub mem: String,
+  pub cpu_a: String,
+  pub mem_a: String,
   pub cpu_percent: String,
   pub mem_percent: String,
   pub age: String,
@@ -331,11 +331,10 @@ impl App {
       // make network calls based on active route and active block
       if self.get_current_route().id == RouteId::Home {
         self.dispatch(IoEvent::GetNamespaces);
-        self.dispatch(IoEvent::GetTopNodes);
+        self.dispatch(IoEvent::GetNodes);
         match self.get_current_route().active_block {
           ActiveBlock::Pods => self.dispatch(IoEvent::GetPods),
           ActiveBlock::Services => self.dispatch(IoEvent::GetServices),
-          ActiveBlock::Nodes => self.dispatch(IoEvent::GetNodes),
           _ => {}
         }
       }

@@ -171,7 +171,7 @@ fn draw_context_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     .gauge_style(style_primary())
     .line_set(get_gauge_style(app.enhanced_graphics))
     .ratio(get_nm_ratio(app.data.node_metrics.as_ref(), |acc, nm| {
-      acc + nm.cpu_percent_i
+      acc + nm.cpu_percent
     }));
   f.render_widget(cpu_gauge, chunks[1]);
 
@@ -180,7 +180,7 @@ fn draw_context_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     .gauge_style(style_primary())
     .line_set(get_gauge_style(app.enhanced_graphics))
     .ratio(get_nm_ratio(app.data.node_metrics.as_ref(), |acc, nm| {
-      acc + nm.mem_percent_i
+      acc + nm.mem_percent
     }));
   f.render_widget(mem_gauge, chunks[2]);
 }
@@ -288,6 +288,8 @@ fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         Cell::from(c.mem.as_ref()),
         Cell::from(c.cpu_percent.as_ref()),
         Cell::from(c.mem_percent.as_ref()),
+        Cell::from(c.cpu_a.as_ref()),
+        Cell::from(c.mem_a.as_ref()),
         Cell::from(c.age.as_ref()),
       ])
       .style(style_primary())
@@ -296,7 +298,8 @@ fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     let table = Table::new(rows)
       .header(table_header_style(
         vec![
-          "Name", "Status", "Roles", "Version", "Pods", "CPU", "Mem", "CPU %", "Mem %", "Age",
+          "Name", "Status", "Roles", "Version", "Pods", "CPU", "Mem", "CPU %", "Mem %", "CPU/A",
+          "Mem/A", "Age",
         ],
         app.light_theme,
       ))
@@ -304,10 +307,12 @@ fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
       .highlight_style(style_highlight())
       .highlight_symbol(HIGHLIGHT)
       .widths(&[
-        Constraint::Percentage(30),
+        Constraint::Percentage(25),
         Constraint::Percentage(10),
-        Constraint::Percentage(15),
         Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(5),
+        Constraint::Percentage(5),
         Constraint::Percentage(5),
         Constraint::Percentage(5),
         Constraint::Percentage(5),
