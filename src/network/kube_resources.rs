@@ -1,3 +1,5 @@
+use crate::app::ActiveSubBlock;
+
 use super::super::app::{
   models::StatefulTable, KubeContainers, KubeContext, KubeNode, KubeNs, KubePods, KubeSvs,
   NodeMetrics,
@@ -5,6 +7,7 @@ use super::super::app::{
 use super::{Network, UNKNOWN};
 
 use anyhow::anyhow;
+use futures::TryStreamExt;
 use k8s_openapi::{
   api::core::v1::{
     ContainerState, ContainerStateWaiting, Namespace, Node, Pod, PodStatus, Service, ServicePort,
@@ -13,7 +16,7 @@ use k8s_openapi::{
   chrono::{DateTime, Utc},
 };
 use kube::{
-  api::{DynamicObject, GroupVersionKind, ListParams},
+  api::{DynamicObject, GroupVersionKind, ListParams, LogParams},
   config::Kubeconfig,
   Api, Resource,
 };
@@ -388,6 +391,45 @@ impl<'a> Network<'a> {
         self.handle_error(anyhow!(e)).await;
       }
     }
+  }
+
+  pub async fn stream_container_logs(&mut self) {
+    let (namespace, pod_name) = {
+      let mut app = self.app.lock().await;
+      if let Some(p) = app.data.pods.get_selected_item() {
+        (p.namespace, p.name)
+      } else {
+        (
+          std::env::var("NAMESPACE").unwrap_or_else(|_| "default".into()),
+          "".to_string(),
+        )
+      }
+    };
+
+    if pod_name.is_empty() {
+      return;
+    }
+    let pods: Api<Pod> = Api::namespaced(self.client.clone(), &namespace);
+    let lp = LogParams {
+      follow: true,
+      tail_lines: Some(1),
+      ..Default::default()
+    };
+    match pods.log_stream(&pod_name, &lp).await {
+      Ok(mut logs) => {
+        while let Some(line) = logs.try_next().await.unwrap_or_default() {
+          let mut app = self.app.lock().await;
+          if app.get_current_route().active_sub_block != ActiveSubBlock::Logs {
+            break;
+          }
+          let line = String::from_utf8_lossy(&line);
+          app.data.logs.add_record(line.to_string())
+        }
+      }
+      Err(e) => {
+        self.handle_error(anyhow!(e)).await;
+      }
+    };
   }
 
   async fn get_namespaced_api<K: Resource>(&mut self) -> Api<K>

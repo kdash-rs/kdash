@@ -1,4 +1,6 @@
-use super::super::app::{models::DEFAULT_KEYBINDING, ActiveBlock, App, KubePods, NodeMetrics};
+use super::super::app::{
+  models::DEFAULT_KEYBINDING, ActiveBlock, ActiveSubBlock, App, KubePods, NodeMetrics,
+};
 use super::super::banner::BANNER;
 use super::utils::{
   draw_placeholder, get_gauge_style, horizontal_chunks, layout_block_default,
@@ -114,11 +116,18 @@ fn draw_active_context_tabs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: R
 
   f.render_widget(tabs, area);
   // render tab content
-  match app.context_tabs.index {
-    0 => draw_pods(f, app, chunks[1]),
-    1 => draw_services(f, app, chunks[1]),
-    2 => draw_nodes(f, app, chunks[1]),
-    3..=7 => draw_placeholder(f, chunks[1]),
+  match app.get_current_route().active_block {
+    ActiveBlock::Pods => match app.get_current_route().active_sub_block {
+      ActiveSubBlock::Containers => draw_containers(f, app, chunks[1]),
+      ActiveSubBlock::Logs => draw_logs(f, app, chunks[1]),
+      _ => draw_pods(f, app, chunks[1]),
+    },
+    ActiveBlock::Services => draw_services(f, app, chunks[1]),
+    ActiveBlock::Nodes => draw_nodes(f, app, chunks[1]),
+    ActiveBlock::ConfigMaps
+    | ActiveBlock::Deployments
+    | ActiveBlock::ReplicaSets
+    | ActiveBlock::StatefulSets => draw_placeholder(f, chunks[1]),
     _ => {}
   };
 }
@@ -225,86 +234,82 @@ fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let selected_pod = app.data.pods.get_selected_item();
-  let (title_suffix, render_containers) =
-    get_container_info(&selected_pod, app.get_current_route().active_block);
-  let title = format!(
-    "Pods ({}) [{}]{}",
-    app
-      .data
-      .selected_ns
-      .as_ref()
-      .unwrap_or(&String::from("all")),
-    app.data.pods.items.len(),
-    title_suffix,
-  );
+  let title = get_pod_title(app, "| Containers <enter>");
   let block = layout_block_top_border(title.as_str());
 
   if !app.data.pods.items.is_empty() {
-    if render_containers {
-      let mut selected_pod = selected_pod.unwrap();
-      let rows = selected_pod.containers.items.iter().map(|c| {
-        let style = get_resource_row_style(&c.status.as_str());
-        Row::new(vec![
-          Cell::from(c.name.as_ref()),
-          Cell::from(c.image.as_ref()),
-          Cell::from(c.ready.as_ref()),
-          Cell::from(c.status.as_ref()),
-          Cell::from(c.restarts.to_string()),
-          Cell::from(c.age.as_ref()),
-        ])
-        .style(style)
-      });
+    let rows = app.data.pods.items.iter().map(|c| {
+      let style = get_resource_row_style(&c.status.as_str());
+      Row::new(vec![
+        Cell::from(c.namespace.as_ref()),
+        Cell::from(c.name.as_ref()),
+        Cell::from(c.ready.as_ref()),
+        Cell::from(c.status.as_ref()),
+        Cell::from(c.restarts.to_string()),
+        Cell::from(c.age.as_ref()),
+      ])
+      .style(style)
+    });
 
-      let table = Table::new(rows)
-        .header(table_header_style(
-          vec!["Name", "Image", "Ready", "State", "Restarts", "Age"],
-          app.light_theme,
-        ))
-        .block(block)
-        .highlight_style(style_highlight())
-        .highlight_symbol(HIGHLIGHT)
-        .widths(&[
-          Constraint::Percentage(25),
-          Constraint::Percentage(35),
-          Constraint::Percentage(10),
-          Constraint::Percentage(10),
-          Constraint::Percentage(10),
-          Constraint::Percentage(10),
-        ]);
-      f.render_stateful_widget(table, area, &mut selected_pod.containers.state);
-    } else {
-      let rows = app.data.pods.items.iter().map(|c| {
-        let style = get_resource_row_style(&c.status.as_str());
-        Row::new(vec![
-          Cell::from(c.namespace.as_ref()),
-          Cell::from(c.name.as_ref()),
-          Cell::from(c.ready.as_ref()),
-          Cell::from(c.status.as_ref()),
-          Cell::from(c.restarts.to_string()),
-          Cell::from(c.age.as_ref()),
-        ])
-        .style(style)
-      });
+    let table = Table::new(rows)
+      .header(table_header_style(
+        vec!["Namespace", "Name", "Ready", "Status", "Restarts", "Age"],
+        app.light_theme,
+      ))
+      .block(block)
+      .highlight_style(style_highlight())
+      .highlight_symbol(HIGHLIGHT)
+      .widths(&[
+        Constraint::Percentage(25),
+        Constraint::Percentage(35),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+      ]);
+    f.render_stateful_widget(table, area, &mut app.data.pods.state);
+  } else {
+    loading(f, block, area, app.is_loading);
+  }
+}
 
-      let table = Table::new(rows)
-        .header(table_header_style(
-          vec!["Namespace", "Name", "Ready", "Status", "Restarts", "Age"],
-          app.light_theme,
-        ))
-        .block(block)
-        .highlight_style(style_highlight())
-        .highlight_symbol(HIGHLIGHT)
-        .widths(&[
-          Constraint::Percentage(25),
-          Constraint::Percentage(35),
-          Constraint::Percentage(10),
-          Constraint::Percentage(10),
-          Constraint::Percentage(10),
-          Constraint::Percentage(10),
-        ]);
-      f.render_stateful_widget(table, area, &mut app.data.pods.state);
-    }
+fn draw_containers<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let selected_pod = app.data.pods.get_selected_item();
+  let title = get_container_title(app, &selected_pod, "Pods <esc> | Logs <enter>");
+
+  let block = layout_block_top_border(title.as_str());
+
+  if let Some(mut selected_pod) = selected_pod {
+    let rows = selected_pod.containers.items.iter().map(|c| {
+      let style = get_resource_row_style(&c.status.as_str());
+      Row::new(vec![
+        Cell::from(c.name.as_ref()),
+        Cell::from(c.image.as_ref()),
+        Cell::from(c.ready.as_ref()),
+        Cell::from(c.status.as_ref()),
+        Cell::from(c.restarts.to_string()),
+        Cell::from(c.age.as_ref()),
+      ])
+      .style(style)
+    });
+
+    let table = Table::new(rows)
+      .header(table_header_style(
+        vec!["Name", "Image", "Ready", "State", "Restarts", "Age"],
+        app.light_theme,
+      ))
+      .block(block)
+      .highlight_style(style_highlight())
+      .highlight_symbol(HIGHLIGHT)
+      .widths(&[
+        Constraint::Percentage(25),
+        Constraint::Percentage(35),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+      ]);
+    f.render_stateful_widget(table, area, &mut selected_pod.containers.state);
   } else {
     loading(f, block, area, app.is_loading);
   }
@@ -429,6 +434,23 @@ fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   }
 }
 
+fn draw_logs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let selected_pod = app.data.pods.get_selected_item();
+  let title = get_container_title(app, &selected_pod, "-> Logs | Containers <esc>");
+
+  let block = layout_block_top_border(title.as_str());
+
+  let list = app.data.logs.get_list(area, style_primary()).block(block);
+
+  f.render_widget(list, area);
+
+  //   let paragraph = Paragraph::new(text)
+  //     .block(block)
+  //     .wrap(Wrap { trim: true })
+  //     .scroll((0, 0));
+  //   f.render_widget(paragraph, area);
+}
+
 /// covert percent value from metrics to ratio that gauge can understand
 fn get_nm_ratio(node_metrics: &[NodeMetrics], f: fn(a: f64, b: &NodeMetrics) -> f64) -> f64 {
   if !node_metrics.is_empty() {
@@ -436,20 +458,6 @@ fn get_nm_ratio(node_metrics: &[NodeMetrics], f: fn(a: f64, b: &NodeMetrics) -> 
     (sum / node_metrics.len() as f64) / 100f64
   } else {
     0f64
-  }
-}
-
-fn get_container_info(pod: &Option<KubePods>, active_block: ActiveBlock) -> (String, bool) {
-  if active_block == ActiveBlock::Containers && pod.is_some() {
-    (
-      format!(
-        " -> Containers [{}] | Pods <esc>",
-        pod.as_ref().unwrap().containers.items.len()
-      ),
-      true,
-    )
-  } else {
-    (" | Containers <enter>".to_string(), false)
   }
 }
 
@@ -468,4 +476,35 @@ fn get_resource_row_style(status: &str) -> Style {
   } else {
     style_failure()
   }
+}
+
+fn get_pod_title<S: AsRef<str>>(app: &mut App, suffix: S) -> String {
+  format!(
+    "Pods ({}) [{}] {}",
+    app
+      .data
+      .selected_ns
+      .as_ref()
+      .unwrap_or(&String::from("all")),
+    app.data.pods.items.len(),
+    suffix.as_ref(),
+  )
+}
+
+fn get_container_title<S: AsRef<str>>(
+  app: &mut App,
+  selected_pod: &Option<KubePods>,
+  suffix: S,
+) -> String {
+  let title = get_pod_title(
+    app,
+    format!(
+      "-> Containers [{}] | {}",
+      selected_pod
+        .as_ref()
+        .map_or(0, |c| c.containers.items.len()),
+      suffix.as_ref()
+    ),
+  );
+  title
 }

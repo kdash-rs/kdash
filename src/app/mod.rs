@@ -1,6 +1,6 @@
 pub(crate) mod models;
 
-use self::models::{StatefulTable, TabsState, DEFAULT_KEYBINDING};
+use self::models::{LogsState, StatefulTable, TabsState, DEFAULT_KEYBINDING};
 use super::network::IoEvent;
 
 use anyhow::anyhow;
@@ -12,7 +12,6 @@ use tui::layout::Rect;
 pub enum ActiveBlock {
   Empty,
   Pods,
-  Containers,
   Services,
   Nodes,
   Deployments,
@@ -21,6 +20,13 @@ pub enum ActiveBlock {
   ReplicaSets,
   Namespaces,
   Contexts,
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum ActiveSubBlock {
+  Containers,
+  Logs,
+  Empty,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -35,11 +41,13 @@ pub enum RouteId {
 pub struct Route {
   pub id: RouteId,
   pub active_block: ActiveBlock,
+  pub active_sub_block: ActiveSubBlock,
 }
 
 const DEFAULT_ROUTE: Route = Route {
   id: RouteId::Home,
   active_block: ActiveBlock::Pods,
+  active_sub_block: ActiveSubBlock::Empty,
 };
 
 pub struct Cli {
@@ -137,6 +145,7 @@ pub struct Data {
   pub pods: StatefulTable<KubePods>,
   pub services: StatefulTable<KubeSvs>,
   pub selected_ns: Option<String>,
+  pub logs: LogsState,
 }
 // main app state
 pub struct App {
@@ -176,6 +185,7 @@ impl Default for Data {
       pods: StatefulTable::new(),
       services: StatefulTable::new(),
       selected_ns: None,
+      logs: LogsState::new(),
     }
   }
 }
@@ -278,6 +288,21 @@ impl App {
     self.navigation_stack.push(Route {
       id: next_route_id,
       active_block: next_active_block,
+      active_sub_block: ActiveSubBlock::Empty,
+    });
+    self.is_routing = true;
+  }
+
+  pub fn push_navigation_sub_stack(
+    &mut self,
+    route_id: RouteId,
+    active_block: ActiveBlock,
+    active_sub_block: ActiveSubBlock,
+  ) {
+    self.navigation_stack.push(Route {
+      id: route_id,
+      active_block,
+      active_sub_block,
     });
     self.is_routing = true;
   }
@@ -304,6 +329,11 @@ impl App {
   pub fn route_contexts(&mut self) {
     self.main_tabs.set_index(1);
     self.push_navigation_stack(RouteId::Contexts, ActiveBlock::Contexts);
+  }
+
+  pub fn dispatch_container_logs(&mut self) {
+    self.dispatch(IoEvent::GetPodLogs);
+    self.push_navigation_sub_stack(RouteId::Home, ActiveBlock::Pods, ActiveSubBlock::Logs);
   }
 
   pub fn on_tick(&mut self, first_render: bool) {

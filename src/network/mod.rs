@@ -17,6 +17,7 @@ pub enum IoEvent {
   GetNamespaces,
   GetPods,
   GetServices,
+  GetPodLogs,
   RefreshClient,
 }
 
@@ -73,6 +74,9 @@ impl<'a> Network<'a> {
       }
       IoEvent::GetServices => {
         self.get_services().await;
+      }
+      IoEvent::GetPodLogs => {
+        self.stream_container_logs().await;
       }
     };
 

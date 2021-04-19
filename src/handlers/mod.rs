@@ -1,6 +1,6 @@
 use super::app::{
   models::{StatefulTable, DEFAULT_KEYBINDING},
-  ActiveBlock, App, RouteId,
+  ActiveBlock, ActiveSubBlock, App, RouteId,
 };
 use super::event::Key;
 
@@ -85,12 +85,32 @@ fn handle_table_events<T: Clone>(key: Key, item: &mut StatefulTable<T>) -> Optio
 // Handle event for the current active block
 fn handle_block_events(key: Key, app: &mut App) {
   match app.get_current_route().active_block {
-    ActiveBlock::Pods => {
-      let pod = handle_table_events(key, &mut app.data.pods);
-      if pod.is_some() {
-        app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
+    ActiveBlock::Pods => match app.get_current_route().active_sub_block {
+      ActiveSubBlock::Containers => {
+        let cont = handle_table_events(
+          key,
+          &mut app
+            .data
+            .pods
+            .get_selected_item()
+            .map_or(StatefulTable::new(), |c| c.containers),
+        );
+        if cont.is_some() {
+          app.dispatch_container_logs();
+        }
       }
-    }
+      ActiveSubBlock::Logs => {}
+      ActiveSubBlock::Empty => {
+        let pod = handle_table_events(key, &mut app.data.pods);
+        if pod.is_some() {
+          app.push_navigation_sub_stack(
+            RouteId::Home,
+            ActiveBlock::Pods,
+            ActiveSubBlock::Containers,
+          );
+        }
+      }
+    },
     ActiveBlock::Services => {
       let _svc = handle_table_events(key, &mut app.data.services);
     }
@@ -141,19 +161,20 @@ fn handle_block_events(key: Key, app: &mut App) {
 
 fn handle_escape(app: &mut App) {
   match app.get_current_route().id {
-    // RouteId::HelpMenu => {
-    //   app.route_home();
-    // }
-    _ => {
-      app.route_home();
+    RouteId::HelpMenu | RouteId::Contexts | RouteId::Error => {
+      app.pop_navigation_stack();
     }
-  }
-  match app.get_current_route().active_block {
-    // ActiveBlock::Dialog(_) => {
-    //   app.pop_navigation_stack();
-    // }
-    _ => {
-      app.route_home();
-    }
+    _ => match app.get_current_route().active_block {
+      ActiveBlock::Namespaces => {
+        app.pop_navigation_stack();
+      }
+      ActiveBlock::Pods => match app.get_current_route().active_sub_block {
+        ActiveSubBlock::Logs | ActiveSubBlock::Containers => {
+          app.pop_navigation_stack();
+        }
+        _ => {}
+      },
+      _ => {}
+    },
   }
 }

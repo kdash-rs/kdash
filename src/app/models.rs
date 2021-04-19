@@ -1,7 +1,13 @@
-use tui::widgets::TableState;
+use std::collections::VecDeque;
 
 use super::super::event::Key;
 use super::ActiveBlock;
+use tui::{
+  layout::Rect,
+  style::Style,
+  text::Span,
+  widgets::{List, ListItem, TableState},
+};
 
 #[derive(Clone)]
 pub struct KeyBindings {
@@ -160,5 +166,84 @@ impl TabsState {
       self.index = self.titles.len() - 1;
     }
     self.set_active();
+  }
+}
+
+// TODO implement line buffer to avoid gathering too much data in memory
+#[derive(Debug, Clone)]
+#[allow(clippy::type_complexity)]
+pub struct LogsState {
+  /// Stores the log messages to be displayed
+  ///
+  /// (original_message, (wrapped_message, wrapped_at_width))
+  records: VecDeque<(String, Option<(Vec<ListItem<'static>>, u16)>)>,
+}
+
+impl LogsState {
+  pub fn new() -> LogsState {
+    LogsState {
+      records: VecDeque::with_capacity(512),
+    }
+  }
+  /// Get the current state as a list widget
+  pub fn get_list(&mut self, logs_area: Rect, style: Style) -> List {
+    let available_lines = logs_area.height as usize;
+    let logs_area_width = logs_area.width as usize;
+
+    let num_records = self.records.len();
+    // Keep track of the number of lines after wrapping so we can skip lines as
+    // needed below
+    let mut wrapped_lines_len = 0;
+
+    let mut items = Vec::with_capacity(logs_area.height as usize);
+
+    items.extend(
+      self
+        .records
+        .iter_mut()
+        // Only wrap the records we could potentially be displaying
+        .skip(num_records.saturating_sub(available_lines))
+        .map(|r| {
+          // See if we can use a cached wrapped line
+          if let Some(wrapped) = &r.1 {
+            if wrapped.1 as usize == logs_area_width {
+              wrapped_lines_len += wrapped.0.len();
+              return wrapped.0.clone();
+            }
+          }
+
+          // If not, wrap the line and cache it
+          r.1 = Some((
+            textwrap::wrap(r.0.as_ref(), logs_area_width)
+              .into_iter()
+              .map(|s| s.to_string())
+              .map(|c| Span::styled(c, style))
+              .map(ListItem::new)
+              .collect::<Vec<ListItem>>(),
+            logs_area.width,
+          ));
+
+          wrapped_lines_len += r.1.as_ref().unwrap().0.len();
+          r.1.as_ref().unwrap().0.clone()
+        })
+        .flatten(),
+    );
+
+    // TODO: we should be wrapping text with paragraph, but it currently
+    // doesn't support wrapping and staying scrolled to the bottom
+    //
+    // see https://github.com/fdehau/tui-rs/issues/89
+    List::new(
+      items
+        .into_iter()
+        // Wrapping could have created more lines than what we can display;
+        // skip them
+        .skip(wrapped_lines_len.saturating_sub(available_lines))
+        .collect::<Vec<_>>(),
+    )
+  }
+  /// Add a record to be displayed
+  pub fn add_record(&mut self, record: String) {
+    self.records.push_back((record, None));
   }
 }
