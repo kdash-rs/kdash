@@ -5,7 +5,7 @@ use super::super::app::{
 use super::{Network, UNKNOWN};
 
 use anyhow::anyhow;
-use futures::{Stream, TryStreamExt};
+use futures::TryStreamExt;
 use k8s_openapi::{
   api::core::v1::{
     ContainerState, ContainerStateWaiting, Namespace, Node, Pod, PodStatus, Service, ServicePort,

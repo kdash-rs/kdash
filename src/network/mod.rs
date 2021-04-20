@@ -1,6 +1,6 @@
 // adapted from https://github.com/Rigellute/spotify-tui
-mod info;
-mod kube_resources;
+mod cli;
+mod kube_api;
 
 use super::app::{self, App};
 
