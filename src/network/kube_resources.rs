@@ -5,7 +5,7 @@ use super::super::app::{
 use super::{Network, UNKNOWN};
 
 use anyhow::anyhow;
-use futures::TryStreamExt;
+use futures::{Stream, TryStreamExt};
 use k8s_openapi::{
   api::core::v1::{
     ContainerState, ContainerStateWaiting, Namespace, Node, Pod, PodStatus, Service, ServicePort,
@@ -419,10 +419,13 @@ impl<'a> Network<'a> {
     let lp = LogParams {
       container: Some(cont_name.clone()),
       follow: true,
-      tail_lines: Some(10),
+      previous: false,
+      timestamps: true,
+      tail_lines: Some(100),
       ..Default::default()
     };
 
+    // TODO investigate why this is blocking network thread
     match pods.log_stream(&pod_name, &lp).await {
       Ok(mut logs) => {
         #[allow(clippy::eval_order_dependence)]
