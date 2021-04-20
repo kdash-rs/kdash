@@ -185,7 +185,7 @@ impl Default for Data {
       pods: StatefulTable::new(),
       services: StatefulTable::new(),
       selected_ns: None,
-      logs: LogsState::new(),
+      logs: LogsState::new(String::default()),
     }
   }
 }
@@ -260,7 +260,7 @@ impl App {
 
   // Send a network event to the network thread
   pub fn dispatch(&mut self, action: IoEvent) {
-    // `is_loading` will be set to false again after the async action has finished in network.rs
+    // `is_loading` will be set to false again after the async action has finished in network/mod.rs
     self.is_loading = true;
     if let Some(io_tx) = &self.io_tx {
       if let Err(e) = io_tx.send(action) {
@@ -331,7 +331,8 @@ impl App {
     self.push_navigation_stack(RouteId::Contexts, ActiveBlock::Contexts);
   }
 
-  pub fn dispatch_container_logs(&mut self) {
+  pub fn dispatch_container_logs(&mut self, c: String) {
+    self.data.logs = LogsState::new(c);
     self.dispatch(IoEvent::GetPodLogs);
     self.push_navigation_sub_stack(RouteId::Home, ActiveBlock::Pods, ActiveSubBlock::Logs);
   }
@@ -354,9 +355,13 @@ impl App {
       if self.get_current_route().id == RouteId::Home {
         self.dispatch(IoEvent::GetNamespaces);
         self.dispatch(IoEvent::GetNodes);
-        match self.get_current_route().active_block {
-          ActiveBlock::Pods => self.dispatch(IoEvent::GetPods),
-          ActiveBlock::Services => self.dispatch(IoEvent::GetServices),
+        match (
+          self.get_current_route().active_block,
+          self.get_current_route().active_sub_block,
+        ) {
+          (ActiveBlock::Pods, ActiveSubBlock::Empty)
+          | (ActiveBlock::Pods, ActiveSubBlock::Containers) => self.dispatch(IoEvent::GetPods),
+          (ActiveBlock::Services, ActiveSubBlock::Empty) => self.dispatch(IoEvent::GetServices),
           _ => {}
         }
       }

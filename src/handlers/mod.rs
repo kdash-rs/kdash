@@ -95,8 +95,8 @@ fn handle_block_events(key: Key, app: &mut App) {
             .get_selected_item()
             .map_or(StatefulTable::new(), |c| c.containers),
         );
-        if cont.is_some() {
-          app.dispatch_container_logs();
+        if let Some(c) = cont {
+          app.dispatch_container_logs(c.name);
         }
       }
       ActiveSubBlock::Logs => {}

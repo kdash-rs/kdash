@@ -8,7 +8,6 @@ use anyhow::anyhow;
 use kube::Client;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-
 #[derive(Debug)]
 pub enum IoEvent {
   GetCliInfo,

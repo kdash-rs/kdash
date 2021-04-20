@@ -1,8 +1,6 @@
-use crate::app::ActiveSubBlock;
-
 use super::super::app::{
-  models::StatefulTable, KubeContainers, KubeContext, KubeNode, KubeNs, KubePods, KubeSvs,
-  NodeMetrics,
+  models::StatefulTable, ActiveSubBlock, KubeContainers, KubeContext, KubeNode, KubeNs, KubePods,
+  KubeSvs, NodeMetrics,
 };
 use super::{Network, UNKNOWN};
 
@@ -394,13 +392,21 @@ impl<'a> Network<'a> {
   }
 
   pub async fn stream_container_logs(&mut self) {
-    let (namespace, pod_name) = {
+    let (namespace, pod_name, cont_name) = {
       let mut app = self.app.lock().await;
-      if let Some(p) = app.data.pods.get_selected_item() {
-        (p.namespace, p.name)
+      app.is_loading = false;
+      if let Some(mut p) = app.data.pods.get_selected_item() {
+        (
+          p.namespace,
+          p.name,
+          p.containers
+            .get_selected_item()
+            .map_or("".to_string(), |c| c.name),
+        )
       } else {
         (
           std::env::var("NAMESPACE").unwrap_or_else(|_| "default".into()),
+          "".to_string(),
           "".to_string(),
         )
       }
@@ -411,19 +417,25 @@ impl<'a> Network<'a> {
     }
     let pods: Api<Pod> = Api::namespaced(self.client.clone(), &namespace);
     let lp = LogParams {
+      container: Some(cont_name.clone()),
       follow: true,
-      tail_lines: Some(1),
+      tail_lines: Some(10),
       ..Default::default()
     };
+
     match pods.log_stream(&pod_name, &lp).await {
       Ok(mut logs) => {
-        while let Some(line) = logs.try_next().await.unwrap_or_default() {
-          let mut app = self.app.lock().await;
-          if app.get_current_route().active_sub_block != ActiveSubBlock::Logs {
-            break;
+        #[allow(clippy::eval_order_dependence)]
+        while let (Some(line), true) = (logs.try_next().await.unwrap_or(None), {
+          let app = self.app.lock().await;
+          app.get_current_route().active_sub_block == ActiveSubBlock::Logs
+            || app.data.logs.id == cont_name
+        }) {
+          let line = String::from_utf8_lossy(&line).trim().to_string();
+          if !line.is_empty() {
+            let mut app = self.app.lock().await;
+            app.data.logs.add_record(line);
           }
-          let line = String::from_utf8_lossy(&line);
-          app.data.logs.add_record(line.to_string())
         }
       }
       Err(e) => {

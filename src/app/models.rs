@@ -177,14 +177,17 @@ pub struct LogsState {
   ///
   /// (original_message, (wrapped_message, wrapped_at_width))
   records: VecDeque<(String, Option<(Vec<ListItem<'static>>, u16)>)>,
+  pub id: String,
 }
 
 impl LogsState {
-  pub fn new() -> LogsState {
+  pub fn new(id: String) -> LogsState {
     LogsState {
       records: VecDeque::with_capacity(512),
+      id,
     }
   }
+
   /// Get the current state as a list widget
   pub fn get_list(&mut self, logs_area: Rect, style: Style) -> List {
     let available_lines = logs_area.height as usize;
