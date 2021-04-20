@@ -340,7 +340,7 @@ impl<'a> Network<'a> {
 
                 let external_ips = match type_.as_str() {
                   "ClusterIP" | "NodePort" => spec.external_ips.clone(),
-                  "LoadBalancer" => Some(get_lb_ext_ips(service, spec.external_ips.clone())),
+                  "LoadBalancer" => get_lb_ext_ips(service, spec.external_ips.clone()),
                   "ExternalName" => Some(vec![spec.external_name.clone().unwrap_or_default()]),
                   _ => None,
                 }
@@ -455,6 +455,8 @@ impl<'a> Network<'a> {
     }
   }
 }
+
+// Util function
 
 fn get_container_state(os: Option<ContainerState>) -> String {
   match os {
@@ -616,7 +618,7 @@ fn get_ports(sports: Option<Vec<ServicePort>>) -> Vec<String> {
   }
 }
 
-fn get_lb_ext_ips(service: &Service, external_ips: Option<Vec<String>>) -> Vec<String> {
+fn get_lb_ext_ips(service: &Service, external_ips: Option<Vec<String>>) -> Option<Vec<String>> {
   let mut lb_ips = match &service.status {
     Some(ss) => match &ss.load_balancer {
       Some(lb) => {
@@ -642,9 +644,11 @@ fn get_lb_ext_ips(service: &Service, external_ips: Option<Vec<String>>) -> Vec<S
   };
   if external_ips.is_some() && !lb_ips.is_empty() {
     lb_ips.extend(external_ips.unwrap_or_default());
-    lb_ips
+    Some(lb_ips)
+  } else if !lb_ips.is_empty() {
+    Some(lb_ips)
   } else {
-    lb_ips
+    None
   }
 }
 
