@@ -5,7 +5,7 @@ use super::network::IoEvent;
 
 use anyhow::anyhow;
 use kube::config::Kubeconfig;
-use std::sync::mpsc::Sender;
+use tokio::sync::mpsc::Sender;
 use tui::layout::Rect;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -259,11 +259,11 @@ impl App {
   }
 
   // Send a network event to the network thread
-  pub fn dispatch(&mut self, action: IoEvent) {
+  pub async fn dispatch(&mut self, action: IoEvent) {
     // `is_loading` will be set to false again after the async action has finished in network/mod.rs
     self.is_loading = true;
     if let Some(io_tx) = &self.io_tx {
-      if let Err(e) = io_tx.send(action) {
+      if let Err(e) = io_tx.send(action).await {
         self.is_loading = false;
         println!("Error from dispatch {}", e);
         self.handle_error(anyhow!(e));
@@ -331,37 +331,41 @@ impl App {
     self.push_navigation_stack(RouteId::Contexts, ActiveBlock::Contexts);
   }
 
-  pub fn dispatch_container_logs(&mut self, c: String) {
+  pub async fn dispatch_container_logs(&mut self, c: String) {
     self.data.logs = LogsState::new(c);
-    self.dispatch(IoEvent::GetPodLogs);
+    self.dispatch(IoEvent::GetPodLogs).await;
     self.push_navigation_sub_stack(RouteId::Home, ActiveBlock::Pods, ActiveSubBlock::Logs);
   }
 
-  pub fn on_tick(&mut self, first_render: bool) {
+  pub async fn on_tick(&mut self, first_render: bool) {
     // Make one time requests on first render or refresh
     if self.refresh {
       if !first_render {
-        self.dispatch(IoEvent::RefreshClient);
+        self.dispatch(IoEvent::RefreshClient).await;
       }
-      self.dispatch(IoEvent::GetCliInfo);
-      self.dispatch(IoEvent::GetKubeConfig);
+      self.dispatch(IoEvent::GetCliInfo).await;
+      self.dispatch(IoEvent::GetKubeConfig).await;
       // call these once as well to pre-load data
-      self.dispatch(IoEvent::GetPods);
-      self.dispatch(IoEvent::GetServices);
+      self.dispatch(IoEvent::GetPods).await;
+      self.dispatch(IoEvent::GetServices).await;
     }
     // make network requests only in intervals to avoid hogging up the network
     if self.tick_count == 0 || self.is_routing {
       // make periodic network calls based on active route and active block to avoid hogging
       if self.get_current_route().id == RouteId::Home {
-        self.dispatch(IoEvent::GetNamespaces);
-        self.dispatch(IoEvent::GetNodes);
+        self.dispatch(IoEvent::GetNamespaces).await;
+        self.dispatch(IoEvent::GetNodes).await;
         match (
           self.get_current_route().active_block,
           self.get_current_route().active_sub_block,
         ) {
           (ActiveBlock::Pods, ActiveSubBlock::Empty)
-          | (ActiveBlock::Pods, ActiveSubBlock::Containers) => self.dispatch(IoEvent::GetPods),
-          (ActiveBlock::Services, ActiveSubBlock::Empty) => self.dispatch(IoEvent::GetServices),
+          | (ActiveBlock::Pods, ActiveSubBlock::Containers) => {
+            self.dispatch(IoEvent::GetPods).await;
+          }
+          (ActiveBlock::Services, ActiveSubBlock::Empty) => {
+            self.dispatch(IoEvent::GetServices).await;
+          }
           _ => {}
         }
       }

@@ -4,7 +4,7 @@ use super::app::{
 };
 use super::event::Key;
 
-pub fn handle_app(key: Key, app: &mut App) {
+pub async fn handle_app(key: Key, app: &mut App) {
   // First handle any global event and then move to block event
   match key {
     _ if key == DEFAULT_KEYBINDING.esc => {
@@ -63,7 +63,7 @@ pub fn handle_app(key: Key, app: &mut App) {
       app.context_tabs.set_index(6);
       app.push_navigation_stack(RouteId::Home, ActiveBlock::ReplicaSets);
     }
-    _ => handle_block_events(key, app),
+    _ => handle_block_events(key, app).await,
   }
 }
 
@@ -83,7 +83,7 @@ fn handle_table_events<T: Clone>(key: Key, item: &mut StatefulTable<T>) -> Optio
 }
 
 // Handle event for the current active block
-fn handle_block_events(key: Key, app: &mut App) {
+async fn handle_block_events(key: Key, app: &mut App) {
   match app.get_current_route().active_block {
     ActiveBlock::Pods => match app.get_current_route().active_sub_block {
       ActiveSubBlock::Containers => {
@@ -96,7 +96,7 @@ fn handle_block_events(key: Key, app: &mut App) {
             .map_or(StatefulTable::new(), |c| c.containers),
         );
         if let Some(c) = cont {
-          app.dispatch_container_logs(c.name);
+          app.dispatch_container_logs(c.name).await;
         }
       }
       ActiveSubBlock::Logs => {}

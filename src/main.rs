@@ -22,9 +22,9 @@ use crossterm::{
 use std::{
   io::{self, stdout, Stdout},
   panic::{self, PanicInfo},
-  sync::{mpsc, Arc},
+  sync::Arc,
 };
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, Mutex};
 use tui::{
   backend::{Backend, CrosstermBackend},
   Terminal,
@@ -104,7 +104,7 @@ async fn main() -> Result<()> {
   }
 
   // channel for communication between network & UI threads
-  let (sync_io_tx, sync_io_rx) = mpsc::channel::<IoEvent>();
+  let (sync_io_tx, sync_io_rx) = mpsc::channel::<IoEvent>(1000);
 
   // Initialize app state
   let app = Arc::new(Mutex::new(App::new(
@@ -127,12 +127,12 @@ async fn main() -> Result<()> {
 }
 
 #[tokio::main]
-async fn start_tokio(io_rx: mpsc::Receiver<IoEvent>, app: &Arc<Mutex<App>>) {
+async fn start_tokio(mut io_rx: tokio::sync::mpsc::Receiver<IoEvent>, app: &Arc<Mutex<App>>) {
   match get_client().await {
     Ok(client) => {
       let mut network = Network::new(client, app);
 
-      while let Ok(io_event) = io_rx.recv() {
+      while let Some(io_event) = io_rx.recv().await {
         network.handle_network_event(io_event).await;
       }
     }
@@ -184,11 +184,11 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
           break;
         }
         // handle all other keys
-        handlers::handle_app(key, &mut app)
+        handlers::handle_app(key, &mut app).await
       }
       // handle tick events
       event::Event::Tick => {
-        app.on_tick(is_first_render);
+        app.on_tick(is_first_render).await;
       }
     }
 
