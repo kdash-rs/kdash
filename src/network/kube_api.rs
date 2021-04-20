@@ -1,6 +1,6 @@
 use super::super::app::{
-  models::StatefulTable, ActiveSubBlock, KubeContainers, KubeContext, KubeNode, KubeNs, KubePods,
-  KubeSvs, NodeMetrics,
+  models::StatefulTable, KubeContainers, KubeContext, KubeNode, KubeNs, KubePods, KubeSvs,
+  NodeMetrics,
 };
 use super::{Network, UNKNOWN};
 

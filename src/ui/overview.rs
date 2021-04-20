@@ -1,6 +1,4 @@
-use super::super::app::{
-  models::DEFAULT_KEYBINDING, ActiveBlock, ActiveSubBlock, App, KubePods, NodeMetrics,
-};
+use super::super::app::{models::DEFAULT_KEYBINDING, ActiveBlock, App, KubePods, NodeMetrics};
 use super::super::banner::BANNER;
 use super::utils::{
   draw_placeholder, get_gauge_style, horizontal_chunks, layout_block_default,
@@ -115,20 +113,25 @@ fn draw_active_context_tabs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: R
     .select(app.context_tabs.index);
 
   f.render_widget(tabs, area);
+
   // render tab content
-  match app.get_current_route().active_block {
-    ActiveBlock::Pods => match app.get_current_route().active_sub_block {
-      ActiveSubBlock::Containers => draw_containers(f, app, chunks[1]),
-      ActiveSubBlock::Logs => draw_logs(f, app, chunks[1]),
-      _ => draw_pods(f, app, chunks[1]),
-    },
-    ActiveBlock::Services => draw_services(f, app, chunks[1]),
-    ActiveBlock::Nodes => draw_nodes(f, app, chunks[1]),
-    ActiveBlock::ConfigMaps
-    | ActiveBlock::Deployments
-    | ActiveBlock::ReplicaSets
-    | ActiveBlock::StatefulSets => draw_placeholder(f, chunks[1]),
+  match app.context_tabs.index {
+    0 => draw_pods_tab(app.get_current_route().active_block, f, app, chunks[1]),
+    1 => draw_services(f, app, chunks[1]),
+    2 => draw_nodes(f, app, chunks[1]),
+    3..=7 => draw_placeholder(f, chunks[1]),
     _ => {}
+  };
+}
+
+fn draw_pods_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
+  match block {
+    ActiveBlock::Containers => draw_containers(f, app, area),
+    ActiveBlock::Logs => draw_logs(f, app, area),
+    ActiveBlock::Namespaces => {
+      draw_pods_tab(app.get_prev_route().active_block, f, app, area);
+    }
+    _ => draw_pods(f, app, area),
   };
 }
 
@@ -443,12 +446,6 @@ fn draw_logs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let list = app.data.logs.get_list(area, style_primary()).block(block);
 
   f.render_widget(list, area);
-
-  //   let paragraph = Paragraph::new(text)
-  //     .block(block)
-  //     .wrap(Wrap { trim: true })
-  //     .scroll((0, 0));
-  //   f.render_widget(paragraph, area);
 }
 
 /// covert percent value from metrics to ratio that gauge can understand

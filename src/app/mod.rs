@@ -12,6 +12,8 @@ use tui::layout::Rect;
 pub enum ActiveBlock {
   Empty,
   Pods,
+  Containers,
+  Logs,
   Services,
   Nodes,
   Deployments,
@@ -20,13 +22,6 @@ pub enum ActiveBlock {
   ReplicaSets,
   Namespaces,
   Contexts,
-}
-
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub enum ActiveSubBlock {
-  Containers,
-  Logs,
-  Empty,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -41,13 +36,11 @@ pub enum RouteId {
 pub struct Route {
   pub id: RouteId,
   pub active_block: ActiveBlock,
-  pub active_sub_block: ActiveSubBlock,
 }
 
 const DEFAULT_ROUTE: Route = Route {
   id: RouteId::Home,
   active_block: ActiveBlock::Pods,
-  active_sub_block: ActiveSubBlock::Empty,
 };
 
 pub struct Cli {
@@ -288,21 +281,6 @@ impl App {
     self.navigation_stack.push(Route {
       id: next_route_id,
       active_block: next_active_block,
-      active_sub_block: ActiveSubBlock::Empty,
-    });
-    self.is_routing = true;
-  }
-
-  pub fn push_navigation_sub_stack(
-    &mut self,
-    route_id: RouteId,
-    active_block: ActiveBlock,
-    active_sub_block: ActiveSubBlock,
-  ) {
-    self.navigation_stack.push(Route {
-      id: route_id,
-      active_block,
-      active_sub_block,
     });
     self.is_routing = true;
   }
@@ -321,6 +299,11 @@ impl App {
     self.navigation_stack.last().unwrap_or(&DEFAULT_ROUTE)
   }
 
+  pub fn get_prev_route(&self) -> &Route {
+    // get the previous route
+    &self.navigation_stack[self.navigation_stack.len() - 2]
+  }
+
   pub fn route_home(&mut self) {
     self.main_tabs.set_index(0);
     self.push_navigation_stack(RouteId::Home, ActiveBlock::Pods);
@@ -334,7 +317,7 @@ impl App {
   pub async fn dispatch_container_logs(&mut self, c: String) {
     self.data.logs = LogsState::new(c);
     self.dispatch(IoEvent::GetPodLogs).await;
-    self.push_navigation_sub_stack(RouteId::Home, ActiveBlock::Pods, ActiveSubBlock::Logs);
+    self.push_navigation_stack(RouteId::Home, ActiveBlock::Logs);
   }
 
   pub async fn on_tick(&mut self, first_render: bool) {
@@ -355,15 +338,11 @@ impl App {
       if self.get_current_route().id == RouteId::Home {
         self.dispatch(IoEvent::GetNamespaces).await;
         self.dispatch(IoEvent::GetNodes).await;
-        match (
-          self.get_current_route().active_block,
-          self.get_current_route().active_sub_block,
-        ) {
-          (ActiveBlock::Pods, ActiveSubBlock::Empty)
-          | (ActiveBlock::Pods, ActiveSubBlock::Containers) => {
+        match self.get_current_route().active_block {
+          ActiveBlock::Pods | ActiveBlock::Containers => {
             self.dispatch(IoEvent::GetPods).await;
           }
-          (ActiveBlock::Services, ActiveSubBlock::Empty) => {
+          ActiveBlock::Services => {
             self.dispatch(IoEvent::GetServices).await;
           }
           _ => {}

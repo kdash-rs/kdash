@@ -1,6 +1,6 @@
 use super::app::{
   models::{StatefulTable, DEFAULT_KEYBINDING},
-  ActiveBlock, ActiveSubBlock, App, RouteId,
+  ActiveBlock, App, RouteId,
 };
 use super::event::Key;
 
@@ -85,32 +85,25 @@ fn handle_table_events<T: Clone>(key: Key, item: &mut StatefulTable<T>) -> Optio
 // Handle event for the current active block
 async fn handle_block_events(key: Key, app: &mut App) {
   match app.get_current_route().active_block {
-    ActiveBlock::Pods => match app.get_current_route().active_sub_block {
-      ActiveSubBlock::Containers => {
-        let cont = handle_table_events(
-          key,
-          &mut app
-            .data
-            .pods
-            .get_selected_item()
-            .map_or(StatefulTable::new(), |c| c.containers),
-        );
-        if let Some(c) = cont {
-          app.dispatch_container_logs(c.name).await;
-        }
+    ActiveBlock::Pods => {
+      let pod = handle_table_events(key, &mut app.data.pods);
+      if pod.is_some() {
+        app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
       }
-      ActiveSubBlock::Logs => {}
-      ActiveSubBlock::Empty => {
-        let pod = handle_table_events(key, &mut app.data.pods);
-        if pod.is_some() {
-          app.push_navigation_sub_stack(
-            RouteId::Home,
-            ActiveBlock::Pods,
-            ActiveSubBlock::Containers,
-          );
-        }
+    }
+    ActiveBlock::Containers => {
+      let cont = handle_table_events(
+        key,
+        &mut app
+          .data
+          .pods
+          .get_selected_item()
+          .map_or(StatefulTable::new(), |c| c.containers),
+      );
+      if let Some(c) = cont {
+        app.dispatch_container_logs(c.name).await;
       }
-    },
+    }
     ActiveBlock::Services => {
       let _svc = handle_table_events(key, &mut app.data.services);
     }
@@ -127,9 +120,6 @@ async fn handle_block_events(key: Key, app: &mut App) {
     ActiveBlock::Contexts => {
       let _ctx = handle_table_events(key, &mut app.data.contexts);
     }
-    // ActiveBlock::Dialog(_) => {
-    //   dialog::handler(key, app);
-    // }
     _ => {
       // do nothing
     }
@@ -165,15 +155,9 @@ fn handle_escape(app: &mut App) {
       app.pop_navigation_stack();
     }
     _ => match app.get_current_route().active_block {
-      ActiveBlock::Namespaces => {
+      ActiveBlock::Namespaces | ActiveBlock::Logs | ActiveBlock::Containers => {
         app.pop_navigation_stack();
       }
-      ActiveBlock::Pods => match app.get_current_route().active_sub_block {
-        ActiveSubBlock::Logs | ActiveSubBlock::Containers => {
-          app.pop_navigation_stack();
-        }
-        _ => {}
-      },
       _ => {}
     },
   }
