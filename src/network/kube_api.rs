@@ -19,7 +19,7 @@ use kube::{
 };
 
 impl<'a> Network<'a> {
-  pub async fn get_kube_config(&mut self) {
+  pub async fn get_kube_config(&self) {
     match Kubeconfig::read() {
       Ok(config) => {
         let mut app = self.app.lock().await;
@@ -32,7 +32,7 @@ impl<'a> Network<'a> {
     }
   }
 
-  pub async fn get_top_node(&mut self) {
+  pub async fn get_top_node(&self) {
     let gvk = GroupVersionKind::gvk("metrics.k8s.io", "v1beta1", "nodemetrics").unwrap();
     let node_metrics: Api<DynamicObject> = Api::all_with(self.client.clone(), &gvk);
     match node_metrics.list(&ListParams::default()).await {
@@ -80,7 +80,7 @@ impl<'a> Network<'a> {
     };
   }
 
-  pub async fn get_nodes(&mut self) {
+  pub async fn get_nodes(&self) {
     let node_label_prefix = "node-role.kubernetes.io/";
     let node_label_role = "kubernetes.io/role";
     let none_role = "<none>";
@@ -217,7 +217,7 @@ impl<'a> Network<'a> {
     }
   }
 
-  pub async fn get_namespaces(&mut self) {
+  pub async fn get_namespaces(&self) {
     let ns: Api<Namespace> = Api::all(self.client.clone());
 
     let lp = ListParams::default();
@@ -249,7 +249,7 @@ impl<'a> Network<'a> {
     }
   }
 
-  pub async fn get_pods(&mut self) {
+  pub async fn get_pods(&self) {
     let pods: Api<Pod> = self.get_namespaced_api().await;
 
     let lp = ListParams::default();
@@ -321,7 +321,7 @@ impl<'a> Network<'a> {
     }
   }
 
-  pub async fn get_services(&mut self) {
+  pub async fn get_services(&self) {
     let svc: Api<Service> = self.get_namespaced_api().await;
 
     let lp = ListParams::default();
@@ -390,7 +390,7 @@ impl<'a> Network<'a> {
     }
   }
 
-  async fn get_namespaced_api<K: Resource>(&mut self) -> Api<K>
+  async fn get_namespaced_api<K: Resource>(&self) -> Api<K>
   where
     <K as Resource>::DynamicType: Default,
   {

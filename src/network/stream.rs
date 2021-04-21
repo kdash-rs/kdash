@@ -50,15 +50,15 @@ impl<'a> NetworkStream<'a> {
     app.is_loading = false;
   }
 
-  async fn handle_error(&mut self, e: anyhow::Error) {
+  async fn handle_error(&self, e: anyhow::Error) {
     let mut app = self.app.lock().await;
     app.handle_error(e);
   }
 
-  pub async fn stream_container_logs(&mut self) {
+  pub async fn stream_container_logs(&self) {
     let (namespace, pod_name, cont_name) = {
-      let mut app = self.app.lock().await;
-      if let Some(mut p) = app.data.pods.get_selected_item() {
+      let app = self.app.lock().await;
+      if let Some(p) = app.data.pods.get_selected_item() {
         (
           p.namespace,
           p.name,
@@ -84,11 +84,11 @@ impl<'a> NetworkStream<'a> {
       follow: true,
       previous: false,
       timestamps: true,
-      tail_lines: Some(10),
+      tail_lines: Some(20),
       ..Default::default()
     };
 
-    // TODO investigate why this is blocking network thread
+    // TODO investigate why this stops working at times
     match pods.log_stream(&pod_name, &lp).await {
       Ok(mut logs) => {
         #[allow(clippy::eval_order_dependence)]

@@ -278,7 +278,7 @@ fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 
 fn draw_containers<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let selected_pod = app.data.pods.get_selected_item();
-  let title = get_container_title(app, &selected_pod, "Pods <esc> | Logs <enter>");
+  let title = get_container_title(app, &selected_pod, "Logs <enter> | Pods <esc>");
 
   let block = layout_block_top_border(title.as_str());
 
@@ -439,13 +439,26 @@ fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 
 fn draw_logs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let selected_pod = app.data.pods.get_selected_item();
-  let title = get_container_title(app, &selected_pod, "-> Logs | Containers <esc>");
+  let container_name = selected_pod.as_ref().map_or("".to_string(), |p| {
+    p.containers
+      .get_selected_item()
+      .map_or("".to_string(), |c| c.name)
+  });
+
+  let title = get_container_title(
+    app,
+    &selected_pod,
+    format!("-> Logs ({}) | Containers <esc>", container_name),
+  );
 
   let block = layout_block_top_border(title.as_str());
 
-  let list = app.data.logs.get_list(area, style_primary()).block(block);
-
-  f.render_widget(list, area);
+  if container_name == app.data.logs.id {
+    let list = app.data.logs.get_list(area, style_primary()).block(block);
+    f.render_widget(list, area);
+  } else {
+    loading(f, block, area, app.is_loading);
+  }
 }
 
 /// covert percent value from metrics to ratio that gauge can understand

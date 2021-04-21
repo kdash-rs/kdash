@@ -9,7 +9,7 @@ use serde_json::Value as JValue;
 
 // TODO these ideally should be mpved to a new thread
 impl<'a> Network<'a> {
-  pub async fn get_cli_info(&mut self) {
+  pub async fn get_cli_info(&self) {
     let mut clis: Vec<Cli> = vec![];
 
     let (version, status) = match cmd!("kubectl", "version", "--client", "-o", "json").read() {

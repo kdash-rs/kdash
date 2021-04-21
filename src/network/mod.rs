@@ -80,7 +80,7 @@ impl<'a> Network<'a> {
     app.is_loading = false;
   }
 
-  async fn handle_error(&mut self, e: anyhow::Error) {
+  async fn handle_error(&self, e: anyhow::Error) {
     let mut app = self.app.lock().await;
     app.handle_error(e);
   }

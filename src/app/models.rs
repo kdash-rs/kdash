@@ -119,7 +119,7 @@ impl<T> StatefulTable<T> {
 }
 
 impl<T: Clone> StatefulTable<T> {
-  pub fn get_selected_item(&mut self) -> Option<T> {
+  pub fn get_selected_item(&self) -> Option<T> {
     self.state.selected().map(|i| self.items[i].clone())
   }
 }
