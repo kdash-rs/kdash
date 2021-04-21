@@ -23,6 +23,7 @@ pub enum ActiveBlock {
   ReplicaSets,
   Namespaces,
   Contexts,
+  Describe,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -140,6 +141,7 @@ pub struct Data {
   pub services: StatefulTable<KubeSvs>,
   pub selected_ns: Option<String>,
   pub logs: LogsState,
+  pub describe_out: Option<String>,
 }
 // main app state
 pub struct App {
@@ -182,6 +184,7 @@ impl Default for Data {
       services: StatefulTable::new(),
       selected_ns: None,
       logs: LogsState::new(String::default()),
+      describe_out: None,
     }
   }
 }
@@ -355,8 +358,8 @@ impl App {
 
   pub async fn dispatch_container_logs(&mut self, c: String) {
     self.data.logs = LogsState::new(c);
-    self.dispatch_stream(IoStreamEvent::GetPodLogs).await;
     self.push_navigation_stack(RouteId::Home, ActiveBlock::Logs);
+    self.dispatch_stream(IoStreamEvent::GetPodLogs).await;
   }
 
   pub async fn on_tick(&mut self, first_render: bool) {

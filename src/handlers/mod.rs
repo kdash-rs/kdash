@@ -2,6 +2,7 @@ use super::app::{
   models::{StatefulTable, DEFAULT_KEYBINDING},
   ActiveBlock, App, RouteId,
 };
+use super::cmd::IoCmdEvent;
 use super::event::Key;
 
 pub async fn handle_app(key: Key, app: &mut App) {
@@ -78,6 +79,7 @@ fn handle_table_events<T: Clone>(key: Key, item: &mut StatefulTable<T>) -> Optio
       None
     }
     _ if key == DEFAULT_KEYBINDING.submit => item.get_selected_item(),
+    _ if key == DEFAULT_KEYBINDING.describe_resource => item.get_selected_item(),
     _ => None,
   }
 }
@@ -86,9 +88,22 @@ fn handle_table_events<T: Clone>(key: Key, item: &mut StatefulTable<T>) -> Optio
 async fn handle_block_events(key: Key, app: &mut App) {
   match app.get_current_route().active_block {
     ActiveBlock::Pods => {
-      let pod = handle_table_events(key, &mut app.data.pods);
-      if pod.is_some() {
-        app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
+      if key == DEFAULT_KEYBINDING.describe_resource {
+        let pod = app.data.pods.get_selected_item();
+        if let Some(p) = pod {
+          app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
+          app
+            .dispatch_cmd(IoCmdEvent::GetDescribe {
+              kind: "pod".to_string(),
+              value: p.name,
+            })
+            .await;
+        }
+      } else {
+        let pod = handle_table_events(key, &mut app.data.pods);
+        if pod.is_some() {
+          app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
+        }
       }
     }
     ActiveBlock::Containers => {
@@ -108,7 +123,20 @@ async fn handle_block_events(key: Key, app: &mut App) {
       let _svc = handle_table_events(key, &mut app.data.services);
     }
     ActiveBlock::Nodes => {
-      let _node = handle_table_events(key, &mut app.data.nodes);
+      if key == DEFAULT_KEYBINDING.describe_resource {
+        let node = app.data.nodes.get_selected_item();
+        if let Some(n) = node {
+          app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
+          app
+            .dispatch_cmd(IoCmdEvent::GetDescribe {
+              kind: "node".to_string(),
+              value: n.name,
+            })
+            .await;
+        }
+      } else {
+        let _node = handle_table_events(key, &mut app.data.nodes);
+      }
     }
     ActiveBlock::Namespaces => {
       let ns = handle_table_events(key, &mut app.data.namespaces);
@@ -155,7 +183,10 @@ fn handle_escape(app: &mut App) {
       app.pop_navigation_stack();
     }
     _ => match app.get_current_route().active_block {
-      ActiveBlock::Namespaces | ActiveBlock::Logs | ActiveBlock::Containers => {
+      ActiveBlock::Namespaces
+      | ActiveBlock::Logs
+      | ActiveBlock::Containers
+      | ActiveBlock::Describe => {
         app.pop_navigation_stack();
       }
       _ => {}

@@ -139,6 +139,31 @@ fn get_help_docs() -> Vec<Vec<String>> {
       "Select nodes tab",
       HContext::Overview,
     ),
+    help_row(
+      DEFAULT_KEYBINDING.jump_to_configmaps,
+      "Select configmaps tab",
+      HContext::Overview,
+    ),
+    help_row(
+      DEFAULT_KEYBINDING.jump_to_deployments,
+      "Select deployments tab",
+      HContext::Overview,
+    ),
+    help_row(
+      DEFAULT_KEYBINDING.jump_to_replicasets,
+      "Select replicasets tab",
+      HContext::Overview,
+    ),
+    help_row(
+      DEFAULT_KEYBINDING.jump_to_statefulsets,
+      "Select statefulsets tab",
+      HContext::Overview,
+    ),
+    help_row(
+      DEFAULT_KEYBINDING.describe_resource,
+      "Describe resource",
+      HContext::Overview,
+    ),
   ]
 }
 

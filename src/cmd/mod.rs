@@ -4,12 +4,14 @@ use duct::cmd;
 use regex::Regex;
 use serde_json::Value as JValue;
 
+use anyhow::anyhow;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
 #[derive(Debug)]
 pub enum IoCmdEvent {
   GetCliInfo,
+  GetDescribe { kind: String, value: String },
 }
 
 #[derive(Clone)]
@@ -29,13 +31,16 @@ impl<'a> CmdRunner<'a> {
       IoCmdEvent::GetCliInfo => {
         self.get_cli_info().await;
       }
+      IoCmdEvent::GetDescribe { kind, value } => {
+        self.get_describe(kind, value).await;
+      }
     };
 
     let mut app = self.app.lock().await;
     app.is_loading = false;
   }
 
-  async fn _handle_error(&self, e: anyhow::Error) {
+  async fn handle_error(&self, e: anyhow::Error) {
     let mut app = self.app.lock().await;
     app.handle_error(e);
   }
@@ -117,6 +122,27 @@ impl<'a> CmdRunner<'a> {
 
     let mut app = self.app.lock().await;
     app.data.clis = clis;
+  }
+
+  async fn get_describe(&self, kind: String, value: String) {
+    {
+      let mut app = self.app.lock().await;
+      app.data.describe_out = None;
+    }
+
+    let out = duct::cmd("kubectl", &["describe", kind.as_str(), value.as_str()]).read();
+
+    match out {
+      Ok(out) => {
+        let mut app = self.app.lock().await;
+        app.data.describe_out = Some(out);
+      }
+      Err(e) => {
+        self
+          .handle_error(anyhow!(format!("Error running describe: {:?}", e)))
+          .await
+      }
+    }
   }
 }
 

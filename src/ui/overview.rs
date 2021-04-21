@@ -118,7 +118,15 @@ fn draw_active_context_tabs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: R
   match app.context_tabs.index {
     0 => draw_pods_tab(app.get_current_route().active_block, f, app, chunks[1]),
     1 => draw_services(f, app, chunks[1]),
-    2 => draw_nodes(f, app, chunks[1]),
+    2 => match app.get_current_route().active_block {
+      ActiveBlock::Describe => draw_describe(
+        f,
+        app,
+        chunks[1],
+        get_node_title(app, "-> Describe | Nodes <esc>"),
+      ),
+      _ => draw_nodes(f, app, chunks[1]),
+    },
     3..=7 => draw_placeholder(f, chunks[1]),
     _ => {}
   };
@@ -127,6 +135,9 @@ fn draw_active_context_tabs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: R
 fn draw_pods_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
   match block {
     ActiveBlock::Containers => draw_containers(f, app, area),
+    ActiveBlock::Describe => {
+      draw_describe(f, app, area, get_pod_title(app, "-> Describe | Pods <esc>"))
+    }
     ActiveBlock::Logs => draw_logs(f, app, area),
     ActiveBlock::Namespaces => {
       draw_pods_tab(app.get_prev_route().active_block, f, app, area);
@@ -237,7 +248,7 @@ fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = get_pod_title(app, "| Containers <enter>");
+  let title = get_pod_title(app, "| Containers <enter> | Describe <d>");
   let block = layout_block_top_border(title.as_str());
 
   if !app.data.pods.items.is_empty() {
@@ -319,7 +330,7 @@ fn draw_containers<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = format!("Nodes [{}]", app.data.nodes.items.len());
+  let title = get_node_title(app, "");
   let block = layout_block_top_border(title.as_str());
 
   if !app.data.nodes.items.is_empty() {
@@ -461,6 +472,20 @@ fn draw_logs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   }
 }
 
+fn draw_describe<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect, title: String) {
+  let block = layout_block_top_border(title.as_str());
+
+  if let Some(txt) = &app.data.describe_out {
+    let mut txt = Text::from(txt.clone());
+    txt.patch_style(style_primary());
+
+    let paragraph = Paragraph::new(txt).block(block);
+    f.render_widget(paragraph, area);
+  } else {
+    loading(f, block, area, app.is_loading);
+  }
+}
+
 /// covert percent value from metrics to ratio that gauge can understand
 fn get_nm_ratio(node_metrics: &[NodeMetrics], f: fn(a: f64, b: &NodeMetrics) -> f64) -> f64 {
   if !node_metrics.is_empty() {
@@ -488,7 +513,11 @@ fn get_resource_row_style(status: &str) -> Style {
   }
 }
 
-fn get_pod_title<S: AsRef<str>>(app: &mut App, suffix: S) -> String {
+fn get_node_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
+  format!("Nodes [{}] {}", app.data.nodes.items.len(), suffix.as_ref())
+}
+
+fn get_pod_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
   format!(
     "Pods ({}) [{}] {}",
     app
@@ -502,7 +531,7 @@ fn get_pod_title<S: AsRef<str>>(app: &mut App, suffix: S) -> String {
 }
 
 fn get_container_title<S: AsRef<str>>(
-  app: &mut App,
+  app: &App,
   selected_pod: &Option<KubePods>,
   suffix: S,
 ) -> String {
