@@ -1,6 +1,6 @@
 use super::super::app::{
-  models::StatefulTable, KubeContainers, KubeContext, KubeNode, KubeNs, KubePods, KubeSvs,
-  NodeMetrics,
+  models::StatefulTable, ActiveBlock, KubeContainers, KubeContext, KubeNode, KubeNs, KubePods,
+  KubeSvs, NodeMetrics,
 };
 use super::{Network, UNKNOWN};
 
@@ -394,7 +394,6 @@ impl<'a> Network<'a> {
   pub async fn stream_container_logs(&mut self) {
     let (namespace, pod_name, cont_name) = {
       let mut app = self.app.lock().await;
-      app.is_loading = false;
       if let Some(mut p) = app.data.pods.get_selected_item() {
         (
           p.namespace,
@@ -421,7 +420,7 @@ impl<'a> Network<'a> {
       follow: true,
       previous: false,
       timestamps: true,
-      tail_lines: Some(100),
+      tail_lines: Some(10),
       ..Default::default()
     };
 
@@ -429,11 +428,14 @@ impl<'a> Network<'a> {
     match pods.log_stream(&pod_name, &lp).await {
       Ok(mut logs) => {
         #[allow(clippy::eval_order_dependence)]
-        while let (Some(line), true) = (logs.try_next().await.unwrap_or(None), {
-          let app = self.app.lock().await;
-          app.get_current_route().active_sub_block == ActiveSubBlock::Logs
-            || app.data.logs.id == cont_name
-        }) {
+        while let (true, Some(line)) = (
+          {
+            let app = self.app.lock().await;
+            app.get_current_route().active_block == ActiveBlock::Logs
+              || app.data.logs.id == cont_name
+          },
+          logs.try_next().await.unwrap_or(None),
+        ) {
           let line = String::from_utf8_lossy(&line).trim().to_string();
           if !line.is_empty() {
             let mut app = self.app.lock().await;
