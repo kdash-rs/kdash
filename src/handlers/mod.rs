@@ -89,6 +89,7 @@ async fn handle_block_events(key: Key, app: &mut App) {
   match app.get_current_route().active_block {
     ActiveBlock::Pods => {
       if key == DEFAULT_KEYBINDING.describe_resource {
+        app.data.describe_out = None;
         let pod = app.data.pods.get_selected_item();
         if let Some(p) = pod {
           app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
@@ -96,6 +97,7 @@ async fn handle_block_events(key: Key, app: &mut App) {
             .dispatch_cmd(IoCmdEvent::GetDescribe {
               kind: "pod".to_string(),
               value: p.name,
+              ns: Some(p.namespace),
             })
             .await;
         }
@@ -124,6 +126,7 @@ async fn handle_block_events(key: Key, app: &mut App) {
     }
     ActiveBlock::Nodes => {
       if key == DEFAULT_KEYBINDING.describe_resource {
+        app.data.describe_out = None;
         let node = app.data.nodes.get_selected_item();
         if let Some(n) = node {
           app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
@@ -131,6 +134,7 @@ async fn handle_block_events(key: Key, app: &mut App) {
             .dispatch_cmd(IoCmdEvent::GetDescribe {
               kind: "node".to_string(),
               value: n.name,
+              ns: None,
             })
             .await;
         }

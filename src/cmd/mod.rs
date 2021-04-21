@@ -11,7 +11,11 @@ use tokio::sync::Mutex;
 #[derive(Debug)]
 pub enum IoCmdEvent {
   GetCliInfo,
-  GetDescribe { kind: String, value: String },
+  GetDescribe {
+    kind: String,
+    value: String,
+    ns: Option<String>,
+  },
 }
 
 #[derive(Clone)]
@@ -31,8 +35,8 @@ impl<'a> CmdRunner<'a> {
       IoCmdEvent::GetCliInfo => {
         self.get_cli_info().await;
       }
-      IoCmdEvent::GetDescribe { kind, value } => {
-        self.get_describe(kind, value).await;
+      IoCmdEvent::GetDescribe { kind, value, ns } => {
+        self.get_describe(kind, value, ns).await;
       }
     };
 
@@ -124,13 +128,15 @@ impl<'a> CmdRunner<'a> {
     app.data.clis = clis;
   }
 
-  async fn get_describe(&self, kind: String, value: String) {
-    {
-      let mut app = self.app.lock().await;
-      app.data.describe_out = None;
+  async fn get_describe(&self, kind: String, value: String, ns: Option<String>) {
+    let mut args = vec!["describe", kind.as_str(), value.as_str()];
+
+    if let Some(ns) = ns.as_ref() {
+      args.push("-n");
+      args.push(ns.as_str());
     }
 
-    let out = duct::cmd("kubectl", &["describe", kind.as_str(), value.as_str()]).read();
+    let out = duct::cmd("kubectl", &args).read();
 
     match out {
       Ok(out) => {
