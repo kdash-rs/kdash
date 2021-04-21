@@ -1,12 +1,17 @@
-//  from https://github.com/Rigellute/spotify-tui
+//  adapted from tui-rs/examples/crossterm_demo.rs
 use super::Key;
 
-use crossterm::event;
-use std::{sync::mpsc, thread, time::Duration};
+use crossterm::event::{self, Event as CEvent};
+use std::{
+  sync::mpsc,
+  thread,
+  time::{Duration, Instant},
+};
 
 #[derive(Debug, Clone, Copy)]
 /// Configuration for event handling.
 pub struct EventConfig {
+  pub exit_key: Key,
   /// The tick rate at which the application will sent an tick event.
   pub tick_rate: Duration,
 }
@@ -14,6 +19,7 @@ pub struct EventConfig {
 impl Default for EventConfig {
   fn default() -> EventConfig {
     EventConfig {
+      exit_key: Key::Ctrl('c'),
       tick_rate: Duration::from_millis(250),
     }
   }
@@ -40,6 +46,7 @@ impl Events {
   pub fn new(tick_rate: u64) -> Events {
     Events::with_config(EventConfig {
       tick_rate: Duration::from_millis(tick_rate),
+      ..EventConfig::default()
     })
   }
 
@@ -47,19 +54,27 @@ impl Events {
   pub fn with_config(config: EventConfig) -> Events {
     let (tx, rx) = mpsc::channel();
 
+    let tick_rate = config.tick_rate;
+
     let event_tx = tx.clone();
     thread::spawn(move || {
+      let mut last_tick = Instant::now();
       loop {
+        let timeout = tick_rate
+          .checked_sub(last_tick.elapsed())
+          .unwrap_or_else(|| Duration::from_secs(0));
         // poll for tick rate duration, if no event, sent tick event.
-        if event::poll(config.tick_rate).unwrap() {
-          if let event::Event::Key(key) = event::read().unwrap() {
+        if event::poll(timeout).unwrap() {
+          if let CEvent::Key(key) = event::read().unwrap() {
             let key = Key::from(key);
 
             event_tx.send(Event::Input(key)).unwrap();
           }
         }
-
-        event_tx.send(Event::Tick).unwrap();
+        if last_tick.elapsed() >= tick_rate {
+          event_tx.send(Event::Tick).unwrap();
+          last_tick = Instant::now();
+        }
       }
     });
 
