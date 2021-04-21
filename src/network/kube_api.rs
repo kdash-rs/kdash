@@ -1,11 +1,10 @@
 use super::super::app::{
-  models::StatefulTable, ActiveBlock, KubeContainers, KubeContext, KubeNode, KubeNs, KubePods,
-  KubeSvs, NodeMetrics,
+  models::StatefulTable, KubeContainers, KubeContext, KubeNode, KubeNs, KubePods, KubeSvs,
+  NodeMetrics,
 };
 use super::{Network, UNKNOWN};
 
 use anyhow::anyhow;
-use futures::TryStreamExt;
 use k8s_openapi::{
   api::core::v1::{
     ContainerState, ContainerStateWaiting, Namespace, Node, Pod, PodStatus, Service, ServicePort,
@@ -14,7 +13,7 @@ use k8s_openapi::{
   chrono::{DateTime, Utc},
 };
 use kube::{
-  api::{DynamicObject, GroupVersionKind, ListParams, LogParams},
+  api::{DynamicObject, GroupVersionKind, ListParams},
   config::Kubeconfig,
   Api, Resource,
 };
@@ -389,64 +388,6 @@ impl<'a> Network<'a> {
         self.handle_error(anyhow!(e)).await;
       }
     }
-  }
-
-  pub async fn stream_container_logs(&mut self) {
-    let (namespace, pod_name, cont_name) = {
-      let mut app = self.app.lock().await;
-      if let Some(mut p) = app.data.pods.get_selected_item() {
-        (
-          p.namespace,
-          p.name,
-          p.containers
-            .get_selected_item()
-            .map_or("".to_string(), |c| c.name),
-        )
-      } else {
-        (
-          std::env::var("NAMESPACE").unwrap_or_else(|_| "default".into()),
-          "".to_string(),
-          "".to_string(),
-        )
-      }
-    };
-
-    if pod_name.is_empty() {
-      return;
-    }
-    let pods: Api<Pod> = Api::namespaced(self.client.clone(), &namespace);
-    let lp = LogParams {
-      container: Some(cont_name.clone()),
-      follow: true,
-      previous: false,
-      timestamps: true,
-      tail_lines: Some(10),
-      ..Default::default()
-    };
-
-    // TODO investigate why this is blocking network thread
-    match pods.log_stream(&pod_name, &lp).await {
-      Ok(mut logs) => {
-        #[allow(clippy::eval_order_dependence)]
-        while let (true, Some(line)) = (
-          {
-            let app = self.app.lock().await;
-            app.get_current_route().active_block == ActiveBlock::Logs
-              || app.data.logs.id == cont_name
-          },
-          logs.try_next().await.unwrap_or(None),
-        ) {
-          let line = String::from_utf8_lossy(&line).trim().to_string();
-          if !line.is_empty() {
-            let mut app = self.app.lock().await;
-            app.data.logs.add_record(line);
-          }
-        }
-      }
-      Err(e) => {
-        self.handle_error(anyhow!(e)).await;
-      }
-    };
   }
 
   async fn get_namespaced_api<K: Resource>(&mut self) -> Api<K>

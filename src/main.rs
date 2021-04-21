@@ -9,7 +9,11 @@ mod ui;
 use app::App;
 use cli::Cli;
 use event::Key;
-use network::{get_client, IoEvent, Network};
+use network::{
+  get_client,
+  stream::{IoStreamEvent, NetworkStream},
+  IoEvent, Network,
+};
 
 use anyhow::Result;
 use backtrace::Backtrace;
@@ -103,34 +107,59 @@ async fn main() -> Result<()> {
     }
   }
 
-  // channel for communication between network & UI threads
-  let (sync_io_tx, sync_io_rx) = mpsc::channel::<IoEvent>(1000);
+  // channels for communication between network threads & UI thread
+  let (sync_io_tx, sync_io_rx) = mpsc::channel::<IoEvent>(500);
+  let (sync_io_stream_tx, sync_io_stream_rx) = mpsc::channel::<IoStreamEvent>(500);
 
   // Initialize app state
   let app = Arc::new(Mutex::new(App::new(
     sync_io_tx,
+    sync_io_stream_tx,
     cli.enhanced_graphics,
     cli.poll_rate / cli.tick_rate,
   )));
 
-  let cloned_app = Arc::clone(&app);
+  // make copies for the network threads
+  let app_nw = Arc::clone(&app);
+  let app_stream = Arc::clone(&app);
 
   // Launch network thread
   std::thread::spawn(move || {
-    start_tokio(sync_io_rx, &app);
+    start_network(sync_io_rx, &app_nw);
   });
-  // Launch the UI (async)
+  // Launch network thread for streams
+  std::thread::spawn(move || {
+    start_stream_network(sync_io_stream_rx, &app_stream);
+  });
+  // Launch the UI asynchronously
   // The UI must run in the "main" thread
-  start_ui(cli, &cloned_app).await?;
+  start_ui(cli, &app).await?;
 
   Ok(())
 }
 
 #[tokio::main]
-async fn start_tokio(mut io_rx: tokio::sync::mpsc::Receiver<IoEvent>, app: &Arc<Mutex<App>>) {
+async fn start_network(mut io_rx: tokio::sync::mpsc::Receiver<IoEvent>, app: &Arc<Mutex<App>>) {
   match get_client().await {
     Ok(client) => {
       let mut network = Network::new(client, app);
+
+      while let Some(io_event) = io_rx.recv().await {
+        network.handle_network_event(io_event).await;
+      }
+    }
+    Err(e) => panic!("Unable to obtain Kubernetes client {}", e),
+  }
+}
+
+#[tokio::main]
+async fn start_stream_network(
+  mut io_rx: tokio::sync::mpsc::Receiver<IoStreamEvent>,
+  app: &Arc<Mutex<App>>,
+) {
+  match get_client().await {
+    Ok(client) => {
+      let mut network = NetworkStream::new(client, app);
 
       while let Some(io_event) = io_rx.recv().await {
         network.handle_network_event(io_event).await;

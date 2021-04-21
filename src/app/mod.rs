@@ -1,7 +1,7 @@
 pub(crate) mod models;
 
 use self::models::{LogsState, StatefulTable, TabsState, DEFAULT_KEYBINDING};
-use super::network::IoEvent;
+use super::network::{stream::IoStreamEvent, IoEvent};
 
 use anyhow::anyhow;
 use kube::config::Kubeconfig;
@@ -144,6 +144,7 @@ pub struct Data {
 pub struct App {
   navigation_stack: Vec<Route>,
   pub io_tx: Option<Sender<IoEvent>>,
+  pub io_stream_tx: Option<Sender<IoStreamEvent>>,
   pub title: &'static str,
   pub should_quit: bool,
   pub main_tabs: TabsState,
@@ -188,6 +189,7 @@ impl Default for App {
     App {
       navigation_stack: vec![DEFAULT_ROUTE],
       io_tx: None,
+      io_stream_tx: None,
       title: " KDash - A simple Kubernetes dashboard ",
       should_quit: false,
       main_tabs: TabsState::new(vec![
@@ -237,9 +239,15 @@ impl Default for App {
 }
 
 impl App {
-  pub fn new(io_tx: Sender<IoEvent>, enhanced_graphics: bool, tick_until_poll: u64) -> Self {
+  pub fn new(
+    io_tx: Sender<IoEvent>,
+    io_stream_tx: Sender<IoStreamEvent>,
+    enhanced_graphics: bool,
+    tick_until_poll: u64,
+  ) -> Self {
     App {
       io_tx: Some(io_tx),
+      io_stream_tx: Some(io_stream_tx),
       enhanced_graphics,
       tick_until_poll,
       ..App::default()
@@ -257,6 +265,19 @@ impl App {
     self.is_loading = true;
     if let Some(io_tx) = &self.io_tx {
       if let Err(e) = io_tx.send(action).await {
+        self.is_loading = false;
+        println!("Error from dispatch {}", e);
+        self.handle_error(anyhow!(e));
+      };
+    }
+  }
+
+  // Send a stream event to the stream network thread
+  pub async fn dispatch_stream(&mut self, action: IoStreamEvent) {
+    // `is_loading` will be set to false again after the async action has finished in network/stream.rs
+    self.is_loading = true;
+    if let Some(io_stream_tx) = &self.io_stream_tx {
+      if let Err(e) = io_stream_tx.send(action).await {
         self.is_loading = false;
         println!("Error from dispatch {}", e);
         self.handle_error(anyhow!(e));
@@ -316,7 +337,7 @@ impl App {
 
   pub async fn dispatch_container_logs(&mut self, c: String) {
     self.data.logs = LogsState::new(c);
-    self.dispatch(IoEvent::GetPodLogs).await;
+    self.dispatch_stream(IoStreamEvent::GetPodLogs).await;
     self.push_navigation_stack(RouteId::Home, ActiveBlock::Logs);
   }
 
@@ -325,6 +346,7 @@ impl App {
     if self.refresh {
       if !first_render {
         self.dispatch(IoEvent::RefreshClient).await;
+        self.dispatch_stream(IoStreamEvent::RefreshClient).await;
       }
       self.dispatch(IoEvent::GetCliInfo).await;
       self.dispatch(IoEvent::GetKubeConfig).await;

@@ -7,6 +7,7 @@ use duct::cmd;
 use regex::Regex;
 use serde_json::Value as JValue;
 
+// TODO these ideally should be mpved to a new thread
 impl<'a> Network<'a> {
   pub async fn get_cli_info(&mut self) {
     let mut clis: Vec<Cli> = vec![];
