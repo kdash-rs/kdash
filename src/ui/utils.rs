@@ -25,9 +25,7 @@ pub fn title_style_logo(txt: &str) -> Span {
 pub fn style_bold() -> Style {
   Style::default().add_modifier(Modifier::BOLD)
 }
-pub fn style_success() -> Style {
-  Style::default().fg(Color::Green)
-}
+
 pub fn style_default(light: bool) -> Style {
   if light {
     Style::default().fg(LIGHT_FG_COLOR)
@@ -161,7 +159,7 @@ pub fn loading<B: Backend>(f: &mut Frame<B>, block: Block, area: Rect, is_loadin
     text.patch_style(style_secondary());
 
     // Contains the text
-    let paragraph = Paragraph::new(text).style(style_success()).block(block);
+    let paragraph = Paragraph::new(text).style(style_secondary()).block(block);
     f.render_widget(paragraph, area);
   } else {
     f.render_widget(block, area)

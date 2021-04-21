@@ -36,7 +36,7 @@ impl<'a> NetworkStream<'a> {
   }
 
   #[allow(clippy::cognitive_complexity)]
-  pub async fn handle_network_event(&mut self, io_event: IoStreamEvent) {
+  pub async fn handle_network_stream_event(&mut self, io_event: IoStreamEvent) {
     match io_event {
       IoStreamEvent::RefreshClient => {
         self.refresh_client().await;

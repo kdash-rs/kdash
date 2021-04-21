@@ -1,5 +1,4 @@
 // adapted from https://github.com/Rigellute/spotify-tui
-mod cli;
 mod kube_api;
 pub(crate) mod stream;
 
@@ -9,9 +8,9 @@ use anyhow::anyhow;
 use kube::Client;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+
 #[derive(Debug)]
 pub enum IoEvent {
-  GetCliInfo,
   GetKubeConfig,
   GetNodes,
   GetNamespaces,
@@ -31,7 +30,6 @@ pub struct Network<'a> {
 }
 
 static UNKNOWN: &str = "Unknown";
-static NOT_FOUND: &str = "Not found";
 
 impl<'a> Network<'a> {
   pub fn new(client: Client, app: &'a Arc<Mutex<App>>) -> Self {
@@ -55,9 +53,6 @@ impl<'a> Network<'a> {
     match io_event {
       IoEvent::RefreshClient => {
         self.refresh_client().await;
-      }
-      IoEvent::GetCliInfo => {
-        self.get_cli_info().await;
       }
       IoEvent::GetKubeConfig => {
         self.get_kube_config().await;

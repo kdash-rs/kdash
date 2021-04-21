@@ -1,6 +1,7 @@
 mod app;
 mod banner;
 mod cli;
+mod cmd;
 mod event;
 mod handlers;
 mod network;
@@ -8,6 +9,7 @@ mod ui;
 
 use app::App;
 use cli::Cli;
+use cmd::{CmdRunner, IoCmdEvent};
 use event::Key;
 use network::{
   get_client,
@@ -107,21 +109,24 @@ async fn main() -> Result<()> {
     }
   }
 
-  // channels for communication between network threads & UI thread
+  // channels for communication between network/cmd threads & UI thread
   let (sync_io_tx, sync_io_rx) = mpsc::channel::<IoEvent>(500);
   let (sync_io_stream_tx, sync_io_stream_rx) = mpsc::channel::<IoStreamEvent>(500);
+  let (sync_io_cmd_tx, sync_io_cmd_rx) = mpsc::channel::<IoCmdEvent>(500);
 
   // Initialize app state
   let app = Arc::new(Mutex::new(App::new(
     sync_io_tx,
     sync_io_stream_tx,
+    sync_io_cmd_tx,
     cli.enhanced_graphics,
     cli.poll_rate / cli.tick_rate,
   )));
 
-  // make copies for the network threads
+  // make copies for the network/cli threads
   let app_nw = Arc::clone(&app);
   let app_stream = Arc::clone(&app);
+  let app_cli = Arc::clone(&app);
 
   // Launch network thread
   std::thread::spawn(move || {
@@ -130,6 +135,10 @@ async fn main() -> Result<()> {
   // Launch network thread for streams
   std::thread::spawn(move || {
     start_stream_network(sync_io_stream_rx, &app_stream);
+  });
+  // Launch thread for cmd runner
+  std::thread::spawn(move || {
+    start_cmd_runner(sync_io_cmd_rx, &app_cli);
   });
   // Launch the UI asynchronously
   // The UI must run in the "main" thread
@@ -162,10 +171,22 @@ async fn start_stream_network(
       let mut network = NetworkStream::new(client, app);
 
       while let Some(io_event) = io_rx.recv().await {
-        network.handle_network_event(io_event).await;
+        network.handle_network_stream_event(io_event).await;
       }
     }
     Err(e) => panic!("Unable to obtain Kubernetes client {}", e),
+  }
+}
+
+#[tokio::main]
+async fn start_cmd_runner(
+  mut io_rx: tokio::sync::mpsc::Receiver<IoCmdEvent>,
+  app: &Arc<Mutex<App>>,
+) {
+  let mut cmd = CmdRunner::new(app);
+
+  while let Some(io_event) = io_rx.recv().await {
+    cmd.handle_cmd_event(io_event).await;
   }
 }
 

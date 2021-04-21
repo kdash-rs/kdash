@@ -1,6 +1,7 @@
 pub(crate) mod models;
 
 use self::models::{LogsState, StatefulTable, TabsState, DEFAULT_KEYBINDING};
+use super::cmd::IoCmdEvent;
 use super::network::{stream::IoStreamEvent, IoEvent};
 
 use anyhow::anyhow;
@@ -143,8 +144,9 @@ pub struct Data {
 // main app state
 pub struct App {
   navigation_stack: Vec<Route>,
-  pub io_tx: Option<Sender<IoEvent>>,
-  pub io_stream_tx: Option<Sender<IoStreamEvent>>,
+  io_tx: Option<Sender<IoEvent>>,
+  io_stream_tx: Option<Sender<IoStreamEvent>>,
+  io_cmd_tx: Option<Sender<IoCmdEvent>>,
   pub title: &'static str,
   pub should_quit: bool,
   pub main_tabs: TabsState,
@@ -190,6 +192,7 @@ impl Default for App {
       navigation_stack: vec![DEFAULT_ROUTE],
       io_tx: None,
       io_stream_tx: None,
+      io_cmd_tx: None,
       title: " KDash - A simple Kubernetes dashboard ",
       should_quit: false,
       main_tabs: TabsState::new(vec![
@@ -242,12 +245,14 @@ impl App {
   pub fn new(
     io_tx: Sender<IoEvent>,
     io_stream_tx: Sender<IoStreamEvent>,
+    io_cmd_tx: Sender<IoCmdEvent>,
     enhanced_graphics: bool,
     tick_until_poll: u64,
   ) -> Self {
     App {
       io_tx: Some(io_tx),
       io_stream_tx: Some(io_stream_tx),
+      io_cmd_tx: Some(io_cmd_tx),
       enhanced_graphics,
       tick_until_poll,
       ..App::default()
@@ -266,7 +271,7 @@ impl App {
     if let Some(io_tx) = &self.io_tx {
       if let Err(e) = io_tx.send(action).await {
         self.is_loading = false;
-        println!("Error from dispatch {}", e);
+        println!("Error from network dispatch {}", e);
         self.handle_error(anyhow!(e));
       };
     }
@@ -279,7 +284,20 @@ impl App {
     if let Some(io_stream_tx) = &self.io_stream_tx {
       if let Err(e) = io_stream_tx.send(action).await {
         self.is_loading = false;
-        println!("Error from dispatch {}", e);
+        println!("Error from stream dispatch {}", e);
+        self.handle_error(anyhow!(e));
+      };
+    }
+  }
+
+  // Send a cmd event to the cmd runner thread
+  pub async fn dispatch_cmd(&mut self, action: IoCmdEvent) {
+    // `is_loading` will be set to false again after the async action has finished in network/stream.rs
+    self.is_loading = true;
+    if let Some(io_cmd_tx) = &self.io_cmd_tx {
+      if let Err(e) = io_cmd_tx.send(action).await {
+        self.is_loading = false;
+        println!("Error from cmd dispatch {}", e);
         self.handle_error(anyhow!(e));
       };
     }
@@ -348,7 +366,7 @@ impl App {
         self.dispatch(IoEvent::RefreshClient).await;
         self.dispatch_stream(IoStreamEvent::RefreshClient).await;
       }
-      self.dispatch(IoEvent::GetCliInfo).await;
+      self.dispatch_cmd(IoCmdEvent::GetCliInfo).await;
       self.dispatch(IoEvent::GetKubeConfig).await;
       // call these once as well to pre-load data
       self.dispatch(IoEvent::GetPods).await;

@@ -1,15 +1,46 @@
-use super::{
-  app::{self, Cli},
-  Network, NOT_FOUND,
-};
+use super::app::{self, App, Cli};
 
 use duct::cmd;
 use regex::Regex;
 use serde_json::Value as JValue;
 
-// TODO these ideally should be mpved to a new thread
-impl<'a> Network<'a> {
-  pub async fn get_cli_info(&self) {
+use std::sync::Arc;
+use tokio::sync::Mutex;
+
+#[derive(Debug)]
+pub enum IoCmdEvent {
+  GetCliInfo,
+}
+
+#[derive(Clone)]
+pub struct CmdRunner<'a> {
+  pub app: &'a Arc<Mutex<App>>,
+}
+
+static NOT_FOUND: &str = "Not found";
+
+impl<'a> CmdRunner<'a> {
+  pub fn new(app: &'a Arc<Mutex<App>>) -> Self {
+    CmdRunner { app }
+  }
+
+  pub async fn handle_cmd_event(&mut self, io_event: IoCmdEvent) {
+    match io_event {
+      IoCmdEvent::GetCliInfo => {
+        self.get_cli_info().await;
+      }
+    };
+
+    let mut app = self.app.lock().await;
+    app.is_loading = false;
+  }
+
+  async fn _handle_error(&self, e: anyhow::Error) {
+    let mut app = self.app.lock().await;
+    app.handle_error(e);
+  }
+
+  async fn get_cli_info(&self) {
     let mut clis: Vec<Cli> = vec![];
 
     let (version, status) = match cmd!("kubectl", "version", "--client", "-o", "json").read() {
