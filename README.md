@@ -27,27 +27,26 @@ A simple terminal dashboard for Kubernetes built with Rust
   - [ ] StatefulSets
   - [ ] ReplicaSets
 - Describe resources
-  - [ ] Pods
-  - [ ] Nodes
-  - [ ] Services
-  - [ ] Deployments
-  - [ ] ConfigMaps
-  - [ ] StatefulSets
-  - [ ] ReplicaSets
+  - [x] Pods
+  - [x] Nodes
+  - [ ] Services (simulated)
+  - [ ] Deployments (simulated)
+  - [ ] ConfigMaps (simulated)
+  - [ ] StatefulSets (simulated)
+  - [ ] ReplicaSets (simulated)
+  - [ ] as YAML
 - Stream logs/events
-  - [ ] Pods
-  - [ ] Containers
+  - [x] Containers
   - [ ] Services
   - [ ] Deployments
-  - [ ] ConfigMaps
   - [ ] StatefulSets
-  - [ ] ReplicaSets
 - Context
   - [x] Context info
   - [x] Node metrics
   - [x] Context watch
   - [x] Change namespace?
   - [ ] Context switch
+- [ ] Resources utilizations
 - [x] Dark/Light themes
 - [ ] Custom keymap
 - [ ] Custom theme

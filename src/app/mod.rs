@@ -157,6 +157,7 @@ pub struct App {
   pub context_tabs: TabsState,
   pub show_info_bar: bool,
   pub is_loading: bool,
+  pub is_streaming: bool,
   pub is_routing: bool,
   pub tick_until_poll: u64,
   pub tick_count: u64,
@@ -168,6 +169,7 @@ pub struct App {
   pub confirm: bool,
   pub light_theme: bool,
   pub refresh: bool,
+  pub log_auto_scroll: bool,
   pub data: Data,
 }
 
@@ -234,6 +236,7 @@ impl Default for App {
       ),
       show_info_bar: true,
       is_loading: false,
+      is_streaming: false,
       is_routing: false,
       tick_until_poll: 0,
       tick_count: 0,
@@ -245,6 +248,7 @@ impl Default for App {
       confirm: false,
       light_theme: false,
       refresh: true,
+      log_auto_scroll: true,
       data: Data::default(),
     }
   }
@@ -365,7 +369,7 @@ impl App {
   pub async fn dispatch_container_logs(&mut self, c: String) {
     self.data.logs = LogsState::new(c);
     self.push_navigation_stack(RouteId::Home, ActiveBlock::Logs);
-    self.dispatch_stream(IoStreamEvent::GetPodLogs).await;
+    self.dispatch_stream(IoStreamEvent::GetPodLogs(true)).await;
   }
 
   pub async fn on_tick(&mut self, first_render: bool) {
@@ -393,6 +397,11 @@ impl App {
           }
           ActiveBlock::Services => {
             self.dispatch(IoEvent::GetServices).await;
+          }
+          ActiveBlock::Logs => {
+            if !self.is_streaming {
+              self.dispatch_stream(IoStreamEvent::GetPodLogs(false)).await;
+            }
           }
           _ => {}
         }

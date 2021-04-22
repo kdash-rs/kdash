@@ -74,8 +74,8 @@ pub async fn handle_key_events(key: Key, app: &mut App) {
 
 pub async fn handle_mouse_events(mouse: MouseEvent, app: &mut App) {
   match mouse.kind {
-    MouseEventKind::ScrollDown => handle_scroll(app, false).await,
-    MouseEventKind::ScrollUp => handle_scroll(app, true).await,
+    MouseEventKind::ScrollDown => handle_scroll(app, true, true).await,
+    MouseEventKind::ScrollUp => handle_scroll(app, false, true).await,
     _ => {}
   }
 }
@@ -101,11 +101,11 @@ fn handle_escape(app: &mut App) {
 async fn handle_block_events(key: Key, app: &mut App) {
   // handle scrolling with keys
   match key {
-    _ if key == DEFAULT_KEYBINDING.up.key => {
-      handle_scroll(app, true).await;
-    }
     _ if key == DEFAULT_KEYBINDING.down.key => {
-      handle_scroll(app, false).await;
+      handle_scroll(app, true, false).await;
+    }
+    _ if key == DEFAULT_KEYBINDING.up.key => {
+      handle_scroll(app, false, false).await;
     }
     _ => {}
   }
@@ -198,6 +198,11 @@ async fn handle_block_events(key: Key, app: &mut App) {
     ActiveBlock::Contexts => {
       let _ctx = handle_table_action(key, &mut app.data.contexts);
     }
+    ActiveBlock::Logs => {
+      if key == DEFAULT_KEYBINDING.log_auto_scroll.key {
+        app.log_auto_scroll = !app.log_auto_scroll;
+      }
+    }
     _ => {
       // do nothing
     }
@@ -220,7 +225,6 @@ fn handle_table_action<T: Clone>(key: Key, item: &mut StatefulTable<T>) -> Optio
 }
 
 fn handle_table_scroll<T: Clone>(item: &mut StatefulTable<T>, down: bool) {
-  // this is inverse for trackpad
   if down {
     item.previous();
   } else {
@@ -228,7 +232,16 @@ fn handle_table_scroll<T: Clone>(item: &mut StatefulTable<T>, down: bool) {
   }
 }
 
-async fn handle_scroll(app: &mut App, down: bool) {
+// inverse direction for natural scrolling on mouse and keyboard
+fn inverse_dir(down: bool, is_mouse: bool) -> bool {
+  if is_mouse {
+    down
+  } else {
+    !down
+  }
+}
+
+async fn handle_scroll(app: &mut App, down: bool, is_mouse: bool) {
   match app.get_current_route().active_block {
     ActiveBlock::Pods => handle_table_scroll(&mut app.data.pods, down),
     ActiveBlock::Containers => handle_table_scroll(
@@ -243,9 +256,16 @@ async fn handle_scroll(app: &mut App, down: bool) {
     ActiveBlock::Nodes => handle_table_scroll(&mut app.data.nodes, down),
     ActiveBlock::Namespaces => handle_table_scroll(&mut app.data.namespaces, down),
     ActiveBlock::Contexts => handle_table_scroll(&mut app.data.contexts, down),
-    ActiveBlock::Logs => {}
+    ActiveBlock::Logs => {
+      app.log_auto_scroll = false;
+      if inverse_dir(down, is_mouse) {
+        app.data.logs.scroll_down();
+      } else {
+        app.data.logs.scroll_up();
+      }
+    }
     ActiveBlock::Describe => {
-      if down {
+      if inverse_dir(down, is_mouse) {
         app.data.describe_out.scroll_down();
       } else {
         app.data.describe_out.scroll_up();

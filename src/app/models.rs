@@ -2,10 +2,12 @@ use std::collections::VecDeque;
 
 use super::ActiveBlock;
 use tui::{
+  backend::Backend,
   layout::Rect,
   style::Style,
   text::Span,
-  widgets::{List, ListItem, TableState},
+  widgets::{Block, List, ListItem, ListState, TableState},
+  Frame,
 };
 
 #[derive(Clone)]
@@ -163,6 +165,8 @@ pub struct LogsState {
   /// (original_message, (wrapped_message, wrapped_at_width))
   #[allow(clippy::type_complexity)]
   records: VecDeque<(String, Option<(Vec<ListItem<'static>>, u16)>)>,
+  wrapped_length: usize,
+  pub state: ListState,
   pub id: String,
 }
 
@@ -170,12 +174,44 @@ impl LogsState {
   pub fn new(id: String) -> LogsState {
     LogsState {
       records: VecDeque::with_capacity(512),
+      state: ListState::default(),
+      wrapped_length: 0,
       id,
     }
   }
 
-  /// Get the current state as a list widget
-  pub fn get_list(&mut self, logs_area: Rect, style: Style) -> List {
+  pub fn scroll_down(&mut self) {
+    let i = self.state.selected().map_or(0, |i| {
+      if i >= self.wrapped_length.wrapping_sub(1) {
+        i
+      } else {
+        i + 1
+      }
+    });
+    self.state.select(Some(i));
+  }
+
+  pub fn scroll_up(&mut self) {
+    let i = self
+      .state
+      .selected()
+      .map_or(0, |i| if i != 0 { i - 1 } else { 0 });
+    self.state.select(Some(i));
+  }
+
+  fn unselect(&mut self) {
+    self.state.select(None);
+  }
+
+  /// Render the current state as a list widget
+  pub fn render_list<B: Backend>(
+    &mut self,
+    f: &mut Frame<B>,
+    logs_area: Rect,
+    block: Block,
+    style: Style,
+    follow: bool,
+  ) {
     let available_lines = logs_area.height as usize;
     let logs_area_width = logs_area.width as usize;
 
@@ -186,12 +222,19 @@ impl LogsState {
 
     let mut items = Vec::with_capacity(logs_area.height as usize);
 
+    let lines_to_skip = if follow {
+      self.unselect();
+      num_records.saturating_sub(available_lines)
+    } else {
+      0
+    };
+
     items.extend(
       self
         .records
         .iter_mut()
         // Only wrap the records we could potentially be displaying
-        .skip(num_records.saturating_sub(available_lines))
+        .skip(lines_to_skip)
         .map(|r| {
           // See if we can use a cached wrapped line
           if let Some(wrapped) = &r.1 {
@@ -218,18 +261,28 @@ impl LogsState {
         .flatten(),
     );
 
-    // TODO: we should be wrapping text with paragraph, but it currently
+    let lines_to_skip = if follow {
+      wrapped_lines_len.saturating_sub(available_lines)
+    } else {
+      0
+    };
+
+    let items = items
+      .into_iter()
+      // Wrapping could have created more lines than what we can display;
+      // skip them
+      .skip(lines_to_skip)
+      .collect::<Vec<_>>();
+
+    self.wrapped_length = items.len();
+
+    // TODO: All this is a workaround. we should be wrapping text with paragraph, but it currently
     // doesn't support wrapping and staying scrolled to the bottom
     //
     // see https://github.com/fdehau/tui-rs/issues/89
-    List::new(
-      items
-        .into_iter()
-        // Wrapping could have created more lines than what we can display;
-        // skip them
-        .skip(wrapped_lines_len.saturating_sub(available_lines))
-        .collect::<Vec<_>>(),
-    )
+    let list = List::new(items).block(block);
+
+    f.render_stateful_widget(list, logs_area, &mut self.state);
   }
   /// Add a record to be displayed
   pub fn add_record(&mut self, record: String) {

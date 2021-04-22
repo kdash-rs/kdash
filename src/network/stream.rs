@@ -5,14 +5,14 @@ use anyhow::anyhow;
 use k8s_openapi::api::core::v1::Pod;
 use kube::Client;
 use kube::{api::LogParams, Api};
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 use tokio_stream::StreamExt;
 
 #[derive(Debug)]
 pub enum IoStreamEvent {
   RefreshClient,
-  GetPodLogs,
+  GetPodLogs(bool),
 }
 
 #[derive(Clone)]
@@ -41,8 +41,8 @@ impl<'a> NetworkStream<'a> {
       IoStreamEvent::RefreshClient => {
         self.refresh_client().await;
       }
-      IoStreamEvent::GetPodLogs => {
-        self.stream_container_logs().await;
+      IoStreamEvent::GetPodLogs(tail) => {
+        self.stream_container_logs(tail).await;
       }
     };
 
@@ -55,7 +55,7 @@ impl<'a> NetworkStream<'a> {
     app.handle_error(e);
   }
 
-  pub async fn stream_container_logs(&self) {
+  pub async fn stream_container_logs(&self, tail: bool) {
     let (namespace, pod_name, cont_name) = {
       let app = self.app.lock().await;
       if let Some(p) = app.data.pods.get_selected_item() {
@@ -83,22 +83,31 @@ impl<'a> NetworkStream<'a> {
       container: Some(cont_name.clone()),
       follow: true,
       previous: false,
-      timestamps: true,
-      tail_lines: Some(20),
+      //   timestamps: true,
+      tail_lines: if tail { Some(10) } else { Some(0) },
       ..Default::default()
     };
 
+    {
+      let mut app = self.app.lock().await;
+      app.is_streaming = true;
+    }
+
     // TODO investigate why this stops working at times
     match pods.log_stream(&pod_name, &lp).await {
-      Ok(mut logs) => {
+      Ok(logs) => {
+        // set a timeout so we dont wait for next item and block the thread
+        let logs = logs.timeout(Duration::from_secs(5));
+        tokio::pin!(logs);
+
         #[allow(clippy::eval_order_dependence)]
-        while let (true, Some(line)) = (
+        while let (true, Ok(Some(Ok(line)))) = (
           {
             let app = self.app.lock().await;
             app.get_current_route().active_block == ActiveBlock::Logs
               || app.data.logs.id == cont_name
           },
-          logs.try_next().await.unwrap_or(None),
+          logs.try_next().await,
         ) {
           let line = String::from_utf8_lossy(&line).trim().to_string();
           if !line.is_empty() {
@@ -111,5 +120,8 @@ impl<'a> NetworkStream<'a> {
         self.handle_error(anyhow!(e)).await;
       }
     };
+
+    let mut app = self.app.lock().await;
+    app.is_streaming = false;
   }
 }

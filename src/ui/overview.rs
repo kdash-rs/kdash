@@ -489,8 +489,10 @@ fn draw_logs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let block = layout_block_top_border_span(title);
 
   if container_name == app.data.logs.id {
-    let list = app.data.logs.get_list(area, style_primary()).block(block);
-    f.render_widget(list, area);
+    app
+      .data
+      .logs
+      .render_list(f, area, block, style_primary(), app.log_auto_scroll);
   } else {
     loading(f, block, area, app.is_loading);
   }
