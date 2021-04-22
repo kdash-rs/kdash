@@ -218,7 +218,7 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
         if app.size.width > 8 {
           app.table_cols = app.size.width - 1;
         } else {
-          app.table_cols = 0;
+          app.table_cols = 2;
         }
       }
     };

@@ -1,65 +1,11 @@
 use std::collections::VecDeque;
 
-use super::super::event::Key;
 use super::ActiveBlock;
 use tui::{
   layout::Rect,
   style::Style,
   text::Span,
   widgets::{List, ListItem, TableState},
-};
-
-#[derive(Clone)]
-pub struct KeyBindings {
-  pub esc: Key,
-  pub quit: Key,
-  pub help: Key,
-  pub submit: Key,
-  pub refresh: Key,
-  pub toggle_theme: Key,
-  pub jump_to_all_context: Key,
-  pub jump_to_current_context: Key,
-  pub up: Key,
-  pub down: Key,
-  pub left: Key,
-  pub right: Key,
-  pub toggle_info: Key,
-  pub select_all_namespace: Key,
-  pub jump_to_namespace: Key,
-  pub jump_to_pods: Key,
-  pub jump_to_services: Key,
-  pub jump_to_nodes: Key,
-  pub jump_to_configmaps: Key,
-  pub jump_to_deployments: Key,
-  pub jump_to_statefulsets: Key,
-  pub jump_to_replicasets: Key,
-  pub describe_resource: Key,
-}
-
-pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
-  esc: Key::Esc,
-  quit: Key::Char('q'),
-  help: Key::Char('?'),
-  submit: Key::Enter,
-  refresh: Key::Ctrl('r'),
-  toggle_theme: Key::Char('t'),
-  jump_to_all_context: Key::Char('C'),
-  jump_to_current_context: Key::Char('A'),
-  up: Key::Up,
-  down: Key::Down,
-  left: Key::Left,
-  right: Key::Right,
-  toggle_info: Key::Char('i'),
-  select_all_namespace: Key::Char('a'),
-  jump_to_namespace: Key::Char('n'),
-  jump_to_pods: Key::Char('1'),
-  jump_to_services: Key::Char('2'),
-  jump_to_nodes: Key::Char('3'),
-  jump_to_configmaps: Key::Char('4'),
-  jump_to_statefulsets: Key::Char('5'),
-  jump_to_replicasets: Key::Char('6'),
-  jump_to_deployments: Key::Char('7'),
-  describe_resource: Key::Char('d'),
 };
 
 #[derive(Clone)]
@@ -173,7 +119,7 @@ impl TabsState {
 
 pub struct ScrollableTxt {
   items: Vec<String>,
-  offset: u16,
+  pub offset: u16,
 }
 
 impl ScrollableTxt {
@@ -192,10 +138,6 @@ impl ScrollableTxt {
 
   pub fn get_txt(&self) -> String {
     self.items.join("\n")
-  }
-
-  pub fn get_offset(&self) -> u16 {
-    self.offset
   }
 
   pub fn scroll_down(&mut self) {

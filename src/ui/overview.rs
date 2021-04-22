@@ -1,4 +1,4 @@
-use super::super::app::{models::DEFAULT_KEYBINDING, ActiveBlock, App, KubePods, NodeMetrics};
+use super::super::app::{key_binding::DEFAULT_KEYBINDING, ActiveBlock, App, KubePods, NodeMetrics};
 use super::super::banner::BANNER;
 use super::utils::{
   draw_placeholder, get_gauge_style, horizontal_chunks, layout_block_default,
@@ -224,7 +224,7 @@ fn draw_context_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = format!(
     "Namespaces {} (all: {})",
-    DEFAULT_KEYBINDING.jump_to_namespace, DEFAULT_KEYBINDING.select_all_namespace
+    DEFAULT_KEYBINDING.jump_to_namespace.key, DEFAULT_KEYBINDING.select_all_namespace.key
   );
   let mut block = layout_block_default(title.as_str());
 
@@ -507,7 +507,7 @@ fn draw_describe<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect, title:
     let paragraph = Paragraph::new(txt)
       .block(block)
       .wrap(Wrap { trim: true })
-      .scroll((app.data.describe_out.get_offset(), 0));
+      .scroll((app.data.describe_out.offset, 0));
     f.render_widget(paragraph, area);
   } else {
     loading(f, block, area, app.is_loading);

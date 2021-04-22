@@ -1,7 +1,8 @@
 use crossterm::event::{MouseEvent, MouseEventKind};
 
 use super::app::{
-  models::{ScrollableTxt, StatefulTable, DEFAULT_KEYBINDING},
+  key_binding::DEFAULT_KEYBINDING,
+  models::{ScrollableTxt, StatefulTable},
   ActiveBlock, App, RouteId,
 };
 use super::cmd::IoCmdEvent;
@@ -10,60 +11,60 @@ use super::event::Key;
 pub async fn handle_key_events(key: Key, app: &mut App) {
   // First handle any global event and then move to block event
   match key {
-    _ if key == DEFAULT_KEYBINDING.esc => {
+    _ if key == DEFAULT_KEYBINDING.esc.key => {
       handle_escape(app);
     }
-    _ if key == DEFAULT_KEYBINDING.quit => {
+    _ if key == DEFAULT_KEYBINDING.quit.key => {
       app.should_quit = true;
     }
-    _ if key == DEFAULT_KEYBINDING.toggle_theme => {
+    _ if key == DEFAULT_KEYBINDING.toggle_theme.key => {
       app.light_theme = !app.light_theme;
     }
-    _ if key == DEFAULT_KEYBINDING.refresh => {
+    _ if key == DEFAULT_KEYBINDING.refresh.key => {
       app.refresh = true;
     }
-    _ if key == DEFAULT_KEYBINDING.help => {
+    _ if key == DEFAULT_KEYBINDING.help.key => {
       app.push_navigation_stack(RouteId::HelpMenu, ActiveBlock::Empty)
     }
-    _ if key == DEFAULT_KEYBINDING.jump_to_all_context => {
+    _ if key == DEFAULT_KEYBINDING.jump_to_all_context.key => {
       app.route_contexts();
     }
-    _ if key == DEFAULT_KEYBINDING.jump_to_current_context => {
+    _ if key == DEFAULT_KEYBINDING.jump_to_current_context.key => {
       app.route_home();
     }
-    _ if key == DEFAULT_KEYBINDING.toggle_info => {
+    _ if key == DEFAULT_KEYBINDING.toggle_info.key => {
       app.show_info_bar = !app.show_info_bar;
     }
-    _ if key == DEFAULT_KEYBINDING.select_all_namespace => app.data.selected_ns = None,
-    _ if key == DEFAULT_KEYBINDING.jump_to_namespace => {
+    _ if key == DEFAULT_KEYBINDING.select_all_namespace.key => app.data.selected_ns = None,
+    _ if key == DEFAULT_KEYBINDING.jump_to_namespace.key => {
       app.push_navigation_stack(RouteId::Home, ActiveBlock::Namespaces);
     }
     // as these are tabs with index the order here matters, atleast for readability
-    _ if key == DEFAULT_KEYBINDING.jump_to_pods => {
+    _ if key == DEFAULT_KEYBINDING.jump_to_pods.key => {
       app.context_tabs.set_index(0);
       app.push_navigation_stack(RouteId::Home, ActiveBlock::Pods);
     }
-    _ if key == DEFAULT_KEYBINDING.jump_to_services => {
+    _ if key == DEFAULT_KEYBINDING.jump_to_services.key => {
       app.context_tabs.set_index(1);
       app.push_navigation_stack(RouteId::Home, ActiveBlock::Services);
     }
-    _ if key == DEFAULT_KEYBINDING.jump_to_nodes => {
+    _ if key == DEFAULT_KEYBINDING.jump_to_nodes.key => {
       app.context_tabs.set_index(2);
       app.push_navigation_stack(RouteId::Home, ActiveBlock::Nodes);
     }
-    _ if key == DEFAULT_KEYBINDING.jump_to_configmaps => {
+    _ if key == DEFAULT_KEYBINDING.jump_to_configmaps.key => {
       app.context_tabs.set_index(3);
       app.push_navigation_stack(RouteId::Home, ActiveBlock::ConfigMaps);
     }
-    _ if key == DEFAULT_KEYBINDING.jump_to_statefulsets => {
+    _ if key == DEFAULT_KEYBINDING.jump_to_statefulsets.key => {
       app.context_tabs.set_index(4);
       app.push_navigation_stack(RouteId::Home, ActiveBlock::StatefulSets);
     }
-    _ if key == DEFAULT_KEYBINDING.jump_to_replicasets => {
+    _ if key == DEFAULT_KEYBINDING.jump_to_replicasets.key => {
       app.context_tabs.set_index(5);
       app.push_navigation_stack(RouteId::Home, ActiveBlock::ReplicaSets);
     }
-    _ if key == DEFAULT_KEYBINDING.jump_to_deployments => {
+    _ if key == DEFAULT_KEYBINDING.jump_to_deployments.key => {
       app.context_tabs.set_index(6);
       app.push_navigation_stack(RouteId::Home, ActiveBlock::Deployments);
     }
@@ -100,10 +101,10 @@ fn handle_escape(app: &mut App) {
 async fn handle_block_events(key: Key, app: &mut App) {
   // handle scrolling with keys
   match key {
-    _ if key == DEFAULT_KEYBINDING.up => {
+    _ if key == DEFAULT_KEYBINDING.up.key => {
       handle_scroll(app, true).await;
     }
-    _ if key == DEFAULT_KEYBINDING.down => {
+    _ if key == DEFAULT_KEYBINDING.down.key => {
       handle_scroll(app, false).await;
     }
     _ => {}
@@ -112,14 +113,14 @@ async fn handle_block_events(key: Key, app: &mut App) {
   // handle resource tabs on overview
   if app.get_current_route().id == RouteId::Home {
     match key {
-      _ if key == DEFAULT_KEYBINDING.right => {
+      _ if key == DEFAULT_KEYBINDING.right.key => {
         app.context_tabs.next();
         app.push_navigation_stack(
           RouteId::Home,
           app.context_tabs.active_block.unwrap_or(ActiveBlock::Empty),
         );
       }
-      _ if key == DEFAULT_KEYBINDING.left => {
+      _ if key == DEFAULT_KEYBINDING.left.key => {
         app.context_tabs.previous();
         app.push_navigation_stack(
           RouteId::Home,
@@ -133,7 +134,7 @@ async fn handle_block_events(key: Key, app: &mut App) {
   // handle block specific stuff
   match app.get_current_route().active_block {
     ActiveBlock::Pods => {
-      if key == DEFAULT_KEYBINDING.describe_resource {
+      if key == DEFAULT_KEYBINDING.describe_resource.key {
         app.data.describe_out = ScrollableTxt::new();
         let pod = app.data.pods.get_selected_item();
         if let Some(p) = pod {
@@ -170,7 +171,7 @@ async fn handle_block_events(key: Key, app: &mut App) {
       let _svc = handle_table_action(key, &mut app.data.services);
     }
     ActiveBlock::Nodes => {
-      if key == DEFAULT_KEYBINDING.describe_resource {
+      if key == DEFAULT_KEYBINDING.describe_resource.key {
         app.data.describe_out = ScrollableTxt::new();
         let node = app.data.nodes.get_selected_item();
         if let Some(n) = node {
@@ -202,14 +203,16 @@ async fn handle_block_events(key: Key, app: &mut App) {
     }
   }
   // reset tick_count so that network requests are made faster
-  if key == DEFAULT_KEYBINDING.submit {
+  if key == DEFAULT_KEYBINDING.submit.key {
     app.tick_count = 0;
   }
 }
 
 fn handle_table_action<T: Clone>(key: Key, item: &mut StatefulTable<T>) -> Option<T> {
   match key {
-    _ if key == DEFAULT_KEYBINDING.submit || key == DEFAULT_KEYBINDING.describe_resource => {
+    _ if key == DEFAULT_KEYBINDING.submit.key
+      || key == DEFAULT_KEYBINDING.describe_resource.key =>
+    {
       item.get_selected_item()
     }
     _ => None,

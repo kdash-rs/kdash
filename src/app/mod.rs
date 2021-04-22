@@ -1,6 +1,8 @@
+pub(crate) mod key_binding;
 pub(crate) mod models;
 
-use self::models::{LogsState, ScrollableTxt, StatefulTable, TabsState, DEFAULT_KEYBINDING};
+use self::key_binding::DEFAULT_KEYBINDING;
+use self::models::{LogsState, ScrollableTxt, StatefulTable, TabsState};
 use super::cmd::IoCmdEvent;
 use super::network::{stream::IoStreamEvent, IoEvent};
 
@@ -159,7 +161,6 @@ pub struct App {
   pub tick_until_poll: u64,
   pub tick_count: u64,
   pub enhanced_graphics: bool,
-  pub home_scroll: u16,
   pub table_cols: u16,
   pub size: Rect,
   pub api_error: String,
@@ -201,19 +202,25 @@ impl Default for App {
       main_tabs: TabsState::new(vec![
         format!(
           "Active Context {}",
-          DEFAULT_KEYBINDING.jump_to_current_context
+          DEFAULT_KEYBINDING.jump_to_current_context.key
         ),
-        format!("All Contexts {}", DEFAULT_KEYBINDING.jump_to_all_context),
+        format!(
+          "All Contexts {}",
+          DEFAULT_KEYBINDING.jump_to_all_context.key
+        ),
       ]),
       context_tabs: TabsState::with_active_blocks(
         vec![
-          format!("Pods {}", DEFAULT_KEYBINDING.jump_to_pods),
-          format!("Services {}", DEFAULT_KEYBINDING.jump_to_services),
-          format!("Nodes {}", DEFAULT_KEYBINDING.jump_to_nodes),
-          format!("ConfigMaps {}", DEFAULT_KEYBINDING.jump_to_configmaps),
-          format!("StatefulSets {}", DEFAULT_KEYBINDING.jump_to_statefulsets),
-          format!("ReplicaSets {}", DEFAULT_KEYBINDING.jump_to_replicasets),
-          format!("Deployments {}", DEFAULT_KEYBINDING.jump_to_deployments),
+          format!("Pods {}", DEFAULT_KEYBINDING.jump_to_pods.key),
+          format!("Services {}", DEFAULT_KEYBINDING.jump_to_services.key),
+          format!("Nodes {}", DEFAULT_KEYBINDING.jump_to_nodes.key),
+          format!("ConfigMaps {}", DEFAULT_KEYBINDING.jump_to_configmaps.key),
+          format!(
+            "StatefulSets {}",
+            DEFAULT_KEYBINDING.jump_to_statefulsets.key
+          ),
+          format!("ReplicaSets {}", DEFAULT_KEYBINDING.jump_to_replicasets.key),
+          format!("Deployments {}", DEFAULT_KEYBINDING.jump_to_deployments.key),
         ],
         vec![
           ActiveBlock::Pods,
@@ -231,7 +238,6 @@ impl Default for App {
       tick_until_poll: 0,
       tick_count: 0,
       enhanced_graphics: false,
-      home_scroll: 0,
       table_cols: 0,
       size: Rect::default(),
       api_error: String::new(),
