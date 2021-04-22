@@ -1,17 +1,29 @@
 # Changelog
 
-## [Unreleased]
+## [Unreleased] - 22-Apr-2021
+
+### Fixed
+
+### Added
+
+## [0.0.2] - 22-Apr-2021
 
 ### Fixed
 
 - Pod status fix
 - Switch to API for metrics
+- Various bug fixes
+- Update key bindings
+- Update theme consistency
 
 ### Added
 
 - Containers view
+- Container logs
+- Pod describe
+- Node describe
 
-## [0.0.1] - 2021-04-18
+## [0.0.1] - 18-Apr-2021
 
 - Initial beta release
 
