@@ -210,10 +210,10 @@ impl Default for App {
           format!("Pods {}", DEFAULT_KEYBINDING.jump_to_pods),
           format!("Services {}", DEFAULT_KEYBINDING.jump_to_services),
           format!("Nodes {}", DEFAULT_KEYBINDING.jump_to_nodes),
-          format!("Deployments {}", DEFAULT_KEYBINDING.jump_to_deployments),
           format!("ConfigMaps {}", DEFAULT_KEYBINDING.jump_to_configmaps),
           format!("StatefulSets {}", DEFAULT_KEYBINDING.jump_to_statefulsets),
           format!("ReplicaSets {}", DEFAULT_KEYBINDING.jump_to_replicasets),
+          format!("Deployments {}", DEFAULT_KEYBINDING.jump_to_deployments),
         ],
         vec![
           ActiveBlock::Pods,

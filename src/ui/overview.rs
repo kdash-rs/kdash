@@ -2,8 +2,9 @@ use super::super::app::{models::DEFAULT_KEYBINDING, ActiveBlock, App, KubePods, 
 use super::super::banner::BANNER;
 use super::utils::{
   draw_placeholder, get_gauge_style, horizontal_chunks, layout_block_default,
-  layout_block_top_border, loading, style_default, style_failure, style_highlight, style_logo,
-  style_primary, style_secondary, table_header_style, vertical_chunks, vertical_chunks_with_margin,
+  layout_block_top_border, layout_block_top_border_span, loading, style_default, style_failure,
+  style_highlight, style_logo, style_primary, style_secondary, table_header_style,
+  title_with_dual_style, vertical_chunks, vertical_chunks_with_margin,
 };
 use super::HIGHLIGHT;
 
@@ -123,7 +124,11 @@ fn draw_active_context_tabs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: R
         f,
         app,
         chunks[1],
-        get_node_title(app, "-> Describe | Nodes <esc>"),
+        title_with_dual_style(
+          get_node_title(app, "-> Describe "),
+          "| Nodes <esc>".to_string(),
+          app.light_theme,
+        ),
       ),
       _ => draw_nodes(f, app, chunks[1]),
     },
@@ -135,9 +140,16 @@ fn draw_active_context_tabs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: R
 fn draw_pods_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
   match block {
     ActiveBlock::Containers => draw_containers(f, app, area),
-    ActiveBlock::Describe => {
-      draw_describe(f, app, area, get_pod_title(app, "-> Describe | Pods <esc>"))
-    }
+    ActiveBlock::Describe => draw_describe(
+      f,
+      app,
+      area,
+      title_with_dual_style(
+        get_pod_title(app, "-> Describe "),
+        "| Pods <esc>".to_string(),
+        app.light_theme,
+      ),
+    ),
     ActiveBlock::Logs => draw_logs(f, app, area),
     ActiveBlock::Namespaces => {
       draw_pods_tab(app.get_prev_route().active_block, f, app, area);
@@ -248,8 +260,12 @@ fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = get_pod_title(app, "| Containers <enter> | Describe <d>");
-  let block = layout_block_top_border(title.as_str());
+  let title = title_with_dual_style(
+    get_pod_title(app, ""),
+    "| Containers <enter> | Describe <d>".to_string(),
+    app.light_theme,
+  );
+  let block = layout_block_top_border_span(title);
 
   if !app.data.pods.items.is_empty() {
     let rows = app.data.pods.items.iter().map(|c| {
@@ -289,9 +305,13 @@ fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 
 fn draw_containers<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let selected_pod = app.data.pods.get_selected_item();
-  let title = get_container_title(app, &selected_pod, "Logs <enter> | Pods <esc>");
+  let title = title_with_dual_style(
+    get_container_title(app, &selected_pod, ""),
+    "| Logs <enter> | Pods <esc>".to_string(),
+    app.light_theme,
+  );
 
-  let block = layout_block_top_border(title.as_str());
+  let block = layout_block_top_border_span(title);
 
   if let Some(mut selected_pod) = selected_pod {
     let rows = selected_pod.containers.items.iter().map(|c| {
@@ -330,8 +350,12 @@ fn draw_containers<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = get_node_title(app, "");
-  let block = layout_block_top_border(title.as_str());
+  let title = title_with_dual_style(
+    get_node_title(app, ""),
+    "| Describe <d>".to_string(),
+    app.light_theme,
+  );
+  let block = layout_block_top_border_span(title);
 
   if !app.data.nodes.items.is_empty() {
     let rows = app.data.nodes.items.iter().map(|c| {
@@ -456,13 +480,13 @@ fn draw_logs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
       .map_or("".to_string(), |c| c.name)
   });
 
-  let title = get_container_title(
-    app,
-    &selected_pod,
-    format!("-> Logs ({}) | Containers <esc>", container_name),
+  let title = title_with_dual_style(
+    get_container_title(app, &selected_pod, format!("-> Logs ({}) ", container_name)),
+    "| Containers <esc>".to_string(),
+    app.light_theme,
   );
 
-  let block = layout_block_top_border(title.as_str());
+  let block = layout_block_top_border_span(title);
 
   if container_name == app.data.logs.id {
     let list = app.data.logs.get_list(area, style_primary()).block(block);
@@ -472,8 +496,8 @@ fn draw_logs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   }
 }
 
-fn draw_describe<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect, title: String) {
-  let block = layout_block_top_border(title.as_str());
+fn draw_describe<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect, title: Spans) {
+  let block = layout_block_top_border_span(title);
 
   if let Some(txt) = &app.data.describe_out {
     let mut txt = Text::from(txt.clone());
@@ -538,7 +562,7 @@ fn get_container_title<S: AsRef<str>>(
   let title = get_pod_title(
     app,
     format!(
-      "-> Containers [{}] | {}",
+      "-> Containers [{}] {}",
       selected_pod
         .as_ref()
         .map_or(0, |c| c.containers.items.len()),

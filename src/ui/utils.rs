@@ -3,7 +3,7 @@ use tui::{
   layout::{Constraint, Direction, Layout, Rect},
   style::{Color, Modifier, Style},
   symbols,
-  text::{Span, Text},
+  text::{Span, Spans, Text},
   widgets::{Block, Borders, Paragraph, Row},
   Frame,
 };
@@ -122,6 +122,17 @@ pub fn layout_block_top_border(title: &str) -> Block {
   Block::default()
     .borders(Borders::TOP)
     .title(title_style(title))
+}
+
+pub fn layout_block_top_border_span(title: Spans) -> Block {
+  Block::default().borders(Borders::TOP).title(title)
+}
+
+pub fn title_with_dual_style<'a>(part_1: String, part_2: String, light: bool) -> Spans<'a> {
+  Spans::from(vec![
+    Span::styled(part_1, style_secondary()),
+    Span::styled(part_2, style_default(light)),
+  ])
 }
 
 /// helper function to create a centered rect using up

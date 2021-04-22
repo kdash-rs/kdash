@@ -145,11 +145,6 @@ fn get_help_docs() -> Vec<Vec<String>> {
       HContext::Overview,
     ),
     help_row(
-      DEFAULT_KEYBINDING.jump_to_deployments,
-      "Select deployments tab",
-      HContext::Overview,
-    ),
-    help_row(
       DEFAULT_KEYBINDING.jump_to_replicasets,
       "Select replicasets tab",
       HContext::Overview,
@@ -157,6 +152,11 @@ fn get_help_docs() -> Vec<Vec<String>> {
     help_row(
       DEFAULT_KEYBINDING.jump_to_statefulsets,
       "Select statefulsets tab",
+      HContext::Overview,
+    ),
+    help_row(
+      DEFAULT_KEYBINDING.jump_to_deployments,
+      "Select deployments tab",
       HContext::Overview,
     ),
     help_row(
