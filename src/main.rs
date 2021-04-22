@@ -199,8 +199,8 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
   // terminal backend for cross platform support
   let backend = CrosstermBackend::new(stdout);
   let mut terminal = Terminal::new(backend)?;
-  terminal.hide_cursor()?;
   terminal.clear()?;
+  terminal.hide_cursor()?;
   // custom events
   let events = event::Events::new(cli.tick_rate);
   let mut is_first_render = true;
@@ -234,8 +234,10 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
           break;
         }
         // handle all other keys
-        handlers::handle_app(key, &mut app).await
+        handlers::handle_key_events(key, &mut app).await
       }
+      // handle mouse events
+      event::Event::MouseInput(mouse) => handlers::handle_mouse_events(mouse, &mut app).await,
       // handle tick events
       event::Event::Tick => {
         app.on_tick(is_first_render).await;

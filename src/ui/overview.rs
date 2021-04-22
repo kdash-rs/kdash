@@ -13,7 +13,7 @@ use tui::{
   layout::{Constraint, Rect},
   style::Style,
   text::{Span, Spans, Text},
-  widgets::{Block, Borders, Cell, LineGauge, Paragraph, Row, Table, Tabs},
+  widgets::{Block, Borders, Cell, LineGauge, Paragraph, Row, Table, Tabs, Wrap},
   Frame,
 };
 
@@ -169,7 +169,7 @@ fn draw_context_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     1,
   );
 
-  let block = layout_block_default("Context Info");
+  let block = layout_block_default("Context Info (toggle <i>)");
 
   f.render_widget(block, area);
 
@@ -499,11 +499,15 @@ fn draw_logs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 fn draw_describe<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect, title: Spans) {
   let block = layout_block_top_border_span(title);
 
-  if let Some(txt) = &app.data.describe_out {
+  let txt = &app.data.describe_out.get_txt();
+  if !txt.is_empty() {
     let mut txt = Text::from(txt.clone());
     txt.patch_style(style_primary());
 
-    let paragraph = Paragraph::new(txt).block(block);
+    let paragraph = Paragraph::new(txt)
+      .block(block)
+      .wrap(Wrap { trim: true })
+      .scroll((app.data.describe_out.get_offset(), 0));
     f.render_widget(paragraph, area);
   } else {
     loading(f, block, area, app.is_loading);

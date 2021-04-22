@@ -1,7 +1,7 @@
 //  adapted from tui-rs/examples/crossterm_demo.rs
 use super::Key;
 
-use crossterm::event::{self, Event as CEvent};
+use crossterm::event::{self, Event as CEvent, MouseEvent, MouseEventKind};
 use std::{
   sync::mpsc,
   thread,
@@ -26,9 +26,10 @@ impl Default for EventConfig {
 }
 
 /// An occurred event.
-pub enum Event<I> {
+pub enum Event<I, J> {
   /// An input event occurred.
   Input(I),
+  MouseInput(J),
   /// An tick event occurred.
   Tick,
 }
@@ -36,9 +37,9 @@ pub enum Event<I> {
 /// A small event handler that wrap crossterm input and tick event. Each event
 /// type is handled in its own thread and returned to a common `Receiver`
 pub struct Events {
-  rx: mpsc::Receiver<Event<Key>>,
+  rx: mpsc::Receiver<Event<Key, MouseEvent>>,
   // Need to be kept around to prevent disposing the sender side.
-  _tx: mpsc::Sender<Event<Key>>,
+  _tx: mpsc::Sender<Event<Key, MouseEvent>>,
 }
 
 impl Events {
@@ -65,10 +66,15 @@ impl Events {
           .unwrap_or_else(|| Duration::from_secs(0));
         // poll for tick rate duration, if no event, sent tick event.
         if event::poll(timeout).unwrap() {
-          if let CEvent::Key(key) = event::read().unwrap() {
-            let key = Key::from(key);
-
-            event_tx.send(Event::Input(key)).unwrap();
+          match event::read().unwrap() {
+            CEvent::Key(key) => {
+              let key = Key::from(key);
+              event_tx.send(Event::Input(key)).unwrap();
+            }
+            CEvent::Mouse(mouse) => {
+              event_tx.send(Event::MouseInput(mouse)).unwrap();
+            }
+            _ => {}
           }
         }
         if last_tick.elapsed() >= tick_rate {
@@ -83,7 +89,7 @@ impl Events {
 
   /// Attempts to read an event.
   /// This function will block the current thread.
-  pub fn next(&self) -> Result<Event<Key>, mpsc::RecvError> {
+  pub fn next(&self) -> Result<Event<Key, MouseEvent>, mpsc::RecvError> {
     self.rx.recv()
   }
 }

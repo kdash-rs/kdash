@@ -1,4 +1,4 @@
-use super::app::{self, App, Cli};
+use super::app::{self, models::ScrollableTxt, App, Cli};
 
 use duct::cmd;
 use regex::Regex;
@@ -128,6 +128,7 @@ impl<'a> CmdRunner<'a> {
     app.data.clis = clis;
   }
 
+  // TODO temp solution, should build this from API response
   async fn get_describe(&self, kind: String, value: String, ns: Option<String>) {
     let mut args = vec!["describe", kind.as_str(), value.as_str()];
 
@@ -141,11 +142,14 @@ impl<'a> CmdRunner<'a> {
     match out {
       Ok(out) => {
         let mut app = self.app.lock().await;
-        app.data.describe_out = Some(out);
+        app.data.describe_out = ScrollableTxt::with_string(out);
       }
       Err(e) => {
         self
-          .handle_error(anyhow!(format!("Error running describe: {:?}", e)))
+          .handle_error(anyhow!(format!(
+            "Error running {} describe. Make sure you have kubectl installed: {:?}",
+            kind, e
+          )))
           .await
       }
     }

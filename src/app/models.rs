@@ -171,13 +171,55 @@ impl TabsState {
   }
 }
 
+pub struct ScrollableTxt {
+  items: Vec<String>,
+  offset: u16,
+}
+
+impl ScrollableTxt {
+  pub fn new() -> ScrollableTxt {
+    ScrollableTxt {
+      items: vec![],
+      offset: 0,
+    }
+  }
+
+  pub fn with_string(item: String) -> ScrollableTxt {
+    let items: Vec<&str> = item.split('\n').collect();
+    let items: Vec<String> = items.iter().map(|it| it.to_string()).collect();
+    ScrollableTxt { items, offset: 0 }
+  }
+
+  pub fn get_txt(&self) -> String {
+    self.items.join("\n")
+  }
+
+  pub fn get_offset(&self) -> u16 {
+    self.offset
+  }
+
+  pub fn scroll_down(&mut self) {
+    // scroll only if offset is less than total lines in text
+    // we subtract 8 to keep the text in view. Its just an arbitrary number that works
+    if self.offset < (self.items.len() - 8) as u16 {
+      self.offset += 1;
+    }
+  }
+  pub fn scroll_up(&mut self) {
+    // scroll up and avoid going negative
+    if self.offset > 0 {
+      self.offset -= 1;
+    }
+  }
+}
+
 // TODO implement line buffer to avoid gathering too much data in memory
 #[derive(Debug, Clone)]
-#[allow(clippy::type_complexity)]
 pub struct LogsState {
   /// Stores the log messages to be displayed
   ///
   /// (original_message, (wrapped_message, wrapped_at_width))
+  #[allow(clippy::type_complexity)]
   records: VecDeque<(String, Option<(Vec<ListItem<'static>>, u16)>)>,
   pub id: String,
 }

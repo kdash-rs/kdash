@@ -1,6 +1,6 @@
 pub(crate) mod models;
 
-use self::models::{LogsState, StatefulTable, TabsState, DEFAULT_KEYBINDING};
+use self::models::{LogsState, ScrollableTxt, StatefulTable, TabsState, DEFAULT_KEYBINDING};
 use super::cmd::IoCmdEvent;
 use super::network::{stream::IoStreamEvent, IoEvent};
 
@@ -141,7 +141,7 @@ pub struct Data {
   pub services: StatefulTable<KubeSvs>,
   pub selected_ns: Option<String>,
   pub logs: LogsState,
-  pub describe_out: Option<String>,
+  pub describe_out: ScrollableTxt,
 }
 // main app state
 pub struct App {
@@ -184,7 +184,7 @@ impl Default for Data {
       services: StatefulTable::new(),
       selected_ns: None,
       logs: LogsState::new(String::default()),
-      describe_out: None,
+      describe_out: ScrollableTxt::new(),
     }
   }
 }
