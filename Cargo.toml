@@ -36,13 +36,10 @@ regex = "1"
 kube = "0.52"
 kube-runtime = "0.52"
 k8s-openapi = { version = "0.11", default-features = false, features = ["v1_20"] }
-# Add openssl-sys as a direct dependency so it can be cross compiled using the "vendored" feature below
-openssl-sys = "0.9.61"
+openssl = { version = "0.10.33", features = ["vendored"] }
 
-[features]
-# Force openssl-sys to statically link in the openssl library. Necessary when
-# cross compiling.
-vendored = ["openssl-sys/vendored"]
+[dev-dependencies]
+spectral = "0.6.0"
 
 [[bin]]
 bench = false

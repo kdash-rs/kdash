@@ -66,8 +66,6 @@ cargo install kdash
 
 You can also clone the repo and run `cargo run` to build and run the app
 
-If you face issues with openssl then please run `cargo run --features vendored`
-
 ## USAGE:
 
 Press `?` while running the app to see keybindings

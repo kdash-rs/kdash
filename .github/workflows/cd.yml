@@ -48,7 +48,7 @@ jobs:
         with:
           command: build
           toolchain: ${{ matrix.rust }}
-          args: --features vendored --release --target ${{ matrix.target }}
+          args: --release --target ${{ matrix.target }}
 
       - name: Packaging final binary
         shell: bash
