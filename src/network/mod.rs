@@ -4,7 +4,7 @@ pub(crate) mod stream;
 
 use super::app::{self, App};
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context, Result};
 use kube::Client;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -19,8 +19,39 @@ pub enum IoEvent {
   RefreshClient,
 }
 
-pub async fn get_client() -> kube::Result<Client> {
-  Client::try_default().await
+async fn refresh_kube_config(context: &Option<String>) -> Result<()> {
+  //HACK force refresh token by calling "kubectl cluster-info before loading configuration"
+  use std::process::Command;
+  let mut cmd = Command::new("kubectl");
+  cmd.arg("cluster-info");
+  if let Some(ref context) = context {
+    cmd.arg("--context").arg(context);
+  }
+  let output = cmd.output()?;
+  if !output.status.success() {
+    return Err(anyhow!("`kubectl cluster-info` failed with: {:?}", &output));
+  }
+  Ok(())
+}
+
+pub async fn get_client(context: Option<String>) -> kube::Result<Client> {
+  use core::convert::TryFrom;
+
+  refresh_kube_config(&context)
+    .await
+    .expect("kubectl cluster-info` failed");
+
+  let client_config = match context.as_ref() {
+    Some(context) => {
+      kube::Config::from_kubeconfig(&kube::config::KubeConfigOptions {
+        context: Some(context.to_owned()),
+        ..Default::default()
+      })
+      .await?
+    }
+    None => kube::Config::infer().await?,
+  };
+  kube::Client::try_from(client_config)
 }
 
 #[derive(Clone)]
@@ -36,7 +67,7 @@ impl<'a> Network<'a> {
 
   pub async fn refresh_client(&mut self) {
     // TODO find a better way to do this
-    match get_client().await {
+    match get_client(None).await {
       Ok(client) => {
         self.client = client;
         let mut app = self.app.lock().await;

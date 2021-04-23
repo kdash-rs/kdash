@@ -27,7 +27,7 @@ impl<'a> NetworkStream<'a> {
   }
 
   pub async fn refresh_client(&mut self) {
-    match get_client().await {
+    match get_client(None).await {
       Ok(client) => {
         self.client = client;
       }

@@ -149,7 +149,7 @@ async fn main() -> Result<()> {
 
 #[tokio::main]
 async fn start_network(mut io_rx: tokio::sync::mpsc::Receiver<IoEvent>, app: &Arc<Mutex<App>>) {
-  match get_client().await {
+  match get_client(None).await {
     Ok(client) => {
       let mut network = Network::new(client, app);
 
@@ -166,7 +166,7 @@ async fn start_stream_network(
   mut io_rx: tokio::sync::mpsc::Receiver<IoStreamEvent>,
   app: &Arc<Mutex<App>>,
 ) {
-  match get_client().await {
+  match get_client(None).await {
     Ok(client) => {
       let mut network = NetworkStream::new(client, app);
 
