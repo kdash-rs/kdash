@@ -34,12 +34,14 @@ A simple terminal dashboard for Kubernetes built with Rust
   - [ ] ConfigMaps (simulated)
   - [ ] StatefulSets (simulated)
   - [ ] ReplicaSets (simulated)
+  - [ ] select/copy output
   - [ ] as YAML
 - Stream logs/events
   - [x] Containers
   - [ ] Services
   - [ ] Deployments
   - [ ] StatefulSets
+  - [ ] select/copy output
 - Context
   - [x] Context info
   - [x] Node metrics

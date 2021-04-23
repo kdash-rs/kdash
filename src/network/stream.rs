@@ -93,7 +93,7 @@ impl<'a> NetworkStream<'a> {
       app.is_streaming = true;
     }
 
-    // TODO investigate why this stops working at times
+    // TODO investigate why this gives wrong log at times
     match pods.log_stream(&pod_name, &lp).await {
       Ok(logs) => {
         // set a timeout so we dont wait for next item and block the thread

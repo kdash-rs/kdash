@@ -1,8 +1,21 @@
+pub(crate) mod contexts;
 pub(crate) mod key_binding;
 pub(crate) mod models;
+pub(crate) mod nodes;
+pub(crate) mod ns;
+pub(crate) mod pods;
+pub(crate) mod svcs;
+mod utils;
 
-use self::key_binding::DEFAULT_KEYBINDING;
 use self::models::{LogsState, ScrollableTxt, StatefulTable, TabsState};
+use self::{
+  contexts::KubeContext,
+  key_binding::DEFAULT_KEYBINDING,
+  nodes::{KubeNode, NodeMetrics},
+  ns::KubeNs,
+  pods::KubePods,
+  svcs::KubeSvs,
+};
 use super::cmd::IoCmdEvent;
 use super::network::{stream::IoStreamEvent, IoEvent};
 
@@ -47,90 +60,14 @@ const DEFAULT_ROUTE: Route = Route {
   active_block: ActiveBlock::Pods,
 };
 
+/// Holds CLI version info
 pub struct Cli {
   pub name: String,
   pub version: String,
   pub status: bool,
 }
 
-// struts for kubernetes data
-#[derive(Clone)]
-pub struct KubeContext {
-  pub name: String,
-  pub cluster: String,
-  pub user: String,
-  pub namespace: Option<String>,
-  pub is_active: bool,
-}
-
-#[derive(Clone)]
-pub struct NodeMetrics {
-  pub name: String,
-  pub cpu: String,
-  pub cpu_percent: f64,
-  pub mem: String,
-  pub mem_percent: f64,
-}
-
-#[derive(Clone)]
-pub struct KubeNode {
-  pub name: String,
-  pub status: String,
-  pub role: String,
-  pub version: String,
-  pub pods: i32,
-  pub cpu: String,
-  pub mem: String,
-  pub cpu_a: String,
-  pub mem_a: String,
-  pub cpu_percent: String,
-  pub mem_percent: String,
-  pub age: String,
-}
-
-#[derive(Clone)]
-pub struct KubeNs {
-  pub name: String,
-  pub status: String,
-}
-
-#[derive(Clone)]
-pub struct KubeSvs {
-  pub namespace: String,
-  pub name: String,
-  pub type_: String,
-  pub cluster_ip: String,
-  pub external_ip: String,
-  pub ports: String,
-  pub age: String,
-}
-
-#[derive(Clone)]
-pub struct KubeContainers {
-  pub name: String,
-  pub image: String,
-  pub ready: String,
-  pub status: String,
-  pub restarts: i32,
-  pub liveliness_probe: bool,
-  pub readiness_probe: bool,
-  pub ports: String,
-  pub age: String,
-}
-
-#[derive(Clone)]
-pub struct KubePods {
-  pub namespace: String,
-  pub name: String,
-  pub ready: String,
-  pub status: String,
-  pub restarts: i32,
-  pub cpu: String,
-  pub mem: String,
-  pub age: String,
-  pub containers: StatefulTable<KubeContainers>,
-}
-
+/// Holds data state for various views
 pub struct Data {
   pub clis: Vec<Cli>,
   pub kubeconfig: Option<Kubeconfig>,
@@ -145,7 +82,7 @@ pub struct Data {
   pub logs: LogsState,
   pub describe_out: ScrollableTxt,
 }
-// main app state
+/// Holds main application state
 pub struct App {
   navigation_stack: Vec<Route>,
   io_tx: Option<Sender<IoEvent>>,

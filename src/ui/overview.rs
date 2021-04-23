@@ -1,4 +1,6 @@
-use super::super::app::{key_binding::DEFAULT_KEYBINDING, ActiveBlock, App, KubePods, NodeMetrics};
+use super::super::app::{
+  key_binding::DEFAULT_KEYBINDING, nodes::NodeMetrics, pods::KubePods, ActiveBlock, App,
+};
 use super::super::banner::BANNER;
 use super::utils::{
   draw_placeholder, get_gauge_style, horizontal_chunks, layout_block_default,

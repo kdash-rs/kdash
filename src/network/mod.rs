@@ -29,8 +29,6 @@ pub struct Network<'a> {
   pub app: &'a Arc<Mutex<App>>,
 }
 
-static UNKNOWN: &str = "Unknown";
-
 impl<'a> Network<'a> {
   pub fn new(client: Client, app: &'a Arc<Mutex<App>>) -> Self {
     Network { client, app }
