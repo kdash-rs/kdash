@@ -1,5 +1,6 @@
 pub(crate) mod contexts;
 pub(crate) mod key_binding;
+pub(crate) mod metrics;
 pub(crate) mod models;
 pub(crate) mod nodes;
 pub(crate) mod ns;
@@ -7,10 +8,11 @@ pub(crate) mod pods;
 pub(crate) mod svcs;
 mod utils;
 
-use self::models::{LogsState, ScrollableTxt, StatefulTable, TabsState};
 use self::{
   contexts::KubeContext,
   key_binding::DEFAULT_KEYBINDING,
+  metrics::{GroupBy, QtyByQualifier},
+  models::{LogsState, ScrollableTxt, StatefulTable, TabsState},
   nodes::{KubeNode, NodeMetrics},
   ns::KubeNs,
   pods::KubePods,
@@ -37,8 +39,9 @@ pub enum ActiveBlock {
   StatefulSets,
   ReplicaSets,
   Namespaces,
-  Contexts,
   Describe,
+  Contexts,
+  Utilization,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -46,6 +49,7 @@ pub enum RouteId {
   Error,
   Home,
   Contexts,
+  Utilization,
   HelpMenu,
 }
 
@@ -81,6 +85,7 @@ pub struct Data {
   pub selected_ns: Option<String>,
   pub logs: LogsState,
   pub describe_out: ScrollableTxt,
+  pub metrics: StatefulTable<(Vec<String>, Option<QtyByQualifier>)>,
 }
 /// Holds main application state
 pub struct App {
@@ -107,6 +112,7 @@ pub struct App {
   pub light_theme: bool,
   pub refresh: bool,
   pub log_auto_scroll: bool,
+  pub utilization_group_by: Vec<GroupBy>,
   pub data: Data,
 }
 
@@ -125,6 +131,7 @@ impl Default for Data {
       selected_ns: None,
       logs: LogsState::new(String::default()),
       describe_out: ScrollableTxt::new(),
+      metrics: StatefulTable::new(),
     }
   }
 }
@@ -147,6 +154,7 @@ impl Default for App {
           "All Contexts {}",
           DEFAULT_KEYBINDING.jump_to_all_context.key
         ),
+        format!("Utilization {}", DEFAULT_KEYBINDING.jump_to_utilization.key),
       ]),
       context_tabs: TabsState::with_active_blocks(
         vec![
@@ -186,6 +194,12 @@ impl Default for App {
       light_theme: false,
       refresh: true,
       log_auto_scroll: true,
+      utilization_group_by: vec![
+        GroupBy::Resource,
+        GroupBy::Node,
+        GroupBy::Namespace,
+        GroupBy::Pod,
+      ],
       data: Data::default(),
     }
   }
@@ -303,6 +317,11 @@ impl App {
     self.push_navigation_stack(RouteId::Contexts, ActiveBlock::Contexts);
   }
 
+  pub fn route_utilization(&mut self) {
+    self.main_tabs.set_index(2);
+    self.push_navigation_stack(RouteId::Utilization, ActiveBlock::Utilization);
+  }
+
   pub async fn dispatch_container_logs(&mut self, c: String) {
     self.data.logs = LogsState::new(c);
     self.push_navigation_stack(RouteId::Home, ActiveBlock::Logs);
@@ -325,23 +344,29 @@ impl App {
     // make network requests only in intervals to avoid hogging up the network
     if self.tick_count == 0 || self.is_routing {
       // make periodic network calls based on active route and active block to avoid hogging
-      if self.get_current_route().id == RouteId::Home {
-        self.dispatch(IoEvent::GetNamespaces).await;
-        self.dispatch(IoEvent::GetNodes).await;
-        match self.get_current_route().active_block {
-          ActiveBlock::Pods | ActiveBlock::Containers => {
-            self.dispatch(IoEvent::GetPods).await;
-          }
-          ActiveBlock::Services => {
-            self.dispatch(IoEvent::GetServices).await;
-          }
-          ActiveBlock::Logs => {
-            if !self.is_streaming {
-              self.dispatch_stream(IoStreamEvent::GetPodLogs(false)).await;
+      match self.get_current_route().id {
+        RouteId::Home => {
+          self.dispatch(IoEvent::GetNamespaces).await;
+          self.dispatch(IoEvent::GetNodes).await;
+          match self.get_current_route().active_block {
+            ActiveBlock::Pods | ActiveBlock::Containers => {
+              self.dispatch(IoEvent::GetPods).await;
             }
+            ActiveBlock::Services => {
+              self.dispatch(IoEvent::GetServices).await;
+            }
+            ActiveBlock::Logs => {
+              if !self.is_streaming {
+                self.dispatch_stream(IoStreamEvent::GetPodLogs(false)).await;
+              }
+            }
+            _ => {}
           }
-          _ => {}
         }
+        RouteId::Utilization => {
+          self.dispatch(IoEvent::GetMetrics).await;
+        }
+        _ => {}
       }
       self.is_routing = false;
     }

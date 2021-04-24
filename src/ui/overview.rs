@@ -354,7 +354,7 @@ fn draw_containers<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = title_with_dual_style(
     get_node_title(app, ""),
-    "| Describe <d>".to_string(),
+    "| describe <d>".to_string(),
     app.light_theme,
   );
   let block = layout_block_top_border_span(title);

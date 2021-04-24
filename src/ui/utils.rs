@@ -39,6 +39,12 @@ pub fn style_logo() -> Style {
 pub fn style_failure() -> Style {
   Style::default().fg(Color::Red)
 }
+pub fn style_warning() -> Style {
+  Style::default().fg(Color::LightYellow)
+}
+pub fn style_success() -> Style {
+  Style::default().fg(Color::Green)
+}
 pub fn style_highlight() -> Style {
   Style::default().add_modifier(Modifier::REVERSED)
 }
@@ -116,6 +122,17 @@ pub fn layout_block(title: Span) -> Block {
 
 pub fn layout_block_default(title: &str) -> Block {
   layout_block(title_style(title))
+}
+
+pub fn layout_block_active(title: &str) -> Block {
+  layout_block(title_style(title)).style(style_secondary())
+}
+
+pub fn layout_block_active_span(title: Spans) -> Block {
+  Block::default()
+    .borders(Borders::ALL)
+    .title(title)
+    .style(style_secondary())
 }
 
 pub fn layout_block_top_border(title: &str) -> Block {

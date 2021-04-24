@@ -1,7 +1,6 @@
 use super::super::app::App;
 use super::utils::{
-  layout_block_default, loading, style_highlight, style_primary, style_secondary,
-  table_header_style,
+  layout_block_active, loading, style_highlight, style_primary, style_secondary, table_header_style,
 };
 use super::HIGHLIGHT;
 
@@ -14,7 +13,7 @@ use tui::{
 
 pub fn draw_contexts<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = format!("Contexts [{}]", app.data.contexts.items.len());
-  let block = layout_block_default(title.as_str());
+  let block = layout_block_active(title.as_str());
 
   if !app.data.contexts.items.is_empty() {
     let rows = app.data.contexts.items.iter().map(|c| {

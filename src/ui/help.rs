@@ -1,6 +1,11 @@
-use super::super::app::key_binding::{HContext, DEFAULT_KEYBINDING};
+use super::super::app::{
+  key_binding::{HContext, DEFAULT_KEYBINDING},
+  App,
+};
 use super::super::event::Key;
-use super::utils::{layout_block_default, style_primary, style_secondary, vertical_chunks};
+use super::utils::{
+  layout_block_active_span, style_primary, style_secondary, title_with_dual_style, vertical_chunks,
+};
 
 use tui::{
   backend::Backend,
@@ -9,7 +14,7 @@ use tui::{
   Frame,
 };
 
-pub fn draw_help_menu<B: Backend>(f: &mut Frame<B>, area: Rect) {
+pub fn draw_help_menu<B: Backend>(f: &mut Frame<B>, app: &App, area: Rect) {
   let chunks = vertical_chunks(vec![Constraint::Percentage(100)], area);
 
   // Create a one-column table to avoid flickering due to non-determinism when
@@ -31,9 +36,11 @@ pub fn draw_help_menu<B: Backend>(f: &mut Frame<B>, area: Rect) {
     .iter()
     .map(|item| Row::new(item.clone()).style(style_primary()));
 
+  let title = title_with_dual_style("Help ".into(), "| close <esc>".to_string(), app.light_theme);
+
   let help_menu = Table::new(rows)
     .header(Row::new(header).style(style_secondary()).bottom_margin(0))
-    .block(layout_block_default("Help (press <Esc> to go back)"))
+    .block(layout_block_active_span(title))
     .widths(&[Constraint::Max(110)]);
   f.render_widget(help_menu, chunks[0]);
 }

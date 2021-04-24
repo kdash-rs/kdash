@@ -48,7 +48,7 @@ A simple terminal dashboard for Kubernetes built with Rust
   - [x] Context watch
   - [x] Change namespace?
   - [ ] Context switch
-- [ ] Resources utilizations
+- [x] Resources utilizations
 - [x] Dark/Light themes
 - [ ] Custom keymap
 - [ ] Custom theme
@@ -85,6 +85,7 @@ Press `?` while running the app to see keybindings
 - [duct.rs](https://github.com/oconnor663/duct.rs)
 - [kube-rs](https://github.com/clux/kube-rs)
 - [serde](https://github.com/serde-rs/serde)
+- [kubectl-view-allocations](https://github.com/davidB/kubectl-view-allocations)
 
 ## Licence
 

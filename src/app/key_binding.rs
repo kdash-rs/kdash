@@ -6,6 +6,7 @@ use super::super::event::Key;
 pub enum HContext {
   General,
   Overview,
+  Utilization,
 }
 
 impl fmt::Display for HContext {
@@ -31,7 +32,7 @@ pub struct KeyBindings {
   pub toggle_theme: KeyBinding,
   pub jump_to_all_context: KeyBinding,
   pub jump_to_current_context: KeyBinding,
-  pub tab: KeyBinding,
+  pub jump_to_utilization: KeyBinding,
   pub up: KeyBinding,
   pub down: KeyBinding,
   pub left: KeyBinding,
@@ -48,6 +49,7 @@ pub struct KeyBindings {
   pub jump_to_statefulsets: KeyBinding,
   pub jump_to_replicasets: KeyBinding,
   pub describe_resource: KeyBinding,
+  pub cycle_group_by: KeyBinding,
 }
 
 // update the as_vec method below with field as well
@@ -87,19 +89,19 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
     desc: "Toggle theme",
     context: HContext::General,
   },
-  jump_to_all_context: KeyBinding {
-    key: Key::Char('C'),
-    desc: "Switch to all contexts view",
-    context: HContext::General,
-  },
   jump_to_current_context: KeyBinding {
     key: Key::Char('A'),
     desc: "Switch to active context view",
     context: HContext::General,
   },
-  tab: KeyBinding {
-    key: Key::Tab,
-    desc: "Loop header tabs",
+  jump_to_all_context: KeyBinding {
+    key: Key::Char('C'),
+    desc: "Switch to all contexts view",
+    context: HContext::General,
+  },
+  jump_to_utilization: KeyBinding {
+    key: Key::Char('U'),
+    desc: "Switch to resource utilization view",
     context: HContext::General,
   },
   up: KeyBinding {
@@ -146,6 +148,11 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
     key: Key::Char('d'),
     desc: "Describe resource",
     context: HContext::Overview,
+  },
+  cycle_group_by: KeyBinding {
+    key: Key::Char('g'),
+    desc: "Cycle through grouping",
+    context: HContext::Utilization,
   },
   jump_to_pods: KeyBinding {
     key: Key::Char('1'),
@@ -198,7 +205,7 @@ impl KeyBindings {
       &self.toggle_theme,
       &self.jump_to_all_context,
       &self.jump_to_current_context,
-      &self.tab,
+      &self.jump_to_utilization,
       &self.down,
       &self.up,
       &self.left,
@@ -208,6 +215,7 @@ impl KeyBindings {
       &self.select_all_namespace,
       &self.jump_to_namespace,
       &self.describe_resource,
+      &self.cycle_group_by,
       &self.jump_to_pods,
       &self.jump_to_services,
       &self.jump_to_nodes,

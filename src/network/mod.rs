@@ -4,7 +4,7 @@ pub(crate) mod stream;
 
 use super::app::{self, App};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use kube::Client;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -16,10 +16,11 @@ pub enum IoEvent {
   GetNamespaces,
   GetPods,
   GetServices,
+  GetMetrics,
   RefreshClient,
 }
 
-async fn refresh_kube_config(context: &Option<String>) -> Result<()> {
+async fn _refresh_kube_config(context: &Option<String>) -> Result<()> {
   //HACK force refresh token by calling "kubectl cluster-info before loading configuration"
   use std::process::Command;
   let mut cmd = Command::new("kubectl");
@@ -37,9 +38,9 @@ async fn refresh_kube_config(context: &Option<String>) -> Result<()> {
 pub async fn get_client(context: Option<String>) -> kube::Result<Client> {
   use core::convert::TryFrom;
 
-  refresh_kube_config(&context)
-    .await
-    .expect("kubectl cluster-info` failed");
+  //   refresh_kube_config(&context)
+  //     .await
+  //     .expect("kubectl cluster-info` failed");
 
   let client_config = match context.as_ref() {
     Some(context) => {
@@ -97,6 +98,9 @@ impl<'a> Network<'a> {
       }
       IoEvent::GetServices => {
         self.get_services().await;
+      }
+      IoEvent::GetMetrics => {
+        self.get_utilizations().await;
       }
     };
 
