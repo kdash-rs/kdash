@@ -141,7 +141,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
               app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
               app
                 .dispatch_cmd(IoCmdEvent::GetDescribe {
-                  kind: "pod".to_string(),
+                  kind: "pod".to_owned(),
                   value: p.name,
                   ns: Some(p.namespace),
                 })
@@ -178,7 +178,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
               app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
               app
                 .dispatch_cmd(IoCmdEvent::GetDescribe {
-                  kind: "node".to_string(),
+                  kind: "node".to_owned(),
                   value: n.name,
                   ns: None,
                 })

@@ -28,7 +28,7 @@ pub fn to_age(timestamp: Option<&Time>, against: DateTime<Utc>) -> String {
         out.push_str(format!("{}m", mins).as_str());
       }
       if out.is_empty() {
-        "0m".to_string()
+        "0m".into()
       } else {
         out
       }

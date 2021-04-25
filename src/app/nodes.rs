@@ -177,13 +177,13 @@ impl NodeMetrics {
         metric.data["usage"]["cpu"]
           .to_string()
           .trim_matches('"')
-          .into(),
+          .to_owned(),
       ),
       mem: utils::mem_to_mi(
         metric.data["usage"]["memory"]
           .to_string()
           .trim_matches('"')
-          .into(),
+          .to_owned(),
       ),
       cpu_percent,
       mem_percent,

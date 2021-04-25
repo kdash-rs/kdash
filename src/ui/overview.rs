@@ -128,7 +128,7 @@ fn draw_active_context_tabs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: R
         chunks[1],
         title_with_dual_style(
           get_node_title(app, "-> Describe "),
-          "| Nodes <esc>".to_string(),
+          "| Nodes <esc>".into(),
           app.light_theme,
         ),
       ),
@@ -148,7 +148,7 @@ fn draw_pods_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App
       area,
       title_with_dual_style(
         get_pod_title(app, "-> Describe "),
-        "| copy <c> | Pods <esc>".to_string(),
+        "| copy <c> | Pods <esc>".into(),
         app.light_theme,
       ),
     ),
@@ -264,7 +264,7 @@ fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = title_with_dual_style(
     get_pod_title(app, ""),
-    "| Containers <enter> | Describe <d>".to_string(),
+    "| Containers <enter> | Describe <d>".into(),
     app.light_theme,
   );
   let block = layout_block_top_border_span(title);
@@ -309,7 +309,7 @@ fn draw_containers<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let selected_pod = app.data.pods.get_selected_item();
   let title = title_with_dual_style(
     get_container_title(app, &selected_pod, ""),
-    "| Logs <enter> | Pods <esc>".to_string(),
+    "| Logs <enter> | Pods <esc>".into(),
     app.light_theme,
   );
 
@@ -354,7 +354,7 @@ fn draw_containers<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = title_with_dual_style(
     get_node_title(app, ""),
-    "| describe <d>".to_string(),
+    "| describe <d>".into(),
     app.light_theme,
   );
   let block = layout_block_top_border_span(title);
@@ -476,15 +476,15 @@ fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 
 fn draw_logs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let selected_pod = app.data.pods.get_selected_item();
-  let container_name = selected_pod.as_ref().map_or("".to_string(), |p| {
+  let container_name = selected_pod.as_ref().map_or("".into(), |p| {
     p.containers
       .get_selected_item()
-      .map_or("".to_string(), |c| c.name)
+      .map_or("".into(), |c| c.name)
   });
 
   let title = title_with_dual_style(
     get_container_title(app, &selected_pod, format!("-> Logs ({}) ", container_name)),
-    "| copy <c> | Containers <esc>".to_string(),
+    "| copy <c> | Containers <esc>".into(),
     app.light_theme,
   );
 

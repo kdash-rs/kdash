@@ -63,7 +63,7 @@ impl KubePods {
             restarts: cs.restart_count,
             liveliness_probe: false, //TODO
             readiness_probe: false,  //TODO
-            ports: "".into(),        //TODO
+            ports: "".to_owned(),    //TODO
             age: age.clone(),
           })
           .collect();

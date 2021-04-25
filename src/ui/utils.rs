@@ -182,7 +182,7 @@ pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
 
 pub fn loading<B: Backend>(f: &mut Frame<B>, block: Block, area: Rect, is_loading: bool) {
   if is_loading {
-    let text = "\n\n Loading ...\n\n".to_string();
+    let text = "\n\n Loading ...\n\n".to_owned();
     let mut text = Text::from(text);
     text.patch_style(style_secondary());
 

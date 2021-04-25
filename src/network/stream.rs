@@ -64,13 +64,13 @@ impl<'a> NetworkStream<'a> {
           p.name,
           p.containers
             .get_selected_item()
-            .map_or("".to_string(), |c| c.name),
+            .map_or("".into(), |c| c.name),
         )
       } else {
         (
           std::env::var("NAMESPACE").unwrap_or_else(|_| "default".into()),
-          "".to_string(),
-          "".to_string(),
+          "".into(),
+          "".into(),
         )
       }
     };

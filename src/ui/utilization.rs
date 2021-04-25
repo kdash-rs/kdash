@@ -90,7 +90,7 @@ pub fn draw_utilization<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect)
 
 fn make_table_cell<'a>(oqty: &Option<Qty>, o100: &Option<Qty>) -> Cell<'a> {
   let txt = match oqty {
-    None => "__".to_string(),
+    None => "__".into(),
     Some(ref qty) => match o100 {
       None => format!("{}", qty.adjust_scale()),
       Some(q100) => format!("{} ({:.0}%)", qty.adjust_scale(), qty.calc_percentage(q100)),

@@ -382,13 +382,13 @@ impl Resource {
       }
 
       resources.push(Resource {
-        kind: cpu_kind.to_string(),
+        kind: cpu_kind.to_owned(),
         qualifier: ResourceQualifier::Utilization,
         quantity: cpu_utilization,
         location: location.clone(),
       });
       resources.push(Resource {
-        kind: memory_kind.to_string(),
+        kind: memory_kind.to_owned(),
         qualifier: ResourceQualifier::Utilization,
         quantity: memory_utilization,
         location: location.clone(),
@@ -612,7 +612,7 @@ fn push_resources(
   }
   // add a "pods" resource as well
   resources.push(Resource {
-    kind: "pods".to_string(),
+    kind: "pods".to_owned(),
     qualifier,
     quantity: Qty::from_str("1")?,
     location: location.clone(),

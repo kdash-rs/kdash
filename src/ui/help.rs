@@ -36,7 +36,7 @@ pub fn draw_help_menu<B: Backend>(f: &mut Frame<B>, app: &App, area: Rect) {
     .iter()
     .map(|item| Row::new(item.clone()).style(style_primary()));
 
-  let title = title_with_dual_style("Help ".into(), "| close <esc>".to_string(), app.light_theme);
+  let title = title_with_dual_style("Help ".into(), "| close <esc>".into(), app.light_theme);
 
   let help_menu = Table::new(rows)
     .header(Row::new(header).style(style_secondary()).bottom_margin(0))

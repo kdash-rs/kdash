@@ -57,69 +57,61 @@ impl<'a> CmdRunner<'a> {
         let v: serde_json::Result<JValue> = serde_json::from_str(&*out);
         match v {
           Ok(val) => (val["clientVersion"]["gitVersion"].to_string(), true),
-          _ => (NOT_FOUND.to_string(), false),
+          _ => (NOT_FOUND.into(), false),
         }
       }
-      _ => (NOT_FOUND.to_string(), false),
+      _ => (NOT_FOUND.into(), false),
     };
 
     clis.push(app::Cli {
-      name: "kubectl".to_string(),
+      name: "kubectl".to_owned(),
       version: version.replace('"', ""),
       status,
     });
 
     let (version, status) = cmd!("docker", "version", "--format", "'{{.Client.Version}}'")
       .read()
-      .map_or((NOT_FOUND.to_string(), false), |out| (out, true));
+      .map_or((NOT_FOUND.into(), false), |out| (out, true));
 
     clis.push(app::Cli {
-      name: "docker".to_string(),
+      name: "docker".to_owned(),
       version: format!("v{}", version.replace("'", "")),
       status,
     });
 
     let (version, status) = cmd!("docker-compose", "version", "--short")
       .read()
-      .map_or((NOT_FOUND.to_string(), false), |out| (out, true));
+      .map_or((NOT_FOUND.into(), false), |out| (out, true));
 
     clis.push(app::Cli {
-      name: "docker-compose".to_string(),
+      name: "docker-compose".into(),
       version: format!("v{}", version.replace("'", "")),
       status,
     });
 
     let (version, status) =
-      get_info_by_regex("kind", &["version"], r"(v[0-9.]+)", NOT_FOUND.to_string());
+      get_info_by_regex("kind", &["version"], r"(v[0-9.]+)", NOT_FOUND.into());
 
     clis.push(app::Cli {
-      name: "kind".to_string(),
+      name: "kind".to_owned(),
       version,
       status,
     });
 
-    let (version, status) = get_info_by_regex(
-      "helm",
-      &["version", "-c"],
-      r"(v[0-9.]+)",
-      NOT_FOUND.to_string(),
-    );
+    let (version, status) =
+      get_info_by_regex("helm", &["version", "-c"], r"(v[0-9.]+)", NOT_FOUND.into());
 
     clis.push(app::Cli {
-      name: "helm".to_string(),
+      name: "helm".to_owned(),
       version,
       status,
     });
 
-    let (version, status) = get_info_by_regex(
-      "istioctl",
-      &["version"],
-      r"([0-9.]+)",
-      NOT_FOUND.to_string(),
-    );
+    let (version, status) =
+      get_info_by_regex("istioctl", &["version"], r"([0-9.]+)", NOT_FOUND.into());
 
     clis.push(app::Cli {
-      name: "istioctl".to_string(),
+      name: "istioctl".to_owned(),
       version: format!("v{}", version),
       status,
     });
@@ -164,7 +156,7 @@ fn get_info_by_regex(command: &str, args: &[&str], regex: &str, default: String)
     Ok(out) => match Regex::new(regex) {
       Ok(re) => match re.captures(out.as_str()) {
         Some(cap) => match cap.get(1) {
-          Some(text) => (text.as_str().to_string(), true),
+          Some(text) => (text.as_str().into(), true),
           _ => (default, false),
         },
         _ => (default, false),
