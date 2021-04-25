@@ -1,48 +1,54 @@
 // adapted from https://github.com/davidB/kubectl-view-allocations
 // TODO move to use this directly from dependency if https://github.com/davidB/kubectl-view-allocations/issues/128 is resolved
 
-use anyhow::{anyhow, Context, Error};
+use anyhow::{anyhow, Context, Error, Result};
+use itertools::Itertools;
+use k8s_openapi::{
+  api::core::v1::{Node, Pod},
+  apimachinery::pkg::api::resource,
+};
+use kube::api::ObjectList;
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
-use std::str::FromStr;
+use std::{cmp::Ordering, collections::BTreeMap};
+use std::{collections::HashMap, str::FromStr};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Usage {
-  pub cpu: String,
-  pub memory: String,
+struct Usage {
+  cpu: String,
+  memory: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Container {
-  pub name: String,
-  pub usage: Usage,
+struct Container {
+  name: String,
+  usage: Usage,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PodMetrics {
-  pub metadata: kube::api::ObjectMeta,
-  pub containers: Vec<Container>,
-  pub timestamp: String,
-  pub window: String,
+  metadata: kube::api::ObjectMeta,
+  containers: Vec<Container>,
+  timestamp: String,
+  window: String,
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct Location {
-  pub node_name: Option<String>,
-  pub namespace: Option<String>,
-  pub pod_name: Option<String>,
+struct Location {
+  node_name: Option<String>,
+  namespace: Option<String>,
+  pod_name: Option<String>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Resource {
-  pub kind: String,
-  pub quantity: Qty,
-  pub location: Location,
-  pub qualifier: ResourceQualifier,
+  kind: String,
+  quantity: Qty,
+  location: Location,
+  qualifier: ResourceQualifier,
 }
 
 #[derive(Debug, Clone)]
-pub enum ResourceQualifier {
+enum ResourceQualifier {
   Limit,
   Requested,
   Allocatable,
@@ -346,6 +352,287 @@ impl GroupBy {
   fn extract_namespace(e: &Resource) -> Option<String> {
     e.location.namespace.clone()
   }
+}
+
+impl Resource {
+  pub async fn compute_utilizations_metrics(
+    pod_metrics: ObjectList<PodMetrics>,
+    resources: &mut Vec<Resource>,
+  ) -> Result<()> {
+    let cpu_kind = "cpu";
+    let memory_kind = "memory";
+    let locations = extract_locations(resources);
+    for pod_metric in pod_metrics.items {
+      let metadata = &pod_metric.metadata;
+      let key = (
+        metadata.namespace.clone().unwrap_or_default(),
+        metadata.name.clone().unwrap_or_default(),
+      );
+      let location = locations.get(&key).cloned().unwrap_or_else(|| Location {
+        // node_name: node_name.clone(),
+        namespace: metadata.namespace.clone(),
+        pod_name: metadata.name.clone(),
+        ..Location::default()
+      });
+      let mut cpu_utilization = Qty::default();
+      let mut memory_utilization = Qty::default();
+      for container in pod_metric.containers.into_iter() {
+        cpu_utilization += &Qty::from_str(&container.usage.cpu)?.max(Qty::lowest_positive());
+        memory_utilization += &Qty::from_str(&container.usage.memory)?.max(Qty::lowest_positive());
+      }
+
+      resources.push(Resource {
+        kind: cpu_kind.to_string(),
+        qualifier: ResourceQualifier::Utilization,
+        quantity: cpu_utilization,
+        location: location.clone(),
+      });
+      resources.push(Resource {
+        kind: memory_kind.to_string(),
+        qualifier: ResourceQualifier::Utilization,
+        quantity: memory_utilization,
+        location: location.clone(),
+      });
+    }
+    Ok(())
+  }
+
+  pub async fn compute_pod_utilizations(
+    pod_list: ObjectList<Pod>,
+    resources: &mut Vec<Resource>,
+  ) -> Result<()> {
+    for pod in pod_list.items.into_iter().filter(is_scheduled) {
+      let spec = pod.spec.as_ref();
+      let node_name = spec.and_then(|s| s.node_name.clone());
+      let metadata = &pod.metadata;
+      let location = Location {
+        node_name: node_name.clone(),
+        namespace: metadata.namespace.clone(),
+        pod_name: metadata.name.clone(),
+      };
+      // compute the effective resource qualifier
+      // see https://kubernetes.io/docs/concepts/workloads/pods/init-containers/#resources
+      let mut resource_requests: BTreeMap<String, Qty> = BTreeMap::new();
+      let mut resource_limits: BTreeMap<String, Qty> = BTreeMap::new();
+      // handle regular containers
+      let containers = spec.map(|s| s.containers.clone()).unwrap_or_default();
+      for container in containers.into_iter() {
+        if let Some(requirements) = container.resources {
+          if let Some(r) = requirements.requests {
+            process_resources(&mut resource_requests, &r, std::ops::Add::add)?;
+          }
+          if let Some(l) = requirements.limits {
+            process_resources(&mut resource_limits, &l, std::ops::Add::add)?;
+          }
+        }
+      }
+      // handle initContainers
+      let init_containers = spec
+        .and_then(|s| s.init_containers.clone())
+        .unwrap_or_default();
+      for container in init_containers.into_iter() {
+        if let Some(requirements) = container.resources {
+          if let Some(r) = requirements.requests {
+            process_resources(&mut resource_requests, &r, std::cmp::max)?;
+          }
+          if let Some(l) = requirements.limits {
+            process_resources(&mut resource_limits, &l, std::cmp::max)?;
+          }
+        }
+      }
+      // handler overhead (add to both requests and limits)
+      if let Some(overhead) = spec.and_then(|s| s.overhead.as_ref()) {
+        process_resources(&mut resource_requests, &overhead, std::ops::Add::add)?;
+        process_resources(&mut resource_limits, &overhead, std::ops::Add::add)?;
+      }
+      // push these onto resources
+      push_resources(
+        resources,
+        &location,
+        ResourceQualifier::Requested,
+        &resource_requests,
+      )?;
+      push_resources(
+        resources,
+        &location,
+        ResourceQualifier::Limit,
+        &resource_limits,
+      )?;
+    }
+    Ok(())
+  }
+
+  pub async fn compute_node_utilizations(
+    node_list: ObjectList<Node>,
+    resources: &mut Vec<Resource>,
+  ) -> Result<()> {
+    for node in node_list.items {
+      let location = Location {
+        node_name: node.metadata.name,
+        ..Location::default()
+      };
+      if let Some(als) = node.status.and_then(|v| v.allocatable) {
+        // add_resource(resources, &location, ResourceUsage::Allocatable, &als)?
+        for (kind, value) in als.iter() {
+          let quantity = Qty::from_str(&(value).0)?;
+          resources.push(Resource {
+            kind: kind.clone(),
+            qualifier: ResourceQualifier::Allocatable,
+            quantity,
+            location: location.clone(),
+          });
+        }
+      }
+    }
+    Ok(())
+  }
+
+  pub fn make_qualifiers(
+    rsrcs: &[Resource],
+    group_by: &[GroupBy],
+  ) -> Vec<(Vec<String>, Option<QtyByQualifier>)> {
+    let group_by_fct = group_by.iter().map(GroupBy::to_fct).collect::<Vec<_>>();
+    let mut out = make_group_x_qualifier(&rsrcs.iter().collect::<Vec<_>>(), &[], &group_by_fct, 0);
+    out.sort_by_key(|i| i.0.clone());
+    out
+  }
+}
+
+fn make_group_x_qualifier(
+  rsrcs: &[&Resource],
+  prefix: &[String],
+  group_by_fct: &[fn(&Resource) -> Option<String>],
+  group_by_depth: usize,
+) -> Vec<(Vec<String>, Option<QtyByQualifier>)> {
+  // Note: The `&` is significant here, `GroupBy` is iterable
+  // only by reference. You can also call `.into_iter()` explicitly.
+  let mut out = vec![];
+  if let Some(group_by) = group_by_fct.get(group_by_depth) {
+    for (key, group) in rsrcs
+      .iter()
+      .filter_map(|e| group_by(e).map(|k| (k, *e)))
+      .into_group_map()
+    {
+      let mut key_full = prefix.to_vec();
+      key_full.push(key);
+      let children = make_group_x_qualifier(&group, &key_full, group_by_fct, group_by_depth + 1);
+      out.push((key_full, sum_by_qualifier(&group)));
+      out.extend(children);
+    }
+  }
+  // let kg = &rsrcs.into_iter().group_by(|v| v.kind);
+  // kg.into_iter().map(|(key, group)|  ).collect()
+  out
+}
+
+fn add(lhs: Option<Qty>, rhs: &Qty) -> Option<Qty> {
+  lhs.map(|l| &l + rhs).or_else(|| Some(rhs.clone()))
+}
+
+fn sum_by_qualifier(rsrcs: &[&Resource]) -> Option<QtyByQualifier> {
+  if !rsrcs.is_empty() {
+    let kind = rsrcs
+      .get(0)
+      .expect("group contains at least 1 element")
+      .kind
+      .clone();
+
+    if rsrcs.iter().all(|i| i.kind == kind) {
+      let sum = rsrcs.iter().fold(QtyByQualifier::default(), |mut acc, v| {
+        match &v.qualifier {
+          ResourceQualifier::Limit => acc.limit = add(acc.limit, &v.quantity),
+          ResourceQualifier::Requested => acc.requested = add(acc.requested, &v.quantity),
+          ResourceQualifier::Allocatable => acc.allocatable = add(acc.allocatable, &v.quantity),
+          ResourceQualifier::Utilization => acc.utilization = add(acc.utilization, &v.quantity),
+        };
+        acc
+      });
+      Some(sum)
+    } else {
+      None
+    }
+  } else {
+    None
+  }
+}
+
+fn is_scheduled(pod: &Pod) -> bool {
+  pod
+    .status
+    .as_ref()
+    .and_then(|ps| {
+      ps.phase.as_ref().and_then(|phase| {
+        match &phase[..] {
+          "Succeeded" | "Failed" => Some(false),
+          "Running" => Some(true),
+          "Unknown" => None, // this is the case when a node is down (kubelet is not responding)
+          "Pending" => ps.conditions.as_ref().map(|s| {
+            s.iter()
+              .any(|c| c.type_ == "PodScheduled" && c.status == "True")
+          }),
+          &_ => None, // should not happen
+        }
+      })
+    })
+    .unwrap_or(false)
+}
+
+fn process_resources<F>(
+  effective_resources: &mut BTreeMap<String, Qty>,
+  resource_list: &BTreeMap<String, resource::Quantity>,
+  op: F,
+) -> Result<()>
+where
+  F: Fn(Qty, Qty) -> Qty,
+{
+  for (key, value) in resource_list.iter() {
+    let quantity = Qty::from_str(&(value).0)?;
+    if let Some(current_quantity) = effective_resources.get_mut(key) {
+      *current_quantity = op(current_quantity.clone(), quantity).clone();
+    } else {
+      effective_resources.insert(key.clone(), quantity.clone());
+    }
+  }
+  Ok(())
+}
+
+fn push_resources(
+  resources: &mut Vec<Resource>,
+  location: &Location,
+  qualifier: ResourceQualifier,
+  resource_list: &BTreeMap<String, Qty>,
+) -> Result<()> {
+  for (key, quantity) in resource_list.iter() {
+    resources.push(Resource {
+      kind: key.clone(),
+      qualifier: qualifier.clone(),
+      quantity: quantity.clone(),
+      location: location.clone(),
+    });
+  }
+  // add a "pods" resource as well
+  resources.push(Resource {
+    kind: "pods".to_string(),
+    qualifier,
+    quantity: Qty::from_str("1")?,
+    location: location.clone(),
+  });
+  Ok(())
+}
+
+fn extract_locations(resources: &[Resource]) -> HashMap<(String, String), Location> {
+  resources
+    .iter()
+    .filter_map(|resource| {
+      let loc = &resource.location;
+      loc.pod_name.as_ref().map(|n| {
+        (
+          (loc.namespace.clone().unwrap_or_default(), n.to_owned()),
+          loc.clone(),
+        )
+      })
+    })
+    .collect()
 }
 
 #[cfg(test)]
