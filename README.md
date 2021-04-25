@@ -1,6 +1,6 @@
 # KDash - A fast and simple dashboard for Kubernetes
 
-**Note**: This is a beta version and is work in progress
+**Note**: This is a beta version
 
 ```
  _  __ ___             _
@@ -56,7 +56,21 @@ A simple terminal dashboard for Kubernetes built with Rust
 
 ## Installation
 
+### Homebrew (Mac & Linux)
+
+```
+brew tap kdash-rs/kdash
+brew install kdash
+
+# If you need to be more specific, use:
+brew install kdash-rs/kdash/kdash
+```
+
+### Manual
+
 Beta release binaries for macOS, Linux and Windows are available on the [releases](https://github.com/kdash-rs/kdash/releases) page
+
+### Cargo
 
 If you have Cargo installed then you install KDash from crates.io
 

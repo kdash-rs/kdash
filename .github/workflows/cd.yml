@@ -72,24 +72,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  publish-cargo:
-    name: Publishing to Cargo
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@master
-      - uses: actions-rs/toolchain@v1
+      - name: Update homebrew formula
+        uses: izumin5210/action-homebrew-tap@releases/v0
         with:
-          toolchain: stable
-          override: true
-      - run: |
-          sudo apt-get update
-          sudo apt-get install -y -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
-      - uses: actions-rs/cargo@v1
-        with:
-          command: publish
-          args: --token ${{ secrets.CARGO_API_KEY }} --allow-dirty
+          tap: kdash-rs/homebrew-kdash
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tap-token: ${{ secrets.TAP_GITHUB_TOKEN }}
 
-  publish-homebrew:
+  publish-cargo:
     name: Publishing to Cargo
     runs-on: ubuntu-latest
     steps:
