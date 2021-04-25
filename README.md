@@ -13,6 +13,49 @@ A simple terminal dashboard for Kubernetes built with Rust
 
 ![UI](./ui.gif)
 
+## Installation
+
+### Homebrew (Mac & Linux)
+
+```
+brew tap kdash-rs/kdash
+brew install kdash
+
+# If you need to be more specific, use:
+brew install kdash-rs/kdash/kdash
+```
+
+### Install script
+
+TODO
+
+### Manual
+
+Binaries for macOS, Linux and Windows are available on the [releases](https://github.com/kdash-rs/kdash/releases) page
+
+### Cargo
+
+If you have Cargo installed then you install KDash from crates.io
+
+```
+cargo install kdash
+```
+
+You can also clone the repo and run `cargo run` to build and run the app
+
+**Note:**: On linux you might need to have package `xorg-dev` (Debian/Ubuntu) or `xorg-x11-server-devel` (Fedora) or equivalent installed for the copy to clipboard features to work
+
+## USAGE:
+
+Press `?` while running the app to see keybindings
+
+## FLAGS:
+
+- `-h, --help`: Prints help information
+- `-V, --version`: Prints version information
+- `-t, --tick-rate <tick-rate>`: Set the tick rate (milliseconds): the lower the number the higher the FPS.
+- `-p, --poll-rate <poll-rate>`: Set the network call polling rate (milliseconds, should be multiples of tick-rate): the lower the number the higher the network calls.
+
 ## Features & Todos
 
 - CLI Info
@@ -53,45 +96,6 @@ A simple terminal dashboard for Kubernetes built with Rust
 - [ ] Custom keymap
 - [ ] Custom theme
 - [ ] Tests, a lot of them :)
-
-## Installation
-
-### Homebrew (Mac & Linux)
-
-```
-brew tap kdash-rs/kdash
-brew install kdash
-
-# If you need to be more specific, use:
-brew install kdash-rs/kdash/kdash
-```
-
-### Manual
-
-Beta release binaries for macOS, Linux and Windows are available on the [releases](https://github.com/kdash-rs/kdash/releases) page
-
-### Cargo
-
-If you have Cargo installed then you install KDash from crates.io
-
-```
-cargo install kdash
-```
-
-You can also clone the repo and run `cargo run` to build and run the app
-
-**Note:**: On linux you might need to have package `xorg-dev` (Debian/Ubuntu) or `xorg-x11-server-devel` (Fedora) or equivalent installed for the copy to clipboard features to work
-
-## USAGE:
-
-Press `?` while running the app to see keybindings
-
-## FLAGS:
-
-- `-h, --help`: Prints help information
-- `-V, --version`: Prints version information
-- `-t, --tick-rate <tick-rate>`: Set the tick rate (milliseconds): the lower the number the higher the FPS.
-- `-p, --poll-rate <poll-rate>`: Set the network call polling rate (milliseconds, should be multiples of tick-rate): the lower the number the higher the network calls.
 
 ## Screenshots
 
