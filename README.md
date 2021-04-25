@@ -112,6 +112,14 @@ Press `?` while running the app to see keybindings
 - [kubectl-view-allocations](https://github.com/davidB/kubectl-view-allocations)
 - [rust-clipboard](https://github.com/aweinstock314/rust-clipboard)
 
+## How does this compare to K9S?
+
+[K9S](https://github.com/derailed/k9s) is a beast compared to this as it offers way more features including CRUD actions.
+
+KDash only offers a view of most used resources with a focus on speed and UX. Hence the UI/UX is designed to be more user friendly and easier to navigate with contextual help everywhere and a tab system to switch between different resources easily.
+
+At least for now there are no plans to add CRUD for resources
+
 ## Licence
 
 MIT

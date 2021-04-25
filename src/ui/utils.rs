@@ -147,8 +147,8 @@ pub fn layout_block_top_border_span(title: Spans) -> Block {
 
 pub fn title_with_dual_style<'a>(part_1: String, part_2: String, light: bool) -> Spans<'a> {
   Spans::from(vec![
-    Span::styled(part_1, style_secondary()),
-    Span::styled(part_2, style_default(light)),
+    Span::styled(part_1, style_secondary().add_modifier(Modifier::BOLD)),
+    Span::styled(part_2, style_default(light).add_modifier(Modifier::BOLD)),
   ])
 }
 
