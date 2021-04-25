@@ -20,7 +20,6 @@ use network::{
 use anyhow::Result;
 use backtrace::Backtrace;
 use crossterm::{
-  event::{DisableMouseCapture, EnableMouseCapture},
   execute,
   style::Print,
   terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
@@ -39,11 +38,7 @@ use tui::{
 // shutdown the CLI and show terminal
 fn shutdown(mut terminal: Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
   disable_raw_mode()?;
-  execute!(
-    terminal.backend_mut(),
-    LeaveAlternateScreen,
-    DisableMouseCapture
-  )?;
+  execute!(terminal.backend_mut(), LeaveAlternateScreen,)?;
   terminal.show_cursor()?;
   Ok(())
 }
@@ -70,7 +65,6 @@ fn panic_hook(info: &PanicInfo<'_>) {
         "thread '<unnamed>' panicked at '{}', {}\n\r{}",
         msg, location, stacktrace
       )),
-      DisableMouseCapture
     )
     .unwrap();
   }
@@ -193,7 +187,8 @@ async fn start_cmd_runner(
 async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
   // Terminal initialization
   let mut stdout = stdout();
-  execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+  // not capturing mouse to make text select/copy possible
+  execute!(stdout, EnterAlternateScreen)?;
   // see https://docs.rs/crossterm/0.17.7/crossterm/terminal/#raw-mode
   enable_raw_mode()?;
   // terminal backend for cross platform support
