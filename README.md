@@ -79,6 +79,28 @@ Press `?` while running the app to see keybindings
 - `-t, --tick-rate <tick-rate>`: Set the tick rate (milliseconds): the lower the number the higher the FPS.
 - `-p, --poll-rate <poll-rate>`: Set the network call polling rate (milliseconds, should be multiples of tick-rate): the lower the number the higher the network calls.
 
+## Screenshots
+
+### Overview screen
+
+![UI](./screenshots/overview.png)
+
+### Container logs screen (light theme)
+
+![UI](./screenshots/logs.png)
+
+### Pod describe screen (light theme)
+
+![UI](./screenshots/describe.png)
+
+### Contexts screen
+
+![UI](./screenshots/contexts.png)
+
+### Utilization screen
+
+![UI](./screenshots/utilization.png)
+
 ## Libraries used
 
 - [tui-rs](https://github.com/fdehau/tui-rs)
