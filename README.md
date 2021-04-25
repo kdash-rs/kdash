@@ -33,6 +33,10 @@ TODO
 
 Binaries for macOS, Linux and Windows are available on the [releases](https://github.com/kdash-rs/kdash/releases) page
 
+### Docker
+
+TODO
+
 ### Cargo
 
 If you have Cargo installed then you install KDash from crates.io
@@ -41,9 +45,9 @@ If you have Cargo installed then you install KDash from crates.io
 cargo install kdash
 ```
 
-You can also clone the repo and run `cargo run` to build and run the app
+You can also clone the repo and run `cargo run` or `make` to build and run the app
 
-**Note:**: On linux you might need to have package `xorg-dev` (Debian/Ubuntu) or `xorg-x11-server-devel` (Fedora) or equivalent installed for the copy to clipboard features to work
+**Note:**: On Linux you might need to have package `xorg-dev` (Debian/Ubuntu) or `xorg-x11-server-devel` (Fedora) or equivalent installed for the copy to clipboard features to work
 
 ## USAGE:
 
