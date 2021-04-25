@@ -148,7 +148,7 @@ fn draw_pods_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App
       area,
       title_with_dual_style(
         get_pod_title(app, "-> Describe "),
-        "| Pods <esc>".to_string(),
+        "| copy <c> | Pods <esc>".to_string(),
         app.light_theme,
       ),
     ),
@@ -484,7 +484,7 @@ fn draw_logs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 
   let title = title_with_dual_style(
     get_container_title(app, &selected_pod, format!("-> Logs ({}) ", container_name)),
-    "| Containers <esc>".to_string(),
+    "| copy <c> | Containers <esc>".to_string(),
     app.light_theme,
   );
 

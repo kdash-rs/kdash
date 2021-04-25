@@ -198,6 +198,13 @@ async fn handle_route_events(key: Key, app: &mut App) {
         ActiveBlock::Logs => {
           if key == DEFAULT_KEYBINDING.log_auto_scroll.key {
             app.log_auto_scroll = !app.log_auto_scroll;
+          } else if key == DEFAULT_KEYBINDING.copy_to_clipboard.key {
+            copy_to_clipboard(app.data.logs.get_plain_text());
+          }
+        }
+        ActiveBlock::Describe => {
+          if key == DEFAULT_KEYBINDING.copy_to_clipboard.key {
+            copy_to_clipboard(app.data.describe_out.get_txt());
           }
         }
         _ => {
@@ -293,4 +300,14 @@ async fn handle_scroll(app: &mut App, down: bool, is_mouse: bool) {
     }
     _ => {}
   }
+}
+
+fn copy_to_clipboard(content: String) {
+  use clipboard::ClipboardContext;
+  use clipboard::ClipboardProvider;
+
+  let mut ctx: ClipboardContext = ClipboardProvider::new().expect("Unable to obtain clipboard");
+  ctx
+    .set_contents(content)
+    .expect("Unable to set content to clipboard");
 }

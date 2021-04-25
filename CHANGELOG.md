@@ -9,6 +9,7 @@
 ### Added
 
 - Resource utilization view
+- Select/copy text
 
 ## [0.0.2] - 22-Apr-2021
 

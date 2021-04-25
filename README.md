@@ -34,14 +34,14 @@ A simple terminal dashboard for Kubernetes built with Rust
   - [ ] ConfigMaps (simulated)
   - [ ] StatefulSets (simulated)
   - [ ] ReplicaSets (simulated)
-  - [ ] select/copy output
+  - [x] select/copy output
   - [ ] as YAML
 - Stream logs/events
   - [x] Containers
   - [ ] Services
   - [ ] Deployments
   - [ ] StatefulSets
-  - [ ] select/copy output
+  - [x] select/copy output
 - Context
   - [x] Context info
   - [x] Node metrics
@@ -66,6 +66,8 @@ cargo install kdash
 
 You can also clone the repo and run `cargo run` to build and run the app
 
+**Note:**: On linux you might need to have package `xorg-dev` (Debian/Ubuntu) or `xorg-x11-server-devel` (Fedora) or equivalent installed for the copy to clipboard features to work
+
 ## USAGE:
 
 Press `?` while running the app to see keybindings
@@ -86,6 +88,7 @@ Press `?` while running the app to see keybindings
 - [kube-rs](https://github.com/clux/kube-rs)
 - [serde](https://github.com/serde-rs/serde)
 - [kubectl-view-allocations](https://github.com/davidB/kubectl-view-allocations)
+- [rust-clipboard](https://github.com/aweinstock314/rust-clipboard)
 
 ## Licence
 

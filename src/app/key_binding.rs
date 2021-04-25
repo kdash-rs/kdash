@@ -50,6 +50,7 @@ pub struct KeyBindings {
   pub jump_to_replicasets: KeyBinding,
   pub describe_resource: KeyBinding,
   pub cycle_group_by: KeyBinding,
+  pub copy_to_clipboard: KeyBinding,
 }
 
 // update the as_vec method below with field as well
@@ -104,6 +105,11 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
     desc: "Switch to resource utilization view",
     context: HContext::General,
   },
+  copy_to_clipboard: KeyBinding {
+    key: Key::Char('c'),
+    desc: "Copy log/output to clipboard",
+    context: HContext::General,
+  },
   up: KeyBinding {
     key: Key::Down,
     desc: "Next table row",
@@ -149,11 +155,6 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
     desc: "Describe resource",
     context: HContext::Overview,
   },
-  cycle_group_by: KeyBinding {
-    key: Key::Char('g'),
-    desc: "Cycle through grouping",
-    context: HContext::Utilization,
-  },
   jump_to_pods: KeyBinding {
     key: Key::Char('1'),
     desc: "Select pods tab",
@@ -189,6 +190,11 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
     desc: "Select deployments tab",
     context: HContext::Overview,
   },
+  cycle_group_by: KeyBinding {
+    key: Key::Char('g'),
+    desc: "Cycle through grouping",
+    context: HContext::Utilization,
+  },
 };
 
 impl KeyBindings {
@@ -206,6 +212,7 @@ impl KeyBindings {
       &self.jump_to_all_context,
       &self.jump_to_current_context,
       &self.jump_to_utilization,
+      &self.copy_to_clipboard,
       &self.down,
       &self.up,
       &self.left,
@@ -215,7 +222,6 @@ impl KeyBindings {
       &self.select_all_namespace,
       &self.jump_to_namespace,
       &self.describe_resource,
-      &self.cycle_group_by,
       &self.jump_to_pods,
       &self.jump_to_services,
       &self.jump_to_nodes,
@@ -223,6 +229,7 @@ impl KeyBindings {
       &self.jump_to_statefulsets,
       &self.jump_to_replicasets,
       &self.jump_to_deployments,
+      &self.cycle_group_by,
     ]
   }
 }

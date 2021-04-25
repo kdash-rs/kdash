@@ -184,6 +184,15 @@ impl LogsState {
     }
   }
 
+  /// get a plain text version of the logs
+  pub fn get_plain_text(&self) -> String {
+    self.records.iter().fold(String::new(), |mut acc, v| {
+      acc.push('\n');
+      acc.push_str(v.0.as_str());
+      acc
+    })
+  }
+
   pub fn scroll_down(&mut self) {
     let i = self.state.selected().map_or(0, |i| {
       if i >= self.wrapped_length.wrapping_sub(1) {
@@ -201,10 +210,6 @@ impl LogsState {
       .selected()
       .map_or(0, |i| if i != 0 { i - 1 } else { 0 });
     self.state.select(Some(i));
-  }
-
-  fn unselect(&mut self) {
-    self.state.select(None);
   }
 
   /// Render the current state as a list widget
@@ -291,5 +296,9 @@ impl LogsState {
   /// Add a record to be displayed
   pub fn add_record(&mut self, record: String) {
     self.records.push_back((record, None));
+  }
+
+  fn unselect(&mut self) {
+    self.state.select(None);
   }
 }
