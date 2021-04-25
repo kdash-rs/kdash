@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased] - 22-Apr-2021
+## [Unreleased] - 25-Apr-2021
+
+## [0.0.3] - 25-Apr-2021
 
 ### Fixed
 
