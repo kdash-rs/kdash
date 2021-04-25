@@ -14,7 +14,12 @@ use tui::{
 
 pub fn draw_utilization<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = format!(
-    "Resource Utilization (group by <g>: {:?})",
+    "Resource Utilization (ns: [{}], group by <g>: {:?})",
+    app
+      .data
+      .selected_ns
+      .as_ref()
+      .unwrap_or(&String::from("all")),
     app.utilization_group_by
   );
   let block = layout_block_active(title.as_str());

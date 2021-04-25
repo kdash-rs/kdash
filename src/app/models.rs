@@ -70,7 +70,11 @@ impl<T> StatefulTable<T> {
 
 impl<T: Clone> StatefulTable<T> {
   pub fn get_selected_item(&self) -> Option<T> {
-    self.state.selected().map(|i| self.items[i].clone())
+    if self.items.len() > 0 {
+      self.state.selected().map(|i| self.items[i].clone())
+    } else {
+      None
+    }
   }
 }
 
