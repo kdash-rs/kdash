@@ -5,6 +5,7 @@ use super::super::app::{
   nodes::{KubeNode, NodeMetrics},
   ns::KubeNs,
   pods::KubePod,
+  replicasets::KubeReplicaSet,
   statefulsets::KubeStatefulSet,
   svcs::KubeSvc,
 };
@@ -12,7 +13,7 @@ use super::Network;
 
 use anyhow::anyhow;
 use k8s_openapi::api::{
-  apps::v1::StatefulSet,
+  apps::v1::{ReplicaSet, StatefulSet},
   core::v1::{ConfigMap, Namespace, Node, Pod, Service},
 };
 use kube::{
@@ -214,6 +215,24 @@ impl<'a> Network<'a> {
           .collect::<Vec<_>>();
         let mut app = self.app.lock().await;
         app.data.stateful_sets.set_items(items);
+      }
+      Err(e) => {
+        self.handle_error(anyhow!(e)).await;
+      }
+    }
+  }
+
+  pub async fn get_replica_sets(&self) {
+    let api: Api<ReplicaSet> = self.get_namespaced_api().await;
+    let lp = ListParams::default();
+    match api.list(&lp).await {
+      Ok(rp_list) => {
+        let items = rp_list
+          .iter()
+          .map(|rp| KubeReplicaSet::from_api(rp))
+          .collect::<Vec<_>>();
+        let mut app = self.app.lock().await;
+        app.data.replica_sets.set_items(items);
       }
       Err(e) => {
         self.handle_error(anyhow!(e)).await;

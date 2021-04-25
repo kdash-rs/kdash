@@ -193,9 +193,3 @@ pub fn loading<B: Backend>(f: &mut Frame<B>, block: Block, area: Rect, is_loadin
     f.render_widget(block, area)
   }
 }
-
-pub fn draw_placeholder<B: Backend>(f: &mut Frame<B>, area: Rect) {
-  let block = layout_block_top_border("TODO Placeholder");
-
-  f.render_widget(block, area);
-}

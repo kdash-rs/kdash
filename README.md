@@ -23,8 +23,8 @@ A simple terminal dashboard for Kubernetes built with Rust
   - [x] Services
   - [x] Containers
   - [x] ConfigMaps
-  - [ ] StatefulSets
-  - [ ] ReplicaSets
+  - [x] StatefulSets
+  - [x] ReplicaSets
   - [ ] Deployments
 - Describe resources
   - [x] Pods

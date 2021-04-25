@@ -3,10 +3,10 @@ use super::super::app::{
 };
 use super::super::banner::BANNER;
 use super::utils::{
-  draw_placeholder, get_gauge_style, horizontal_chunks, layout_block_default,
-  layout_block_top_border, layout_block_top_border_span, loading, style_default, style_failure,
-  style_highlight, style_logo, style_primary, style_secondary, table_header_style,
-  title_with_dual_style, vertical_chunks, vertical_chunks_with_margin,
+  get_gauge_style, horizontal_chunks, layout_block_default, layout_block_top_border,
+  layout_block_top_border_span, loading, style_default, style_failure, style_highlight, style_logo,
+  style_primary, style_secondary, table_header_style, title_with_dual_style, vertical_chunks,
+  vertical_chunks_with_margin,
 };
 use super::HIGHLIGHT;
 
@@ -136,9 +136,8 @@ fn draw_active_context_tabs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: R
     },
     3 => draw_config_maps(f, app, chunks[1]),
     4 => draw_stateful_sets(f, app, chunks[1]),
-    // 5 => draw_replica_sets(f, app, chunks[1]),
-    // 6 => draw_deployments(f, app, chunks[1]),
-    5..=7 => draw_placeholder(f, chunks[1]),
+    5 => draw_replica_sets(f, app, chunks[1]),
+    6 => draw_deployments(f, chunks[1]),
     _ => {}
   };
 }
@@ -524,7 +523,7 @@ fn draw_config_maps<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 
 fn draw_stateful_sets<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = format!(
-    "Stateful Sets (ns: {}) [{}]",
+    "StatefulSets (ns: {}) [{}]",
     app
       .data
       .selected_ns
@@ -566,6 +565,60 @@ fn draw_stateful_sets<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   } else {
     loading(f, block, area, app.is_loading);
   }
+}
+
+fn draw_replica_sets<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let title = format!(
+    "ReplicaSets (ns: {}) [{}]",
+    app
+      .data
+      .selected_ns
+      .as_ref()
+      .unwrap_or(&String::from("all")),
+    app.data.replica_sets.items.len()
+  );
+  let block = layout_block_top_border(title.as_str());
+
+  if !app.data.replica_sets.items.is_empty() {
+    let rows = app.data.replica_sets.items.iter().map(|c| {
+      Row::new(vec![
+        Cell::from(c.namespace.as_ref()),
+        Cell::from(c.name.as_ref()),
+        Cell::from(c.desired.to_string()),
+        Cell::from(c.current.to_string()),
+        Cell::from(c.ready.to_string()),
+        Cell::from(c.age.as_ref()),
+      ])
+      .style(style_primary())
+    });
+
+    let table = Table::new(rows)
+      .header(table_header_style(
+        vec!["Namespace", "Name", "Desired", "Current", "Ready", "Age"],
+        app.light_theme,
+      ))
+      .block(block)
+      .highlight_style(style_highlight())
+      .highlight_symbol(HIGHLIGHT)
+      .widths(&[
+        Constraint::Percentage(25),
+        Constraint::Percentage(35),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+      ]);
+
+    f.render_stateful_widget(table, area, &mut app.data.replica_sets.state);
+  } else {
+    loading(f, block, area, app.is_loading);
+  }
+}
+
+pub fn draw_deployments<B: Backend>(f: &mut Frame<B>, area: Rect) {
+  let block = layout_block_top_border("TODO Placeholder");
+
+  f.render_widget(block, area);
 }
 
 fn draw_logs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {

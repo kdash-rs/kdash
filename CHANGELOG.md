@@ -12,6 +12,8 @@
 - Resource utilization view
 - Select/copy text
 - Config map tab
+- Statefulsets tab
+- Replicasets tab
 
 ## [0.0.2] - 22-Apr-2021
 
