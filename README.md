@@ -29,11 +29,11 @@ A simple terminal dashboard for Kubernetes built with Rust
 - Describe resources
   - [x] Pods
   - [x] Nodes
-  - [ ] Services (simulated)
-  - [ ] Deployments (simulated)
-  - [ ] ConfigMaps (simulated)
-  - [ ] StatefulSets (simulated)
-  - [ ] ReplicaSets (simulated)
+  - [ ] Services
+  - [ ] Deployments
+  - [ ] ConfigMaps
+  - [ ] StatefulSets
+  - [ ] ReplicaSets
   - [x] select/copy output
   - [ ] as YAML
 - Stream logs/events

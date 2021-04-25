@@ -5,7 +5,7 @@ use k8s_openapi::{
 };
 
 #[derive(Clone)]
-pub struct KubeSvs {
+pub struct KubeSvc {
   pub namespace: String,
   pub name: String,
   pub type_: String,
@@ -15,7 +15,7 @@ pub struct KubeSvs {
   pub age: String,
 }
 
-impl KubeSvs {
+impl KubeSvc {
   pub fn from_api(service: &Service) -> Self {
     let (type_, cluster_ip, external_ip, ports) = match &service.spec {
       Some(spec) => {
@@ -53,7 +53,7 @@ impl KubeSvs {
       ),
     };
 
-    KubeSvs {
+    KubeSvc {
       name: service.metadata.name.clone().unwrap_or_default(),
       type_,
       namespace: service.metadata.namespace.clone().unwrap_or_default(),

@@ -1,5 +1,5 @@
 use super::super::app::{
-  key_binding::DEFAULT_KEYBINDING, nodes::NodeMetrics, pods::KubePods, ActiveBlock, App,
+  key_binding::DEFAULT_KEYBINDING, nodes::NodeMetrics, pods::KubePod, ActiveBlock, App,
 };
 use super::super::banner::BANNER;
 use super::utils::{
@@ -609,7 +609,7 @@ fn get_pod_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
 
 fn get_container_title<S: AsRef<str>>(
   app: &App,
-  selected_pod: &Option<KubePods>,
+  selected_pod: &Option<KubePod>,
   suffix: S,
 ) -> String {
   let title = get_pod_title(

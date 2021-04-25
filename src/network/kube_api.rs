@@ -1,11 +1,11 @@
 use super::super::app::{
-  configmaps::KubeConfigMaps,
+  configmaps::KubeConfigMap,
   contexts,
   metrics::{self, Resource},
   nodes::{KubeNode, NodeMetrics},
   ns::KubeNs,
-  pods::KubePods,
-  svcs::KubeSvs,
+  pods::KubePod,
+  svcs::KubeSvc,
 };
 use super::Network;
 
@@ -151,7 +151,7 @@ impl<'a> Network<'a> {
       Ok(pod_list) => {
         let items = pod_list
           .iter()
-          .map(|pod| KubePods::from_api(pod))
+          .map(|pod| KubePod::from_api(pod))
           .collect::<Vec<_>>();
         let mut app = self.app.lock().await;
         app.data.pods.set_items(items);
@@ -170,7 +170,7 @@ impl<'a> Network<'a> {
       Ok(svc_list) => {
         let items = svc_list
           .iter()
-          .map(|service| KubeSvs::from_api(service))
+          .map(|service| KubeSvc::from_api(service))
           .collect::<Vec<_>>();
         let mut app = self.app.lock().await;
         app.data.services.set_items(items);
@@ -188,7 +188,7 @@ impl<'a> Network<'a> {
       Ok(cm_list) => {
         let items = cm_list
           .iter()
-          .map(|cm| KubeConfigMaps::from_api(cm))
+          .map(|cm| KubeConfigMap::from_api(cm))
           .collect::<Vec<_>>();
         let mut app = self.app.lock().await;
         app.data.config_maps.set_items(items);

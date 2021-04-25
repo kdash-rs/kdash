@@ -10,15 +10,15 @@ pub(crate) mod svcs;
 mod utils;
 
 use self::{
-  configmaps::KubeConfigMaps,
+  configmaps::KubeConfigMap,
   contexts::KubeContext,
   key_binding::DEFAULT_KEYBINDING,
   metrics::{GroupBy, QtyByQualifier},
   models::{LogsState, ScrollableTxt, StatefulTable, TabsState},
   nodes::{KubeNode, NodeMetrics},
   ns::KubeNs,
-  pods::KubePods,
-  svcs::KubeSvs,
+  pods::KubePod,
+  svcs::KubeSvc,
 };
 use super::cmd::IoCmdEvent;
 use super::network::{stream::IoStreamEvent, IoEvent};
@@ -82,9 +82,9 @@ pub struct Data {
   pub nodes: StatefulTable<KubeNode>,
   pub node_metrics: Vec<NodeMetrics>,
   pub namespaces: StatefulTable<KubeNs>,
-  pub pods: StatefulTable<KubePods>,
-  pub services: StatefulTable<KubeSvs>,
-  pub config_maps: StatefulTable<KubeConfigMaps>,
+  pub pods: StatefulTable<KubePod>,
+  pub services: StatefulTable<KubeSvc>,
+  pub config_maps: StatefulTable<KubeConfigMap>,
   pub selected_ns: Option<String>,
   pub logs: LogsState,
   pub describe_out: ScrollableTxt,

@@ -6,7 +6,7 @@ use k8s_openapi::{
 };
 
 #[derive(Clone)]
-pub struct KubePods {
+pub struct KubePod {
   pub namespace: String,
   pub name: String,
   pub ready: String,
@@ -15,11 +15,11 @@ pub struct KubePods {
   pub cpu: String,
   pub mem: String,
   pub age: String,
-  pub containers: StatefulTable<KubeContainers>,
+  pub containers: StatefulTable<KubeContainer>,
 }
 
 #[derive(Clone)]
-pub struct KubeContainers {
+pub struct KubeContainer {
   pub name: String,
   pub image: String,
   pub ready: String,
@@ -31,7 +31,7 @@ pub struct KubeContainers {
   pub age: String,
 }
 
-impl KubePods {
+impl KubePod {
   pub fn from_api(pod: &Pod) -> Self {
     let age = utils::to_age(pod.metadata.creation_timestamp.as_ref(), Utc::now());
     let (status, cr, restarts, c_stats_len, containers) = match &pod.status {
@@ -55,7 +55,7 @@ impl KubePods {
           .as_ref()
           .unwrap_or(&vec![])
           .iter()
-          .map(|cs| KubeContainers {
+          .map(|cs| KubeContainer {
             name: cs.name.clone(),
             image: cs.image.clone(),
             ready: cs.ready.to_string(),
@@ -73,7 +73,7 @@ impl KubePods {
       _ => (UNKNOWN.into(), 0, 0, 0, vec![]),
     };
 
-    KubePods {
+    KubePod {
       namespace: pod.metadata.namespace.clone().unwrap_or_default(),
       name: pod.metadata.name.clone().unwrap_or_default(),
       ready: format!("{}/{}", cr, c_stats_len),
