@@ -13,15 +13,14 @@ use super::super::app::{
 use super::Network;
 
 use anyhow::anyhow;
-use k8s_openapi::api::{
-  apps::v1::{Deployment, ReplicaSet, StatefulSet},
-  core::v1::{ConfigMap, Namespace, Node, Pod, Service},
-};
+use k8s_openapi::api::core::v1::{Namespace, Node, Pod};
 use kube::{
   api::{DynamicObject, GroupVersionKind, ListParams, ObjectList, Request},
   config::Kubeconfig,
   Api, Resource as KubeResource,
 };
+use serde::de::DeserializeOwned;
+use std::fmt;
 
 impl<'a> Network<'a> {
   pub async fn get_kube_config(&self) {
@@ -150,111 +149,73 @@ impl<'a> Network<'a> {
   }
 
   pub async fn get_pods(&self) {
-    let api: Api<Pod> = self.get_namespaced_api().await;
+    let items: Vec<KubePod> = self
+      .get_namespaced_resources(|it| KubePod::from_api(it))
+      .await;
 
-    let lp = ListParams::default();
-    match api.list(&lp).await {
-      Ok(pod_list) => {
-        let items = pod_list
-          .iter()
-          .map(|pod| KubePod::from_api(pod))
-          .collect::<Vec<_>>();
-        let mut app = self.app.lock().await;
-        app.data.pods.set_items(items);
-      }
-      Err(e) => {
-        self.handle_error(anyhow!(e)).await;
-      }
-    }
+    let mut app = self.app.lock().await;
+    app.data.pods.set_items(items);
   }
 
   pub async fn get_services(&self) {
-    let api: Api<Service> = self.get_namespaced_api().await;
+    let items: Vec<KubeSvc> = self
+      .get_namespaced_resources(|it| KubeSvc::from_api(it))
+      .await;
 
-    let lp = ListParams::default();
-    match api.list(&lp).await {
-      Ok(svc_list) => {
-        let items = svc_list
-          .iter()
-          .map(|service| KubeSvc::from_api(service))
-          .collect::<Vec<_>>();
-        let mut app = self.app.lock().await;
-        app.data.services.set_items(items);
-      }
-      Err(e) => {
-        self.handle_error(anyhow!(e)).await;
-      }
-    }
+    let mut app = self.app.lock().await;
+    app.data.services.set_items(items);
   }
 
   pub async fn get_config_maps(&self) {
-    let api: Api<ConfigMap> = self.get_namespaced_api().await;
-    let lp = ListParams::default();
-    match api.list(&lp).await {
-      Ok(cm_list) => {
-        let items = cm_list
-          .iter()
-          .map(|cm| KubeConfigMap::from_api(cm))
-          .collect::<Vec<_>>();
-        let mut app = self.app.lock().await;
-        app.data.config_maps.set_items(items);
-      }
-      Err(e) => {
-        self.handle_error(anyhow!(e)).await;
-      }
-    }
+    let items: Vec<KubeConfigMap> = self
+      .get_namespaced_resources(|it| KubeConfigMap::from_api(it))
+      .await;
+
+    let mut app = self.app.lock().await;
+    app.data.config_maps.set_items(items);
   }
 
   pub async fn get_stateful_sets(&self) {
-    let api: Api<StatefulSet> = self.get_namespaced_api().await;
-    let lp = ListParams::default();
-    match api.list(&lp).await {
-      Ok(sts_list) => {
-        let items = sts_list
-          .iter()
-          .map(|sts| KubeStatefulSet::from_api(sts))
-          .collect::<Vec<_>>();
-        let mut app = self.app.lock().await;
-        app.data.stateful_sets.set_items(items);
-      }
-      Err(e) => {
-        self.handle_error(anyhow!(e)).await;
-      }
-    }
+    let items: Vec<KubeStatefulSet> = self
+      .get_namespaced_resources(|it| KubeStatefulSet::from_api(it))
+      .await;
+
+    let mut app = self.app.lock().await;
+    app.data.stateful_sets.set_items(items);
   }
 
   pub async fn get_replica_sets(&self) {
-    let api: Api<ReplicaSet> = self.get_namespaced_api().await;
-    let lp = ListParams::default();
-    match api.list(&lp).await {
-      Ok(rp_list) => {
-        let items = rp_list
-          .iter()
-          .map(|rp| KubeReplicaSet::from_api(rp))
-          .collect::<Vec<_>>();
-        let mut app = self.app.lock().await;
-        app.data.replica_sets.set_items(items);
-      }
-      Err(e) => {
-        self.handle_error(anyhow!(e)).await;
-      }
-    }
+    let items: Vec<KubeReplicaSet> = self
+      .get_namespaced_resources(|it| KubeReplicaSet::from_api(it))
+      .await;
+
+    let mut app = self.app.lock().await;
+    app.data.replica_sets.set_items(items);
   }
 
   pub async fn get_deployments(&self) {
-    let api: Api<Deployment> = self.get_namespaced_api().await;
+    let items: Vec<KubeDeployments> = self
+      .get_namespaced_resources(|it| KubeDeployments::from_api(it))
+      .await;
+
+    let mut app = self.app.lock().await;
+    app.data.deployments.set_items(items);
+  }
+
+  /// calls the kubernetes API to list the given resource for either selected namespace or all namespaces
+  async fn get_namespaced_resources<K: KubeResource, T, F>(&self, map_fn: F) -> Vec<T>
+  where
+    <K as KubeResource>::DynamicType: Default,
+    K: Clone + DeserializeOwned + fmt::Debug,
+    F: FnMut(&K) -> T,
+  {
+    let api: Api<K> = self.get_namespaced_api().await;
     let lp = ListParams::default();
     match api.list(&lp).await {
-      Ok(dp_list) => {
-        let items = dp_list
-          .iter()
-          .map(|dp| KubeDeployments::from_api(dp))
-          .collect::<Vec<_>>();
-        let mut app = self.app.lock().await;
-        app.data.deployments.set_items(items);
-      }
+      Ok(list) => list.iter().map(map_fn).collect::<Vec<_>>(),
       Err(e) => {
         self.handle_error(anyhow!(e)).await;
+        vec![]
       }
     }
   }
