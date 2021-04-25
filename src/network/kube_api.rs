@@ -370,14 +370,14 @@ fn push_resources(
   // add a "pods" resource as well
   resources.push(Resource {
     kind: "pods".to_string(),
-    qualifier: qualifier.clone(),
+    qualifier,
     quantity: Qty::from_str("1")?,
     location: location.clone(),
   });
   Ok(())
 }
 
-fn extract_locations(resources: &Vec<Resource>) -> HashMap<(String, String), Location> {
+fn extract_locations(resources: &[Resource]) -> HashMap<(String, String), Location> {
   resources
     .iter()
     .filter_map(|resource| {

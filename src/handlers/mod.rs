@@ -210,26 +210,17 @@ async fn handle_route_events(key: Key, app: &mut App) {
     }
     RouteId::Utilization => {
       if key == DEFAULT_KEYBINDING.cycle_group_by.key {
-        let next_group = match app.utilization_group_by.len() {
-          4 => {
-            vec![GroupBy::Resource, GroupBy::Node, GroupBy::Namespace]
-          }
-          3 => {
-            vec![GroupBy::Resource, GroupBy::Node]
-          }
-          2 => {
-            vec![GroupBy::Resource]
-          }
-          _ => {
-            vec![
-              GroupBy::Resource,
-              GroupBy::Node,
-              GroupBy::Namespace,
-              GroupBy::Pod,
-            ]
-          }
-        };
-        app.utilization_group_by = next_group;
+        if app.utilization_group_by.len() == 1 {
+          app.utilization_group_by = vec![
+            GroupBy::Resource,
+            GroupBy::Node,
+            GroupBy::Namespace,
+            GroupBy::Pod,
+          ];
+        } else {
+          // keep removing items until just one is left
+          app.utilization_group_by.pop();
+        }
         app.tick_count = 0; // to force network request
       }
     }

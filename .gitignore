@@ -1,3 +1,4 @@
 /target
 /old
-.vscode/
+.vscode/*
+!.vscode/launch.json

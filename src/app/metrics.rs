@@ -326,6 +326,7 @@ impl GroupBy {
     }
   }
 
+  #[allow(clippy::unnecessary_wraps)]
   fn extract_kind(e: &Resource) -> Option<String> {
     Some(e.kind.clone())
   }
