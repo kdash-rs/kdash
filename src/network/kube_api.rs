@@ -5,12 +5,16 @@ use super::super::app::{
   nodes::{KubeNode, NodeMetrics},
   ns::KubeNs,
   pods::KubePod,
+  statefulsets::KubeStatefulSet,
   svcs::KubeSvc,
 };
 use super::Network;
 
 use anyhow::anyhow;
-use k8s_openapi::api::core::v1::{ConfigMap, Namespace, Node, Pod, Service};
+use k8s_openapi::api::{
+  apps::v1::StatefulSet,
+  core::v1::{ConfigMap, Namespace, Node, Pod, Service},
+};
 use kube::{
   api::{DynamicObject, GroupVersionKind, ListParams, ObjectList, Request},
   config::Kubeconfig,
@@ -192,6 +196,24 @@ impl<'a> Network<'a> {
           .collect::<Vec<_>>();
         let mut app = self.app.lock().await;
         app.data.config_maps.set_items(items);
+      }
+      Err(e) => {
+        self.handle_error(anyhow!(e)).await;
+      }
+    }
+  }
+
+  pub async fn get_stateful_sets(&self) {
+    let api: Api<StatefulSet> = self.get_namespaced_api().await;
+    let lp = ListParams::default();
+    match api.list(&lp).await {
+      Ok(sts_list) => {
+        let items = sts_list
+          .iter()
+          .map(|sts| KubeStatefulSet::from_api(sts))
+          .collect::<Vec<_>>();
+        let mut app = self.app.lock().await;
+        app.data.stateful_sets.set_items(items);
       }
       Err(e) => {
         self.handle_error(anyhow!(e)).await;

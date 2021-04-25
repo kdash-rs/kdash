@@ -17,6 +17,7 @@ pub enum IoEvent {
   GetPods,
   GetServices,
   GetConfigMaps,
+  GetStatefulSets,
   GetMetrics,
   RefreshClient,
 }
@@ -102,6 +103,9 @@ impl<'a> Network<'a> {
       }
       IoEvent::GetConfigMaps => {
         self.get_config_maps().await;
+      }
+      IoEvent::GetStatefulSets => {
+        self.get_stateful_sets().await;
       }
       IoEvent::GetMetrics => {
         self.get_utilizations().await;

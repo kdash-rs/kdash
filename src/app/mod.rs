@@ -6,6 +6,7 @@ pub(crate) mod models;
 pub(crate) mod nodes;
 pub(crate) mod ns;
 pub(crate) mod pods;
+pub(crate) mod statefulsets;
 pub(crate) mod svcs;
 mod utils;
 
@@ -18,6 +19,7 @@ use self::{
   nodes::{KubeNode, NodeMetrics},
   ns::KubeNs,
   pods::KubePod,
+  statefulsets::KubeStatefulSet,
   svcs::KubeSvc,
 };
 use super::cmd::IoCmdEvent;
@@ -85,6 +87,7 @@ pub struct Data {
   pub pods: StatefulTable<KubePod>,
   pub services: StatefulTable<KubeSvc>,
   pub config_maps: StatefulTable<KubeConfigMap>,
+  pub stateful_sets: StatefulTable<KubeStatefulSet>,
   pub selected_ns: Option<String>,
   pub logs: LogsState,
   pub describe_out: ScrollableTxt,
@@ -132,6 +135,7 @@ impl Default for Data {
       pods: StatefulTable::new(),
       services: StatefulTable::new(),
       config_maps: StatefulTable::new(),
+      stateful_sets: StatefulTable::new(),
       selected_ns: None,
       logs: LogsState::new(String::default()),
       describe_out: ScrollableTxt::new(),
@@ -345,6 +349,7 @@ impl App {
       self.dispatch(IoEvent::GetPods).await;
       self.dispatch(IoEvent::GetServices).await;
       self.dispatch(IoEvent::GetConfigMaps).await;
+      self.dispatch(IoEvent::GetStatefulSets).await;
     }
     // make network requests only in intervals to avoid hogging up the network
     if self.tick_count == 0 || self.is_routing {
@@ -362,6 +367,9 @@ impl App {
             }
             ActiveBlock::ConfigMaps => {
               self.dispatch(IoEvent::GetConfigMaps).await;
+            }
+            ActiveBlock::StatefulSets => {
+              self.dispatch(IoEvent::GetStatefulSets).await;
             }
             ActiveBlock::Logs => {
               if !self.is_streaming {

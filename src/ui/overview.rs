@@ -135,7 +135,10 @@ fn draw_active_context_tabs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: R
       _ => draw_nodes(f, app, chunks[1]),
     },
     3 => draw_config_maps(f, app, chunks[1]),
-    4..=7 => draw_placeholder(f, chunks[1]),
+    4 => draw_stateful_sets(f, app, chunks[1]),
+    // 5 => draw_replica_sets(f, app, chunks[1]),
+    // 6 => draw_deployments(f, app, chunks[1]),
+    5..=7 => draw_placeholder(f, chunks[1]),
     _ => {}
   };
 }
@@ -514,6 +517,52 @@ fn draw_config_maps<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
       ]);
 
     f.render_stateful_widget(table, area, &mut app.data.config_maps.state);
+  } else {
+    loading(f, block, area, app.is_loading);
+  }
+}
+
+fn draw_stateful_sets<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let title = format!(
+    "Stateful Sets (ns: {}) [{}]",
+    app
+      .data
+      .selected_ns
+      .as_ref()
+      .unwrap_or(&String::from("all")),
+    app.data.stateful_sets.items.len()
+  );
+  let block = layout_block_top_border(title.as_str());
+
+  if !app.data.stateful_sets.items.is_empty() {
+    let rows = app.data.stateful_sets.items.iter().map(|c| {
+      Row::new(vec![
+        Cell::from(c.namespace.as_ref()),
+        Cell::from(c.name.as_ref()),
+        Cell::from(c.ready.as_ref()),
+        Cell::from(c.service.as_ref()),
+        Cell::from(c.age.as_ref()),
+      ])
+      .style(style_primary())
+    });
+
+    let table = Table::new(rows)
+      .header(table_header_style(
+        vec!["Namespace", "Name", "Ready", "Service", "Age"],
+        app.light_theme,
+      ))
+      .block(block)
+      .highlight_style(style_highlight())
+      .highlight_symbol(HIGHLIGHT)
+      .widths(&[
+        Constraint::Percentage(25),
+        Constraint::Percentage(30),
+        Constraint::Percentage(10),
+        Constraint::Percentage(25),
+        Constraint::Percentage(10),
+      ]);
+
+    f.render_stateful_widget(table, area, &mut app.data.stateful_sets.state);
   } else {
     loading(f, block, area, app.is_loading);
   }
