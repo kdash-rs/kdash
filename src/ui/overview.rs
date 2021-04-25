@@ -134,7 +134,8 @@ fn draw_active_context_tabs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: R
       ),
       _ => draw_nodes(f, app, chunks[1]),
     },
-    3..=7 => draw_placeholder(f, chunks[1]),
+    3 => draw_config_maps(f, app, chunks[1]),
+    4..=7 => draw_placeholder(f, chunks[1]),
     _ => {}
   };
 }
@@ -418,7 +419,7 @@ fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 
 fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = format!(
-    "Services ({}) [{}]",
+    "Services (ns: {}) [{}]",
     app
       .data
       .selected_ns
@@ -469,6 +470,50 @@ fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
       ]);
 
     f.render_stateful_widget(table, area, &mut app.data.services.state);
+  } else {
+    loading(f, block, area, app.is_loading);
+  }
+}
+
+fn draw_config_maps<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let title = format!(
+    "Config Maps (ns: {}) [{}]",
+    app
+      .data
+      .selected_ns
+      .as_ref()
+      .unwrap_or(&String::from("all")),
+    app.data.config_maps.items.len()
+  );
+  let block = layout_block_top_border(title.as_str());
+
+  if !app.data.config_maps.items.is_empty() {
+    let rows = app.data.config_maps.items.iter().map(|c| {
+      Row::new(vec![
+        Cell::from(c.namespace.as_ref()),
+        Cell::from(c.name.as_ref()),
+        Cell::from(c.data.len().to_string()),
+        Cell::from(c.age.as_ref()),
+      ])
+      .style(style_primary())
+    });
+
+    let table = Table::new(rows)
+      .header(table_header_style(
+        vec!["Namespace", "Name", "Data", "Age"],
+        app.light_theme,
+      ))
+      .block(block)
+      .highlight_style(style_highlight())
+      .highlight_symbol(HIGHLIGHT)
+      .widths(&[
+        Constraint::Percentage(30),
+        Constraint::Percentage(40),
+        Constraint::Percentage(15),
+        Constraint::Percentage(15),
+      ]);
+
+    f.render_stateful_widget(table, area, &mut app.data.config_maps.state);
   } else {
     loading(f, block, area, app.is_loading);
   }
@@ -551,7 +596,7 @@ fn get_node_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
 
 fn get_pod_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
   format!(
-    "Pods ({}) [{}] {}",
+    "Pods (ns: {}) [{}] {}",
     app
       .data
       .selected_ns

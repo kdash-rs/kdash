@@ -1,4 +1,5 @@
 use super::super::app::{
+  configmaps::KubeConfigMaps,
   contexts,
   metrics::{self, Resource},
   nodes::{KubeNode, NodeMetrics},
@@ -9,7 +10,7 @@ use super::super::app::{
 use super::Network;
 
 use anyhow::anyhow;
-use k8s_openapi::api::core::v1::{Namespace, Node, Pod, Service};
+use k8s_openapi::api::core::v1::{ConfigMap, Namespace, Node, Pod, Service};
 use kube::{
   api::{DynamicObject, GroupVersionKind, ListParams, ObjectList, Request},
   config::Kubeconfig,
@@ -31,19 +32,20 @@ impl<'a> Network<'a> {
   }
 
   pub async fn get_node_metrics(&self) {
+    // custom request since metrics API doesnt exist on kube-rs
     let gvk = GroupVersionKind::gvk("metrics.k8s.io", "v1beta1", "nodemetrics").unwrap();
-    let node_metrics: Api<DynamicObject> = Api::all_with(self.client.clone(), &gvk);
-    match node_metrics.list(&ListParams::default()).await {
+    let api: Api<DynamicObject> = Api::all_with(self.client.clone(), &gvk);
+    match api.list(&ListParams::default()).await {
       Ok(metrics) => {
         let mut app = self.app.lock().await;
 
-        let rows = metrics
+        let items = metrics
           .items
           .iter()
           .map(|metric| NodeMetrics::from_api(metric, &app))
           .collect();
 
-        app.data.node_metrics = rows;
+        app.data.node_metrics = items;
       }
       Err(_) => {
         let mut app = self.app.lock().await;
@@ -55,8 +57,8 @@ impl<'a> Network<'a> {
   pub async fn get_utilizations(&self) {
     let mut resources: Vec<Resource> = vec![];
 
-    let nodes: Api<Node> = Api::all(self.client.clone());
-    match nodes.list(&ListParams::default()).await {
+    let api: Api<Node> = Api::all(self.client.clone());
+    match api.list(&ListParams::default()).await {
       Ok(node_list) => {
         if let Err(e) = Resource::compute_node_utilizations(node_list, &mut resources).await {
           self.handle_error(anyhow!(e)).await;
@@ -65,8 +67,8 @@ impl<'a> Network<'a> {
       Err(e) => self.handle_error(anyhow!(e)).await,
     }
 
-    let pods: Api<Pod> = self.get_namespaced_api().await;
-    match pods.list(&ListParams::default()).await {
+    let api: Api<Pod> = self.get_namespaced_api().await;
+    match api.list(&ListParams::default()).await {
       Ok(pod_list) => {
         if let Err(e) = Resource::compute_pod_utilizations(pod_list, &mut resources).await {
           self.handle_error(anyhow!(e)).await;
@@ -75,6 +77,7 @@ impl<'a> Network<'a> {
       Err(e) => self.handle_error(anyhow!(e)).await,
     }
 
+    // custom request since metrics API doesnt exist on kube-rs
     let request = Request::new("/apis/metrics.k8s.io/v1beta1/pods");
     if let Ok(pod_metrics) = self
       .client
@@ -98,22 +101,22 @@ impl<'a> Network<'a> {
 
   pub async fn get_nodes(&self) {
     let lp = ListParams::default();
-    let pods: Api<Pod> = Api::all(self.client.clone());
-    let nodes: Api<Node> = Api::all(self.client.clone());
+    let api_pods: Api<Pod> = Api::all(self.client.clone());
+    let api_nodes: Api<Node> = Api::all(self.client.clone());
 
-    match nodes.list(&lp).await {
+    match api_nodes.list(&lp).await {
       Ok(node_list) => {
         self.get_node_metrics().await;
-        let pods_list = pods.list(&lp).await;
+        let pods_list = api_pods.list(&lp).await;
 
         let mut app = self.app.lock().await;
 
-        let render_nodes = node_list
+        let items = node_list
           .iter()
           .map(|node| KubeNode::from_api(node, &pods_list, &mut app))
           .collect::<Vec<_>>();
 
-        app.data.nodes.set_items(render_nodes);
+        app.data.nodes.set_items(items);
       }
       Err(e) => {
         self.handle_error(anyhow!(e)).await;
@@ -122,17 +125,17 @@ impl<'a> Network<'a> {
   }
 
   pub async fn get_namespaces(&self) {
-    let ns: Api<Namespace> = Api::all(self.client.clone());
+    let api: Api<Namespace> = Api::all(self.client.clone());
 
     let lp = ListParams::default();
-    match ns.list(&lp).await {
+    match api.list(&lp).await {
       Ok(ns_list) => {
-        let nss = ns_list
+        let items = ns_list
           .iter()
           .map(|ns| KubeNs::from_api(ns))
           .collect::<Vec<_>>();
         let mut app = self.app.lock().await;
-        app.data.namespaces.set_items(nss);
+        app.data.namespaces.set_items(items);
       }
       Err(e) => {
         self.handle_error(anyhow!(e)).await;
@@ -141,17 +144,17 @@ impl<'a> Network<'a> {
   }
 
   pub async fn get_pods(&self) {
-    let pods: Api<Pod> = self.get_namespaced_api().await;
+    let api: Api<Pod> = self.get_namespaced_api().await;
 
     let lp = ListParams::default();
-    match pods.list(&lp).await {
+    match api.list(&lp).await {
       Ok(pod_list) => {
-        let render_pods = pod_list
+        let items = pod_list
           .iter()
           .map(|pod| KubePods::from_api(pod))
           .collect::<Vec<_>>();
         let mut app = self.app.lock().await;
-        app.data.pods.set_items(render_pods);
+        app.data.pods.set_items(items);
       }
       Err(e) => {
         self.handle_error(anyhow!(e)).await;
@@ -160,17 +163,35 @@ impl<'a> Network<'a> {
   }
 
   pub async fn get_services(&self) {
-    let svc: Api<Service> = self.get_namespaced_api().await;
+    let api: Api<Service> = self.get_namespaced_api().await;
 
     let lp = ListParams::default();
-    match svc.list(&lp).await {
+    match api.list(&lp).await {
       Ok(svc_list) => {
-        let render_services = svc_list
+        let items = svc_list
           .iter()
           .map(|service| KubeSvs::from_api(service))
           .collect::<Vec<_>>();
         let mut app = self.app.lock().await;
-        app.data.services.set_items(render_services);
+        app.data.services.set_items(items);
+      }
+      Err(e) => {
+        self.handle_error(anyhow!(e)).await;
+      }
+    }
+  }
+
+  pub async fn get_config_maps(&self) {
+    let api: Api<ConfigMap> = self.get_namespaced_api().await;
+    let lp = ListParams::default();
+    match api.list(&lp).await {
+      Ok(cm_list) => {
+        let items = cm_list
+          .iter()
+          .map(|cm| KubeConfigMaps::from_api(cm))
+          .collect::<Vec<_>>();
+        let mut app = self.app.lock().await;
+        app.data.config_maps.set_items(items);
       }
       Err(e) => {
         self.handle_error(anyhow!(e)).await;

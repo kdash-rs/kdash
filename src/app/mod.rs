@@ -1,3 +1,4 @@
+pub(crate) mod configmaps;
 pub(crate) mod contexts;
 pub(crate) mod key_binding;
 pub(crate) mod metrics;
@@ -9,6 +10,7 @@ pub(crate) mod svcs;
 mod utils;
 
 use self::{
+  configmaps::KubeConfigMaps,
   contexts::KubeContext,
   key_binding::DEFAULT_KEYBINDING,
   metrics::{GroupBy, QtyByQualifier},
@@ -82,6 +84,7 @@ pub struct Data {
   pub namespaces: StatefulTable<KubeNs>,
   pub pods: StatefulTable<KubePods>,
   pub services: StatefulTable<KubeSvs>,
+  pub config_maps: StatefulTable<KubeConfigMaps>,
   pub selected_ns: Option<String>,
   pub logs: LogsState,
   pub describe_out: ScrollableTxt,
@@ -128,6 +131,7 @@ impl Default for Data {
       namespaces: StatefulTable::new(),
       pods: StatefulTable::new(),
       services: StatefulTable::new(),
+      config_maps: StatefulTable::new(),
       selected_ns: None,
       logs: LogsState::new(String::default()),
       describe_out: ScrollableTxt::new(),
@@ -173,10 +177,10 @@ impl Default for App {
           ActiveBlock::Pods,
           ActiveBlock::Services,
           ActiveBlock::Nodes,
-          ActiveBlock::Deployments,
           ActiveBlock::ConfigMaps,
           ActiveBlock::StatefulSets,
           ActiveBlock::ReplicaSets,
+          ActiveBlock::Deployments,
         ],
       ),
       show_info_bar: true,
@@ -337,9 +341,10 @@ impl App {
       }
       self.dispatch_cmd(IoCmdEvent::GetCliInfo).await;
       self.dispatch(IoEvent::GetKubeConfig).await;
-      // call these once as well to pre-load data
+      // call these once  to pre-load data
       self.dispatch(IoEvent::GetPods).await;
       self.dispatch(IoEvent::GetServices).await;
+      self.dispatch(IoEvent::GetConfigMaps).await;
     }
     // make network requests only in intervals to avoid hogging up the network
     if self.tick_count == 0 || self.is_routing {
@@ -354,6 +359,9 @@ impl App {
             }
             ActiveBlock::Services => {
               self.dispatch(IoEvent::GetServices).await;
+            }
+            ActiveBlock::ConfigMaps => {
+              self.dispatch(IoEvent::GetConfigMaps).await;
             }
             ActiveBlock::Logs => {
               if !self.is_streaming {
