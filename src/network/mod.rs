@@ -19,6 +19,7 @@ pub enum IoEvent {
   GetConfigMaps,
   GetStatefulSets,
   GetReplicaSets,
+  GetDeployments,
   GetMetrics,
   RefreshClient,
 }
@@ -110,6 +111,9 @@ impl<'a> Network<'a> {
       }
       IoEvent::GetReplicaSets => {
         self.get_replica_sets().await;
+      }
+      IoEvent::GetDeployments => {
+        self.get_deployments().await;
       }
       IoEvent::GetMetrics => {
         self.get_utilizations().await;

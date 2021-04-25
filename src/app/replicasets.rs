@@ -14,6 +14,11 @@ pub struct KubeReplicaSet {
 
 impl KubeReplicaSet {
   pub fn from_api(rp: &ReplicaSet) -> Self {
+    let (current, ready) = match rp.status.as_ref() {
+      Some(s) => (s.replicas, s.ready_replicas.unwrap_or_default()),
+      _ => (0, 0),
+    };
+
     KubeReplicaSet {
       name: rp.metadata.name.clone().unwrap_or_default(),
       namespace: rp.metadata.namespace.clone().unwrap_or_default(),
@@ -22,11 +27,8 @@ impl KubeReplicaSet {
         .spec
         .as_ref()
         .map_or(0, |s| s.replicas.unwrap_or_default()),
-      current: rp.status.as_ref().map_or(0, |s| s.replicas),
-      ready: rp
-        .status
-        .as_ref()
-        .map_or(0, |s| s.ready_replicas.unwrap_or_default()),
+      current,
+      ready,
     }
   }
 }

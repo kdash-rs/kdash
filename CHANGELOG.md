@@ -9,11 +9,12 @@
 
 ### Added
 
-- Resource utilization view
-- Select/copy text
+- Resource utilization view with grouping
+- Select/copy text in logs and describe view
 - Config map tab
 - Statefulsets tab
 - Replicasets tab
+- Deployments tab
 
 ## [0.0.2] - 22-Apr-2021
 

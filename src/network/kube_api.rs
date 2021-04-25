@@ -1,6 +1,7 @@
 use super::super::app::{
   configmaps::KubeConfigMap,
   contexts,
+  deployments::KubeDeployments,
   metrics::{self, Resource},
   nodes::{KubeNode, NodeMetrics},
   ns::KubeNs,
@@ -13,7 +14,7 @@ use super::Network;
 
 use anyhow::anyhow;
 use k8s_openapi::api::{
-  apps::v1::{ReplicaSet, StatefulSet},
+  apps::v1::{Deployment, ReplicaSet, StatefulSet},
   core::v1::{ConfigMap, Namespace, Node, Pod, Service},
 };
 use kube::{
@@ -233,6 +234,24 @@ impl<'a> Network<'a> {
           .collect::<Vec<_>>();
         let mut app = self.app.lock().await;
         app.data.replica_sets.set_items(items);
+      }
+      Err(e) => {
+        self.handle_error(anyhow!(e)).await;
+      }
+    }
+  }
+
+  pub async fn get_deployments(&self) {
+    let api: Api<Deployment> = self.get_namespaced_api().await;
+    let lp = ListParams::default();
+    match api.list(&lp).await {
+      Ok(dp_list) => {
+        let items = dp_list
+          .iter()
+          .map(|dp| KubeDeployments::from_api(dp))
+          .collect::<Vec<_>>();
+        let mut app = self.app.lock().await;
+        app.data.deployments.set_items(items);
       }
       Err(e) => {
         self.handle_error(anyhow!(e)).await;

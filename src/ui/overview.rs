@@ -137,7 +137,7 @@ fn draw_active_context_tabs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: R
     3 => draw_config_maps(f, app, chunks[1]),
     4 => draw_stateful_sets(f, app, chunks[1]),
     5 => draw_replica_sets(f, app, chunks[1]),
-    6 => draw_deployments(f, chunks[1]),
+    6 => draw_deployments(f, app, chunks[1]),
     _ => {}
   };
 }
@@ -615,10 +615,59 @@ fn draw_replica_sets<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   }
 }
 
-pub fn draw_deployments<B: Backend>(f: &mut Frame<B>, area: Rect) {
-  let block = layout_block_top_border("TODO Placeholder");
+pub fn draw_deployments<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let title = format!(
+    "Deployments (ns: {}) [{}]",
+    app
+      .data
+      .selected_ns
+      .as_ref()
+      .unwrap_or(&String::from("all")),
+    app.data.deployments.items.len()
+  );
+  let block = layout_block_top_border(title.as_str());
 
-  f.render_widget(block, area);
+  if !app.data.deployments.items.is_empty() {
+    let rows = app.data.deployments.items.iter().map(|c| {
+      Row::new(vec![
+        Cell::from(c.namespace.as_ref()),
+        Cell::from(c.name.as_ref()),
+        Cell::from(c.ready.as_ref()),
+        Cell::from(c.updated.to_string()),
+        Cell::from(c.available.to_string()),
+        Cell::from(c.age.as_ref()),
+      ])
+      .style(style_primary())
+    });
+
+    let table = Table::new(rows)
+      .header(table_header_style(
+        vec![
+          "Namespace",
+          "Name",
+          "Ready",
+          "Up-to-date",
+          "Available",
+          "Age",
+        ],
+        app.light_theme,
+      ))
+      .block(block)
+      .highlight_style(style_highlight())
+      .highlight_symbol(HIGHLIGHT)
+      .widths(&[
+        Constraint::Percentage(25),
+        Constraint::Percentage(35),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+      ]);
+
+    f.render_stateful_widget(table, area, &mut app.data.deployments.state);
+  } else {
+    loading(f, block, area, app.is_loading);
+  }
 }
 
 fn draw_logs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {

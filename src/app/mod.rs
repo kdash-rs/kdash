@@ -1,5 +1,6 @@
 pub(crate) mod configmaps;
 pub(crate) mod contexts;
+pub(crate) mod deployments;
 pub(crate) mod key_binding;
 pub(crate) mod metrics;
 pub(crate) mod models;
@@ -14,6 +15,7 @@ mod utils;
 use self::{
   configmaps::KubeConfigMap,
   contexts::KubeContext,
+  deployments::KubeDeployments,
   key_binding::DEFAULT_KEYBINDING,
   metrics::{GroupBy, QtyByQualifier},
   models::{LogsState, ScrollableTxt, StatefulTable, TabsState},
@@ -91,6 +93,7 @@ pub struct Data {
   pub config_maps: StatefulTable<KubeConfigMap>,
   pub stateful_sets: StatefulTable<KubeStatefulSet>,
   pub replica_sets: StatefulTable<KubeReplicaSet>,
+  pub deployments: StatefulTable<KubeDeployments>,
   pub selected_ns: Option<String>,
   pub logs: LogsState,
   pub describe_out: ScrollableTxt,
@@ -140,6 +143,7 @@ impl Default for Data {
       config_maps: StatefulTable::new(),
       stateful_sets: StatefulTable::new(),
       replica_sets: StatefulTable::new(),
+      deployments: StatefulTable::new(),
       selected_ns: None,
       logs: LogsState::new(String::default()),
       describe_out: ScrollableTxt::new(),
@@ -355,6 +359,7 @@ impl App {
       self.dispatch(IoEvent::GetConfigMaps).await;
       self.dispatch(IoEvent::GetStatefulSets).await;
       self.dispatch(IoEvent::GetReplicaSets).await;
+      self.dispatch(IoEvent::GetDeployments).await;
     }
     // make network requests only in intervals to avoid hogging up the network
     if self.tick_count == 0 || self.is_routing {
@@ -378,6 +383,9 @@ impl App {
             }
             ActiveBlock::ReplicaSets => {
               self.dispatch(IoEvent::GetReplicaSets).await;
+            }
+            ActiveBlock::Deployments => {
+              self.dispatch(IoEvent::GetDeployments).await;
             }
             ActiveBlock::Logs => {
               if !self.is_streaming {
