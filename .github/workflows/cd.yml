@@ -176,9 +176,9 @@ jobs:
       - name: Set release assets and version
         shell: bash
         run: |
-          macos_sha="$(cat ./artifacts/kdash-macos.sha256)"
+          macos_sha="$(cat ./artifacts/kdash-macos.sha256 | awk '{print $1}')"
           echo "MACOS_SHA=$macos_sha" >> $GITHUB_ENV
-          linux_sha="$(cat ./artifacts/kdash-linux-musl.sha256)"
+          linux_sha="$(cat ./artifacts/kdash-linux-musl.sha256 | awk '{print $1}')"
           echo "LINUX_SHA=$linux_sha" >> $GITHUB_ENV
           release_version="$(cat ./artifacts/release-version)"
           echo "RELEASE_VERSION=$release_version" >> $GITHUB_ENV
