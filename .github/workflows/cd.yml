@@ -74,13 +74,13 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Get release download URL
+      - name: Get shared artifacts
         uses: actions/download-artifact@v2
         with:
           name: artifacts
           path: artifacts
 
-      - name: Set release upload URL and release version
+      - name: Set release version
         shell: bash
         run: |
           release_version="$(cat ./artifacts/release-version)"
@@ -105,7 +105,7 @@ jobs:
         if: matrix.triple.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+          sudo apt-get install -y -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev musl-tools
 
       - name: Build
         uses: actions-rs/cargo@v1
@@ -118,10 +118,10 @@ jobs:
         if: matrix.triple.os == 'windows-latest'
         shell: bash
         run: |
-          cd target/${{ matrix.target }}/release
+          cd target/${{ matrix.triple.target }}/release
           BINARY_NAME=kdash.exe
           strip $BINARY_NAME
-          RELEASE_NAME=kdash-${{ matrix.artifact_prefix }}
+          RELEASE_NAME=kdash-${{ matrix.triple.artifact_prefix }}
           tar czvf $RELEASE_NAME.tar.gz $BINARY_NAME
           certutil -hashfile $RELEASE_NAME.tar.gz sha256 | grep -E [A-Fa-f0-9]{64} > $RELEASE_NAME.sha256
           echo "RELEASE_NAME=$RELEASE_NAME" >> $GITHUB_ENV
@@ -130,10 +130,10 @@ jobs:
         if: matrix.triple.os != 'windows-latest'
         shell: bash
         run: |
-          cd target/${{ matrix.target }}/release
+          cd target/${{ matrix.triple.target }}/release
           BINARY_NAME=kdash
           strip $BINARY_NAME
-          RELEASE_NAME=kdash-${{ matrix.artifact_prefix }}
+          RELEASE_NAME=kdash-${{ matrix.triple.artifact_prefix }}
           tar czvf $RELEASE_NAME.tar.gz $BINARY_NAME
           shasum -a 256 $RELEASE_NAME.tar.gz > $RELEASE_NAME.sha256
           echo "RELEASE_NAME=$RELEASE_NAME" >> $GITHUB_ENV

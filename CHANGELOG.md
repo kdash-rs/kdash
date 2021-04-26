@@ -2,6 +2,13 @@
 
 ## [Unreleased] - 25-Apr-2021
 
+## [0.0.4] - 26-Apr-2021
+
+### Added
+
+- Homebrew installation
+- Docker installation
+
 ## [0.0.3] - 25-Apr-2021
 
 ### Fixed
