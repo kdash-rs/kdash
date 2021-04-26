@@ -142,8 +142,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            target/${{ matrix.triple.target }}/release/{{ env.RELEASE_NAME }}.tar.gz
-            target/${{ matrix.triple.target }}/release/{{ env.RELEASE_NAME }}.sha256
+            target/${{ matrix.triple.target }}/release/${{ env.RELEASE_NAME }}.tar.gz
+            target/${{ matrix.triple.target }}/release/${{ env.RELEASE_NAME }}.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
