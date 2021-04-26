@@ -1,0 +1,11 @@
+#!/bin/sh
+
+set -e
+
+echo "Running pre-push hook:"
+
+echo "Executing: cargo clippy --all-targets --workspace -- -D warnings"
+find . | grep "\.rs$" | xargs touch ; cargo clippy --all-targets --workspace -- -D warnings
+
+echo "Executing: cargo test"
+cargo test

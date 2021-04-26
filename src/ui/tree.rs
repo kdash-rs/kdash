@@ -142,8 +142,8 @@ mod tests {
     let items = vec!["1/2", "1/2/3", "1/2/3/4", "1/2/5", "6", "7", "7/8", "7/9"];
 
     let prefixes = provide_prefix(&items, |parent, item| {
-      let pi = item.split("/");
-      let pp = parent.split("/");
+      let pi = item.split('/');
+      let pp = parent.split('/');
       (pi.count() == pp.count() + 1) && item.starts_with(parent)
     });
 

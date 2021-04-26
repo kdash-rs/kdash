@@ -86,6 +86,7 @@ pub fn convert_to_f64(s: &str) -> f64 {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod tests {
   #[test]
   fn test_mem_to_mi() {

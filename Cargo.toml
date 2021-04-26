@@ -43,6 +43,11 @@ openssl = { version = "0.10.33", features = ["vendored"] }
 [dev-dependencies]
 spectral = "0.6.0"
 
+[dev-dependencies.cargo-husky]
+version = "1"
+default-features = false
+features = ["user-hooks"]
+
 [[bin]]
 bench = false
 path = "src/main.rs"
