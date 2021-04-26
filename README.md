@@ -35,7 +35,13 @@ Binaries for macOS, Linux and Windows are available on the [releases](https://gi
 
 ### Docker
 
-TODO
+Run KDash as a Docker container by mounting your `KUBECONFIG`. For example the below for default path
+
+```shell
+docker run --rm -it -v ~/.kube/config:/root/.kube/config deepu105/kdash
+```
+
+You can also clone this repo and run `make docker` to build a docker image locally and run it using above command
 
 ### Cargo
 

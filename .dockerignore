@@ -1,0 +1,10 @@
+.github
+.git
+.vscode
+/screenshots
+/snap
+/target
+README.md
+CHANGELOG.md
+LICENSE
+ui.gif

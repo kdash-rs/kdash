@@ -1,5 +1,5 @@
 VERSION  := latest
-IMG_NAME := kdash-rs/kdash
+IMG_NAME := deepu105/kdash
 IMAGE    := ${IMG_NAME}:${VERSION}
 
 default: run
@@ -32,6 +32,10 @@ lint-fix:
 fmt:  
 	@cargo fmt
 
-## Build Docker Image
+## Build a Docker Image
 docker:    
-	@docker build --rm -t ${IMAGE} .
+	@DOCKER_BUILDKIT=1 docker build --rm -t ${IMAGE} .
+
+## Run Docker Image locally
+docker-run:    
+	@docker run --rm ${IMAGE}
