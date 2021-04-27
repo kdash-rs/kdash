@@ -4,6 +4,10 @@
 
 ## [0.0.5] - 27-Apr-2021
 
+### Added
+
+- Switch k8s contexts from the all contexts view
+
 ### Fixed
 
 - Scrolling issues

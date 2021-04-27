@@ -106,8 +106,8 @@ Press `?` while running the app to see keybindings
   - [x] Node metrics
   - [x] Context watch
   - [x] Change namespace?
-  - [ ] Context switch
-- [x] Resources utilizations
+  - [x] Context switch
+- [x] Resources utilizations for nodes, pods and namespaces based on metrics server
 - [x] Dark/Light themes
 - [ ] Custom keymap
 - [ ] Custom theme

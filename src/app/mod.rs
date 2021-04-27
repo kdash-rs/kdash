@@ -371,8 +371,8 @@ impl App {
         self.dispatch(IoEvent::RefreshClient).await;
         self.dispatch_stream(IoStreamEvent::RefreshClient).await;
       }
-      self.dispatch_cmd(IoCmdEvent::GetCliInfo).await;
       self.dispatch(IoEvent::GetKubeConfig).await;
+      self.dispatch_cmd(IoCmdEvent::GetCliInfo).await;
       // call these once  to pre-load data
       self.dispatch(IoEvent::GetPods).await;
       self.dispatch(IoEvent::GetServices).await;
