@@ -1,6 +1,4 @@
-use super::super::app::{
-  key_binding::DEFAULT_KEYBINDING, nodes::NodeMetrics, pods::KubePod, ActiveBlock, App,
-};
+use super::super::app::{key_binding::DEFAULT_KEYBINDING, nodes::NodeMetrics, ActiveBlock, App};
 use super::super::banner::BANNER;
 use super::utils::{
   get_gauge_style, horizontal_chunks, layout_block_default, layout_block_top_border,
@@ -239,7 +237,7 @@ fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 
   if !app.data.namespaces.items.is_empty() {
     let rows = app.data.namespaces.items.iter().map(|s| {
-      let style = if Some(s.name.clone()) == app.data.selected_ns {
+      let style = if Some(s.name.clone()) == app.data.selected.ns {
         style_secondary()
       } else {
         style_primary()
@@ -309,17 +307,16 @@ fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_containers<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let selected_pod = app.data.pods.get_selected_item();
   let title = title_with_dual_style(
-    get_container_title(app, &selected_pod, ""),
+    get_container_title(app, app.data.containers.items.len(), ""),
     "| Logs <enter> | Pods <esc>".into(),
     app.light_theme,
   );
 
   let block = layout_block_top_border_span(title);
 
-  if let Some(mut selected_pod) = selected_pod {
-    let rows = selected_pod.containers.items.iter().map(|c| {
+  if !app.data.containers.items.is_empty() {
+    let rows = app.data.containers.items.iter().map(|c| {
       let style = get_resource_row_style(&c.status.as_str());
       Row::new(vec![
         Cell::from(c.name.as_ref()),
@@ -348,7 +345,7 @@ fn draw_containers<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         Constraint::Percentage(10),
         Constraint::Percentage(10),
       ]);
-    f.render_stateful_widget(table, area, &mut selected_pod.containers.state);
+    f.render_stateful_widget(table, area, &mut app.data.containers.state);
   } else {
     loading(f, block, area, app.is_loading);
   }
@@ -424,7 +421,8 @@ fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     "Services (ns: {}) [{}]",
     app
       .data
-      .selected_ns
+      .selected
+      .ns
       .as_ref()
       .unwrap_or(&String::from("all")),
     app.data.services.items.len()
@@ -482,7 +480,8 @@ fn draw_config_maps<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     "Config Maps (ns: {}) [{}]",
     app
       .data
-      .selected_ns
+      .selected
+      .ns
       .as_ref()
       .unwrap_or(&String::from("all")),
     app.data.config_maps.items.len()
@@ -526,7 +525,8 @@ fn draw_stateful_sets<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     "StatefulSets (ns: {}) [{}]",
     app
       .data
-      .selected_ns
+      .selected
+      .ns
       .as_ref()
       .unwrap_or(&String::from("all")),
     app.data.stateful_sets.items.len()
@@ -572,7 +572,8 @@ fn draw_replica_sets<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     "ReplicaSets (ns: {}) [{}]",
     app
       .data
-      .selected_ns
+      .selected
+      .ns
       .as_ref()
       .unwrap_or(&String::from("all")),
     app.data.replica_sets.items.len()
@@ -620,7 +621,8 @@ pub fn draw_deployments<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect)
     "Deployments (ns: {}) [{}]",
     app
       .data
-      .selected_ns
+      .selected
+      .ns
       .as_ref()
       .unwrap_or(&String::from("all")),
     app.data.deployments.items.len()
@@ -671,15 +673,15 @@ pub fn draw_deployments<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect)
 }
 
 fn draw_logs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let selected_pod = app.data.pods.get_selected_item();
-  let container_name = selected_pod.as_ref().map_or("".into(), |p| {
-    p.containers
-      .get_selected_item()
-      .map_or("".into(), |c| c.name)
-  });
+  let selected_container = app.data.selected.container.clone();
+  let container_name = selected_container.unwrap_or_default();
 
   let title = title_with_dual_style(
-    get_container_title(app, &selected_pod, format!("-> Logs ({}) ", container_name)),
+    get_container_title(
+      app,
+      app.data.containers.items.len(),
+      format!("-> Logs ({}) ", container_name),
+    ),
     "| copy <c> | Containers <esc>".into(),
     app.light_theme,
   );
@@ -750,7 +752,8 @@ fn get_pod_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
     "Pods (ns: {}) [{}] {}",
     app
       .data
-      .selected_ns
+      .selected
+      .ns
       .as_ref()
       .unwrap_or(&String::from("all")),
     app.data.pods.items.len(),
@@ -758,20 +761,10 @@ fn get_pod_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
   )
 }
 
-fn get_container_title<S: AsRef<str>>(
-  app: &App,
-  selected_pod: &Option<KubePod>,
-  suffix: S,
-) -> String {
+fn get_container_title<S: AsRef<str>>(app: &App, container_len: usize, suffix: S) -> String {
   let title = get_pod_title(
     app,
-    format!(
-      "-> Containers [{}] {}",
-      selected_pod
-        .as_ref()
-        .map_or(0, |c| c.containers.items.len()),
-      suffix.as_ref()
-    ),
+    format!("-> Containers [{}] {}", container_len, suffix.as_ref()),
   );
   title
 }

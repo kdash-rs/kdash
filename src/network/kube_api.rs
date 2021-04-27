@@ -154,6 +154,18 @@ impl<'a> Network<'a> {
       .await;
 
     let mut app = self.app.lock().await;
+    if app.data.selected.pod.is_some() {
+      let containers = &items.iter().find_map(|pod| {
+        if pod.name == app.data.selected.pod.clone().unwrap() {
+          Some(&pod.containers)
+        } else {
+          None
+        }
+      });
+      if containers.is_some() {
+        app.data.containers.set_items(containers.unwrap().clone());
+      }
+    }
     app.data.pods.set_items(items);
   }
 
@@ -225,7 +237,7 @@ impl<'a> Network<'a> {
     <K as KubeResource>::DynamicType: Default,
   {
     let app = self.app.lock().await;
-    match &app.data.selected_ns {
+    match &app.data.selected.ns {
       Some(ns) => Api::namespaced(self.client.clone(), &ns),
       None => Api::all(self.client.clone()),
     }

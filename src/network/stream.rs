@@ -56,26 +56,27 @@ impl<'a> NetworkStream<'a> {
   }
 
   pub async fn stream_container_logs(&self, tail: bool) {
-    let (namespace, pod_name, cont_name) = {
+    let (namespace, pod_name) = {
       let app = self.app.lock().await;
-      if let Some(p) = app.data.pods.get_selected_item() {
-        (
-          p.namespace,
-          p.name,
-          p.containers
-            .get_selected_item()
-            .map_or("".into(), |c| c.name),
-        )
+      if let Some(p) = app.data.pods.get_selected_item_copy() {
+        (p.namespace, p.name)
       } else {
         (
           std::env::var("NAMESPACE").unwrap_or_else(|_| "default".into()),
           "".into(),
-          "".into(),
         )
       }
     };
+    let cont_name = {
+      let app = self.app.lock().await;
+      if let Some(name) = &app.data.selected.container {
+        name.to_owned()
+      } else {
+        "".into()
+      }
+    };
 
-    if pod_name.is_empty() {
+    if pod_name.is_empty() || cont_name.is_empty() {
       return;
     }
     let api: Api<Pod> = Api::namespaced(self.client.clone(), &namespace);
@@ -97,7 +98,7 @@ impl<'a> NetworkStream<'a> {
     match api.log_stream(&pod_name, &lp).await {
       Ok(logs) => {
         // set a timeout so we dont wait for next item and block the thread
-        let logs = logs.timeout(Duration::from_secs(5));
+        let logs = logs.timeout(Duration::from_secs(2));
         tokio::pin!(logs);
 
         #[allow(clippy::eval_order_dependence)]

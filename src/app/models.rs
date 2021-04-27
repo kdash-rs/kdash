@@ -24,12 +24,6 @@ impl<T> StatefulTable<T> {
     }
   }
 
-  pub fn with_items(items: Vec<T>) -> StatefulTable<T> {
-    let mut sft = StatefulTable::new();
-    sft.set_items(items);
-    sft
-  }
-
   pub fn set_items(&mut self, items: Vec<T>) {
     self.items = items;
     if !self.items.is_empty() {
@@ -69,7 +63,9 @@ impl<T> StatefulTable<T> {
 }
 
 impl<T: Clone> StatefulTable<T> {
-  pub fn get_selected_item(&self) -> Option<T> {
+  /// a clone of the currently selected item.
+  /// for mutable ref use state.selected() and fetch from items when needed
+  pub fn get_selected_item_copy(&self) -> Option<T> {
     if !self.items.is_empty() {
       self.state.selected().map(|i| self.items[i].clone())
     } else {

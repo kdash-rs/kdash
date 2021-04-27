@@ -1,4 +1,3 @@
-use super::models::StatefulTable;
 use super::utils::{self, UNKNOWN};
 use k8s_openapi::{
   api::core::v1::{ContainerState, ContainerStateWaiting, Pod, PodStatus},
@@ -15,7 +14,7 @@ pub struct KubePod {
   pub cpu: String,
   pub mem: String,
   pub age: String,
-  pub containers: StatefulTable<KubeContainer>,
+  pub containers: Vec<KubeContainer>,
 }
 
 #[derive(Clone)]
@@ -29,11 +28,13 @@ pub struct KubeContainer {
   pub readiness_probe: bool,
   pub ports: String,
   pub age: String,
+  pub pod_name: String,
 }
 
 impl KubePod {
   pub fn from_api(pod: &Pod) -> Self {
     let age = utils::to_age(pod.metadata.creation_timestamp.as_ref(), Utc::now());
+    let pod_name = pod.metadata.name.clone().unwrap_or_default();
     let (status, cr, restarts, c_stats_len, containers) = match &pod.status {
       Some(stat) => {
         let (mut cr, mut rc) = (0, 0);
@@ -57,6 +58,7 @@ impl KubePod {
           .iter()
           .map(|cs| KubeContainer {
             name: cs.name.clone(),
+            pod_name: pod_name.clone(),
             image: cs.image.clone(),
             ready: cs.ready.to_string(),
             status: get_container_state(cs.state.clone()),
@@ -74,8 +76,8 @@ impl KubePod {
     };
 
     KubePod {
+      name: pod_name,
       namespace: pod.metadata.namespace.clone().unwrap_or_default(),
-      name: pod.metadata.name.clone().unwrap_or_default(),
       ready: format!("{}/{}", cr, c_stats_len),
       restarts,
       // TODO implement pod metrics
@@ -83,7 +85,7 @@ impl KubePod {
       mem: String::default(),
       status,
       age,
-      containers: StatefulTable::with_items(containers),
+      containers,
     }
   }
 }

@@ -17,7 +17,8 @@ pub fn draw_utilization<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect)
     "Resource Utilization (ns: [{}], group by <g>: {:?})",
     app
       .data
-      .selected_ns
+      .selected
+      .ns
       .as_ref()
       .unwrap_or(&String::from("all")),
     app.utilization_group_by

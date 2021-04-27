@@ -21,7 +21,7 @@ use self::{
   models::{LogsState, ScrollableTxt, StatefulTable, TabsState},
   nodes::{KubeNode, NodeMetrics},
   ns::KubeNs,
-  pods::KubePod,
+  pods::{KubeContainer, KubePod},
   replicasets::KubeReplicaSet,
   statefulsets::KubeStatefulSet,
   svcs::KubeSvc,
@@ -81,6 +81,7 @@ pub struct Cli {
 
 /// Holds data state for various views
 pub struct Data {
+  pub selected: Selected,
   pub clis: Vec<Cli>,
   pub kubeconfig: Option<Kubeconfig>,
   pub contexts: StatefulTable<KubeContext>,
@@ -89,16 +90,25 @@ pub struct Data {
   pub node_metrics: Vec<NodeMetrics>,
   pub namespaces: StatefulTable<KubeNs>,
   pub pods: StatefulTable<KubePod>,
+  pub containers: StatefulTable<KubeContainer>,
   pub services: StatefulTable<KubeSvc>,
   pub config_maps: StatefulTable<KubeConfigMap>,
   pub stateful_sets: StatefulTable<KubeStatefulSet>,
   pub replica_sets: StatefulTable<KubeReplicaSet>,
   pub deployments: StatefulTable<KubeDeployments>,
-  pub selected_ns: Option<String>,
   pub logs: LogsState,
   pub describe_out: ScrollableTxt,
   pub metrics: StatefulTable<(Vec<String>, Option<QtyByQualifier>)>,
 }
+
+/// selected data items
+pub struct Selected {
+  pub ns: Option<String>,
+  pub pod: Option<String>,
+  pub container: Option<String>,
+  pub context: Option<String>,
+}
+
 /// Holds main application state
 pub struct App {
   navigation_stack: Vec<Route>,
@@ -139,12 +149,18 @@ impl Default for Data {
       node_metrics: vec![],
       namespaces: StatefulTable::new(),
       pods: StatefulTable::new(),
+      containers: StatefulTable::new(),
       services: StatefulTable::new(),
       config_maps: StatefulTable::new(),
       stateful_sets: StatefulTable::new(),
       replica_sets: StatefulTable::new(),
       deployments: StatefulTable::new(),
-      selected_ns: None,
+      selected: Selected {
+        ns: None,
+        pod: None,
+        container: None,
+        context: None,
+      },
       logs: LogsState::new(String::default()),
       describe_out: ScrollableTxt::new(),
       metrics: StatefulTable::new(),

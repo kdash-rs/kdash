@@ -56,7 +56,7 @@ pub async fn handle_mouse_events(mouse: MouseEvent, app: &mut App) {
 
 fn handle_escape(app: &mut App) {
   match app.get_current_route().id {
-    RouteId::HelpMenu | RouteId::Contexts | RouteId::Error => {
+    RouteId::HelpMenu | RouteId::Error => {
       app.pop_navigation_stack();
     }
     _ => match app.get_current_route().active_block {
@@ -95,7 +95,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         _ if key == DEFAULT_KEYBINDING.toggle_info.key => {
           app.show_info_bar = !app.show_info_bar;
         }
-        _ if key == DEFAULT_KEYBINDING.select_all_namespace.key => app.data.selected_ns = None,
+        _ if key == DEFAULT_KEYBINDING.select_all_namespace.key => app.data.selected.ns = None,
         _ if key == DEFAULT_KEYBINDING.jump_to_namespace.key => {
           app.push_navigation_stack(RouteId::Home, ActiveBlock::Namespaces);
         }
@@ -136,34 +136,25 @@ async fn handle_route_events(key: Key, app: &mut App) {
         ActiveBlock::Pods => {
           if key == DEFAULT_KEYBINDING.describe_resource.key {
             app.data.describe_out = ScrollableTxt::new();
-            let pod = app.data.pods.get_selected_item();
-            if let Some(p) = pod {
+            if let Some(pod) = app.data.pods.get_selected_item_copy() {
               app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
               app
                 .dispatch_cmd(IoCmdEvent::GetDescribe {
                   kind: "pod".to_owned(),
-                  value: p.name,
-                  ns: Some(p.namespace),
+                  value: pod.name,
+                  ns: Some(pod.namespace),
                 })
                 .await;
             }
-          } else {
-            let pod = handle_table_action(key, &mut app.data.pods);
-            if pod.is_some() {
-              app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
-            }
+          } else if let Some(pod) = handle_table_action(key, &mut app.data.pods) {
+            app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
+            app.data.selected.pod = Some(pod.name);
+            app.data.containers.set_items(pod.containers);
           }
         }
         ActiveBlock::Containers => {
-          let cont = handle_table_action(
-            key,
-            &mut app
-              .data
-              .pods
-              .get_selected_item()
-              .map_or(StatefulTable::new(), |p| p.containers),
-          );
-          if let Some(c) = cont {
+          if let Some(c) = handle_table_action(key, &mut app.data.containers) {
+            app.data.selected.container = Some(c.name.clone());
             app.dispatch_container_logs(c.name).await;
           }
         }
@@ -173,13 +164,12 @@ async fn handle_route_events(key: Key, app: &mut App) {
         ActiveBlock::Nodes => {
           if key == DEFAULT_KEYBINDING.describe_resource.key {
             app.data.describe_out = ScrollableTxt::new();
-            let node = app.data.nodes.get_selected_item();
-            if let Some(n) = node {
+            if let Some(node) = app.data.nodes.get_selected_item_copy() {
               app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
               app
                 .dispatch_cmd(IoCmdEvent::GetDescribe {
                   kind: "node".to_owned(),
-                  value: n.name,
+                  value: node.name,
                   ns: None,
                 })
                 .await;
@@ -191,7 +181,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         ActiveBlock::Namespaces => {
           let ns = handle_table_action(key, &mut app.data.namespaces);
           if let Some(v) = ns {
-            app.data.selected_ns = Some(v.name);
+            app.data.selected.ns = Some(v.name);
             app.pop_navigation_stack();
           }
         }
@@ -207,9 +197,13 @@ async fn handle_route_events(key: Key, app: &mut App) {
             copy_to_clipboard(app.data.describe_out.get_txt());
           }
         }
-        _ => {
-          // do nothing
-        }
+        ActiveBlock::Deployments
+        | ActiveBlock::ConfigMaps
+        | ActiveBlock::StatefulSets
+        | ActiveBlock::ReplicaSets
+        | ActiveBlock::Contexts
+        | ActiveBlock::Utilization
+        | ActiveBlock::Empty => { /* Do nothing */ }
       }
     }
     RouteId::Contexts => {
@@ -231,7 +225,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         app.tick_count = 0; // to force network request
       }
     }
-    _ => {}
+    RouteId::Error | RouteId::HelpMenu => { /* Do nothing */ }
   }
   // reset tick_count so that network requests are made faster
   if key == DEFAULT_KEYBINDING.submit.key {
@@ -244,7 +238,7 @@ fn handle_table_action<T: Clone>(key: Key, item: &mut StatefulTable<T>) -> Optio
     _ if key == DEFAULT_KEYBINDING.submit.key
       || key == DEFAULT_KEYBINDING.describe_resource.key =>
     {
-      item.get_selected_item()
+      item.get_selected_item_copy()
     }
     _ => None,
   }
@@ -269,18 +263,15 @@ fn inverse_dir(down: bool, is_mouse: bool) -> bool {
 
 async fn handle_scroll(app: &mut App, down: bool, is_mouse: bool) {
   match app.get_current_route().active_block {
+    ActiveBlock::Namespaces => handle_table_scroll(&mut app.data.namespaces, down),
     ActiveBlock::Pods => handle_table_scroll(&mut app.data.pods, down),
-    ActiveBlock::Containers => handle_table_scroll(
-      &mut app
-        .data
-        .pods
-        .get_selected_item()
-        .map_or(StatefulTable::new(), |p| p.containers),
-      down,
-    ),
+    ActiveBlock::Containers => handle_table_scroll(&mut app.data.containers, down),
     ActiveBlock::Services => handle_table_scroll(&mut app.data.services, down),
     ActiveBlock::Nodes => handle_table_scroll(&mut app.data.nodes, down),
-    ActiveBlock::Namespaces => handle_table_scroll(&mut app.data.namespaces, down),
+    ActiveBlock::ConfigMaps => handle_table_scroll(&mut app.data.config_maps, down),
+    ActiveBlock::StatefulSets => handle_table_scroll(&mut app.data.stateful_sets, down),
+    ActiveBlock::ReplicaSets => handle_table_scroll(&mut app.data.replica_sets, down),
+    ActiveBlock::Deployments => handle_table_scroll(&mut app.data.deployments, down),
     ActiveBlock::Contexts => handle_table_scroll(&mut app.data.contexts, down),
     ActiveBlock::Utilization => handle_table_scroll(&mut app.data.metrics, down),
     ActiveBlock::Logs => {
@@ -298,7 +289,7 @@ async fn handle_scroll(app: &mut App, down: bool, is_mouse: bool) {
         app.data.describe_out.scroll_up();
       }
     }
-    _ => {}
+    ActiveBlock::Empty => { /* Do nothing */ }
   }
 }
 
