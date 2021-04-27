@@ -1,6 +1,6 @@
 # KDash - A fast and simple dashboard for Kubernetes
 
-**Note**: This is a beta version
+**Note**: This is a beta version and is being actively developed. Feedback, feature requests and contributions are welcome
 
 ```
  _  __ ___             _

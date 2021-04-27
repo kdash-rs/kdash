@@ -1,6 +1,14 @@
 # Changelog
 
-## [Unreleased] - 25-Apr-2021
+## [Unreleased] - 27-Apr-2021
+
+## [0.0.5] - 27-Apr-2021
+
+### Fixed
+
+- Scrolling issues
+- Log streaming discrepancy
+- CLI versions UI glitch
 
 ## [0.0.4] - 26-Apr-2021
 
