@@ -13,17 +13,17 @@ pub struct KubeReplicaSet {
 }
 
 impl KubeReplicaSet {
-  pub fn from_api(rp: &ReplicaSet) -> Self {
-    let (current, ready) = match rp.status.as_ref() {
+  pub fn from_api(rps: &ReplicaSet) -> Self {
+    let (current, ready) = match rps.status.as_ref() {
       Some(s) => (s.replicas, s.ready_replicas.unwrap_or_default()),
       _ => (0, 0),
     };
 
     KubeReplicaSet {
-      name: rp.metadata.name.clone().unwrap_or_default(),
-      namespace: rp.metadata.namespace.clone().unwrap_or_default(),
-      age: utils::to_age(rp.metadata.creation_timestamp.as_ref(), Utc::now()),
-      desired: rp
+      name: rps.metadata.name.clone().unwrap_or_default(),
+      namespace: rps.metadata.namespace.clone().unwrap_or_default(),
+      age: utils::to_age(rps.metadata.creation_timestamp.as_ref(), Utc::now()),
+      desired: rps
         .spec
         .as_ref()
         .map_or(0, |s| s.replicas.unwrap_or_default()),

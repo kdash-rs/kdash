@@ -55,11 +55,11 @@ impl KubeNode {
       .map_or(false, |s| s.unschedulable.unwrap_or(false));
 
     let (status, version, cpu_a, mem_a) = match &node.status {
-      Some(stat) => {
+      Some(node_status) => {
         let status = if *unschedulable {
           Some("Unschedulable".into())
         } else {
-          match &stat.conditions {
+          match &node_status.conditions {
             Some(conds) => match conds
               .iter()
               .find(|c| c.type_ == "Ready" && c.status == "True")
@@ -70,12 +70,15 @@ impl KubeNode {
             _ => None,
           }
         };
-        let version = stat.node_info.as_ref().map(|i| i.kubelet_version.clone());
+        let version = node_status
+          .node_info
+          .as_ref()
+          .map(|i| i.kubelet_version.clone());
 
-        let (cpu, mem) = stat.allocatable.as_ref().map_or((None, None), |a| {
+        let (cpu, mem) = node_status.allocatable.as_ref().map_or((None, None), |a| {
           (
-            a.get("cpu").map(|i| i.0.clone()),
-            a.get("memory").map(|i| i.0.clone()),
+            a.get("cpu").map(|q| q.0.clone()),
+            a.get("memory").map(|q| q.0.clone()),
           )
         });
 
@@ -85,8 +88,8 @@ impl KubeNode {
     };
 
     let pod_count = match &pods_list {
-      Ok(ps) => ps.iter().fold(0, |acc, p| {
-        let p_node_name = p.spec.as_ref().and_then(|s| s.node_name.clone());
+      Ok(pods) => pods.iter().fold(0, |acc, pod| {
+        let p_node_name = pod.spec.as_ref().and_then(|spec| spec.node_name.clone());
         p_node_name.map_or(acc, |v| if v == node_name { acc + 1 } else { acc })
       }),
       _ => 0,

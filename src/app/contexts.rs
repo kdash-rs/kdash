@@ -25,7 +25,7 @@ pub fn get_contexts(config: &Kubeconfig) -> Vec<KubeContext> {
   config
     .contexts
     .iter()
-    .map(|it| KubeContext::from_api(it, is_active_context(&it.name, &config.current_context)))
+    .map(|ctx| KubeContext::from_api(ctx, is_active_context(&ctx.name, &config.current_context)))
     .collect::<Vec<KubeContext>>()
 }
 

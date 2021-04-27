@@ -7,9 +7,9 @@ pub static UNKNOWN: &str = "Unknown";
 
 pub fn to_age(timestamp: Option<&Time>, against: DateTime<Utc>) -> String {
   match timestamp {
-    Some(t) => {
-      let t = t.0;
-      let duration = against.signed_duration_since(t);
+    Some(time) => {
+      let time = time.0;
+      let duration = against.signed_duration_since(time);
 
       let mut out = String::new();
       if duration.num_weeks() != 0 {
@@ -37,28 +37,28 @@ pub fn to_age(timestamp: Option<&Time>, against: DateTime<Utc>) -> String {
   }
 }
 
-pub fn mem_to_mi(v: String) -> String {
-  if v.ends_with("Ki") {
-    let v_int = v.trim_end_matches("Ki").parse::<i64>().unwrap_or(0);
-    format!("{}Mi", v_int / 1024)
-  } else if v.ends_with("Gi") {
-    let v_int = v.trim_end_matches("Gi").parse::<i64>().unwrap_or(0);
-    format!("{}Mi", v_int * 1024)
+pub fn mem_to_mi(mem: String) -> String {
+  if mem.ends_with("Ki") {
+    let mem = mem.trim_end_matches("Ki").parse::<i64>().unwrap_or(0);
+    format!("{}Mi", mem / 1024)
+  } else if mem.ends_with("Gi") {
+    let mem = mem.trim_end_matches("Gi").parse::<i64>().unwrap_or(0);
+    format!("{}Mi", mem * 1024)
   } else {
-    v
+    mem
   }
 }
 
-pub fn cpu_to_milli(v: String) -> String {
-  if v.ends_with('m') {
-    v
-  } else if v.ends_with('n') {
+pub fn cpu_to_milli(cpu: String) -> String {
+  if cpu.ends_with('m') {
+    cpu
+  } else if cpu.ends_with('n') {
     format!(
       "{}m",
-      (convert_to_f64(v.trim_end_matches('n')) / 1000000f64).floor()
+      (convert_to_f64(cpu.trim_end_matches('n')) / 1000000f64).floor()
     )
   } else {
-    format!("{}m", (convert_to_f64(&v) * 1000f64).floor())
+    format!("{}m", (convert_to_f64(&cpu) * 1000f64).floor())
   }
 }
 

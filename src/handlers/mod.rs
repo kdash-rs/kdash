@@ -161,7 +161,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
               .data
               .pods
               .get_selected_item()
-              .map_or(StatefulTable::new(), |c| c.containers),
+              .map_or(StatefulTable::new(), |p| p.containers),
           );
           if let Some(c) = cont {
             app.dispatch_container_logs(c.name).await;
@@ -275,7 +275,7 @@ async fn handle_scroll(app: &mut App, down: bool, is_mouse: bool) {
         .data
         .pods
         .get_selected_item()
-        .map_or(StatefulTable::new(), |c| c.containers),
+        .map_or(StatefulTable::new(), |p| p.containers),
       down,
     ),
     ActiveBlock::Services => handle_table_scroll(&mut app.data.services, down),

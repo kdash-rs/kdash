@@ -284,10 +284,13 @@ impl App {
   }
 
   pub fn set_contexts(&mut self, contexts: Vec<KubeContext>) {
-    self.data.active_context =
-      contexts
-        .iter()
-        .find_map(|it| if it.is_active { Some(it.clone()) } else { None });
+    self.data.active_context = contexts.iter().find_map(|ctx| {
+      if ctx.is_active {
+        Some(ctx.clone())
+      } else {
+        None
+      }
+    });
     self.data.contexts.set_items(contexts);
   }
 
@@ -296,11 +299,8 @@ impl App {
     self.api_error = e.to_string();
   }
 
-  pub fn push_navigation_stack(&mut self, next_route_id: RouteId, next_active_block: ActiveBlock) {
-    self.navigation_stack.push(Route {
-      id: next_route_id,
-      active_block: next_active_block,
-    });
+  pub fn push_navigation_stack(&mut self, id: RouteId, active_block: ActiveBlock) {
+    self.navigation_stack.push(Route { id, active_block });
     self.is_routing = true;
   }
 
@@ -338,8 +338,8 @@ impl App {
     self.push_navigation_stack(RouteId::Utilization, ActiveBlock::Utilization);
   }
 
-  pub async fn dispatch_container_logs(&mut self, c: String) {
-    self.data.logs = LogsState::new(c);
+  pub async fn dispatch_container_logs(&mut self, id: String) {
+    self.data.logs = LogsState::new(id);
     self.push_navigation_stack(RouteId::Home, ActiveBlock::Logs);
     self.dispatch_stream(IoStreamEvent::GetPodLogs(true)).await;
   }

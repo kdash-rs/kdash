@@ -65,18 +65,18 @@ impl KubeSvc {
   }
 }
 
-fn get_ports(sports: Option<Vec<ServicePort>>) -> Vec<String> {
-  match sports {
+fn get_ports(s_ports: Option<Vec<ServicePort>>) -> Vec<String> {
+  match s_ports {
     Some(ports) => ports
       .iter()
-      .map(|s| {
+      .map(|s_port| {
         let mut port = String::new();
-        if s.name.is_some() {
-          port = format!("{}:", s.name.clone().unwrap());
+        if s_port.name.is_some() {
+          port = format!("{}:", s_port.name.clone().unwrap());
         }
-        port = format!("{}{}►{}", port, s.port, s.node_port.unwrap_or(0));
-        if s.protocol.is_some() && s.protocol.clone().unwrap() == "TCP" {
-          port = format!("{}/{}", port, s.protocol.clone().unwrap());
+        port = format!("{}{}►{}", port, s_port.port, s_port.node_port.unwrap_or(0));
+        if s_port.protocol.is_some() && s_port.protocol.clone().unwrap() == "TCP" {
+          port = format!("{}/{}", port, s_port.protocol.clone().unwrap());
         }
         port
       })
@@ -94,11 +94,11 @@ fn get_lb_ext_ips(service: &Service, external_ips: Option<Vec<String>>) -> Optio
           .clone()
           .unwrap_or_default()
           .iter()
-          .map(|it| {
-            if it.ip.is_some() {
-              it.ip.clone().unwrap_or_default()
-            } else if it.hostname.is_some() {
-              it.hostname.clone().unwrap_or_default()
+          .map(|lb_ing| {
+            if lb_ing.ip.is_some() {
+              lb_ing.ip.clone().unwrap_or_default()
+            } else if lb_ing.hostname.is_some() {
+              lb_ing.hostname.clone().unwrap_or_default()
             } else {
               String::default()
             }

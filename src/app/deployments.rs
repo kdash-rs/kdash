@@ -13,8 +13,8 @@ pub struct KubeDeployments {
 }
 
 impl KubeDeployments {
-  pub fn from_api(dp: &Deployment) -> Self {
-    let (ready, available, updated) = match &dp.status {
+  pub fn from_api(deployment: &Deployment) -> Self {
+    let (ready, available, updated) = match &deployment.status {
       Some(s) => (
         format!(
           "{}/{}",
@@ -28,9 +28,9 @@ impl KubeDeployments {
     };
 
     KubeDeployments {
-      name: dp.metadata.name.clone().unwrap_or_default(),
-      namespace: dp.metadata.namespace.clone().unwrap_or_default(),
-      age: utils::to_age(dp.metadata.creation_timestamp.as_ref(), Utc::now()),
+      name: deployment.metadata.name.clone().unwrap_or_default(),
+      namespace: deployment.metadata.namespace.clone().unwrap_or_default(),
+      age: utils::to_age(deployment.metadata.creation_timestamp.as_ref(), Utc::now()),
       available,
       updated,
       ready,

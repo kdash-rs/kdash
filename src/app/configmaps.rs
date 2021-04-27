@@ -15,7 +15,7 @@ pub struct KubeConfigMap {
 impl KubeConfigMap {
   pub fn from_api(cm: &ConfigMap) -> Self {
     let data = match cm.data.as_ref() {
-      Some(d) => d.to_owned(),
+      Some(data) => data.to_owned(),
       _ => BTreeMap::new(),
     };
 

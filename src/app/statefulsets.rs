@@ -12,17 +12,17 @@ pub struct KubeStatefulSet {
 }
 
 impl KubeStatefulSet {
-  pub fn from_api(sts: &StatefulSet) -> Self {
-    let ready = match &sts.status {
+  pub fn from_api(stfs: &StatefulSet) -> Self {
+    let ready = match &stfs.status {
       Some(s) => format!("{}/{}", s.ready_replicas.unwrap_or_default(), s.replicas),
       _ => "".into(),
     };
 
     KubeStatefulSet {
-      name: sts.metadata.name.clone().unwrap_or_default(),
-      namespace: sts.metadata.namespace.clone().unwrap_or_default(),
-      age: utils::to_age(sts.metadata.creation_timestamp.as_ref(), Utc::now()),
-      service: sts
+      name: stfs.metadata.name.clone().unwrap_or_default(),
+      namespace: stfs.metadata.namespace.clone().unwrap_or_default(),
+      age: utils::to_age(stfs.metadata.creation_timestamp.as_ref(), Utc::now()),
+      service: stfs
         .spec
         .as_ref()
         .map_or("n/a".into(), |spec| spec.service_name.to_owned()),

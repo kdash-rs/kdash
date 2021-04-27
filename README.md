@@ -17,7 +17,7 @@ A simple terminal dashboard for Kubernetes built with Rust
 
 ### Homebrew (Mac & Linux)
 
-```
+```bash
 brew tap kdash-rs/kdash
 brew install kdash
 
@@ -41,7 +41,7 @@ Binaries for macOS, Linux and Windows are available on the [releases](https://gi
 
 Run KDash as a Docker container by mounting your `KUBECONFIG`. For example the below for default path
 
-```shell
+```bash
 docker run --rm -it -v ~/.kube/config:/root/.kube/config deepu105/kdash
 ```
 
@@ -53,7 +53,7 @@ You can also clone this repo and run `make docker` to build a docker image local
 
 If you have Cargo installed then you install KDash from crates.io
 
-```
+```bash
 cargo install kdash
 ```
 

@@ -78,7 +78,7 @@ impl<'a> NetworkStream<'a> {
     if pod_name.is_empty() {
       return;
     }
-    let pods: Api<Pod> = Api::namespaced(self.client.clone(), &namespace);
+    let api: Api<Pod> = Api::namespaced(self.client.clone(), &namespace);
     let lp = LogParams {
       container: Some(cont_name.clone()),
       follow: true,
@@ -94,7 +94,7 @@ impl<'a> NetworkStream<'a> {
     }
 
     // TODO investigate why this gives wrong log at times
-    match pods.log_stream(&pod_name, &lp).await {
+    match api.log_stream(&pod_name, &lp).await {
       Ok(logs) => {
         // set a timeout so we dont wait for next item and block the thread
         let logs = logs.timeout(Duration::from_secs(5));
@@ -105,7 +105,7 @@ impl<'a> NetworkStream<'a> {
           {
             let app = self.app.lock().await;
             app.get_current_route().active_block == ActiveBlock::Logs
-              || app.data.logs.id == cont_name
+              && app.data.logs.id == cont_name
           },
           logs.try_next().await,
         ) {

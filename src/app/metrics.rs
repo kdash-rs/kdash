@@ -114,18 +114,18 @@ impl FromStr for Scale {
   fn from_str(s: &str) -> Result<Self, Self::Err> {
     SCALES
       .iter()
-      .find(|v| v.label == s)
+      .find(|scale| scale.label == s)
       .cloned()
       .ok_or_else(|| anyhow!("scale not found in {}", s))
   }
 }
 
 impl From<&Scale> for f64 {
-  fn from(v: &Scale) -> f64 {
-    if v.pow == 0 || v.base == 0 {
+  fn from(scale: &Scale) -> f64 {
+    if scale.pow == 0 || scale.base == 0 {
       1.0
     } else {
-      f64::from(v.base).powf(f64::from(v.pow))
+      f64::from(scale.base).powf(f64::from(scale.pow))
     }
   }
 }
@@ -133,13 +133,13 @@ impl From<&Scale> for f64 {
 impl PartialOrd for Scale {
   //TODO optimize accuracy with big number
   fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-    let v1 = f64::from(self);
-    let v2 = f64::from(other);
-    if v1 > v2 {
+    let v_self = f64::from(self);
+    let v_other = f64::from(other);
+    if v_self > v_other {
       Some(Ordering::Greater)
-    } else if v1 < v2 {
+    } else if v_self < v_other {
       Some(Ordering::Less)
-    } else if (v1 - v2).abs() < std::f64::EPSILON {
+    } else if (v_self - v_other).abs() < std::f64::EPSILON {
       Some(Ordering::Equal)
     } else {
       None
@@ -164,8 +164,8 @@ pub struct Qty {
 }
 
 impl From<&Qty> for f64 {
-  fn from(v: &Qty) -> f64 {
-    (v.value as f64) * 0.001
+  fn from(qty: &Qty) -> f64 {
+    (qty.value as f64) * 0.001
   }
 }
 
@@ -207,26 +207,26 @@ impl Qty {
 
 impl FromStr for Qty {
   type Err = Error;
-  fn from_str(s: &str) -> Result<Self, Self::Err> {
-    let (num_str, scale_str): (&str, &str) = match s
+  fn from_str(val: &str) -> Result<Self, Self::Err> {
+    let (num_str, scale_str): (&str, &str) = match val
       .find(|c: char| !c.is_digit(10) && c != 'E' && c != 'e' && c != '+' && c != '-' && c != '.')
     {
-      Some(pos) => (&s[..pos], &s[pos..]),
-      None => (s, ""),
+      Some(pos) => (&val[..pos], &val[pos..]),
+      None => (val, ""),
     };
     let scale = Scale::from_str(scale_str.trim())
-      .with_context(|| format!("Failed to read Qty (scale) from {}", s))?;
+      .with_context(|| format!("Failed to read Qty (scale) from {}", val))?;
     let num =
-      f64::from_str(num_str).with_context(|| format!("Failed to read Qty (num) from {}", s))?;
+      f64::from_str(num_str).with_context(|| format!("Failed to read Qty (num) from {}", val))?;
     let value = (num * f64::from(&scale) * 1000f64) as i64;
     Ok(Qty { value, scale })
   }
 }
 
 impl std::fmt::Display for Qty {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+  fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(
-      f,
+      formatter,
       "{:.1}{}",
       (self.value as f64 / (f64::from(&self.scale) * 1000f64)),
       self.scale.label
@@ -237,18 +237,18 @@ impl std::fmt::Display for Qty {
 impl PartialOrd for Qty {
   //TODO optimize accuracy with big number
   fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-    let v1 = self.value; // f64::from(self);
-    let v2 = other.value; // f64::from(other);
-    v1.partial_cmp(&v2)
+    let v_self = self.value; // f64::from(self);
+    let v_other = other.value; // f64::from(other);
+    v_self.partial_cmp(&v_other)
   }
 }
 
 impl Ord for Qty {
   //TODO optimize accuracy with big number
   fn cmp(&self, other: &Self) -> Ordering {
-    let v1 = self.value; // f64::from(self);
-    let v2 = other.value; // f64::from(other);
-    v1.partial_cmp(&v2).unwrap() // i64 should always be comparable (no NaNs or anything crazy like that)
+    let v_self = self.value; // f64::from(self);
+    let v_other = other.value; // f64::from(other);
+    v_self.partial_cmp(&v_other).unwrap() // i64 should always be comparable (no NaNs or anything crazy like that)
   }
 }
 
@@ -333,24 +333,24 @@ impl GroupBy {
   }
 
   #[allow(clippy::unnecessary_wraps)]
-  fn extract_kind(e: &Resource) -> Option<String> {
-    Some(e.kind.clone())
+  fn extract_kind(r: &Resource) -> Option<String> {
+    Some(r.kind.clone())
   }
 
-  fn extract_node_name(e: &Resource) -> Option<String> {
-    e.location.node_name.clone()
+  fn extract_node_name(r: &Resource) -> Option<String> {
+    r.location.node_name.clone()
   }
 
-  fn extract_pod_name(e: &Resource) -> Option<String> {
+  fn extract_pod_name(r: &Resource) -> Option<String> {
     // We do not need to display "pods" resource types when grouping by pods
-    if e.kind == "pods" {
+    if r.kind == "pods" {
       return None;
     }
-    e.location.pod_name.clone()
+    r.location.pod_name.clone()
   }
 
-  fn extract_namespace(e: &Resource) -> Option<String> {
-    e.location.namespace.clone()
+  fn extract_namespace(r: &Resource) -> Option<String> {
+    r.location.namespace.clone()
   }
 }
 
@@ -471,7 +471,7 @@ impl Resource {
         node_name: node.metadata.name,
         ..Location::default()
       };
-      if let Some(als) = node.status.and_then(|v| v.allocatable) {
+      if let Some(als) = node.status.and_then(|status| status.allocatable) {
         // add_resource(resources, &location, ResourceUsage::Allocatable, &als)?
         for (kind, value) in als.iter() {
           let quantity = Qty::from_str(&(value).0)?;
@@ -510,7 +510,7 @@ fn make_group_x_qualifier(
   if let Some(group_by) = group_by_fct.get(group_by_depth) {
     for (key, group) in rsrcs
       .iter()
-      .filter_map(|e| group_by(e).map(|k| (k, *e)))
+      .filter_map(|r| group_by(r).map(|s| (s, *r)))
       .into_group_map()
     {
       let mut key_full = prefix.to_vec();
@@ -537,13 +537,13 @@ fn sum_by_qualifier(rsrcs: &[&Resource]) -> Option<QtyByQualifier> {
       .kind
       .clone();
 
-    if rsrcs.iter().all(|i| i.kind == kind) {
-      let sum = rsrcs.iter().fold(QtyByQualifier::default(), |mut acc, v| {
-        match &v.qualifier {
-          ResourceQualifier::Limit => acc.limit = add(acc.limit, &v.quantity),
-          ResourceQualifier::Requested => acc.requested = add(acc.requested, &v.quantity),
-          ResourceQualifier::Allocatable => acc.allocatable = add(acc.allocatable, &v.quantity),
-          ResourceQualifier::Utilization => acc.utilization = add(acc.utilization, &v.quantity),
+    if rsrcs.iter().all(|r| r.kind == kind) {
+      let sum = rsrcs.iter().fold(QtyByQualifier::default(), |mut acc, r| {
+        match &r.qualifier {
+          ResourceQualifier::Limit => acc.limit = add(acc.limit, &r.quantity),
+          ResourceQualifier::Requested => acc.requested = add(acc.requested, &r.quantity),
+          ResourceQualifier::Allocatable => acc.allocatable = add(acc.allocatable, &r.quantity),
+          ResourceQualifier::Utilization => acc.utilization = add(acc.utilization, &r.quantity),
         };
         acc
       });
