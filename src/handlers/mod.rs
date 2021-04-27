@@ -28,7 +28,7 @@ pub async fn handle_key_events(key: Key, app: &mut App) {
       app.light_theme = !app.light_theme;
     }
     _ if key == DEFAULT_KEYBINDING.refresh.key => {
-      app.refresh = true;
+      app.refresh();
     }
     _ if key == DEFAULT_KEYBINDING.help.key => {
       app.push_navigation_stack(RouteId::HelpMenu, ActiveBlock::Empty)
@@ -179,9 +179,8 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Namespaces => {
-          let ns = handle_table_action(key, &mut app.data.namespaces);
-          if let Some(v) = ns {
-            app.data.selected.ns = Some(v.name);
+          if let Some(ns) = handle_table_action(key, &mut app.data.namespaces) {
+            app.data.selected.ns = Some(ns.name);
             app.pop_navigation_stack();
           }
         }
@@ -207,7 +206,11 @@ async fn handle_route_events(key: Key, app: &mut App) {
       }
     }
     RouteId::Contexts => {
-      let _ctx = handle_table_action(key, &mut app.data.contexts);
+      if let Some(ctx) = handle_table_action(key, &mut app.data.contexts) {
+        app.data.selected.context = Some(ctx.name);
+        app.refresh();
+        app.route_home();
+      }
     }
     RouteId::Utilization => {
       if key == DEFAULT_KEYBINDING.cycle_group_by.key {

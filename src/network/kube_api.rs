@@ -27,7 +27,8 @@ impl<'a> Network<'a> {
     match Kubeconfig::read() {
       Ok(config) => {
         let mut app = self.app.lock().await;
-        app.set_contexts(contexts::get_contexts(&config));
+        let selected_ctx = app.data.selected.context.to_owned();
+        app.set_contexts(contexts::get_contexts(&config, selected_ctx));
         app.data.kubeconfig = Some(config);
       }
       Err(e) => {

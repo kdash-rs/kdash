@@ -4,7 +4,7 @@ pub(crate) mod stream;
 
 use super::app::{self, App};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use kube::Client;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -24,7 +24,7 @@ pub enum IoEvent {
   RefreshClient,
 }
 
-async fn _refresh_kube_config(context: &Option<String>) -> Result<()> {
+async fn refresh_kube_config(context: &Option<String>) -> Result<()> {
   //HACK force refresh token by calling "kubectl cluster-info before loading configuration"
   use std::process::Command;
   let mut cmd = Command::new("kubectl");
@@ -39,12 +39,12 @@ async fn _refresh_kube_config(context: &Option<String>) -> Result<()> {
   Ok(())
 }
 
-pub async fn get_client(context: Option<String>) -> kube::Result<Client> {
+pub async fn get_client(context: Option<String>) -> Result<kube::Client> {
   use core::convert::TryFrom;
 
-  //   refresh_kube_config(&context)
-  //     .await
-  //     .expect("kubectl cluster-info` failed");
+  refresh_kube_config(&context)
+    .await
+    .with_context(|| "failed to refresh kubectl config".to_string())?;
 
   let client_config = match context.as_ref() {
     Some(context) => {
@@ -57,6 +57,7 @@ pub async fn get_client(context: Option<String>) -> kube::Result<Client> {
     None => kube::Config::infer().await?,
   };
   kube::Client::try_from(client_config)
+    .with_context(|| "failed to create the kube client".to_string())
 }
 
 #[derive(Clone)]
@@ -71,12 +72,16 @@ impl<'a> Network<'a> {
   }
 
   pub async fn refresh_client(&mut self) {
-    // TODO find a better way to do this
-    match get_client(None).await {
+    let context = {
+      let app = self.app.lock().await;
+      app.data.selected.context.clone()
+    };
+    match get_client(context.clone()).await {
       Ok(client) => {
         self.client = client;
         let mut app = self.app.lock().await;
         app.reset();
+        app.data.selected.context = context;
       }
       Err(e) => self.handle_error(anyhow!(e)).await,
     };

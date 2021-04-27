@@ -27,7 +27,11 @@ impl<'a> NetworkStream<'a> {
   }
 
   pub async fn refresh_client(&mut self) {
-    match get_client(None).await {
+    let context = {
+      let app = self.app.lock().await;
+      app.data.selected.context.clone()
+    };
+    match get_client(context).await {
       Ok(client) => {
         self.client = client;
       }

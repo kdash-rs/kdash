@@ -21,17 +21,29 @@ impl KubeContext {
   }
 }
 
-pub fn get_contexts(config: &Kubeconfig) -> Vec<KubeContext> {
+pub fn get_contexts(config: &Kubeconfig, selected_ctx: Option<String>) -> Vec<KubeContext> {
   config
     .contexts
     .iter()
-    .map(|ctx| KubeContext::from_api(ctx, is_active_context(&ctx.name, &config.current_context)))
+    .map(|ctx| {
+      KubeContext::from_api(
+        ctx,
+        is_active_context(&ctx.name, &config.current_context, selected_ctx.to_owned()),
+      )
+    })
     .collect::<Vec<KubeContext>>()
 }
 
-fn is_active_context(name: &str, current_ctx: &Option<String>) -> bool {
-  match current_ctx {
+fn is_active_context(
+  name: &str,
+  current_ctx: &Option<String>,
+  selected_ctx: Option<String>,
+) -> bool {
+  match selected_ctx {
     Some(ctx) => name == ctx,
-    None => false,
+    None => match current_ctx {
+      Some(ctx) => name == ctx,
+      None => false,
+    },
   }
 }

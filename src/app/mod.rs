@@ -360,6 +360,10 @@ impl App {
     self.dispatch_stream(IoStreamEvent::GetPodLogs(true)).await;
   }
 
+  pub fn refresh(&mut self) {
+    self.refresh = true
+  }
+
   pub async fn on_tick(&mut self, first_render: bool) {
     // Make one time requests on first render or refresh
     if self.refresh {
