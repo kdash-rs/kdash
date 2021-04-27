@@ -25,6 +25,10 @@ brew install kdash
 brew install kdash-rs/kdash/kdash
 ```
 
+### Chocolatey
+
+TODO
+
 ### Install script
 
 TODO
@@ -42,6 +46,8 @@ docker run --rm -it -v ~/.kube/config:/root/.kube/config deepu105/kdash
 ```
 
 You can also clone this repo and run `make docker` to build a docker image locally and run it using above command
+
+**Note**: This may not work properly if you run Kubernetes locally using Minikube or Kind
 
 ### Cargo
 

@@ -10,15 +10,15 @@ test:
 
 ## Builds the app for current os-arch
 build:  
-	@cargo clean && cargo fmt && cargo check && cargo build --release
+	@cargo clean && make test && cargo build --release
 
 ## Runs the app
 run:  
-	@cargo fmt && cargo clippy && cargo run
+	@cargo fmt && make lint && cargo run
 
 ## Run clippy
 lint:  
-	@find . | grep "\.rs$" | xargs touch ; cargo clippy
+	@find . | grep '\.\/src\/.*\.rs$$' | xargs touch && cargo clippy --all-targets --workspace -- -D warnings
 
 ## Force Run clippy
 lint-force:  

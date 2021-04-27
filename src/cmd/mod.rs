@@ -52,69 +52,54 @@ impl<'a> CmdRunner<'a> {
   async fn get_cli_info(&self) {
     let mut clis: Vec<Cli> = vec![];
 
-    let (version, status) = match cmd!("kubectl", "version", "--client", "-o", "json").read() {
+    let (version_c, version_s) = match cmd!("kubectl", "version", "-o", "json").read() {
       Ok(out) => {
         let v: serde_json::Result<JValue> = serde_json::from_str(&*out);
         match v {
-          Ok(val) => (val["clientVersion"]["gitVersion"].to_string(), true),
-          _ => (NOT_FOUND.into(), false),
+          Ok(val) => (
+            Some(
+              val["clientVersion"]["gitVersion"]
+                .to_string()
+                .replace('"', ""),
+            ),
+            Some(
+              val["serverVersion"]["gitVersion"]
+                .to_string()
+                .replace('"', ""),
+            ),
+          ),
+          _ => (None, None),
         }
       }
-      _ => (NOT_FOUND.into(), false),
+      _ => (None, None),
     };
 
-    clis.push(app::Cli {
-      name: "kubectl".to_owned(),
-      version: version.replace('"', ""),
-      status,
-    });
+    clis.push(build_cli("kubectl client", version_c));
+    clis.push(build_cli("kubectl server", version_s));
 
-    let (version, status) = cmd!("docker", "version", "--format", "'{{.Client.Version}}'")
+    let version = cmd!("docker", "version", "--format", "'{{.Client.Version}}'")
       .read()
-      .map_or((NOT_FOUND.into(), false), |out| (out, true));
+      .map_or(None, |out| Some(format!("v{}", out.replace("'", ""))));
 
-    clis.push(app::Cli {
-      name: "docker".to_owned(),
-      version: format!("v{}", version.replace("'", "")),
-      status,
-    });
+    clis.push(build_cli("docker", version));
 
-    let (version, status) = cmd!("docker-compose", "version", "--short")
+    let version = cmd!("docker-compose", "version", "--short")
       .read()
-      .map_or((NOT_FOUND.into(), false), |out| (out, true));
+      .map_or(None, |out| Some(format!("v{}", out.replace("'", ""))));
 
-    clis.push(app::Cli {
-      name: "docker-compose".into(),
-      version: format!("v{}", version.replace("'", "")),
-      status,
-    });
+    clis.push(build_cli("docker-compose", version));
 
-    let (version, status) =
-      get_info_by_regex("kind", &["version"], r"(v[0-9.]+)", NOT_FOUND.into());
+    let version = get_info_by_regex("kind", &["version"], r"(v[0-9.]+)");
 
-    clis.push(app::Cli {
-      name: "kind".to_owned(),
-      version,
-      status,
-    });
+    clis.push(build_cli("kind", version));
 
-    let (version, status) =
-      get_info_by_regex("helm", &["version", "-c"], r"(v[0-9.]+)", NOT_FOUND.into());
+    let version = get_info_by_regex("helm", &["version", "-c"], r"(v[0-9.]+)");
 
-    clis.push(app::Cli {
-      name: "helm".to_owned(),
-      version,
-      status,
-    });
+    clis.push(build_cli("helm", version));
 
-    let (version, status) =
-      get_info_by_regex("istioctl", &["version"], r"([0-9.]+)", NOT_FOUND.into());
+    let version = get_info_by_regex("istioctl", &["version"], r"([0-9.]+)");
 
-    clis.push(app::Cli {
-      name: "istioctl".to_owned(),
-      version: format!("v{}", version),
-      status,
-    });
+    clis.push(build_cli("istioctl", version.map(|v| format!("v{}", v))));
 
     let mut app = self.app.lock().await;
     app.data.clis = clis;
@@ -150,19 +135,51 @@ impl<'a> CmdRunner<'a> {
 
 // utils
 
+fn build_cli(name: &str, version: Option<String>) -> app::Cli {
+  app::Cli {
+    name: name.to_owned(),
+    status: version.is_some(),
+    version: version.unwrap_or_else(|| NOT_FOUND.into()),
+  }
+}
+
 /// execute a command and get info from it using regex
-fn get_info_by_regex(command: &str, args: &[&str], regex: &str, default: String) -> (String, bool) {
+fn get_info_by_regex(command: &str, args: &[&str], regex: &str) -> Option<String> {
   match cmd(command, args).read() {
     Ok(out) => match Regex::new(regex) {
       Ok(re) => match re.captures(out.as_str()) {
         Some(cap) => match cap.get(1) {
-          Some(text) => (text.as_str().into(), true),
-          _ => (default, false),
+          Some(text) => Some(text.as_str().into()),
+          _ => None,
         },
-        _ => (default, false),
+        _ => None,
       },
-      _ => (default, false),
+      _ => None,
     },
-    _ => (default, false),
+    _ => None,
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  #[test]
+  fn test_get_info_by_regex() {
+    use super::get_info_by_regex;
+    assert_eq!(
+        get_info_by_regex(
+            "echo", 
+            &["Client: &version.Version{SemVer:\"v2.17.0\", GitCommit:\"a690bad98af45b015bd3da1a41f6218b1a451dbe\", GitTreeState:\"clean\"} \n Error: could not find tiller"], 
+            r"(v[0-9.]+)"
+        ),
+        Some("v2.17.0".into())
+    );
+    assert_eq!(
+      get_info_by_regex(
+        "echo",
+        &["no running Istio pods in \"istio-system\"\n1.8.2"],
+        r"([0-9.]+)"
+      ),
+      Some("1.8.2".into())
+    );
   }
 }
