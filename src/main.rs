@@ -142,7 +142,7 @@ async fn main() -> Result<()> {
 }
 
 #[tokio::main]
-async fn start_network(mut io_rx: tokio::sync::mpsc::Receiver<IoEvent>, app: &Arc<Mutex<App>>) {
+async fn start_network(mut io_rx: mpsc::Receiver<IoEvent>, app: &Arc<Mutex<App>>) {
   match get_client(None).await {
     Ok(client) => {
       let mut network = Network::new(client, app);
@@ -156,10 +156,7 @@ async fn start_network(mut io_rx: tokio::sync::mpsc::Receiver<IoEvent>, app: &Ar
 }
 
 #[tokio::main]
-async fn start_stream_network(
-  mut io_rx: tokio::sync::mpsc::Receiver<IoStreamEvent>,
-  app: &Arc<Mutex<App>>,
-) {
+async fn start_stream_network(mut io_rx: mpsc::Receiver<IoStreamEvent>, app: &Arc<Mutex<App>>) {
   match get_client(None).await {
     Ok(client) => {
       let mut network = NetworkStream::new(client, app);
@@ -173,10 +170,7 @@ async fn start_stream_network(
 }
 
 #[tokio::main]
-async fn start_cmd_runner(
-  mut io_rx: tokio::sync::mpsc::Receiver<IoCmdEvent>,
-  app: &Arc<Mutex<App>>,
-) {
+async fn start_cmd_runner(mut io_rx: mpsc::Receiver<IoCmdEvent>, app: &Arc<Mutex<App>>) {
   let mut cmd = CmdRunner::new(app);
 
   while let Some(io_event) = io_rx.recv().await {

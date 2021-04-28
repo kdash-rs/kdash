@@ -166,12 +166,12 @@ mod tests {
   fn test_get_info_by_regex() {
     use super::get_info_by_regex;
     assert_eq!(
-        get_info_by_regex(
-            "echo", 
-            &["Client: &version.Version{SemVer:\"v2.17.0\", GitCommit:\"a690bad98af45b015bd3da1a41f6218b1a451dbe\", GitTreeState:\"clean\"} \n Error: could not find tiller"], 
-            r"(v[0-9.]+)"
-        ),
-        Some("v2.17.0".into())
+      get_info_by_regex(
+        "echo",
+        &["Client: &version.Version{SemVer:\"v2.17.0\", GitCommit:\"a690bad98af45b015bd3da1a41f6218b1a451dbe\", GitTreeState:\"clean\"} \n Error: could not find tiller"],
+        r"(v[0-9.]+)"
+      ),
+      Some("v2.17.0".into())
     );
     assert_eq!(
       get_info_by_regex(

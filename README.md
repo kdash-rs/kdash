@@ -2,7 +2,7 @@
 
 **Note**: This is a beta version and is being actively developed. Feedback, feature requests and contributions are welcome
 
-```
+```rust
  _  __ ___             _
 | |/ /|   \  __ _  ___| |_
 | ' < | |) |/ _` |(_-<| ' \

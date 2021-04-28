@@ -109,7 +109,9 @@ impl fmt::Display for Key {
       | Key::Home
       | Key::End
       | Key::PageUp
-      | Key::PageDown => write!(f, "<{:?}>", self),
+      | Key::PageDown => {
+        write!(f, "<{:?}>", self)
+      }
       _ => write!(f, "{:?}", self),
     }
   }
