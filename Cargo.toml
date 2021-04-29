@@ -38,7 +38,7 @@ clipboard = "0.5"
 kube = "0.52"
 kube-runtime = "0.52"
 k8s-openapi = { version = "0.11", default-features = false, features = ["v1_20"] }
-openssl = { version = "0.10.33", features = ["vendored"] }
+openssl = { version = "0.10.34", features = ["vendored"] }
 
 [dev-dependencies]
 spectral = "0.6.0"
