@@ -3,7 +3,7 @@ use crossterm::event::{MouseEvent, MouseEventKind};
 use super::app::{
   key_binding::DEFAULT_KEYBINDING,
   metrics::GroupBy,
-  models::{ScrollableTxt, StatefulTable},
+  models::{Scrollable, ScrollableTxt, StatefulTable},
   ActiveBlock, App, RouteId,
 };
 use super::cmd::IoCmdEvent;
@@ -249,9 +249,9 @@ fn handle_table_action<T: Clone>(key: Key, item: &mut StatefulTable<T>) -> Optio
 
 fn handle_table_scroll<T: Clone>(item: &mut StatefulTable<T>, down: bool) {
   if down {
-    item.previous();
+    item.scroll_up();
   } else {
-    item.next();
+    item.scroll_down();
   }
 }
 

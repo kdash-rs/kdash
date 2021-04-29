@@ -10,6 +10,11 @@ use tui::{
   Frame,
 };
 
+pub trait Scrollable {
+  fn scroll_down(&mut self);
+  fn scroll_up(&mut self);
+}
+
 #[derive(Clone)]
 pub struct StatefulTable<T> {
   pub state: TableState,
@@ -35,7 +40,13 @@ impl<T> StatefulTable<T> {
     }
   }
 
-  pub fn next(&mut self) {
+  pub fn _unselect(&mut self) {
+    self.state.select(None);
+  }
+}
+
+impl<T> Scrollable for StatefulTable<T> {
+  fn scroll_down(&mut self) {
     let i = self.state.selected().map_or(0, |i| {
       if i >= self.items.len().wrapping_sub(1) {
         0
@@ -46,7 +57,7 @@ impl<T> StatefulTable<T> {
     self.state.select(Some(i));
   }
 
-  pub fn previous(&mut self) {
+  fn scroll_up(&mut self) {
     let i = self.state.selected().map_or(0, |i| {
       if i == 0 {
         self.items.len().wrapping_sub(1)
@@ -55,10 +66,6 @@ impl<T> StatefulTable<T> {
       }
     });
     self.state.select(Some(i));
-  }
-
-  pub fn _unselect(&mut self) {
-    self.state.select(None);
   }
 }
 
@@ -141,15 +148,17 @@ impl ScrollableTxt {
   pub fn get_txt(&self) -> String {
     self.items.join("\n")
   }
+}
 
-  pub fn scroll_down(&mut self) {
+impl Scrollable for ScrollableTxt {
+  fn scroll_down(&mut self) {
     // scroll only if offset is less than total lines in text
     // we subtract 8 to keep the text in view. Its just an arbitrary number that works
     if self.offset < (self.items.len() - 8) as u16 {
       self.offset += 1;
     }
   }
-  pub fn scroll_up(&mut self) {
+  fn scroll_up(&mut self) {
     // scroll up and avoid going negative
     if self.offset > 0 {
       self.offset -= 1;
@@ -187,25 +196,6 @@ impl LogsState {
       acc.push_str(v.0.as_str());
       acc
     })
-  }
-
-  pub fn scroll_down(&mut self) {
-    let i = self.state.selected().map_or(0, |i| {
-      if i >= self.wrapped_length.wrapping_sub(1) {
-        i
-      } else {
-        i + 1
-      }
-    });
-    self.state.select(Some(i));
-  }
-
-  pub fn scroll_up(&mut self) {
-    let i = self
-      .state
-      .selected()
-      .map_or(0, |i| if i != 0 { i - 1 } else { 0 });
-    self.state.select(Some(i));
   }
 
   /// Render the current state as a list widget
@@ -296,5 +286,26 @@ impl LogsState {
 
   fn unselect(&mut self) {
     self.state.select(None);
+  }
+}
+
+impl Scrollable for LogsState {
+  fn scroll_down(&mut self) {
+    let i = self.state.selected().map_or(0, |i| {
+      if i >= self.wrapped_length.wrapping_sub(1) {
+        i
+      } else {
+        i + 1
+      }
+    });
+    self.state.select(Some(i));
+  }
+
+  fn scroll_up(&mut self) {
+    let i = self
+      .state
+      .selected()
+      .map_or(0, |i| if i != 0 { i - 1 } else { 0 });
+    self.state.select(Some(i));
   }
 }
