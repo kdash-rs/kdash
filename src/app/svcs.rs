@@ -118,3 +118,8 @@ fn get_lb_ext_ips(service: &Service, external_ips: Option<Vec<String>>) -> Optio
     None
   }
 }
+
+#[cfg(test)]
+mod tests {
+  // TODO
+}

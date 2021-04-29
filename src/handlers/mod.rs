@@ -305,3 +305,68 @@ fn copy_to_clipboard(content: String) {
     .set_contents(content)
     .expect("Unable to set content to clipboard");
 }
+
+#[cfg(test)]
+mod tests {
+  use crate::app::pods::KubePod;
+
+  use super::*;
+
+  #[test]
+  fn test_inverse_dir() {
+    assert_eq!(inverse_dir(true, false), false);
+    assert_eq!(inverse_dir(true, true), true);
+  }
+
+  #[test]
+  fn test_handle_table_scroll() {
+    let mut item: StatefulTable<&str> = StatefulTable::new();
+    item.set_items(vec!["A", "B", "C"]);
+
+    assert_eq!(item.state.selected(), Some(0));
+
+    handle_table_scroll(&mut item, false);
+    assert_eq!(item.state.selected(), Some(1));
+
+    handle_table_scroll(&mut item, false);
+    assert_eq!(item.state.selected(), Some(2));
+
+    // circle back after last index
+    handle_table_scroll(&mut item, false);
+    assert_eq!(item.state.selected(), Some(0));
+    // previous
+    handle_table_scroll(&mut item, true);
+    assert_eq!(item.state.selected(), Some(2));
+  }
+
+  #[tokio::test]
+  async fn test_handle_scroll() {
+    let mut app = App::default();
+
+    app.route_home();
+    assert_eq!(app.data.pods.state.selected(), None);
+
+    app
+      .data
+      .pods
+      .set_items(vec![KubePod::default(), KubePod::default()]);
+
+    // mouse scroll
+    assert_eq!(app.data.pods.state.selected(), Some(0));
+    handle_scroll(&mut app, false, true).await;
+    assert_eq!(app.data.pods.state.selected(), Some(1));
+    handle_scroll(&mut app, true, true).await;
+    assert_eq!(app.data.pods.state.selected(), Some(0));
+
+    // check logs keyboard scroll
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Logs);
+    assert_eq!(app.data.logs.state.selected(), None);
+
+    app.data.logs.add_record("record".to_string());
+    app.data.logs.add_record("record 2".to_string());
+    app.data.logs.add_record("record 3".to_string());
+
+    handle_scroll(&mut app, true, false).await;
+    assert_eq!(app.data.logs.state.selected(), Some(0));
+  }
+}

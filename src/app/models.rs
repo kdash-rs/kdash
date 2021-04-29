@@ -309,3 +309,8 @@ impl Scrollable for LogsState {
     self.state.select(Some(i));
   }
 }
+
+#[cfg(test)]
+mod tests {
+  // TODO
+}

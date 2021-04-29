@@ -37,3 +37,8 @@ impl KubeDeployments {
     }
   }
 }
+
+#[cfg(test)]
+mod tests {
+  // TODO
+}

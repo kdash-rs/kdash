@@ -4,7 +4,7 @@ use k8s_openapi::{
   chrono::Utc,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct KubePod {
   pub namespace: String,
   pub name: String,
@@ -228,4 +228,9 @@ fn get_status(stat: &PodStatus, pod: &Pod) -> String {
 fn is_pod_init(sw: Option<ContainerStateWaiting>) -> bool {
   sw.map(|w| w.reason.unwrap_or_default() != "PodInitializing")
     .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+  // TODO
 }
