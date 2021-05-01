@@ -104,6 +104,7 @@ mod tests {
       13f64
     );
   }
+
   #[test]
   fn test_to_mem_percent() {
     use super::to_mem_percent;

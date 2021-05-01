@@ -4,7 +4,7 @@ use k8s_openapi::{
   chrono::Utc,
 };
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug, PartialEq)]
 pub struct KubePod {
   pub namespace: String,
   pub name: String,
@@ -17,7 +17,7 @@ pub struct KubePod {
   pub containers: Vec<KubeContainer>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default, Debug, PartialEq)]
 pub struct KubeContainer {
   pub name: String,
   pub image: String,
@@ -36,9 +36,9 @@ impl KubePod {
     let age = utils::to_age(pod.metadata.creation_timestamp.as_ref(), Utc::now());
     let pod_name = pod.metadata.name.clone().unwrap_or_default();
     let (status, cr, restarts, c_stats_len, containers) = match &pod.status {
-      Some(stat) => {
+      Some(status) => {
         let (mut cr, mut rc) = (0, 0);
-        let c_stats_len = match stat.container_statuses.as_ref() {
+        let c_stats_len = match status.container_statuses.as_ref() {
           Some(c_stats) => {
             c_stats.iter().for_each(|cs| {
               if cs.ready {
@@ -51,7 +51,7 @@ impl KubePod {
           None => 0,
         };
 
-        let containers = stat
+        let containers = status
           .container_statuses
           .as_ref()
           .unwrap_or(&vec![])
@@ -70,7 +70,7 @@ impl KubePod {
           })
           .collect();
 
-        (get_status(stat, pod), cr, rc, c_stats_len, containers)
+        (get_status(status, pod), cr, rc, c_stats_len, containers)
       }
       _ => (UNKNOWN.into(), 0, 0, 0, vec![]),
     };
@@ -109,15 +109,15 @@ fn get_container_state(os: Option<ContainerState>) -> String {
 
 fn get_status(stat: &PodStatus, pod: &Pod) -> String {
   let status = match &stat.phase {
-    Some(phase) => phase.clone(),
+    Some(phase) => phase.to_owned(),
     _ => UNKNOWN.into(),
   };
   let status = match &stat.reason {
-    Some(r) => {
-      if r == "NodeLost" && pod.metadata.deletion_timestamp.is_some() {
+    Some(reason) => {
+      if reason == "NodeLost" && pod.metadata.deletion_timestamp.is_some() {
         UNKNOWN.into()
       } else {
-        status
+        reason.to_owned()
       }
     }
     None => status,
@@ -232,5 +232,144 @@ fn is_pod_init(sw: Option<ContainerStateWaiting>) -> bool {
 
 #[cfg(test)]
 mod tests {
-  // TODO
+  use super::*;
+  use k8s_openapi::{
+    apimachinery::pkg::apis::meta::v1::Time,
+    chrono::{DateTime, TimeZone},
+  };
+  use kube::api::ObjectList;
+  use std::fs;
+
+  #[test]
+  fn test_to_mem_percent() {
+    fn get_time(s: &str) -> Time {
+      Time(to_utc(s))
+    }
+
+    fn to_utc(s: &str) -> DateTime<Utc> {
+      Utc.datetime_from_str(s, "%Y-%m-%dT%H:%M:%SZ").unwrap()
+    }
+
+    let pods_yaml =
+      fs::read_to_string("./test_data/pods.yaml").expect("Something went wrong reading pods.yaml");
+    assert_ne!(pods_yaml, "".to_string());
+
+    let pods: serde_yaml::Result<ObjectList<Pod>> = serde_yaml::from_str(&*pods_yaml);
+    assert_eq!(pods.is_ok(), true);
+
+    let pods: Vec<KubePod> = pods
+      .unwrap()
+      .iter()
+      .map(|it| KubePod::from_api(it))
+      .collect::<Vec<_>>();
+
+    assert_eq!(pods.len(), 11);
+    assert_eq!(
+      pods[0],
+      KubePod {
+        namespace: "default".into(),
+        name: "adservice-f787c8dcd-tb6x2".into(),
+        ready: "0/0".into(),
+        status: "Pending".into(),
+        restarts: 0,
+        cpu: "".into(),
+        mem: "".into(),
+        age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
+        containers: vec![]
+      }
+    );
+    assert_eq!(
+      pods[1],
+      KubePod {
+        namespace: "default".into(),
+        name: "cartservice-67b89ffc69-s5qp8".into(),
+        ready: "0/1".into(),
+        status: "CrashLoopBackOff".into(),
+        restarts: 896,
+        cpu: "".into(),
+        mem: "".into(),
+        age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
+        containers: vec![KubeContainer {
+          name: "server".into(),
+          image: "gcr.io/google-samples/microservices-demo/cartservice:v0.2.2".into(),
+          ready: "false".into(),
+          status: "CrashLoopBackOff".into(),
+          restarts: 896,
+          liveliness_probe: false,
+          readiness_probe: false,
+          ports: "".into(), //   ports: "7070".into(), // TODO fix
+          age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
+          pod_name: "cartservice-67b89ffc69-s5qp8".into()
+        }]
+      }
+    );
+    assert_eq!(
+      pods[3],
+      KubePod {
+        namespace: "default".into(),
+        name: "emailservice-5f8fc7dbb4-5lqdb".into(),
+        ready: "1/1".into(),
+        status: "Running".into(),
+        restarts: 3,
+        cpu: "".into(),
+        mem: "".into(),
+        age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
+        containers: vec![KubeContainer {
+          name: "server".into(),
+          image: "gcr.io/google-samples/microservices-demo/emailservice:v0.2.2".into(),
+          ready: "true".into(),
+          status: "Running".into(),
+          restarts: 3,
+          liveliness_probe: false,
+          readiness_probe: false,
+          ports: "".into(), //   ports: "7070".into(), // TODO fix
+          age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
+          pod_name: "emailservice-5f8fc7dbb4-5lqdb".into()
+        }]
+      }
+    );
+    assert_eq!(
+      pods[4],
+      KubePod {
+        namespace: "default".into(),
+        name: "frontend-5c4745dfdb-6k8wf".into(),
+        ready: "0/0".into(),
+        status: "OutOfcpu".into(),
+        restarts: 0,
+        cpu: "".into(),
+        mem: "".into(),
+        age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
+        containers: vec![]
+      }
+    );
+    assert_eq!(
+      pods[5],
+      KubePod {
+        namespace: "default".into(),
+        name: "frontend-5c4745dfdb-qz7fg".into(),
+        ready: "0/0".into(),
+        status: "Preempting".into(),
+        restarts: 0,
+        cpu: "".into(),
+        mem: "".into(),
+        age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
+        containers: vec![]
+      }
+    );
+    assert_eq!(
+      pods[6],
+      KubePod {
+        namespace: "default".into(),
+        name: "frontend-5c4745dfdb-6k8wf".into(),
+        ready: "0/0".into(),
+        status: "Failed".into(),
+        restarts: 0,
+        cpu: "".into(),
+        mem: "".into(),
+        age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
+        containers: vec![]
+      }
+    );
+    // TODO add tests for init-container-statuses and NodeLost cases
+  }
 }

@@ -1,0 +1,2559 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2021-04-27T10:13:58Z"
+    generateName: adservice-f787c8dcd-
+    labels:
+      app: adservice
+      pod-template-hash: f787c8dcd
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:app: {}
+            f:pod-template-hash: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"f6fc8834-8337-438b-8685-1eea2565a128"}:
+              .: {}
+              f:apiVersion: {}
+              f:blockOwnerDeletion: {}
+              f:controller: {}
+              f:kind: {}
+              f:name: {}
+              f:uid: {}
+        f:spec:
+          f:containers:
+            k:{"name":"server"}:
+              .: {}
+              f:env:
+                .: {}
+                k:{"name":"PORT"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:livenessProbe:
+                .: {}
+                f:exec:
+                  .: {}
+                  f:command: {}
+                f:failureThreshold: {}
+                f:initialDelaySeconds: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:name: {}
+              f:ports:
+                .: {}
+                k:{"containerPort":9555,"protocol":"TCP"}:
+                  .: {}
+                  f:containerPort: {}
+                  f:protocol: {}
+              f:readinessProbe:
+                .: {}
+                f:exec:
+                  .: {}
+                  f:command: {}
+                f:failureThreshold: {}
+                f:initialDelaySeconds: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:resources:
+                .: {}
+                f:limits:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2021-04-27T10:13:58Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            .: {}
+            k:{"type":"PodScheduled"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:message: {}
+              f:reason: {}
+              f:status: {}
+              f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2021-04-27T10:13:58Z"
+    name: adservice-f787c8dcd-tb6x2
+    namespace: default
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: adservice-f787c8dcd
+      uid: f6fc8834-8337-438b-8685-1eea2565a128
+    resourceVersion: "1145"
+    selfLink: /api/v1/namespaces/default/pods/adservice-f787c8dcd-tb6x2
+    uid: 9af3486d-dba4-4179-96bc-155f366f75bf
+  spec:
+    containers:
+    - env:
+      - name: PORT
+        value: "9555"
+      image: gcr.io/google-samples/microservices-demo/adservice:v0.2.2
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        exec:
+          command:
+          - /bin/grpc_health_probe
+          - -addr=:9555
+        failureThreshold: 3
+        initialDelaySeconds: 20
+        periodSeconds: 15
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: server
+      ports:
+      - containerPort: 9555
+        protocol: TCP
+      readinessProbe:
+        exec:
+          command:
+          - /bin/grpc_health_probe
+          - -addr=:9555
+        failureThreshold: 3
+        initialDelaySeconds: 20
+        periodSeconds: 15
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 300m
+          memory: 300Mi
+        requests:
+          cpu: 200m
+          memory: 180Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: default-token-f72m5
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 5
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: default-token-f72m5
+      secret:
+        defaultMode: 420
+        secretName: default-token-f72m5
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2021-04-27T10:13:58Z"
+      message: '0/2 nodes are available: 2 Insufficient cpu.'
+      reason: Unschedulable
+      status: "False"
+      type: PodScheduled
+    phase: Pending
+    qosClass: Burstable
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2021-04-27T10:13:57Z"
+    generateName: cartservice-67b89ffc69-
+    labels:
+      app: cartservice
+      pod-template-hash: 67b89ffc69
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:app: {}
+            f:pod-template-hash: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"7ff41755-d0ef-4fbb-9e1a-7f56149e33e2"}:
+              .: {}
+              f:apiVersion: {}
+              f:blockOwnerDeletion: {}
+              f:controller: {}
+              f:kind: {}
+              f:name: {}
+              f:uid: {}
+        f:spec:
+          f:containers:
+            k:{"name":"server"}:
+              .: {}
+              f:env:
+                .: {}
+                k:{"name":"REDIS_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:livenessProbe:
+                .: {}
+                f:exec:
+                  .: {}
+                  f:command: {}
+                f:failureThreshold: {}
+                f:initialDelaySeconds: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:name: {}
+              f:ports:
+                .: {}
+                k:{"containerPort":7070,"protocol":"TCP"}:
+                  .: {}
+                  f:containerPort: {}
+                  f:protocol: {}
+              f:readinessProbe:
+                .: {}
+                f:exec:
+                  .: {}
+                  f:command: {}
+                f:failureThreshold: {}
+                f:initialDelaySeconds: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:resources:
+                .: {}
+                f:limits:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2021-04-27T10:13:57Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:message: {}
+              f:reason: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:message: {}
+              f:reason: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.24.1.9"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      time: "2021-04-27T10:14:10Z"
+    name: cartservice-67b89ffc69-s5qp8
+    namespace: default
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: cartservice-67b89ffc69
+      uid: 7ff41755-d0ef-4fbb-9e1a-7f56149e33e2
+    resourceVersion: "1642976"
+    selfLink: /api/v1/namespaces/default/pods/cartservice-67b89ffc69-s5qp8
+    uid: 00c2de16-d488-445f-aaf7-0f88a6dccdff
+  spec:
+    containers:
+    - env:
+      - name: REDIS_ADDR
+        value: redis-cart:6379
+      image: gcr.io/google-samples/microservices-demo/cartservice:v0.2.2
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        exec:
+          command:
+          - /bin/grpc_health_probe
+          - -addr=:7070
+          - -rpc-timeout=5s
+        failureThreshold: 3
+        initialDelaySeconds: 15
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: server
+      ports:
+      - containerPort: 7070
+        protocol: TCP
+      readinessProbe:
+        exec:
+          command:
+          - /bin/grpc_health_probe
+          - -addr=:7070
+          - -rpc-timeout=5s
+        failureThreshold: 3
+        initialDelaySeconds: 15
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 300m
+          memory: 128Mi
+        requests:
+          cpu: 200m
+          memory: 64Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: default-token-f72m5
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: gke-hello-hipster-default-pool-9e6f6ffb-q16l
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 5
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: default-token-f72m5
+      secret:
+        defaultMode: 420
+        secretName: default-token-f72m5
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2021-04-27T10:13:57Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2021-04-27T10:13:57Z"
+      message: 'containers with unready status: [server]'
+      reason: ContainersNotReady
+      status: "False"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2021-04-27T10:13:57Z"
+      message: 'containers with unready status: [server]'
+      reason: ContainersNotReady
+      status: "False"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2021-04-27T10:13:57Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: containerd://2bdff44968a7cc6a3c98cafab883a7e4d5e599b7825e6c0f2ad9491806b9c11a
+      image: gcr.io/google-samples/microservices-demo/cartservice:v0.2.2
+      imageID: gcr.io/google-samples/microservices-demo/cartservice@sha256:107612e1ddb4a6134441377a048f6b6522916fd9c0dc474b0dad5ae77e02c2d6
+      lastState:
+        terminated:
+          containerID: containerd://2bdff44968a7cc6a3c98cafab883a7e4d5e599b7825e6c0f2ad9491806b9c11a
+          exitCode: 139
+          finishedAt: "2021-04-30T16:21:27Z"
+          reason: Error
+          startedAt: "2021-04-30T16:21:18Z"
+      name: server
+      ready: false
+      restartCount: 896
+      started: false
+      state:
+        waiting:
+          message: back-off 5m0s restarting failed container=server pod=cartservice-67b89ffc69-s5qp8_default(00c2de16-d488-445f-aaf7-0f88a6dccdff)
+          reason: CrashLoopBackOff
+    hostIP: 10.132.0.3
+    phase: Running
+    podIP: 10.24.1.9
+    podIPs:
+    - ip: 10.24.1.9
+    qosClass: Burstable
+    startTime: "2021-04-27T10:13:57Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2021-04-27T10:14:02Z"
+    generateName: currencyservice-68887d98fd-
+    labels:
+      app: currencyservice
+      pod-template-hash: 68887d98fd
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:app: {}
+            f:pod-template-hash: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"1c58bffc-8789-40a9-8342-4db390ca3389"}:
+              .: {}
+              f:apiVersion: {}
+              f:blockOwnerDeletion: {}
+              f:controller: {}
+              f:kind: {}
+              f:name: {}
+              f:uid: {}
+        f:spec:
+          f:containers:
+            k:{"name":"server"}:
+              .: {}
+              f:env:
+                .: {}
+                k:{"name":"PORT"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:livenessProbe:
+                .: {}
+                f:exec:
+                  .: {}
+                  f:command: {}
+                f:failureThreshold: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:name: {}
+              f:ports:
+                .: {}
+                k:{"containerPort":7000,"protocol":"TCP"}:
+                  .: {}
+                  f:containerPort: {}
+                  f:name: {}
+                  f:protocol: {}
+              f:readinessProbe:
+                .: {}
+                f:exec:
+                  .: {}
+                  f:command: {}
+                f:failureThreshold: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:resources:
+                .: {}
+                f:limits:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2021-04-27T10:14:02Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            .: {}
+            k:{"type":"PodScheduled"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:message: {}
+              f:reason: {}
+              f:status: {}
+              f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2021-04-27T10:14:02Z"
+    name: currencyservice-68887d98fd-gc9cn
+    namespace: default
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: currencyservice-68887d98fd
+      uid: 1c58bffc-8789-40a9-8342-4db390ca3389
+    resourceVersion: "1268"
+    selfLink: /api/v1/namespaces/default/pods/currencyservice-68887d98fd-gc9cn
+    uid: 7c07c48b-55d7-44a5-8235-730ef9057471
+  spec:
+    containers:
+    - env:
+      - name: PORT
+        value: "7000"
+      image: gcr.io/google-samples/microservices-demo/currencyservice:v0.2.2
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        exec:
+          command:
+          - /bin/grpc_health_probe
+          - -addr=:7000
+        failureThreshold: 3
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: server
+      ports:
+      - containerPort: 7000
+        name: grpc
+        protocol: TCP
+      readinessProbe:
+        exec:
+          command:
+          - /bin/grpc_health_probe
+          - -addr=:7000
+        failureThreshold: 3
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 200m
+          memory: 128Mi
+        requests:
+          cpu: 100m
+          memory: 64Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: default-token-f72m5
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 5
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: default-token-f72m5
+      secret:
+        defaultMode: 420
+        secretName: default-token-f72m5
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2021-04-27T10:14:02Z"
+      message: '0/2 nodes are available: 2 Insufficient cpu.'
+      reason: Unschedulable
+      status: "False"
+      type: PodScheduled
+    phase: Pending
+    qosClass: Burstable
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2021-04-27T10:13:56Z"
+    generateName: emailservice-5f8fc7dbb4-
+    labels:
+      app: emailservice
+      pod-template-hash: 5f8fc7dbb4
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:app: {}
+            f:pod-template-hash: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"3b13016e-0661-4dc8-a542-6c017997d98b"}:
+              .: {}
+              f:apiVersion: {}
+              f:blockOwnerDeletion: {}
+              f:controller: {}
+              f:kind: {}
+              f:name: {}
+              f:uid: {}
+        f:spec:
+          f:containers:
+            k:{"name":"server"}:
+              .: {}
+              f:env:
+                .: {}
+                k:{"name":"DISABLE_PROFILER"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"PORT"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:livenessProbe:
+                .: {}
+                f:exec:
+                  .: {}
+                  f:command: {}
+                f:failureThreshold: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:name: {}
+              f:ports:
+                .: {}
+                k:{"containerPort":8080,"protocol":"TCP"}:
+                  .: {}
+                  f:containerPort: {}
+                  f:protocol: {}
+              f:readinessProbe:
+                .: {}
+                f:exec:
+                  .: {}
+                  f:command: {}
+                f:failureThreshold: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:resources:
+                .: {}
+                f:limits:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2021-04-27T10:13:56Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.24.0.3"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      time: "2021-04-27T10:15:18Z"
+    name: emailservice-5f8fc7dbb4-5lqdb
+    namespace: default
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: emailservice-5f8fc7dbb4
+      uid: 3b13016e-0661-4dc8-a542-6c017997d98b
+    resourceVersion: "2623"
+    selfLink: /api/v1/namespaces/default/pods/emailservice-5f8fc7dbb4-5lqdb
+    uid: 100dab1a-e274-4e49-b808-3d97f4ab625e
+  spec:
+    containers:
+    - env:
+      - name: PORT
+        value: "8080"
+      - name: DISABLE_PROFILER
+        value: "1"
+      image: gcr.io/google-samples/microservices-demo/emailservice:v0.2.2
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        exec:
+          command:
+          - /bin/grpc_health_probe
+          - -addr=:8080
+        failureThreshold: 3
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: server
+      ports:
+      - containerPort: 8080
+        protocol: TCP
+      readinessProbe:
+        exec:
+          command:
+          - /bin/grpc_health_probe
+          - -addr=:8080
+        failureThreshold: 3
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 200m
+          memory: 128Mi
+        requests:
+          cpu: 100m
+          memory: 64Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: default-token-f72m5
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: gke-hello-hipster-default-pool-9e6f6ffb-xzbc
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 5
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: default-token-f72m5
+      secret:
+        defaultMode: 420
+        secretName: default-token-f72m5
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2021-04-27T10:13:56Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2021-04-27T10:15:18Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2021-04-27T10:15:18Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2021-04-27T10:13:56Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: containerd://bc783b7c6d78cdfd6a7454b693e57cdbc59cc43c23b2391f8bcacca3eaca64ed
+      image: gcr.io/google-samples/microservices-demo/emailservice:v0.2.2
+      imageID: gcr.io/google-samples/microservices-demo/emailservice@sha256:96aa2544934f80c81b88aef5f9bb586a6b1f318fd16ef7b62040901dfb75ebf1
+      lastState:
+        terminated:
+          containerID: containerd://6a40d818c5eabd280fc546a02d81e5f9842d58f883cd1ac764d1cdd88affbf1a
+          exitCode: 1
+          finishedAt: "2021-04-27T10:14:47Z"
+          reason: Error
+          startedAt: "2021-04-27T10:14:44Z"
+      name: server
+      ready: true
+      restartCount: 3
+      started: true
+      state:
+        running:
+          startedAt: "2021-04-27T10:15:15Z"
+    hostIP: 10.132.0.2
+    phase: Running
+    podIP: 10.24.0.3
+    podIPs:
+    - ip: 10.24.0.3
+    qosClass: Burstable
+    startTime: "2021-04-27T10:13:56Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      sidecar.istio.io/rewriteAppHTTPProbers: "true"
+    creationTimestamp: "2021-04-27T10:14:48Z"
+    generateName: frontend-5c4745dfdb-
+    labels:
+      app: frontend
+      pod-template-hash: 5c4745dfdb
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:sidecar.istio.io/rewriteAppHTTPProbers: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:app: {}
+            f:pod-template-hash: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"0177c475-1b94-424a-bdee-a2f56b071c19"}:
+              .: {}
+              f:apiVersion: {}
+              f:blockOwnerDeletion: {}
+              f:controller: {}
+              f:kind: {}
+              f:name: {}
+              f:uid: {}
+        f:spec:
+          f:containers:
+            k:{"name":"server"}:
+              .: {}
+              f:env:
+                .: {}
+                k:{"name":"AD_SERVICE_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"CART_SERVICE_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"CHECKOUT_SERVICE_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"CURRENCY_SERVICE_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"ENV_PLATFORM"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"PORT"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"PRODUCT_CATALOG_SERVICE_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"RECOMMENDATION_SERVICE_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"SHIPPING_SERVICE_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:livenessProbe:
+                .: {}
+                f:failureThreshold: {}
+                f:httpGet:
+                  .: {}
+                  f:httpHeaders: {}
+                  f:path: {}
+                  f:port: {}
+                  f:scheme: {}
+                f:initialDelaySeconds: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:name: {}
+              f:ports:
+                .: {}
+                k:{"containerPort":8080,"protocol":"TCP"}:
+                  .: {}
+                  f:containerPort: {}
+                  f:protocol: {}
+              f:readinessProbe:
+                .: {}
+                f:failureThreshold: {}
+                f:httpGet:
+                  .: {}
+                  f:httpHeaders: {}
+                  f:path: {}
+                  f:port: {}
+                  f:scheme: {}
+                f:initialDelaySeconds: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:resources:
+                .: {}
+                f:limits:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2021-04-27T10:14:48Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:message: {}
+          f:phase: {}
+          f:reason: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      time: "2021-04-27T10:14:49Z"
+    name: frontend-5c4745dfdb-6k8wf
+    namespace: default
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: frontend-5c4745dfdb
+      uid: 0177c475-1b94-424a-bdee-a2f56b071c19
+    resourceVersion: "2362"
+    selfLink: /api/v1/namespaces/default/pods/frontend-5c4745dfdb-6k8wf
+    uid: 7f6517f6-e0ec-486b-8971-c3a71075f913
+  spec:
+    containers:
+    - env:
+      - name: PORT
+        value: "8080"
+      - name: PRODUCT_CATALOG_SERVICE_ADDR
+        value: productcatalogservice:3550
+      - name: CURRENCY_SERVICE_ADDR
+        value: currencyservice:7000
+      - name: CART_SERVICE_ADDR
+        value: cartservice:7070
+      - name: RECOMMENDATION_SERVICE_ADDR
+        value: recommendationservice:8080
+      - name: SHIPPING_SERVICE_ADDR
+        value: shippingservice:50051
+      - name: CHECKOUT_SERVICE_ADDR
+        value: checkoutservice:5050
+      - name: AD_SERVICE_ADDR
+        value: adservice:9555
+      - name: ENV_PLATFORM
+        value: gcp
+      image: gcr.io/google-samples/microservices-demo/frontend:v0.2.2
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          httpHeaders:
+          - name: Cookie
+            value: shop_session-id=x-liveness-probe
+          path: /_healthz
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: server
+      ports:
+      - containerPort: 8080
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          httpHeaders:
+          - name: Cookie
+            value: shop_session-id=x-readiness-probe
+          path: /_healthz
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 200m
+          memory: 128Mi
+        requests:
+          cpu: 100m
+          memory: 64Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: default-token-f72m5
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: gke-hello-hipster-default-pool-9e6f6ffb-q16l
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: default-token-f72m5
+      secret:
+        defaultMode: 420
+        secretName: default-token-f72m5
+  status:
+    message: 'Pod Node didn''t have enough resource: cpu, requested: 100, used: 931,
+      capacity: 940'
+    phase: Failed
+    reason: OutOfcpu
+    startTime: "2021-04-27T10:14:48Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      sidecar.istio.io/rewriteAppHTTPProbers: "true"
+    creationTimestamp: "2021-04-27T10:13:57Z"
+    generateName: frontend-5c4745dfdb-
+    labels:
+      app: frontend
+      pod-template-hash: 5c4745dfdb
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:sidecar.istio.io/rewriteAppHTTPProbers: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:app: {}
+            f:pod-template-hash: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"0177c475-1b94-424a-bdee-a2f56b071c19"}:
+              .: {}
+              f:apiVersion: {}
+              f:blockOwnerDeletion: {}
+              f:controller: {}
+              f:kind: {}
+              f:name: {}
+              f:uid: {}
+        f:spec:
+          f:containers:
+            k:{"name":"server"}:
+              .: {}
+              f:env:
+                .: {}
+                k:{"name":"AD_SERVICE_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"CART_SERVICE_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"CHECKOUT_SERVICE_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"CURRENCY_SERVICE_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"ENV_PLATFORM"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"PORT"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"PRODUCT_CATALOG_SERVICE_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"RECOMMENDATION_SERVICE_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"SHIPPING_SERVICE_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:livenessProbe:
+                .: {}
+                f:failureThreshold: {}
+                f:httpGet:
+                  .: {}
+                  f:httpHeaders: {}
+                  f:path: {}
+                  f:port: {}
+                  f:scheme: {}
+                f:initialDelaySeconds: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:name: {}
+              f:ports:
+                .: {}
+                k:{"containerPort":8080,"protocol":"TCP"}:
+                  .: {}
+                  f:containerPort: {}
+                  f:protocol: {}
+              f:readinessProbe:
+                .: {}
+                f:failureThreshold: {}
+                f:httpGet:
+                  .: {}
+                  f:httpHeaders: {}
+                  f:path: {}
+                  f:port: {}
+                  f:scheme: {}
+                f:initialDelaySeconds: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:resources:
+                .: {}
+                f:limits:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2021-04-27T10:13:57Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:message: {}
+          f:phase: {}
+          f:reason: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      time: "2021-04-27T10:14:42Z"
+    name: frontend-5c4745dfdb-qz7fg
+    namespace: default
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: frontend-5c4745dfdb
+      uid: 0177c475-1b94-424a-bdee-a2f56b071c19
+    resourceVersion: "2154"
+    selfLink: /api/v1/namespaces/default/pods/frontend-5c4745dfdb-qz7fg
+    uid: 52a730ab-ebf4-44d0-a711-514df8fb4dbb
+  spec:
+    containers:
+    - env:
+      - name: PORT
+        value: "8080"
+      - name: PRODUCT_CATALOG_SERVICE_ADDR
+        value: productcatalogservice:3550
+      - name: CURRENCY_SERVICE_ADDR
+        value: currencyservice:7000
+      - name: CART_SERVICE_ADDR
+        value: cartservice:7070
+      - name: RECOMMENDATION_SERVICE_ADDR
+        value: recommendationservice:8080
+      - name: SHIPPING_SERVICE_ADDR
+        value: shippingservice:50051
+      - name: CHECKOUT_SERVICE_ADDR
+        value: checkoutservice:5050
+      - name: AD_SERVICE_ADDR
+        value: adservice:9555
+      - name: ENV_PLATFORM
+        value: gcp
+      image: gcr.io/google-samples/microservices-demo/frontend:v0.2.2
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          httpHeaders:
+          - name: Cookie
+            value: shop_session-id=x-liveness-probe
+          path: /_healthz
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: server
+      ports:
+      - containerPort: 8080
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          httpHeaders:
+          - name: Cookie
+            value: shop_session-id=x-readiness-probe
+          path: /_healthz
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 200m
+          memory: 128Mi
+        requests:
+          cpu: 100m
+          memory: 64Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: default-token-f72m5
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: gke-hello-hipster-default-pool-9e6f6ffb-q16l
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: default-token-f72m5
+      secret:
+        defaultMode: 420
+        secretName: default-token-f72m5
+  status:
+    message: Preempted in order to admit critical pod
+    phase: Failed
+    reason: Preempting
+    startTime: "2021-04-27T10:13:57Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      sidecar.istio.io/rewriteAppHTTPProbers: "true"
+    creationTimestamp: "2021-04-27T10:14:48Z"
+    generateName: frontend-5c4745dfdb-
+    labels:
+      app: frontend
+      pod-template-hash: 5c4745dfdb
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:sidecar.istio.io/rewriteAppHTTPProbers: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:app: {}
+            f:pod-template-hash: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"0177c475-1b94-424a-bdee-a2f56b071c19"}:
+              .: {}
+              f:apiVersion: {}
+              f:blockOwnerDeletion: {}
+              f:controller: {}
+              f:kind: {}
+              f:name: {}
+              f:uid: {}
+        f:spec:
+          f:containers:
+            k:{"name":"server"}:
+              .: {}
+              f:env:
+                .: {}
+                k:{"name":"AD_SERVICE_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"CART_SERVICE_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"CHECKOUT_SERVICE_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"CURRENCY_SERVICE_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"ENV_PLATFORM"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"PORT"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"PRODUCT_CATALOG_SERVICE_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"RECOMMENDATION_SERVICE_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"SHIPPING_SERVICE_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:livenessProbe:
+                .: {}
+                f:failureThreshold: {}
+                f:httpGet:
+                  .: {}
+                  f:httpHeaders: {}
+                  f:path: {}
+                  f:port: {}
+                  f:scheme: {}
+                f:initialDelaySeconds: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:name: {}
+              f:ports:
+                .: {}
+                k:{"containerPort":8080,"protocol":"TCP"}:
+                  .: {}
+                  f:containerPort: {}
+                  f:protocol: {}
+              f:readinessProbe:
+                .: {}
+                f:failureThreshold: {}
+                f:httpGet:
+                  .: {}
+                  f:httpHeaders: {}
+                  f:path: {}
+                  f:port: {}
+                  f:scheme: {}
+                f:initialDelaySeconds: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:resources:
+                .: {}
+                f:limits:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2021-04-27T10:14:48Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:message: {}
+          f:phase: {}
+          f:reason: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      time: "2021-04-27T10:14:49Z"
+    name: frontend-5c4745dfdb-6k8wf
+    namespace: default
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: frontend-5c4745dfdb
+      uid: 0177c475-1b94-424a-bdee-a2f56b071c19
+    resourceVersion: "2362"
+    selfLink: /api/v1/namespaces/default/pods/frontend-5c4745dfdb-6k8wf
+    uid: 7f6517f6-e0ec-486b-8971-c3a71075f913
+  spec:
+    containers:
+    - env:
+      - name: PORT
+        value: "8080"
+      - name: PRODUCT_CATALOG_SERVICE_ADDR
+        value: productcatalogservice:3550
+      - name: CURRENCY_SERVICE_ADDR
+        value: currencyservice:7000
+      - name: CART_SERVICE_ADDR
+        value: cartservice:7070
+      - name: RECOMMENDATION_SERVICE_ADDR
+        value: recommendationservice:8080
+      - name: SHIPPING_SERVICE_ADDR
+        value: shippingservice:50051
+      - name: CHECKOUT_SERVICE_ADDR
+        value: checkoutservice:5050
+      - name: AD_SERVICE_ADDR
+        value: adservice:9555
+      - name: ENV_PLATFORM
+        value: gcp
+      image: gcr.io/google-samples/microservices-demo/frontend:v0.2.2
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          httpHeaders:
+          - name: Cookie
+            value: shop_session-id=x-liveness-probe
+          path: /_healthz
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: server
+      ports:
+      - containerPort: 8080
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          httpHeaders:
+          - name: Cookie
+            value: shop_session-id=x-readiness-probe
+          path: /_healthz
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 200m
+          memory: 128Mi
+        requests:
+          cpu: 100m
+          memory: 64Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: default-token-f72m5
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: gke-hello-hipster-default-pool-9e6f6ffb-q16l
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: default-token-f72m5
+      secret:
+        defaultMode: 420
+        secretName: default-token-f72m5
+  status:
+    message: 'Pod Node didn''t have enough resource: cpu, requested: 100, used: 931,
+      capacity: 940'
+    phase: Failed
+    startTime: "2021-04-27T10:14:48Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      sidecar.istio.io/rewriteAppHTTPProbers: "true"
+    creationTimestamp: "2021-04-27T10:13:57Z"
+    generateName: loadgenerator-86f46dcb88-
+    labels:
+      app: loadgenerator
+      pod-template-hash: 86f46dcb88
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:sidecar.istio.io/rewriteAppHTTPProbers: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:app: {}
+            f:pod-template-hash: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"deaac054-36ad-470f-ad46-77791cc1f5c2"}:
+              .: {}
+              f:apiVersion: {}
+              f:blockOwnerDeletion: {}
+              f:controller: {}
+              f:kind: {}
+              f:name: {}
+              f:uid: {}
+        f:spec:
+          f:containers:
+            k:{"name":"main"}:
+              .: {}
+              f:env:
+                .: {}
+                k:{"name":"FRONTEND_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"USERS"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:name: {}
+              f:resources:
+                .: {}
+                f:limits:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2021-04-27T10:13:57Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            .: {}
+            k:{"type":"PodScheduled"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:message: {}
+              f:reason: {}
+              f:status: {}
+              f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2021-04-27T10:13:57Z"
+    name: loadgenerator-86f46dcb88-62vzw
+    namespace: default
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: loadgenerator-86f46dcb88
+      uid: deaac054-36ad-470f-ad46-77791cc1f5c2
+    resourceVersion: "1076"
+    selfLink: /api/v1/namespaces/default/pods/loadgenerator-86f46dcb88-62vzw
+    uid: 4de0a258-488c-48ec-89c6-9c3294260aa9
+  spec:
+    containers:
+    - env:
+      - name: FRONTEND_ADDR
+        value: frontend:80
+      - name: USERS
+        value: "10"
+      image: gcr.io/google-samples/microservices-demo/loadgenerator:v0.2.2
+      imagePullPolicy: IfNotPresent
+      name: main
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 300m
+          memory: 256Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: default-token-f72m5
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 5
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: default-token-f72m5
+      secret:
+        defaultMode: 420
+        secretName: default-token-f72m5
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2021-04-27T10:13:57Z"
+      message: '0/2 nodes are available: 2 Insufficient cpu.'
+      reason: Unschedulable
+      status: "False"
+      type: PodScheduled
+    phase: Pending
+    qosClass: Burstable
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2021-04-27T10:13:57Z"
+    generateName: paymentservice-6658569876-
+    labels:
+      app: paymentservice
+      pod-template-hash: "6658569876"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:app: {}
+            f:pod-template-hash: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"4887b6a9-cd7b-4246-9547-b80766f43c06"}:
+              .: {}
+              f:apiVersion: {}
+              f:blockOwnerDeletion: {}
+              f:controller: {}
+              f:kind: {}
+              f:name: {}
+              f:uid: {}
+        f:spec:
+          f:containers:
+            k:{"name":"server"}:
+              .: {}
+              f:env:
+                .: {}
+                k:{"name":"PORT"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:livenessProbe:
+                .: {}
+                f:exec:
+                  .: {}
+                  f:command: {}
+                f:failureThreshold: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:name: {}
+              f:ports:
+                .: {}
+                k:{"containerPort":50051,"protocol":"TCP"}:
+                  .: {}
+                  f:containerPort: {}
+                  f:protocol: {}
+              f:readinessProbe:
+                .: {}
+                f:exec:
+                  .: {}
+                  f:command: {}
+                f:failureThreshold: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:resources:
+                .: {}
+                f:limits:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2021-04-27T10:13:57Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.24.1.8"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      time: "2021-04-27T10:14:32Z"
+    name: paymentservice-6658569876-d6r72
+    namespace: default
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: paymentservice-6658569876
+      uid: 4887b6a9-cd7b-4246-9547-b80766f43c06
+    resourceVersion: "1921"
+    selfLink: /api/v1/namespaces/default/pods/paymentservice-6658569876-d6r72
+    uid: 863a2bdc-c47b-43ab-abe5-3c8ec7c9ec7a
+  spec:
+    containers:
+    - env:
+      - name: PORT
+        value: "50051"
+      image: gcr.io/google-samples/microservices-demo/paymentservice:v0.2.2
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        exec:
+          command:
+          - /bin/grpc_health_probe
+          - -addr=:50051
+        failureThreshold: 3
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: server
+      ports:
+      - containerPort: 50051
+        protocol: TCP
+      readinessProbe:
+        exec:
+          command:
+          - /bin/grpc_health_probe
+          - -addr=:50051
+        failureThreshold: 3
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 200m
+          memory: 128Mi
+        requests:
+          cpu: 100m
+          memory: 64Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: default-token-f72m5
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: gke-hello-hipster-default-pool-9e6f6ffb-q16l
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 5
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: default-token-f72m5
+      secret:
+        defaultMode: 420
+        secretName: default-token-f72m5
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2021-04-27T10:13:57Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2021-04-27T10:14:32Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2021-04-27T10:14:32Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2021-04-27T10:13:57Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: containerd://45bb0b0668694a4132b32ba5410ad7d10c9db3754ee0fd6a4cbd15bf889c5942
+      image: gcr.io/google-samples/microservices-demo/paymentservice:v0.2.2
+      imageID: gcr.io/google-samples/microservices-demo/paymentservice@sha256:3ba32e07834811542dd05a39cb1942b35f762834bddfd6f4daa221c1ef9f495f
+      lastState: {}
+      name: server
+      ready: true
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2021-04-27T10:14:24Z"
+    hostIP: 10.132.0.3
+    phase: Running
+    podIP: 10.24.1.8
+    podIPs:
+    - ip: 10.24.1.8
+    qosClass: Burstable
+    startTime: "2021-04-27T10:13:57Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2021-04-27T10:13:57Z"
+    generateName: recommendationservice-78965f984b-
+    labels:
+      app: recommendationservice
+      pod-template-hash: 78965f984b
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:app: {}
+            f:pod-template-hash: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"e8c68c70-7d17-45cd-88e4-80f61b91d76e"}:
+              .: {}
+              f:apiVersion: {}
+              f:blockOwnerDeletion: {}
+              f:controller: {}
+              f:kind: {}
+              f:name: {}
+              f:uid: {}
+        f:spec:
+          f:containers:
+            k:{"name":"server"}:
+              .: {}
+              f:env:
+                .: {}
+                k:{"name":"PORT"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"PRODUCT_CATALOG_SERVICE_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:livenessProbe:
+                .: {}
+                f:exec:
+                  .: {}
+                  f:command: {}
+                f:failureThreshold: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:name: {}
+              f:ports:
+                .: {}
+                k:{"containerPort":8080,"protocol":"TCP"}:
+                  .: {}
+                  f:containerPort: {}
+                  f:protocol: {}
+              f:readinessProbe:
+                .: {}
+                f:exec:
+                  .: {}
+                  f:command: {}
+                f:failureThreshold: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:resources:
+                .: {}
+                f:limits:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2021-04-27T10:13:57Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.24.0.7"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      time: "2021-04-27T10:14:54Z"
+    name: recommendationservice-78965f984b-z9x79
+    namespace: default
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: recommendationservice-78965f984b
+      uid: e8c68c70-7d17-45cd-88e4-80f61b91d76e
+    resourceVersion: "2413"
+    selfLink: /api/v1/namespaces/default/pods/recommendationservice-78965f984b-z9x79
+    uid: 9227d0d7-8831-4e50-8df1-38663475635d
+  spec:
+    containers:
+    - env:
+      - name: PORT
+        value: "8080"
+      - name: PRODUCT_CATALOG_SERVICE_ADDR
+        value: productcatalogservice:3550
+      image: gcr.io/google-samples/microservices-demo/recommendationservice:v0.2.2
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        exec:
+          command:
+          - /bin/grpc_health_probe
+          - -addr=:8080
+        failureThreshold: 3
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: server
+      ports:
+      - containerPort: 8080
+        protocol: TCP
+      readinessProbe:
+        exec:
+          command:
+          - /bin/grpc_health_probe
+          - -addr=:8080
+        failureThreshold: 3
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 200m
+          memory: 450Mi
+        requests:
+          cpu: 100m
+          memory: 220Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: default-token-f72m5
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: gke-hello-hipster-default-pool-9e6f6ffb-xzbc
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 5
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: default-token-f72m5
+      secret:
+        defaultMode: 420
+        secretName: default-token-f72m5
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2021-04-27T10:13:57Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2021-04-27T10:14:54Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2021-04-27T10:14:54Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2021-04-27T10:13:57Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: containerd://7fba65e81d6f41c82acb3fc2f31a309b25be2ca4be8da872edc9cd69decdcd5d
+      image: gcr.io/google-samples/microservices-demo/recommendationservice:v0.2.2
+      imageID: gcr.io/google-samples/microservices-demo/recommendationservice@sha256:ffc4bc50561db6137a2ae917155ad3568cc8a815a4b031b59a241993602bc285
+      lastState:
+        terminated:
+          containerID: containerd://2c2ead0cb91d1a3bb312ddab0529d4928266843d048a3d770b32febbdaeea434
+          exitCode: 137
+          finishedAt: "2021-04-27T10:14:50Z"
+          reason: Error
+          startedAt: "2021-04-27T10:14:32Z"
+      name: server
+      ready: true
+      restartCount: 1
+      started: true
+      state:
+        running:
+          startedAt: "2021-04-27T10:14:50Z"
+    hostIP: 10.132.0.2
+    phase: Running
+    podIP: 10.24.0.7
+    podIPs:
+    - ip: 10.24.0.7
+    qosClass: Burstable
+    startTime: "2021-04-27T10:13:57Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2021-04-27T10:13:58Z"
+    generateName: shippingservice-6998959488-
+    labels:
+      app: shippingservice
+      pod-template-hash: "6998959488"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:app: {}
+            f:pod-template-hash: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"eda69dc9-cfbf-4e08-828c-e85e414a0b60"}:
+              .: {}
+              f:apiVersion: {}
+              f:blockOwnerDeletion: {}
+              f:controller: {}
+              f:kind: {}
+              f:name: {}
+              f:uid: {}
+        f:spec:
+          f:containers:
+            k:{"name":"server"}:
+              .: {}
+              f:env:
+                .: {}
+                k:{"name":"PORT"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:livenessProbe:
+                .: {}
+                f:exec:
+                  .: {}
+                  f:command: {}
+                f:failureThreshold: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:name: {}
+              f:ports:
+                .: {}
+                k:{"containerPort":50051,"protocol":"TCP"}:
+                  .: {}
+                  f:containerPort: {}
+                  f:protocol: {}
+              f:readinessProbe:
+                .: {}
+                f:exec:
+                  .: {}
+                  f:command: {}
+                f:failureThreshold: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:resources:
+                .: {}
+                f:limits:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2021-04-27T10:13:58Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.24.0.9"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      time: "2021-04-27T10:14:38Z"
+    name: shippingservice-6998959488-tvhph
+    namespace: default
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: shippingservice-6998959488
+      uid: eda69dc9-cfbf-4e08-828c-e85e414a0b60
+    resourceVersion: "2096"
+    selfLink: /api/v1/namespaces/default/pods/shippingservice-6998959488-tvhph
+    uid: 348e01fa-8b6d-4e6a-a975-c6d53ccf4f29
+  spec:
+    containers:
+    - env:
+      - name: PORT
+        value: "50051"
+      image: gcr.io/google-samples/microservices-demo/shippingservice:v0.2.2
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        exec:
+          command:
+          - /bin/grpc_health_probe
+          - -addr=:50051
+        failureThreshold: 3
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: server
+      ports:
+      - containerPort: 50051
+        protocol: TCP
+      readinessProbe:
+        exec:
+          command:
+          - /bin/grpc_health_probe
+          - -addr=:50051
+        failureThreshold: 3
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 200m
+          memory: 128Mi
+        requests:
+          cpu: 100m
+          memory: 64Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: default-token-f72m5
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: gke-hello-hipster-default-pool-9e6f6ffb-xzbc
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: default-token-f72m5
+      secret:
+        defaultMode: 420
+        secretName: default-token-f72m5
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2021-04-27T10:13:58Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2021-04-27T10:14:38Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2021-04-27T10:14:38Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2021-04-27T10:13:58Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: containerd://f15d40e08156046cb19f1d65dbd7c3bc510928544aeb080d994c30e33f2161a5
+      image: gcr.io/google-samples/microservices-demo/shippingservice:v0.2.2
+      imageID: gcr.io/google-samples/microservices-demo/shippingservice@sha256:8aa2972493ad330cfae6948129a17013e5e01a7e8ab7198a5a8ce72226f4f913
+      lastState: {}
+      name: server
+      ready: true
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2021-04-27T10:14:37Z"
+    hostIP: 10.132.0.2
+    phase: Running
+    podIP: 10.24.0.9
+    podIPs:
+    - ip: 10.24.0.9
+    qosClass: Burstable
+    startTime: "2021-04-27T10:13:58Z"
+kind: List
+metadata:
+  resourceVersion: ""
+  selfLink: ""
