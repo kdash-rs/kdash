@@ -1,6 +1,6 @@
 use super::utils::{self, UNKNOWN};
 use k8s_openapi::{
-  api::core::v1::{ContainerState, ContainerStateWaiting, Pod, PodStatus},
+  api::core::v1::{ContainerState, ContainerStateWaiting, Pod, PodSpec, PodStatus},
   chrono::Utc,
 };
 
@@ -51,24 +51,44 @@ impl KubePod {
           None => 0,
         };
 
-        let containers = status
-          .container_statuses
-          .as_ref()
-          .unwrap_or(&vec![])
-          .iter()
-          .map(|cs| KubeContainer {
-            name: cs.name.clone(),
-            pod_name: pod_name.clone(),
-            image: cs.image.clone(),
-            ready: cs.ready.to_string(),
-            status: get_container_state(cs.state.clone()),
-            restarts: cs.restart_count,
-            liveliness_probe: false, //TODO
-            readiness_probe: false,  //TODO
-            ports: "".to_owned(),    //TODO
-            age: age.clone(),
-          })
-          .collect();
+        let containers: Vec<KubeContainer> = match &status.container_statuses {
+          Some(ps) => ps
+            .iter()
+            .map(|cs| KubeContainer {
+              name: cs.name.clone(),
+              pod_name: pod_name.clone(),
+              image: cs.image.clone(),
+              ready: cs.ready.to_string(),
+              status: get_container_state(cs.state.clone()),
+              restarts: cs.restart_count,
+              liveliness_probe: false, //TODO
+              readiness_probe: false,  //TODO
+              ports: "".to_owned(),    //TODO
+              age: age.clone(),
+            })
+            .collect(),
+          None => {
+            pod
+              .spec
+              .as_ref()
+              .unwrap_or(&PodSpec::default())
+              .containers
+              .iter()
+              .map(|c| KubeContainer {
+                name: c.name.clone(),
+                pod_name: pod_name.clone(),
+                image: c.image.clone().unwrap_or_default(),
+                ready: "false".into(),
+                status: "<none>".into(),
+                restarts: 0,
+                liveliness_probe: false, //TODO
+                readiness_probe: false,  //TODO
+                ports: "".to_owned(),    //TODO
+                age: age.clone(),
+              })
+              .collect()
+          }
+        };
 
         (get_status(status, pod), cr, rc, c_stats_len, containers)
       }
@@ -275,7 +295,18 @@ mod tests {
         cpu: "".into(),
         mem: "".into(),
         age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
-        containers: vec![]
+        containers: vec![KubeContainer {
+          name: "server".into(),
+          image: "gcr.io/google-samples/microservices-demo/adservice:v0.2.2".into(),
+          ready: "false".into(),
+          status: "<none>".into(),
+          restarts: 0,
+          liveliness_probe: false,
+          readiness_probe: false,
+          ports: "".into(), //   ports: "7070".into(), // TODO fix
+          age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
+          pod_name: "adservice-f787c8dcd-tb6x2".into()
+        }]
       }
     );
     assert_eq!(
@@ -339,7 +370,18 @@ mod tests {
         cpu: "".into(),
         mem: "".into(),
         age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
-        containers: vec![]
+        containers: vec![KubeContainer {
+          name: "server".into(),
+          image: "gcr.io/google-samples/microservices-demo/frontend:v0.2.2".into(),
+          ready: "false".into(),
+          status: "<none>".into(),
+          restarts: 0,
+          liveliness_probe: false,
+          readiness_probe: false,
+          ports: "".into(), //   ports: "7070".into(), // TODO fix
+          age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
+          pod_name: "frontend-5c4745dfdb-6k8wf".into()
+        }]
       }
     );
     assert_eq!(
@@ -353,7 +395,18 @@ mod tests {
         cpu: "".into(),
         mem: "".into(),
         age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
-        containers: vec![]
+        containers: vec![KubeContainer {
+          name: "server".into(),
+          image: "gcr.io/google-samples/microservices-demo/frontend:v0.2.2".into(),
+          ready: "false".into(),
+          status: "<none>".into(),
+          restarts: 0,
+          liveliness_probe: false,
+          readiness_probe: false,
+          ports: "".into(), //   ports: "7070".into(), // TODO fix
+          age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
+          pod_name: "frontend-5c4745dfdb-qz7fg".into()
+        }]
       }
     );
     assert_eq!(
@@ -367,7 +420,18 @@ mod tests {
         cpu: "".into(),
         mem: "".into(),
         age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
-        containers: vec![]
+        containers: vec![KubeContainer {
+          name: "server".into(),
+          image: "gcr.io/google-samples/microservices-demo/frontend:v0.2.2".into(),
+          ready: "false".into(),
+          status: "<none>".into(),
+          restarts: 0,
+          liveliness_probe: false,
+          readiness_probe: false,
+          ports: "".into(), //   ports: "7070".into(), // TODO fix
+          age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
+          pod_name: "frontend-5c4745dfdb-6k8wf".into()
+        }]
       }
     );
     // TODO add tests for init-container-statuses and NodeLost cases
