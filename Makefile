@@ -18,7 +18,7 @@ run:
 
 ## Run clippy
 lint:  
-	@find . | grep '\.\/src\/.*\.rs$$' | xargs touch && cargo clippy --all-targets --workspace -- -D warnings
+	@find . | grep '\.\/src\/.*\.rs$$' | xargs touch && cargo clippy --all-targets --workspace
 
 ## Force Run clippy
 lint-force:  

@@ -2,10 +2,11 @@
 
 ## [Unreleased] - 27-Apr-2021
 
-
 ### Fixed
 
 - Describe view spacing
+- Get YAML for pods
+- Get YAML for nodes
 
 ## [0.0.7] - 03-May-2021
 

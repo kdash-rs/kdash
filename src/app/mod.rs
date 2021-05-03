@@ -48,6 +48,7 @@ pub enum ActiveBlock {
   ReplicaSets,
   Namespaces,
   Describe,
+  Yaml,
   Contexts,
   Utilization,
 }

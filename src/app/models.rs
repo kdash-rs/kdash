@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
 use super::ActiveBlock;
+use serde::Serialize;
 use tui::{
   backend::Backend,
   layout::Rect,
@@ -9,6 +10,17 @@ use tui::{
   widgets::{Block, List, ListItem, ListState, TableState},
   Frame,
 };
+
+pub trait ResourceToYaml<T: Serialize> {
+  fn get_k8s_obj(&self) -> &T;
+
+  fn resource_to_yaml(&self) -> String {
+    match serde_yaml::to_string(&self.get_k8s_obj()) {
+      Ok(yaml) => yaml,
+      Err(_) => "".into(),
+    }
+  }
+}
 
 pub trait Scrollable {
   fn scroll_down(&mut self);

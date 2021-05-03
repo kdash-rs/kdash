@@ -1,5 +1,7 @@
 use crossterm::event::{MouseEvent, MouseEventKind};
 
+use crate::app::models::ResourceToYaml;
+
 use super::app::{
   key_binding::DEFAULT_KEYBINDING,
   metrics::GroupBy,
@@ -63,6 +65,7 @@ fn handle_escape(app: &mut App) {
       ActiveBlock::Namespaces
       | ActiveBlock::Logs
       | ActiveBlock::Containers
+      | ActiveBlock::Yaml
       | ActiveBlock::Describe => {
         app.pop_navigation_stack();
       }
@@ -134,9 +137,9 @@ async fn handle_route_events(key: Key, app: &mut App) {
       // handle block specific stuff
       match app.get_current_route().active_block {
         ActiveBlock::Pods => {
-          if key == DEFAULT_KEYBINDING.describe_resource.key {
-            app.data.describe_out = ScrollableTxt::new();
-            if let Some(pod) = app.data.pods.get_selected_item_copy() {
+          if let Some(pod) = handle_table_action(key, &mut app.data.pods) {
+            if key == DEFAULT_KEYBINDING.describe_resource.key {
+              app.data.describe_out = ScrollableTxt::new();
               app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
               app
                 .dispatch_cmd(IoCmdEvent::GetDescribe {
@@ -145,11 +148,15 @@ async fn handle_route_events(key: Key, app: &mut App) {
                   ns: Some(pod.namespace),
                 })
                 .await;
+            } else if key == DEFAULT_KEYBINDING.resource_yaml.key {
+              let pod_yaml = pod.resource_to_yaml();
+              app.data.describe_out = ScrollableTxt::with_string(pod_yaml);
+              app.push_navigation_stack(RouteId::Home, ActiveBlock::Yaml);
+            } else {
+              app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
+              app.data.selected.pod = Some(pod.name);
+              app.data.containers.set_items(pod.containers);
             }
-          } else if let Some(pod) = handle_table_action(key, &mut app.data.pods) {
-            app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
-            app.data.selected.pod = Some(pod.name);
-            app.data.containers.set_items(pod.containers);
           }
         }
         ActiveBlock::Containers => {
@@ -162,9 +169,9 @@ async fn handle_route_events(key: Key, app: &mut App) {
           let _svc = handle_table_action(key, &mut app.data.services);
         }
         ActiveBlock::Nodes => {
-          if key == DEFAULT_KEYBINDING.describe_resource.key {
-            app.data.describe_out = ScrollableTxt::new();
-            if let Some(node) = app.data.nodes.get_selected_item_copy() {
+          if let Some(node) = handle_table_action(key, &mut app.data.nodes) {
+            if key == DEFAULT_KEYBINDING.describe_resource.key {
+              app.data.describe_out = ScrollableTxt::new();
               app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
               app
                 .dispatch_cmd(IoCmdEvent::GetDescribe {
@@ -173,9 +180,11 @@ async fn handle_route_events(key: Key, app: &mut App) {
                   ns: None,
                 })
                 .await;
+            } else if key == DEFAULT_KEYBINDING.resource_yaml.key {
+              let node_yaml = node.resource_to_yaml();
+              app.data.describe_out = ScrollableTxt::with_string(node_yaml);
+              app.push_navigation_stack(RouteId::Home, ActiveBlock::Yaml);
             }
-          } else {
-            let _node = handle_table_action(key, &mut app.data.nodes);
           }
         }
         ActiveBlock::Namespaces => {
@@ -191,7 +200,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
             copy_to_clipboard(app.data.logs.get_plain_text());
           }
         }
-        ActiveBlock::Describe => {
+        ActiveBlock::Describe | ActiveBlock::Yaml => {
           if key == DEFAULT_KEYBINDING.copy_to_clipboard.key {
             copy_to_clipboard(app.data.describe_out.get_txt());
           }
@@ -239,7 +248,8 @@ async fn handle_route_events(key: Key, app: &mut App) {
 fn handle_table_action<T: Clone>(key: Key, item: &mut StatefulTable<T>) -> Option<T> {
   match key {
     _ if key == DEFAULT_KEYBINDING.submit.key
-      || key == DEFAULT_KEYBINDING.describe_resource.key =>
+      || key == DEFAULT_KEYBINDING.describe_resource.key
+      || key == DEFAULT_KEYBINDING.resource_yaml.key =>
     {
       item.get_selected_item_copy()
     }
@@ -285,7 +295,7 @@ async fn handle_scroll(app: &mut App, down: bool, is_mouse: bool) {
         app.data.logs.scroll_up();
       }
     }
-    ActiveBlock::Describe => {
+    ActiveBlock::Describe | ActiveBlock::Yaml => {
       if inverse_dir(down, is_mouse) {
         app.data.describe_out.scroll_down();
       } else {

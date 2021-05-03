@@ -17,6 +17,9 @@ use tui::{
   Frame,
 };
 
+static DESCRIBE_YAML: &str = "| describe <d> | yaml <y>";
+static COPY: &str = "| copy <c>";
+
 pub fn draw_overview<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   if app.show_info_bar {
     let chunks = vertical_chunks(vec![Constraint::Length(9), Constraint::Min(10)], area);
@@ -119,19 +122,7 @@ fn draw_active_context_tabs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: R
   match app.context_tabs.index {
     0 => draw_pods_tab(app.get_current_route().active_block, f, app, chunks[1]),
     1 => draw_services(f, app, chunks[1]),
-    2 => match app.get_current_route().active_block {
-      ActiveBlock::Describe => draw_describe(
-        f,
-        app,
-        chunks[1],
-        title_with_dual_style(
-          get_node_title(app, "-> Describe "),
-          "| Nodes <esc>".into(),
-          app.light_theme,
-        ),
-      ),
-      _ => draw_nodes(f, app, chunks[1]),
-    },
+    2 => draw_nodes_tab(app.get_current_route().active_block, f, app, chunks[1]),
     3 => draw_config_maps(f, app, chunks[1]),
     4 => draw_stateful_sets(f, app, chunks[1]),
     5 => draw_replica_sets(f, app, chunks[1]),
@@ -149,7 +140,17 @@ fn draw_pods_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App
       area,
       title_with_dual_style(
         get_pod_title(app, "-> Describe "),
-        "| copy <c> | Pods <esc>".into(),
+        format!("{} | Pods <esc>", COPY),
+        app.light_theme,
+      ),
+    ),
+    ActiveBlock::Yaml => draw_describe(
+      f,
+      app,
+      area,
+      title_with_dual_style(
+        get_pod_title(app, "-> YAML "),
+        format!("{} | Pods <esc>", COPY),
         app.light_theme,
       ),
     ),
@@ -158,6 +159,35 @@ fn draw_pods_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App
       draw_pods_tab(app.get_prev_route().active_block, f, app, area);
     }
     _ => draw_pods(f, app, area),
+  };
+}
+
+fn draw_nodes_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
+  match block {
+    ActiveBlock::Describe => draw_describe(
+      f,
+      app,
+      area,
+      title_with_dual_style(
+        get_node_title(app, "-> Describe "),
+        format!("{} | Nodes <esc>", COPY),
+        app.light_theme,
+      ),
+    ),
+    ActiveBlock::Yaml => draw_describe(
+      f,
+      app,
+      area,
+      title_with_dual_style(
+        get_pod_title(app, "-> YAML "),
+        format!("{} | Nodes <esc>", COPY),
+        app.light_theme,
+      ),
+    ),
+    ActiveBlock::Namespaces => {
+      draw_nodes_tab(app.get_prev_route().active_block, f, app, area);
+    }
+    _ => draw_nodes(f, app, area),
   };
 }
 
@@ -265,7 +295,7 @@ fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = title_with_dual_style(
     get_pod_title(app, ""),
-    "| Containers <enter> | Describe <d>".into(),
+    format!("| Containers <enter> {}", DESCRIBE_YAML),
     app.light_theme,
   );
   let block = layout_block_top_border_span(title);
@@ -371,7 +401,7 @@ fn draw_containers<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = title_with_dual_style(
     get_node_title(app, ""),
-    "| describe <d>".into(),
+    DESCRIBE_YAML.into(),
     app.light_theme,
   );
   let block = layout_block_top_border_span(title);
@@ -434,15 +464,15 @@ fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = format!(
-    "Services (ns: {}) [{}]",
+  let title = title_with_ns(
+    "Services",
     app
       .data
       .selected
       .ns
       .as_ref()
       .unwrap_or(&String::from("all")),
-    app.data.services.items.len()
+    app.data.services.items.len(),
   );
   let block = layout_block_top_border(title.as_str());
 
@@ -493,15 +523,15 @@ fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_config_maps<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = format!(
-    "Config Maps (ns: {}) [{}]",
+  let title = title_with_ns(
+    "Config Maps",
     app
       .data
       .selected
       .ns
       .as_ref()
       .unwrap_or(&String::from("all")),
-    app.data.config_maps.items.len()
+    app.data.config_maps.items.len(),
   );
   let block = layout_block_top_border(title.as_str());
 
@@ -538,15 +568,15 @@ fn draw_config_maps<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_stateful_sets<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = format!(
-    "StatefulSets (ns: {}) [{}]",
+  let title = title_with_ns(
+    "StatefulSets",
     app
       .data
       .selected
       .ns
       .as_ref()
       .unwrap_or(&String::from("all")),
-    app.data.stateful_sets.items.len()
+    app.data.stateful_sets.items.len(),
   );
   let block = layout_block_top_border(title.as_str());
 
@@ -585,15 +615,15 @@ fn draw_stateful_sets<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_replica_sets<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = format!(
-    "ReplicaSets (ns: {}) [{}]",
+  let title = title_with_ns(
+    "ReplicaSets",
     app
       .data
       .selected
       .ns
       .as_ref()
       .unwrap_or(&String::from("all")),
-    app.data.replica_sets.items.len()
+    app.data.replica_sets.items.len(),
   );
   let block = layout_block_top_border(title.as_str());
 
@@ -634,15 +664,15 @@ fn draw_replica_sets<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_deployments<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = format!(
-    "Deployments (ns: {}) [{}]",
+  let title = title_with_ns(
+    "Deployments",
     app
       .data
       .selected
       .ns
       .as_ref()
       .unwrap_or(&String::from("all")),
-    app.data.deployments.items.len()
+    app.data.deployments.items.len(),
   );
   let block = layout_block_top_border(title.as_str());
 
@@ -766,14 +796,17 @@ fn get_node_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
 
 fn get_pod_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
   format!(
-    "Pods (ns: {}) [{}] {}",
-    app
-      .data
-      .selected
-      .ns
-      .as_ref()
-      .unwrap_or(&String::from("all")),
-    app.data.pods.items.len(),
+    "{} {}",
+    title_with_ns(
+      "Pods",
+      app
+        .data
+        .selected
+        .ns
+        .as_ref()
+        .unwrap_or(&String::from("all")),
+      app.data.pods.items.len()
+    ),
     suffix.as_ref(),
   )
 }
@@ -784,4 +817,8 @@ fn get_container_title<S: AsRef<str>>(app: &App, container_len: usize, suffix: S
     format!("-> Containers [{}] {}", container_len, suffix.as_ref()),
   );
   title
+}
+
+fn title_with_ns(title: &str, ns: &str, length: usize) -> String {
+  format!("{} (ns: {}) [{}]", title, ns, length)
 }

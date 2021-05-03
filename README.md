@@ -94,7 +94,7 @@ Press `?` while running the app to see keybindings
   - [ ] StatefulSets
   - [ ] ReplicaSets
   - [x] select/copy output
-  - [ ] as YAML
+  - [x] as YAML
 - Stream logs/events
   - [x] Containers
   - [ ] Services

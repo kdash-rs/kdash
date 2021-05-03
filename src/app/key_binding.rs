@@ -49,6 +49,7 @@ pub struct KeyBindings {
   pub jump_to_statefulsets: KeyBinding,
   pub jump_to_replicasets: KeyBinding,
   pub describe_resource: KeyBinding,
+  pub resource_yaml: KeyBinding,
   pub cycle_group_by: KeyBinding,
   pub copy_to_clipboard: KeyBinding,
 }
@@ -155,6 +156,11 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
     desc: "Describe resource",
     context: HContext::Overview,
   },
+  resource_yaml: KeyBinding {
+    key: Key::Char('y'),
+    desc: "Get Resource YAML",
+    context: HContext::Overview,
+  },
   jump_to_pods: KeyBinding {
     key: Key::Char('1'),
     desc: "Select pods tab",
@@ -222,6 +228,7 @@ impl KeyBindings {
       &self.select_all_namespace,
       &self.jump_to_namespace,
       &self.describe_resource,
+      &self.resource_yaml,
       &self.jump_to_pods,
       &self.jump_to_services,
       &self.jump_to_nodes,

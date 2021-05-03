@@ -26,22 +26,26 @@ pub enum IoEvent {
 
 async fn refresh_kube_config(context: &Option<String>) -> Result<()> {
   //HACK force refresh token by calling "kubectl cluster-info before loading configuration"
-  use std::process::Command;
-  let mut cmd = Command::new("kubectl");
-  cmd.arg("cluster-info");
-  if let Some(ref context) = context {
-    cmd.arg("--context").arg(context);
+  let mut args = vec!["cluster-info"];
+
+  if let Some(context) = context {
+    args.push("--context");
+    args.push(context.as_str());
   }
-  let output = cmd.output()?;
-  if !output.status.success() {
-    return Err(anyhow!("`kubectl cluster-info` failed with: {:?}", &output));
+  let out = duct::cmd("kubectl", &args).read();
+
+  if out.is_err() {
+    return Err(anyhow!(
+      "`kubectl cluster-info` failed with: {:?}",
+      &out.err()
+    ));
   }
   Ok(())
 }
 
 pub async fn get_client(context: Option<String>) -> Result<kube::Client> {
   use core::convert::TryFrom;
-
+  // TODO this fails when debugging, investigate
   refresh_kube_config(&context)
     .await
     .with_context(|| "failed to refresh kubectl config".to_string())?;
