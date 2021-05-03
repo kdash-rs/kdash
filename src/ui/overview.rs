@@ -1,10 +1,9 @@
 use super::super::app::{key_binding::DEFAULT_KEYBINDING, nodes::NodeMetrics, ActiveBlock, App};
 use super::super::banner::BANNER;
 use super::utils::{
-  get_gauge_style, horizontal_chunks, layout_block_default, layout_block_top_border,
-  layout_block_top_border_span, loading, style_default, style_failure, style_highlight, style_logo,
-  style_primary, style_secondary, table_header_style, title_with_dual_style, vertical_chunks,
-  vertical_chunks_with_margin,
+  get_gauge_style, horizontal_chunks, layout_block_default, layout_block_top_border, loading,
+  style_default, style_failure, style_highlight, style_logo, style_primary, style_secondary,
+  table_header_style, title_with_dual_style, vertical_chunks, vertical_chunks_with_margin,
 };
 use super::HIGHLIGHT;
 
@@ -18,6 +17,7 @@ use tui::{
 };
 
 static DESCRIBE_YAML: &str = "| describe <d> | yaml <y>";
+static YAML: &str = "| yaml <y>";
 static COPY: &str = "| copy <c>";
 
 pub fn draw_overview<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
@@ -121,12 +121,12 @@ fn draw_active_context_tabs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: R
   // render tab content
   match app.context_tabs.index {
     0 => draw_pods_tab(app.get_current_route().active_block, f, app, chunks[1]),
-    1 => draw_services(f, app, chunks[1]),
+    1 => draw_services_tab(app.get_current_route().active_block, f, app, chunks[1]),
     2 => draw_nodes_tab(app.get_current_route().active_block, f, app, chunks[1]),
-    3 => draw_config_maps(f, app, chunks[1]),
-    4 => draw_stateful_sets(f, app, chunks[1]),
-    5 => draw_replica_sets(f, app, chunks[1]),
-    6 => draw_deployments(f, app, chunks[1]),
+    3 => draw_config_maps_tab(app.get_current_route().active_block, f, app, chunks[1]),
+    4 => draw_stateful_sets_tab(app.get_current_route().active_block, f, app, chunks[1]),
+    5 => draw_replica_sets_tab(app.get_current_route().active_block, f, app, chunks[1]),
+    6 => draw_deployments_tab(app.get_current_route().active_block, f, app, chunks[1]),
     _ => {}
   };
 }
@@ -179,7 +179,7 @@ fn draw_nodes_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut Ap
       app,
       area,
       title_with_dual_style(
-        get_pod_title(app, "-> YAML "),
+        get_node_title(app, "-> YAML "),
         format!("{} | Nodes <esc>", COPY),
         app.light_theme,
       ),
@@ -188,6 +188,121 @@ fn draw_nodes_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut Ap
       draw_nodes_tab(app.get_prev_route().active_block, f, app, area);
     }
     _ => draw_nodes(f, app, area),
+  };
+}
+
+fn draw_services_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
+  match block {
+    ActiveBlock::Yaml => draw_describe(
+      f,
+      app,
+      area,
+      title_with_dual_style(
+        get_svc_title(app, "-> YAML "),
+        format!("{} | Services <esc>", COPY),
+        app.light_theme,
+      ),
+    ),
+    ActiveBlock::Namespaces => {
+      draw_services_tab(app.get_prev_route().active_block, f, app, area);
+    }
+    _ => draw_services(f, app, area),
+  };
+}
+
+fn draw_config_maps_tab<B: Backend>(
+  block: ActiveBlock,
+  f: &mut Frame<B>,
+  app: &mut App,
+  area: Rect,
+) {
+  match block {
+    ActiveBlock::Yaml => draw_describe(
+      f,
+      app,
+      area,
+      title_with_dual_style(
+        get_config_map_title(app, "-> YAML "),
+        format!("{} | ConfigMaps <esc>", COPY),
+        app.light_theme,
+      ),
+    ),
+    ActiveBlock::Namespaces => {
+      draw_config_maps_tab(app.get_prev_route().active_block, f, app, area);
+    }
+    _ => draw_config_maps(f, app, area),
+  };
+}
+
+fn draw_stateful_sets_tab<B: Backend>(
+  block: ActiveBlock,
+  f: &mut Frame<B>,
+  app: &mut App,
+  area: Rect,
+) {
+  match block {
+    ActiveBlock::Yaml => draw_describe(
+      f,
+      app,
+      area,
+      title_with_dual_style(
+        get_stateful_sets_title(app, "-> YAML "),
+        format!("{} | StatefulSets <esc>", COPY),
+        app.light_theme,
+      ),
+    ),
+    ActiveBlock::Namespaces => {
+      draw_stateful_sets_tab(app.get_prev_route().active_block, f, app, area);
+    }
+    _ => draw_stateful_sets(f, app, area),
+  };
+}
+
+fn draw_replica_sets_tab<B: Backend>(
+  block: ActiveBlock,
+  f: &mut Frame<B>,
+  app: &mut App,
+  area: Rect,
+) {
+  match block {
+    ActiveBlock::Yaml => draw_describe(
+      f,
+      app,
+      area,
+      title_with_dual_style(
+        get_replica_sets_title(app, "-> YAML "),
+        format!("{} | ReplicaSets <esc>", COPY),
+        app.light_theme,
+      ),
+    ),
+    ActiveBlock::Namespaces => {
+      draw_replica_sets_tab(app.get_prev_route().active_block, f, app, area);
+    }
+    _ => draw_replica_sets(f, app, area),
+  };
+}
+
+fn draw_deployments_tab<B: Backend>(
+  block: ActiveBlock,
+  f: &mut Frame<B>,
+  app: &mut App,
+  area: Rect,
+) {
+  match block {
+    ActiveBlock::Yaml => draw_describe(
+      f,
+      app,
+      area,
+      title_with_dual_style(
+        get_deployments_title(app, "-> YAML "),
+        format!("{} | Deployments <esc>", COPY),
+        app.light_theme,
+      ),
+    ),
+    ActiveBlock::Namespaces => {
+      draw_config_maps_tab(app.get_prev_route().active_block, f, app, area);
+    }
+    _ => draw_deployments(f, app, area),
   };
 }
 
@@ -298,7 +413,7 @@ fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     format!("| Containers <enter> {}", DESCRIBE_YAML),
     app.light_theme,
   );
-  let block = layout_block_top_border_span(title);
+  let block = layout_block_top_border(title);
 
   if !app.data.pods.items.is_empty() {
     let rows = app.data.pods.items.iter().map(|c| {
@@ -343,7 +458,7 @@ fn draw_containers<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     app.light_theme,
   );
 
-  let block = layout_block_top_border_span(title);
+  let block = layout_block_top_border(title);
 
   if !app.data.containers.items.is_empty() {
     let rows = app.data.containers.items.iter().map(|c| {
@@ -404,7 +519,7 @@ fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     DESCRIBE_YAML.into(),
     app.light_theme,
   );
-  let block = layout_block_top_border_span(title);
+  let block = layout_block_top_border(title);
 
   if !app.data.nodes.items.is_empty() {
     let rows = app.data.nodes.items.iter().map(|c| {
@@ -464,17 +579,8 @@ fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = title_with_ns(
-    "Services",
-    app
-      .data
-      .selected
-      .ns
-      .as_ref()
-      .unwrap_or(&String::from("all")),
-    app.data.services.items.len(),
-  );
-  let block = layout_block_top_border(title.as_str());
+  let title = title_with_dual_style(get_svc_title(app, ""), YAML.into(), app.light_theme);
+  let block = layout_block_top_border(title);
 
   if !app.data.services.items.is_empty() {
     let rows = app.data.services.items.iter().map(|c| {
@@ -523,17 +629,8 @@ fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_config_maps<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = title_with_ns(
-    "Config Maps",
-    app
-      .data
-      .selected
-      .ns
-      .as_ref()
-      .unwrap_or(&String::from("all")),
-    app.data.config_maps.items.len(),
-  );
-  let block = layout_block_top_border(title.as_str());
+  let title = title_with_dual_style(get_config_map_title(app, ""), YAML.into(), app.light_theme);
+  let block = layout_block_top_border(title);
 
   if !app.data.config_maps.items.is_empty() {
     let rows = app.data.config_maps.items.iter().map(|c| {
@@ -568,17 +665,12 @@ fn draw_config_maps<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_stateful_sets<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = title_with_ns(
-    "StatefulSets",
-    app
-      .data
-      .selected
-      .ns
-      .as_ref()
-      .unwrap_or(&String::from("all")),
-    app.data.stateful_sets.items.len(),
+  let title = title_with_dual_style(
+    get_stateful_sets_title(app, ""),
+    YAML.into(),
+    app.light_theme,
   );
-  let block = layout_block_top_border(title.as_str());
+  let block = layout_block_top_border(title);
 
   if !app.data.stateful_sets.items.is_empty() {
     let rows = app.data.stateful_sets.items.iter().map(|c| {
@@ -615,17 +707,12 @@ fn draw_stateful_sets<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_replica_sets<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = title_with_ns(
-    "ReplicaSets",
-    app
-      .data
-      .selected
-      .ns
-      .as_ref()
-      .unwrap_or(&String::from("all")),
-    app.data.replica_sets.items.len(),
+  let title = title_with_dual_style(
+    get_replica_sets_title(app, ""),
+    YAML.into(),
+    app.light_theme,
   );
-  let block = layout_block_top_border(title.as_str());
+  let block = layout_block_top_border(title);
 
   if !app.data.replica_sets.items.is_empty() {
     let rows = app.data.replica_sets.items.iter().map(|c| {
@@ -664,17 +751,8 @@ fn draw_replica_sets<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_deployments<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = title_with_ns(
-    "Deployments",
-    app
-      .data
-      .selected
-      .ns
-      .as_ref()
-      .unwrap_or(&String::from("all")),
-    app.data.deployments.items.len(),
-  );
-  let block = layout_block_top_border(title.as_str());
+  let title = title_with_dual_style(get_deployments_title(app, ""), YAML.into(), app.light_theme);
+  let block = layout_block_top_border(title);
 
   if !app.data.deployments.items.is_empty() {
     let rows = app.data.deployments.items.iter().map(|c| {
@@ -733,7 +811,7 @@ fn draw_logs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     app.light_theme,
   );
 
-  let block = layout_block_top_border_span(title);
+  let block = layout_block_top_border(title);
 
   if container_name == app.data.logs.id {
     app
@@ -746,7 +824,7 @@ fn draw_logs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_describe<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect, title: Spans) {
-  let block = layout_block_top_border_span(title);
+  let block = layout_block_top_border(title);
 
   let txt = &app.data.describe_out.get_txt();
   if !txt.is_empty() {
@@ -792,6 +870,91 @@ fn get_resource_row_style(status: &str) -> Style {
 
 fn get_node_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
   format!("Nodes [{}] {}", app.data.nodes.items.len(), suffix.as_ref())
+}
+
+fn get_svc_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
+  format!(
+    "{} {}",
+    title_with_ns(
+      "Services",
+      app
+        .data
+        .selected
+        .ns
+        .as_ref()
+        .unwrap_or(&String::from("all")),
+      app.data.services.items.len()
+    ),
+    suffix.as_ref(),
+  )
+}
+
+fn get_config_map_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
+  format!(
+    "{} {}",
+    title_with_ns(
+      "ConfigMaps",
+      app
+        .data
+        .selected
+        .ns
+        .as_ref()
+        .unwrap_or(&String::from("all")),
+      app.data.config_maps.items.len()
+    ),
+    suffix.as_ref(),
+  )
+}
+
+fn get_stateful_sets_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
+  format!(
+    "{} {}",
+    title_with_ns(
+      "StatefulSets",
+      app
+        .data
+        .selected
+        .ns
+        .as_ref()
+        .unwrap_or(&String::from("all")),
+      app.data.stateful_sets.items.len()
+    ),
+    suffix.as_ref(),
+  )
+}
+
+fn get_replica_sets_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
+  format!(
+    "{} {}",
+    title_with_ns(
+      "ReplicaSets",
+      app
+        .data
+        .selected
+        .ns
+        .as_ref()
+        .unwrap_or(&String::from("all")),
+      app.data.replica_sets.items.len()
+    ),
+    suffix.as_ref(),
+  )
+}
+
+fn get_deployments_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
+  format!(
+    "{} {}",
+    title_with_ns(
+      "Deployments",
+      app
+        .data
+        .selected
+        .ns
+        .as_ref()
+        .unwrap_or(&String::from("all")),
+      app.data.deployments.items.len()
+    ),
+    suffix.as_ref(),
+  )
 }
 
 fn get_pod_title<S: AsRef<str>>(app: &App, suffix: S) -> String {

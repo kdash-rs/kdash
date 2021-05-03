@@ -1,4 +1,7 @@
-use super::utils::{self, UNKNOWN};
+use super::{
+  models::ResourceToYaml,
+  utils::{self, UNKNOWN},
+};
 use k8s_openapi::{
   api::core::v1::{
     Container, ContainerPort, ContainerState, ContainerStateWaiting, ContainerStatus, Pod, PodSpec,
@@ -18,6 +21,7 @@ pub struct KubePod {
   pub mem: String,
   pub age: String,
   pub containers: Vec<KubeContainer>,
+  k8s_obj: Pod,
 }
 
 #[derive(Clone, Default, Debug, PartialEq)]
@@ -86,7 +90,14 @@ impl KubePod {
       status,
       age,
       containers,
+      k8s_obj: pod.to_owned(),
     }
+  }
+}
+
+impl ResourceToYaml<Pod> for KubePod {
+  fn get_k8s_obj(&self) -> &Pod {
+    &self.k8s_obj
   }
 }
 
@@ -310,8 +321,10 @@ mod tests {
     let pods: serde_yaml::Result<ObjectList<Pod>> = serde_yaml::from_str(&*pods_yaml);
     assert_eq!(pods.is_ok(), true);
 
+    let pods = pods.unwrap();
+    let pods_list = pods.items.clone();
+
     let pods: Vec<KubePod> = pods
-      .unwrap()
       .iter()
       .map(|it| KubePod::from_api(it))
       .collect::<Vec<_>>();
@@ -339,7 +352,8 @@ mod tests {
           ports: "9555".into(),
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
           pod_name: "adservice-f787c8dcd-tb6x2".into()
-        }]
+        }],
+        k8s_obj: pods_list[0].clone()
       }
     );
     assert_eq!(
@@ -364,7 +378,8 @@ mod tests {
           ports: "7070".into(),
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
           pod_name: "cartservice-67b89ffc69-s5qp8".into()
-        }]
+        }],
+        k8s_obj: pods_list[1].clone()
       }
     );
     assert_eq!(
@@ -389,7 +404,8 @@ mod tests {
           ports: "8080".into(),
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
           pod_name: "emailservice-5f8fc7dbb4-5lqdb".into()
-        }]
+        }],
+        k8s_obj: pods_list[3].clone()
       }
     );
     assert_eq!(
@@ -414,7 +430,8 @@ mod tests {
           ports: "8080".into(),
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
           pod_name: "frontend-5c4745dfdb-6k8wf".into()
-        }]
+        }],
+        k8s_obj: pods_list[4].clone()
       }
     );
     assert_eq!(
@@ -439,7 +456,8 @@ mod tests {
           ports: "8080/HTTP".into(),
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
           pod_name: "frontend-5c4745dfdb-qz7fg".into()
-        }]
+        }],
+        k8s_obj: pods_list[5].clone()
       }
     );
     assert_eq!(
@@ -464,7 +482,8 @@ mod tests {
           ports: "8080, 8081/UDP, Foo:8082/UDP, 8083".into(),
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
           pod_name: "frontend-5c4745dfdb-6k8wf".into()
-        }]
+        }],
+        k8s_obj: pods_list[6].clone()
       }
     );
     // TODO add tests for init-container-statuses and NodeLost cases

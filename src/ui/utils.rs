@@ -135,13 +135,7 @@ pub fn layout_block_active_span(title: Spans) -> Block {
     .style(style_secondary())
 }
 
-pub fn layout_block_top_border(title: &str) -> Block {
-  Block::default()
-    .borders(Borders::TOP)
-    .title(title_style(title))
-}
-
-pub fn layout_block_top_border_span(title: Spans) -> Block {
+pub fn layout_block_top_border(title: Spans) -> Block {
   Block::default().borders(Borders::TOP).title(title)
 }
 

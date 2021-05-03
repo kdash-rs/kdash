@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use k8s_openapi::{api::core::v1::ConfigMap, chrono::Utc};
 
-use super::utils;
+use super::{models::ResourceToYaml, utils};
 
 #[derive(Clone)]
 pub struct KubeConfigMap {
@@ -10,6 +10,7 @@ pub struct KubeConfigMap {
   pub namespace: String,
   pub data: BTreeMap<String, String>,
   pub age: String,
+  k8s_obj: ConfigMap,
 }
 
 impl KubeConfigMap {
@@ -24,6 +25,13 @@ impl KubeConfigMap {
       namespace: cm.metadata.namespace.clone().unwrap_or_default(),
       age: utils::to_age(cm.metadata.creation_timestamp.as_ref(), Utc::now()),
       data,
+      k8s_obj: cm.to_owned(),
     }
+  }
+}
+
+impl ResourceToYaml<ConfigMap> for KubeConfigMap {
+  fn get_k8s_obj(&self) -> &ConfigMap {
+    &self.k8s_obj
   }
 }

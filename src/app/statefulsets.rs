@@ -1,6 +1,6 @@
 use k8s_openapi::{api::apps::v1::StatefulSet, chrono::Utc};
 
-use super::utils;
+use super::{models::ResourceToYaml, utils};
 
 #[derive(Clone)]
 pub struct KubeStatefulSet {
@@ -9,6 +9,7 @@ pub struct KubeStatefulSet {
   pub ready: String,
   pub service: String,
   pub age: String,
+  k8s_obj: StatefulSet,
 }
 
 impl KubeStatefulSet {
@@ -27,6 +28,13 @@ impl KubeStatefulSet {
         .as_ref()
         .map_or("n/a".into(), |spec| spec.service_name.to_owned()),
       ready,
+      k8s_obj: stfs.to_owned(),
     }
+  }
+}
+
+impl ResourceToYaml<StatefulSet> for KubeStatefulSet {
+  fn get_k8s_obj(&self) -> &StatefulSet {
+    &self.k8s_obj
   }
 }

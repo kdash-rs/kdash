@@ -1,7 +1,7 @@
 use super::super::app::{
   configmaps::KubeConfigMap,
   contexts,
-  deployments::KubeDeployments,
+  deployments::KubeDeployment,
   metrics::{self, Resource},
   nodes::{KubeNode, NodeMetrics},
   ns::KubeNs,
@@ -207,8 +207,8 @@ impl<'a> Network<'a> {
   }
 
   pub async fn get_deployments(&self) {
-    let items: Vec<KubeDeployments> = self
-      .get_namespaced_resources(|it| KubeDeployments::from_api(it))
+    let items: Vec<KubeDeployment> = self
+      .get_namespaced_resources(|it| KubeDeployment::from_api(it))
       .await;
 
     let mut app = self.app.lock().await;

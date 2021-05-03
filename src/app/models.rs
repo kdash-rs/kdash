@@ -11,6 +11,7 @@ use tui::{
   Frame,
 };
 
+/// generate YAML from the original kubernetes resource
 pub trait ResourceToYaml<T: Serialize> {
   fn get_k8s_obj(&self) -> &T;
 

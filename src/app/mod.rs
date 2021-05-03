@@ -15,7 +15,7 @@ mod utils;
 use self::{
   configmaps::KubeConfigMap,
   contexts::KubeContext,
-  deployments::KubeDeployments,
+  deployments::KubeDeployment,
   key_binding::DEFAULT_KEYBINDING,
   metrics::{GroupBy, QtyByQualifier},
   models::{LogsState, ScrollableTxt, StatefulTable, TabsState},
@@ -96,7 +96,7 @@ pub struct Data {
   pub config_maps: StatefulTable<KubeConfigMap>,
   pub stateful_sets: StatefulTable<KubeStatefulSet>,
   pub replica_sets: StatefulTable<KubeReplicaSet>,
-  pub deployments: StatefulTable<KubeDeployments>,
+  pub deployments: StatefulTable<KubeDeployment>,
   pub logs: LogsState,
   pub describe_out: ScrollableTxt,
   pub metrics: StatefulTable<(Vec<String>, Option<QtyByQualifier>)>,

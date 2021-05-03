@@ -1,4 +1,7 @@
-use super::utils::{self, UNKNOWN};
+use super::{
+  models::ResourceToYaml,
+  utils::{self, UNKNOWN},
+};
 use k8s_openapi::{
   api::core::v1::{Service, ServicePort},
   chrono::Utc,
@@ -13,6 +16,7 @@ pub struct KubeSvc {
   pub external_ip: String,
   pub ports: String,
   pub age: String,
+  k8s_obj: Service,
 }
 
 impl KubeSvc {
@@ -61,7 +65,14 @@ impl KubeSvc {
       external_ip,
       ports,
       age: utils::to_age(service.metadata.creation_timestamp.as_ref(), Utc::now()),
+      k8s_obj: service.to_owned(),
     }
+  }
+}
+
+impl ResourceToYaml<Service> for KubeSvc {
+  fn get_k8s_obj(&self) -> &Service {
+    &self.k8s_obj
   }
 }
 

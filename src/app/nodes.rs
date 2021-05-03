@@ -9,6 +9,7 @@ use kube::{
 use tokio::sync::MutexGuard;
 
 use super::{
+  models::ResourceToYaml,
   utils::{self, UNKNOWN},
   App,
 };
@@ -36,6 +37,7 @@ pub struct KubeNode {
   pub cpu_percent: String,
   pub mem_percent: String,
   pub age: String,
+  k8s_obj: Node,
 }
 
 static NODE_LABEL_PREFIX: &str = "node-role.kubernetes.io/";
@@ -161,7 +163,14 @@ impl KubeNode {
       mem_a: utils::mem_to_mi(mem_a.unwrap_or_default()),
       cpu_percent,
       mem_percent,
+      k8s_obj: node.to_owned(),
     }
+  }
+}
+
+impl ResourceToYaml<Node> for KubeNode {
+  fn get_k8s_obj(&self) -> &Node {
+    &self.k8s_obj
   }
 }
 

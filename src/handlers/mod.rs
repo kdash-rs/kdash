@@ -1,4 +1,5 @@
 use crossterm::event::{MouseEvent, MouseEventKind};
+use serde::Serialize;
 
 use crate::app::models::ResourceToYaml;
 
@@ -71,6 +72,21 @@ fn handle_escape(app: &mut App) {
       }
       _ => {}
     },
+  }
+}
+
+fn handle_yaml_action<T, S>(key: Key, app: &mut App, res: &T) -> bool
+where
+  T: ResourceToYaml<S>,
+  S: Serialize,
+{
+  if key == DEFAULT_KEYBINDING.resource_yaml.key {
+    let yaml = res.resource_to_yaml();
+    app.data.describe_out = ScrollableTxt::with_string(yaml);
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Yaml);
+    true
+  } else {
+    false
   }
 }
 
@@ -148,11 +164,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
                   ns: Some(pod.namespace),
                 })
                 .await;
-            } else if key == DEFAULT_KEYBINDING.resource_yaml.key {
-              let pod_yaml = pod.resource_to_yaml();
-              app.data.describe_out = ScrollableTxt::with_string(pod_yaml);
-              app.push_navigation_stack(RouteId::Home, ActiveBlock::Yaml);
-            } else {
+            } else if !handle_yaml_action(key, app, &pod) {
               app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
               app.data.selected.pod = Some(pod.name);
               app.data.containers.set_items(pod.containers);
@@ -164,9 +176,6 @@ async fn handle_route_events(key: Key, app: &mut App) {
             app.data.selected.container = Some(c.name.clone());
             app.dispatch_container_logs(c.name).await;
           }
-        }
-        ActiveBlock::Services => {
-          let _svc = handle_table_action(key, &mut app.data.services);
         }
         ActiveBlock::Nodes => {
           if let Some(node) = handle_table_action(key, &mut app.data.nodes) {
@@ -180,10 +189,8 @@ async fn handle_route_events(key: Key, app: &mut App) {
                   ns: None,
                 })
                 .await;
-            } else if key == DEFAULT_KEYBINDING.resource_yaml.key {
-              let node_yaml = node.resource_to_yaml();
-              app.data.describe_out = ScrollableTxt::with_string(node_yaml);
-              app.push_navigation_stack(RouteId::Home, ActiveBlock::Yaml);
+            } else {
+              let _ok = handle_yaml_action(key, app, &node);
             }
           }
         }
@@ -205,13 +212,33 @@ async fn handle_route_events(key: Key, app: &mut App) {
             copy_to_clipboard(app.data.describe_out.get_txt());
           }
         }
-        ActiveBlock::Deployments
-        | ActiveBlock::ConfigMaps
-        | ActiveBlock::StatefulSets
-        | ActiveBlock::ReplicaSets
-        | ActiveBlock::Contexts
-        | ActiveBlock::Utilization
-        | ActiveBlock::Empty => { /* Do nothing */ }
+        ActiveBlock::Services => {
+          if let Some(res) = handle_table_action(key, &mut app.data.services) {
+            let _ok = handle_yaml_action(key, app, &res);
+          }
+        }
+        ActiveBlock::Deployments => {
+          if let Some(res) = handle_table_action(key, &mut app.data.deployments) {
+            let _ok = handle_yaml_action(key, app, &res);
+          }
+        }
+        ActiveBlock::ConfigMaps => {
+          if let Some(res) = handle_table_action(key, &mut app.data.config_maps) {
+            let _ok = handle_yaml_action(key, app, &res);
+          }
+        }
+        ActiveBlock::StatefulSets => {
+          if let Some(res) = handle_table_action(key, &mut app.data.stateful_sets) {
+            let _ok = handle_yaml_action(key, app, &res);
+          }
+        }
+        ActiveBlock::ReplicaSets => {
+          if let Some(res) = handle_table_action(key, &mut app.data.replica_sets) {
+            let _ok = handle_yaml_action(key, app, &res);
+          }
+        }
+        ActiveBlock::Contexts | ActiveBlock::Utilization | ActiveBlock::Empty => { /* Do nothing */
+        }
       }
     }
     RouteId::Contexts => {

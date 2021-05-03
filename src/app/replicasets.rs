@@ -1,6 +1,6 @@
 use k8s_openapi::{api::apps::v1::ReplicaSet, chrono::Utc};
 
-use super::utils;
+use super::{models::ResourceToYaml, utils};
 
 #[derive(Clone)]
 pub struct KubeReplicaSet {
@@ -10,6 +10,7 @@ pub struct KubeReplicaSet {
   pub current: i32,
   pub ready: i32,
   pub age: String,
+  k8s_obj: ReplicaSet,
 }
 
 impl KubeReplicaSet {
@@ -29,6 +30,13 @@ impl KubeReplicaSet {
         .map_or(0, |s| s.replicas.unwrap_or_default()),
       current,
       ready,
+      k8s_obj: rps.to_owned(),
     }
+  }
+}
+
+impl ResourceToYaml<ReplicaSet> for KubeReplicaSet {
+  fn get_k8s_obj(&self) -> &ReplicaSet {
+    &self.k8s_obj
   }
 }
