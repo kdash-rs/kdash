@@ -2,6 +2,11 @@
 
 ## [Unreleased] - 27-Apr-2021
 
+
+### Fixed
+
+- Describe view spacing
+
 ## [0.0.7] - 03-May-2021
 
 ### Added

@@ -633,7 +633,7 @@ fn draw_replica_sets<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   }
 }
 
-pub fn draw_deployments<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_deployments<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = format!(
     "Deployments (ns: {}) [{}]",
     app
@@ -725,7 +725,7 @@ fn draw_describe<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect, title:
 
     let paragraph = Paragraph::new(txt)
       .block(block)
-      .wrap(Wrap { trim: true })
+      .wrap(Wrap { trim: false })
       .scroll((app.data.describe_out.offset, 0));
     f.render_widget(paragraph, area);
   } else {
