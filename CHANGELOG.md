@@ -2,6 +2,19 @@
 
 ## [Unreleased] - 27-Apr-2021
 
+## [0.0.7] - 03-May-2021
+
+### Added
+
+- Container ports and probes
+
+### Fixed
+
+- Library updates
+- Scroll improvements
+- More tests
+- Show containers for failing pods
+
 ## [0.0.6] - 27-Apr-2021
 
 ### Added
