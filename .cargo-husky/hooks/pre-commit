@@ -2,7 +2,7 @@
 
 set -e
 
-echo "Running pre-push hook:"
+echo "Running pre-commit hook:"
 
 echo "Executing: cargo fmt"
 cargo fmt
