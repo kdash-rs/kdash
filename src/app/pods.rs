@@ -1,6 +1,9 @@
 use super::utils::{self, UNKNOWN};
 use k8s_openapi::{
-  api::core::v1::{ContainerState, ContainerStateWaiting, Pod, PodSpec, PodStatus},
+  api::core::v1::{
+    Container, ContainerPort, ContainerState, ContainerStateWaiting, ContainerStatus, Pod, PodSpec,
+    PodStatus,
+  },
   chrono::Utc,
 };
 
@@ -51,44 +54,21 @@ impl KubePod {
           None => 0,
         };
 
-        let containers: Vec<KubeContainer> = match &status.container_statuses {
-          Some(ps) => ps
-            .iter()
-            .map(|cs| KubeContainer {
-              name: cs.name.clone(),
-              pod_name: pod_name.clone(),
-              image: cs.image.clone(),
-              ready: cs.ready.to_string(),
-              status: get_container_state(cs.state.clone()),
-              restarts: cs.restart_count,
-              liveliness_probe: false, //TODO
-              readiness_probe: false,  //TODO
-              ports: "".to_owned(),    //TODO
-              age: age.clone(),
-            })
-            .collect(),
-          None => {
-            pod
-              .spec
-              .as_ref()
-              .unwrap_or(&PodSpec::default())
-              .containers
-              .iter()
-              .map(|c| KubeContainer {
-                name: c.name.clone(),
-                pod_name: pod_name.clone(),
-                image: c.image.clone().unwrap_or_default(),
-                ready: "false".into(),
-                status: "<none>".into(),
-                restarts: 0,
-                liveliness_probe: false, //TODO
-                readiness_probe: false,  //TODO
-                ports: "".to_owned(),    //TODO
-                age: age.clone(),
-              })
-              .collect()
-          }
-        };
+        let containers: Vec<KubeContainer> = pod
+          .spec
+          .as_ref()
+          .unwrap_or(&PodSpec::default())
+          .containers
+          .iter()
+          .map(|c| {
+            KubeContainer::from_api(
+              c,
+              pod_name.to_owned(),
+              age.to_owned(),
+              &status.container_statuses,
+            )
+          })
+          .collect();
 
         (get_status(status, pod), cr, rc, c_stats_len, containers)
       }
@@ -106,6 +86,37 @@ impl KubePod {
       status,
       age,
       containers,
+    }
+  }
+}
+
+impl KubeContainer {
+  pub fn from_api(
+    container: &Container,
+    pod_name: String,
+    age: String,
+    c_stats: &Option<Vec<ContainerStatus>>,
+  ) -> Self {
+    let (mut ready, mut status, mut restarts) = ("false".to_string(), "<none>".to_string(), 0);
+    if let Some(c_stats) = c_stats {
+      let c_stat = c_stats.iter().find(|cs| cs.name == container.name);
+      if let Some(c_stat) = c_stat {
+        ready = c_stat.ready.to_string();
+        status = get_container_state(c_stat.state.clone());
+        restarts = c_stat.restart_count;
+      }
+    }
+    KubeContainer {
+      name: container.name.clone(),
+      pod_name,
+      image: container.image.clone().unwrap_or_default(),
+      ready,
+      status,
+      restarts,
+      liveliness_probe: container.liveness_probe.is_some(),
+      readiness_probe: container.readiness_probe.is_some(),
+      ports: get_container_ports(&container.ports).unwrap_or_default(),
+      age,
     }
   }
 }
@@ -250,6 +261,28 @@ fn is_pod_init(sw: Option<ContainerStateWaiting>) -> bool {
     .unwrap_or_default()
 }
 
+fn get_container_ports(ports: &Option<Vec<ContainerPort>>) -> Option<String> {
+  ports.as_ref().map(|ports| {
+    ports
+      .iter()
+      .map(|c_port| {
+        let mut port = String::new();
+        if let Some(name) = c_port.name.clone() {
+          port = format!("{}:", name);
+        }
+        port = format!("{}{}", port, c_port.container_port);
+        if let Some(protocol) = c_port.protocol.clone() {
+          if protocol != "TCP" {
+            port = format!("{}/{}", port, c_port.protocol.clone().unwrap());
+          }
+        }
+        port
+      })
+      .collect::<Vec<_>>()
+      .join(", ")
+  })
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -261,7 +294,7 @@ mod tests {
   use std::fs;
 
   #[test]
-  fn test_to_mem_percent() {
+  fn test_pod_from_api() {
     fn get_time(s: &str) -> Time {
       Time(to_utc(s))
     }
@@ -301,9 +334,9 @@ mod tests {
           ready: "false".into(),
           status: "<none>".into(),
           restarts: 0,
-          liveliness_probe: false,
-          readiness_probe: false,
-          ports: "".into(), //   ports: "7070".into(), // TODO fix
+          liveliness_probe: true,
+          readiness_probe: true,
+          ports: "9555".into(),
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
           pod_name: "adservice-f787c8dcd-tb6x2".into()
         }]
@@ -326,9 +359,9 @@ mod tests {
           ready: "false".into(),
           status: "CrashLoopBackOff".into(),
           restarts: 896,
-          liveliness_probe: false,
-          readiness_probe: false,
-          ports: "".into(), //   ports: "7070".into(), // TODO fix
+          liveliness_probe: true,
+          readiness_probe: true,
+          ports: "7070".into(),
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
           pod_name: "cartservice-67b89ffc69-s5qp8".into()
         }]
@@ -351,9 +384,9 @@ mod tests {
           ready: "true".into(),
           status: "Running".into(),
           restarts: 3,
-          liveliness_probe: false,
-          readiness_probe: false,
-          ports: "".into(), //   ports: "7070".into(), // TODO fix
+          liveliness_probe: true,
+          readiness_probe: true,
+          ports: "8080".into(),
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
           pod_name: "emailservice-5f8fc7dbb4-5lqdb".into()
         }]
@@ -376,9 +409,9 @@ mod tests {
           ready: "false".into(),
           status: "<none>".into(),
           restarts: 0,
-          liveliness_probe: false,
-          readiness_probe: false,
-          ports: "".into(), //   ports: "7070".into(), // TODO fix
+          liveliness_probe: true,
+          readiness_probe: true,
+          ports: "8080".into(),
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
           pod_name: "frontend-5c4745dfdb-6k8wf".into()
         }]
@@ -402,8 +435,8 @@ mod tests {
           status: "<none>".into(),
           restarts: 0,
           liveliness_probe: false,
-          readiness_probe: false,
-          ports: "".into(), //   ports: "7070".into(), // TODO fix
+          readiness_probe: true,
+          ports: "8080/HTTP".into(),
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
           pod_name: "frontend-5c4745dfdb-qz7fg".into()
         }]
@@ -426,9 +459,9 @@ mod tests {
           ready: "false".into(),
           status: "<none>".into(),
           restarts: 0,
-          liveliness_probe: false,
-          readiness_probe: false,
-          ports: "".into(), //   ports: "7070".into(), // TODO fix
+          liveliness_probe: true,
+          readiness_probe: true,
+          ports: "8080, 8081/UDP, Foo:8082/UDP, 8083".into(),
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
           pod_name: "frontend-5c4745dfdb-6k8wf".into()
         }]

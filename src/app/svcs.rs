@@ -42,7 +42,7 @@ impl KubeSvc {
           type_,
           spec.cluster_ip.as_ref().unwrap_or(&"None".into()).clone(),
           external_ips.join(","),
-          get_ports(spec.ports.clone()).join(" "),
+          get_ports(&spec.ports).unwrap_or_default(),
         )
       }
       _ => (
@@ -65,24 +65,26 @@ impl KubeSvc {
   }
 }
 
-fn get_ports(s_ports: Option<Vec<ServicePort>>) -> Vec<String> {
-  match s_ports {
-    Some(ports) => ports
+fn get_ports(s_ports: &Option<Vec<ServicePort>>) -> Option<String> {
+  s_ports.as_ref().map(|ports| {
+    ports
       .iter()
       .map(|s_port| {
         let mut port = String::new();
-        if s_port.name.is_some() {
-          port = format!("{}:", s_port.name.clone().unwrap());
+        if let Some(name) = s_port.name.clone() {
+          port = format!("{}:", name);
         }
         port = format!("{}{}►{}", port, s_port.port, s_port.node_port.unwrap_or(0));
-        if s_port.protocol.is_some() && s_port.protocol.clone().unwrap() == "TCP" {
-          port = format!("{}/{}", port, s_port.protocol.clone().unwrap());
+        if let Some(protocol) = s_port.protocol.clone() {
+          if protocol != "TCP" {
+            port = format!("{}/{}", port, s_port.protocol.clone().unwrap());
+          }
         }
         port
       })
-      .collect(),
-    None => vec![],
-  }
+      .collect::<Vec<_>>()
+      .join(" ")
+  })
 }
 
 fn get_lb_ext_ips(service: &Service, external_ips: Option<Vec<String>>) -> Option<Vec<String>> {

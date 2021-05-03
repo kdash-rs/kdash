@@ -324,6 +324,12 @@ fn draw_containers<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         Cell::from(c.ready.as_ref()),
         Cell::from(c.status.as_ref()),
         Cell::from(c.restarts.to_string()),
+        Cell::from(format!(
+          "{}/{}",
+          c.liveliness_probe.to_string(),
+          c.readiness_probe.to_string()
+        )),
+        Cell::from(c.ports.as_ref()),
         Cell::from(c.age.as_ref()),
       ])
       .style(style)
@@ -331,16 +337,27 @@ fn draw_containers<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 
     let table = Table::new(rows)
       .header(table_header_style(
-        vec!["Name", "Image", "Ready", "State", "Restarts", "Age"],
+        vec![
+          "Name",
+          "Image",
+          "Ready",
+          "State",
+          "Restarts",
+          "Probes(L/R)",
+          "Ports",
+          "Age",
+        ],
         app.light_theme,
       ))
       .block(block)
       .highlight_style(style_highlight())
       .highlight_symbol(HIGHLIGHT)
       .widths(&[
-        Constraint::Percentage(25),
-        Constraint::Percentage(35),
+        Constraint::Percentage(20),
+        Constraint::Percentage(30),
+        Constraint::Percentage(5),
         Constraint::Percentage(10),
+        Constraint::Percentage(5),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
         Constraint::Percentage(10),

@@ -1337,23 +1337,10 @@ items:
         value: gcp
       image: gcr.io/google-samples/microservices-demo/frontend:v0.2.2
       imagePullPolicy: IfNotPresent
-      livenessProbe:
-        failureThreshold: 3
-        httpGet:
-          httpHeaders:
-          - name: Cookie
-            value: shop_session-id=x-liveness-probe
-          path: /_healthz
-          port: 8080
-          scheme: HTTP
-        initialDelaySeconds: 10
-        periodSeconds: 10
-        successThreshold: 1
-        timeoutSeconds: 1
       name: server
       ports:
       - containerPort: 8080
-        protocol: TCP
+        protocol: HTTP
       readinessProbe:
         failureThreshold: 3
         httpGet:
@@ -1606,6 +1593,12 @@ items:
       ports:
       - containerPort: 8080
         protocol: TCP
+      - containerPort: 8081
+        protocol: UDP
+      - containerPort: 8082
+        name: Foo
+        protocol: UDP
+      - containerPort: 8083
       readinessProbe:
         failureThreshold: 3
         httpGet:
