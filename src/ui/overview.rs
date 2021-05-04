@@ -19,10 +19,8 @@ use tui::{
 };
 
 static DESCRIBE_AND_YAML_HINT: &str = "| describe <d> | yaml <y>";
-static YAML_HINT: &str = "| yaml <y>";
 static COPY_HINT: &str = "| copy <c>";
-static PODS_HINT: &str = "Pods <esc>";
-static NODES_HINT: &str = "Nodes <esc>";
+static NODES_TITLE: &str = "Nodes";
 static PODS_TITLE: &str = "Pods";
 static SERVICES_TITLE: &str = "Services";
 static CONFIG_MAPS_TITLE: &str = "ConfigMaps";
@@ -138,23 +136,18 @@ fn draw_resource_tabs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: R
 fn draw_pods_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
   match block {
     ActiveBlock::Containers => draw_containers_block(f, app, area),
-    ActiveBlock::Describe => draw_describe_block(
+    ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
       f,
       app,
       area,
       title_with_dual_style(
-        get_resource_title(app, PODS_TITLE, DESCRIBE_ACTIVE, app.data.pods.items.len()),
-        format!("{} | {}", COPY_HINT, PODS_HINT),
-        app.light_theme,
-      ),
-    ),
-    ActiveBlock::Yaml => draw_describe_block(
-      f,
-      app,
-      area,
-      title_with_dual_style(
-        get_resource_title(app, PODS_TITLE, YAML_ACTIVE, app.data.pods.items.len()),
-        format!("{} | {}", COPY_HINT, PODS_HINT),
+        get_resource_title(
+          app,
+          PODS_TITLE,
+          get_describe_active(block),
+          app.data.pods.items.len(),
+        ),
+        format!("{} | {} <esc>", COPY_HINT, PODS_TITLE),
         app.light_theme,
       ),
     ),
@@ -168,23 +161,13 @@ fn draw_pods_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App
 
 fn draw_nodes_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
   match block {
-    ActiveBlock::Describe => draw_describe_block(
+    ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
       f,
       app,
       area,
       title_with_dual_style(
-        get_node_title(app, DESCRIBE_ACTIVE),
-        format!("{} | {}", COPY_HINT, NODES_HINT),
-        app.light_theme,
-      ),
-    ),
-    ActiveBlock::Yaml => draw_describe_block(
-      f,
-      app,
-      area,
-      title_with_dual_style(
-        get_node_title(app, YAML_ACTIVE),
-        format!("{} | {}", COPY_HINT, NODES_HINT),
+        get_node_title(app, get_describe_active(block)),
+        format!("{} | {} <esc>", COPY_HINT, NODES_TITLE),
         app.light_theme,
       ),
     ),
@@ -197,7 +180,7 @@ fn draw_nodes_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut Ap
 
 fn draw_services_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
   match block {
-    ActiveBlock::Yaml => draw_describe_block(
+    ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
       f,
       app,
       area,
@@ -205,13 +188,14 @@ fn draw_services_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut
         get_resource_title(
           app,
           SERVICES_TITLE,
-          YAML_ACTIVE,
+          get_describe_active(block),
           app.data.services.items.len(),
         ),
-        format!("{} | Services <esc>", COPY_HINT),
+        format!("{} | {} <esc>", COPY_HINT, SERVICES_TITLE),
         app.light_theme,
       ),
     ),
+
     ActiveBlock::Namespaces => {
       draw_services_tab(app.get_prev_route().active_block, f, app, area);
     }
@@ -226,7 +210,7 @@ fn draw_config_maps_tab<B: Backend>(
   area: Rect,
 ) {
   match block {
-    ActiveBlock::Yaml => draw_describe_block(
+    ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
       f,
       app,
       area,
@@ -234,13 +218,14 @@ fn draw_config_maps_tab<B: Backend>(
         get_resource_title(
           app,
           CONFIG_MAPS_TITLE,
-          YAML_ACTIVE,
+          get_describe_active(block),
           app.data.config_maps.items.len(),
         ),
-        format!("{} | ConfigMaps <esc>", COPY_HINT),
+        format!("{} | {} <esc>", COPY_HINT, CONFIG_MAPS_TITLE),
         app.light_theme,
       ),
     ),
+
     ActiveBlock::Namespaces => {
       draw_config_maps_tab(app.get_prev_route().active_block, f, app, area);
     }
@@ -255,7 +240,7 @@ fn draw_stateful_sets_tab<B: Backend>(
   area: Rect,
 ) {
   match block {
-    ActiveBlock::Yaml => draw_describe_block(
+    ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
       f,
       app,
       area,
@@ -263,10 +248,10 @@ fn draw_stateful_sets_tab<B: Backend>(
         get_resource_title(
           app,
           STFS_TITLE,
-          YAML_ACTIVE,
+          get_describe_active(block),
           app.data.stateful_sets.items.len(),
         ),
-        format!("{} | StatefulSets <esc>", COPY_HINT),
+        format!("{} | {} <esc>", COPY_HINT, STFS_TITLE),
         app.light_theme,
       ),
     ),
@@ -284,7 +269,7 @@ fn draw_replica_sets_tab<B: Backend>(
   area: Rect,
 ) {
   match block {
-    ActiveBlock::Yaml => draw_describe_block(
+    ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
       f,
       app,
       area,
@@ -292,10 +277,10 @@ fn draw_replica_sets_tab<B: Backend>(
         get_resource_title(
           app,
           REPLICA_SETS_TITLE,
-          YAML_ACTIVE,
+          get_describe_active(block),
           app.data.replica_sets.items.len(),
         ),
-        format!("{} | ReplicaSets <esc>", COPY_HINT),
+        format!("{} | {} <esc>", COPY_HINT, REPLICA_SETS_TITLE),
         app.light_theme,
       ),
     ),
@@ -313,7 +298,7 @@ fn draw_deployments_tab<B: Backend>(
   area: Rect,
 ) {
   match block {
-    ActiveBlock::Yaml => draw_describe_block(
+    ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
       f,
       app,
       area,
@@ -321,10 +306,10 @@ fn draw_deployments_tab<B: Backend>(
         get_resource_title(
           app,
           DEPLOYMENTS_TITLE,
-          YAML_ACTIVE,
+          get_describe_active(block),
           app.data.deployments.items.len(),
         ),
-        format!("{} | Deployments <esc>", COPY_HINT),
+        format!("{} | {} <esc>", COPY_HINT, DEPLOYMENTS_TITLE),
         app.light_theme,
       ),
     ),
@@ -481,7 +466,7 @@ fn draw_containers_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect
     area,
     ResourceTableProps {
       title,
-      inline_help: format!("| Logs <enter> | {}", PODS_HINT),
+      inline_help: format!("| Logs <enter> | {} <esc>", PODS_TITLE),
       resource: &mut app.data.containers,
       table_headers: vec![
         "Name",
@@ -591,7 +576,7 @@ fn draw_services_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) 
     area,
     ResourceTableProps {
       title,
-      inline_help: YAML_HINT.into(),
+      inline_help: DESCRIBE_AND_YAML_HINT.into(),
       resource: &mut app.data.services,
       table_headers: vec![
         "Namespace",
@@ -637,7 +622,7 @@ fn draw_config_maps_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rec
     area,
     ResourceTableProps {
       title,
-      inline_help: YAML_HINT.into(),
+      inline_help: DESCRIBE_AND_YAML_HINT.into(),
       resource: &mut app.data.config_maps,
       table_headers: vec!["Namespace", "Name", "Data", "Age"],
       column_widths: vec![
@@ -669,7 +654,7 @@ fn draw_stateful_sets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: R
     area,
     ResourceTableProps {
       title,
-      inline_help: YAML_HINT.into(),
+      inline_help: DESCRIBE_AND_YAML_HINT.into(),
       resource: &mut app.data.stateful_sets,
       table_headers: vec!["Namespace", "Name", "Ready", "Service", "Age"],
       column_widths: vec![
@@ -708,7 +693,7 @@ fn draw_replica_sets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Re
     area,
     ResourceTableProps {
       title,
-      inline_help: YAML_HINT.into(),
+      inline_help: DESCRIBE_AND_YAML_HINT.into(),
       resource: &mut app.data.replica_sets,
       table_headers: vec!["Namespace", "Name", "Desired", "Current", "Ready", "Age"],
       column_widths: vec![
@@ -744,7 +729,7 @@ fn draw_deployments_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rec
     area,
     ResourceTableProps {
       title,
-      inline_help: YAML_HINT.into(),
+      inline_help: DESCRIBE_AND_YAML_HINT.into(),
       resource: &mut app.data.deployments,
       table_headers: vec![
         "Namespace",
@@ -897,7 +882,12 @@ fn get_resource_row_style(status: &str) -> Style {
 }
 
 fn get_node_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
-  format!("Nodes [{}] {}", app.data.nodes.items.len(), suffix.as_ref())
+  format!(
+    "{} [{}] {}",
+    NODES_TITLE,
+    app.data.nodes.items.len(),
+    suffix.as_ref()
+  )
 }
 
 fn get_resource_title<S: AsRef<str>>(app: &App, title: S, suffix: S, items_len: usize) -> String {
@@ -936,6 +926,13 @@ fn nw_loading_indicator<'a>(loading: bool) -> &'a str {
     "..."
   } else {
     ""
+  }
+}
+
+fn get_describe_active<'a>(block: ActiveBlock) -> &'a str {
+  match block {
+    ActiveBlock::Describe => DESCRIBE_ACTIVE,
+    _ => YAML_ACTIVE,
   }
 }
 

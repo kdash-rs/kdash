@@ -7,10 +7,11 @@
 ### Added
 
 - Get YAML for all resources (pod, svc, node, statefulset, replicaset, configmap, deployment)
+- Describe for all remaining resources (svc, statefulset, replicaset, configmap, deployment)
 
-### Fixed
+### Changed
 
-- Table scrolling doesnt circle back now. This seems to be better UX when having long lists
+- Table scrolling doesn't circle back now. This seems to be better UX when having long lists
 
 ### Fixed
 

@@ -75,12 +75,22 @@ fn handle_escape(app: &mut App) {
   }
 }
 
-fn handle_yaml_action<T, S>(key: Key, app: &mut App, res: &T) -> bool
+async fn handle_describe_or_yaml_action<T, S>(
+  key: Key,
+  app: &mut App,
+  res: &T,
+  action: IoCmdEvent,
+) -> bool
 where
   T: ResourceToYaml<S>,
   S: Serialize,
 {
-  if key == DEFAULT_KEYBINDING.resource_yaml.key {
+  if key == DEFAULT_KEYBINDING.describe_resource.key {
+    app.data.describe_out = ScrollableTxt::new();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
+    app.dispatch_cmd(action).await;
+    true
+  } else if key == DEFAULT_KEYBINDING.resource_yaml.key {
     let yaml = res.resource_to_yaml();
     app.data.describe_out = ScrollableTxt::with_string(yaml);
     app.push_navigation_stack(RouteId::Home, ActiveBlock::Yaml);
@@ -152,19 +162,41 @@ async fn handle_route_events(key: Key, app: &mut App) {
 
       // handle block specific stuff
       match app.get_current_route().active_block {
+        ActiveBlock::Namespaces => {
+          if let Some(ns) = handle_table_action(key, &mut app.data.namespaces) {
+            app.data.selected.ns = Some(ns.name);
+            app.pop_navigation_stack();
+          }
+        }
+        ActiveBlock::Nodes => {
+          if let Some(node) = handle_table_action(key, &mut app.data.nodes) {
+            let _ok = handle_describe_or_yaml_action(
+              key,
+              app,
+              &node,
+              IoCmdEvent::GetDescribe {
+                kind: "node".to_owned(),
+                value: node.name.to_owned(),
+                ns: None,
+              },
+            )
+            .await;
+          }
+        }
         ActiveBlock::Pods => {
           if let Some(pod) = handle_table_action(key, &mut app.data.pods) {
-            if key == DEFAULT_KEYBINDING.describe_resource.key {
-              app.data.describe_out = ScrollableTxt::new();
-              app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
-              app
-                .dispatch_cmd(IoCmdEvent::GetDescribe {
-                  kind: "pod".to_owned(),
-                  value: pod.name,
-                  ns: Some(pod.namespace),
-                })
-                .await;
-            } else if !handle_yaml_action(key, app, &pod) {
+            let ok = handle_describe_or_yaml_action(
+              key,
+              app,
+              &pod,
+              IoCmdEvent::GetDescribe {
+                kind: "pod".to_owned(),
+                value: pod.name.to_owned(),
+                ns: Some(pod.namespace.to_owned()),
+              },
+            )
+            .await;
+            if !ok {
               app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
               app.data.selected.pod = Some(pod.name);
               app.data.containers.set_items(pod.containers);
@@ -175,29 +207,6 @@ async fn handle_route_events(key: Key, app: &mut App) {
           if let Some(c) = handle_table_action(key, &mut app.data.containers) {
             app.data.selected.container = Some(c.name.clone());
             app.dispatch_container_logs(c.name).await;
-          }
-        }
-        ActiveBlock::Nodes => {
-          if let Some(node) = handle_table_action(key, &mut app.data.nodes) {
-            if key == DEFAULT_KEYBINDING.describe_resource.key {
-              app.data.describe_out = ScrollableTxt::new();
-              app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
-              app
-                .dispatch_cmd(IoCmdEvent::GetDescribe {
-                  kind: "node".to_owned(),
-                  value: node.name,
-                  ns: None,
-                })
-                .await;
-            } else {
-              let _ok = handle_yaml_action(key, app, &node);
-            }
-          }
-        }
-        ActiveBlock::Namespaces => {
-          if let Some(ns) = handle_table_action(key, &mut app.data.namespaces) {
-            app.data.selected.ns = Some(ns.name);
-            app.pop_navigation_stack();
           }
         }
         ActiveBlock::Logs => {
@@ -214,27 +223,77 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::Services => {
           if let Some(res) = handle_table_action(key, &mut app.data.services) {
-            let _ok = handle_yaml_action(key, app, &res);
+            let _ok = handle_describe_or_yaml_action(
+              key,
+              app,
+              &res,
+              IoCmdEvent::GetDescribe {
+                kind: "service".to_owned(),
+                value: res.name.to_owned(),
+                ns: Some(res.namespace.to_owned()),
+              },
+            )
+            .await;
           }
         }
         ActiveBlock::Deployments => {
           if let Some(res) = handle_table_action(key, &mut app.data.deployments) {
-            let _ok = handle_yaml_action(key, app, &res);
+            let _ok = handle_describe_or_yaml_action(
+              key,
+              app,
+              &res,
+              IoCmdEvent::GetDescribe {
+                kind: "deployment".to_owned(),
+                value: res.name.to_owned(),
+                ns: Some(res.namespace.to_owned()),
+              },
+            )
+            .await;
           }
         }
         ActiveBlock::ConfigMaps => {
           if let Some(res) = handle_table_action(key, &mut app.data.config_maps) {
-            let _ok = handle_yaml_action(key, app, &res);
+            let _ok = handle_describe_or_yaml_action(
+              key,
+              app,
+              &res,
+              IoCmdEvent::GetDescribe {
+                kind: "configmap".to_owned(),
+                value: res.name.to_owned(),
+                ns: Some(res.namespace.to_owned()),
+              },
+            )
+            .await;
           }
         }
         ActiveBlock::StatefulSets => {
           if let Some(res) = handle_table_action(key, &mut app.data.stateful_sets) {
-            let _ok = handle_yaml_action(key, app, &res);
+            let _ok = handle_describe_or_yaml_action(
+              key,
+              app,
+              &res,
+              IoCmdEvent::GetDescribe {
+                kind: "statefulset".to_owned(),
+                value: res.name.to_owned(),
+                ns: Some(res.namespace.to_owned()),
+              },
+            )
+            .await;
           }
         }
         ActiveBlock::ReplicaSets => {
           if let Some(res) = handle_table_action(key, &mut app.data.replica_sets) {
-            let _ok = handle_yaml_action(key, app, &res);
+            let _ok = handle_describe_or_yaml_action(
+              key,
+              app,
+              &res,
+              IoCmdEvent::GetDescribe {
+                kind: "replicaset".to_owned(),
+                value: res.name.to_owned(),
+                ns: Some(res.namespace.to_owned()),
+              },
+            )
+            .await;
           }
         }
         ActiveBlock::Contexts | ActiveBlock::Utilization | ActiveBlock::Empty => { /* Do nothing */
@@ -374,6 +433,70 @@ mod tests {
     // previous
     handle_table_scroll(&mut item, true);
     assert_eq!(item.state.selected(), Some(1));
+  }
+
+  #[tokio::test]
+  async fn test_handle_describe_or_yaml_action() {
+    let mut app = App::default();
+
+    app.route_home();
+    assert_eq!(app.data.pods.state.selected(), None);
+
+    let item = KubePod::default();
+
+    assert_eq!(
+      handle_describe_or_yaml_action(
+        Key::Char('d'),
+        &mut app,
+        &item,
+        IoCmdEvent::GetDescribe {
+          kind: "pod".to_owned(),
+          value: "name".to_owned(),
+          ns: Some("namespace".to_owned()),
+        }
+      )
+      .await,
+      true
+    );
+
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Describe);
+    assert_eq!(app.data.describe_out.get_txt(), "");
+
+    assert_eq!(
+      handle_describe_or_yaml_action(
+        Key::Char('y'),
+        &mut app,
+        &item,
+        IoCmdEvent::GetDescribe {
+          kind: "pod".to_owned(),
+          value: "name".to_owned(),
+          ns: Some("namespace".to_owned()),
+        }
+      )
+      .await,
+      true
+    );
+
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Yaml);
+    assert_eq!(
+      app.data.describe_out.get_txt(),
+      "---\napiVersion: v1\nkind: Pod\nmetadata: {}\n"
+    );
+
+    assert_eq!(
+      handle_describe_or_yaml_action(
+        Key::Char('s'),
+        &mut app,
+        &item,
+        IoCmdEvent::GetDescribe {
+          kind: "pod".to_owned(),
+          value: "name".to_owned(),
+          ns: Some("namespace".to_owned()),
+        }
+      )
+      .await,
+      false
+    );
   }
 
   #[tokio::test]

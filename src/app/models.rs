@@ -133,6 +133,7 @@ impl TabsState {
   }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct ScrollableTxt {
   items: Vec<String>,
   pub offset: u16,

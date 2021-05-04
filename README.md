@@ -85,22 +85,21 @@ Press `?` while running the app to see keybindings
   - [x] StatefulSets
   - [x] ReplicaSets
   - [x] Deployments
-- Describe resources
+- Describe/YAML resources
   - [x] Pods
   - [x] Nodes
-  - [ ] Services
-  - [ ] Deployments
-  - [ ] ConfigMaps
-  - [ ] StatefulSets
-  - [ ] ReplicaSets
-  - [x] select/copy output
-  - [x] as YAML
+  - [x] Services
+  - [x] Deployments
+  - [x] ConfigMaps
+  - [x] StatefulSets
+  - [x] ReplicaSets
+    - [x] select/copy output
 - Stream logs/events
   - [x] Containers
   - [ ] Services
   - [ ] Deployments
   - [ ] StatefulSets
-  - [x] select/copy output
+    - [x] select/copy output
 - Context
   - [x] Context info
   - [x] Node metrics
