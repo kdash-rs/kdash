@@ -14,7 +14,7 @@ use super::{
   App,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct NodeMetrics {
   pub name: String,
   pub cpu: String,

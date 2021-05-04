@@ -14,7 +14,7 @@ use tui::{
   Frame,
 };
 
-pub fn draw_help_menu<B: Backend>(f: &mut Frame<B>, app: &App, area: Rect) {
+pub fn draw_help<B: Backend>(f: &mut Frame<B>, app: &App, area: Rect) {
   let chunks = vertical_chunks(vec![Constraint::Percentage(100)], area);
 
   // Create a one-column table to avoid flickering due to non-determinism when

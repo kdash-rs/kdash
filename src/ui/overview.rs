@@ -36,9 +36,9 @@ pub fn draw_overview<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   if app.show_info_bar {
     let chunks = vertical_chunks(vec![Constraint::Length(9), Constraint::Min(10)], area);
     draw_status_block(f, app, chunks[0]);
-    draw_resource_tabs(f, app, chunks[1]);
+    draw_resource_tabs_block(f, app, chunks[1]);
   } else {
-    draw_resource_tabs(f, app, area);
+    draw_resource_tabs_block(f, app, area);
   }
 }
 
@@ -54,8 +54,8 @@ fn draw_status_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   );
 
   draw_cli_version_block(f, app, chunks[0]);
-  draw_context_info(f, app, chunks[1]);
-  draw_namespaces(f, app, chunks[2]);
+  draw_context_info_block(f, app, chunks[1]);
+  draw_namespaces_block(f, app, chunks[2]);
   draw_logo_block(f, app, chunks[3])
 }
 
@@ -100,7 +100,7 @@ fn draw_cli_version_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rec
   }
 }
 
-fn draw_resource_tabs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_resource_tabs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let chunks =
     vertical_chunks_with_margin(vec![Constraint::Length(2), Constraint::Min(0)], area, 1);
 
@@ -137,8 +137,8 @@ fn draw_resource_tabs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 
 fn draw_pods_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
   match block {
-    ActiveBlock::Containers => draw_containers(f, app, area),
-    ActiveBlock::Describe => draw_describe(
+    ActiveBlock::Containers => draw_containers_block(f, app, area),
+    ActiveBlock::Describe => draw_describe_block(
       f,
       app,
       area,
@@ -148,7 +148,7 @@ fn draw_pods_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App
         app.light_theme,
       ),
     ),
-    ActiveBlock::Yaml => draw_describe(
+    ActiveBlock::Yaml => draw_describe_block(
       f,
       app,
       area,
@@ -158,17 +158,17 @@ fn draw_pods_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App
         app.light_theme,
       ),
     ),
-    ActiveBlock::Logs => draw_logs(f, app, area),
+    ActiveBlock::Logs => draw_logs_block(f, app, area),
     ActiveBlock::Namespaces => {
       draw_pods_tab(app.get_prev_route().active_block, f, app, area);
     }
-    _ => draw_pods(f, app, area),
+    _ => draw_pods_block(f, app, area),
   };
 }
 
 fn draw_nodes_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
   match block {
-    ActiveBlock::Describe => draw_describe(
+    ActiveBlock::Describe => draw_describe_block(
       f,
       app,
       area,
@@ -178,7 +178,7 @@ fn draw_nodes_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut Ap
         app.light_theme,
       ),
     ),
-    ActiveBlock::Yaml => draw_describe(
+    ActiveBlock::Yaml => draw_describe_block(
       f,
       app,
       area,
@@ -191,13 +191,13 @@ fn draw_nodes_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut Ap
     ActiveBlock::Namespaces => {
       draw_nodes_tab(app.get_prev_route().active_block, f, app, area);
     }
-    _ => draw_nodes(f, app, area),
+    _ => draw_nodes_block(f, app, area),
   };
 }
 
 fn draw_services_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
   match block {
-    ActiveBlock::Yaml => draw_describe(
+    ActiveBlock::Yaml => draw_describe_block(
       f,
       app,
       area,
@@ -215,7 +215,7 @@ fn draw_services_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut
     ActiveBlock::Namespaces => {
       draw_services_tab(app.get_prev_route().active_block, f, app, area);
     }
-    _ => draw_services(f, app, area),
+    _ => draw_services_block(f, app, area),
   };
 }
 
@@ -226,7 +226,7 @@ fn draw_config_maps_tab<B: Backend>(
   area: Rect,
 ) {
   match block {
-    ActiveBlock::Yaml => draw_describe(
+    ActiveBlock::Yaml => draw_describe_block(
       f,
       app,
       area,
@@ -244,7 +244,7 @@ fn draw_config_maps_tab<B: Backend>(
     ActiveBlock::Namespaces => {
       draw_config_maps_tab(app.get_prev_route().active_block, f, app, area);
     }
-    _ => draw_config_maps(f, app, area),
+    _ => draw_config_maps_block(f, app, area),
   };
 }
 
@@ -255,7 +255,7 @@ fn draw_stateful_sets_tab<B: Backend>(
   area: Rect,
 ) {
   match block {
-    ActiveBlock::Yaml => draw_describe(
+    ActiveBlock::Yaml => draw_describe_block(
       f,
       app,
       area,
@@ -273,7 +273,7 @@ fn draw_stateful_sets_tab<B: Backend>(
     ActiveBlock::Namespaces => {
       draw_stateful_sets_tab(app.get_prev_route().active_block, f, app, area);
     }
-    _ => draw_stateful_sets(f, app, area),
+    _ => draw_stateful_sets_block(f, app, area),
   };
 }
 
@@ -284,7 +284,7 @@ fn draw_replica_sets_tab<B: Backend>(
   area: Rect,
 ) {
   match block {
-    ActiveBlock::Yaml => draw_describe(
+    ActiveBlock::Yaml => draw_describe_block(
       f,
       app,
       area,
@@ -302,7 +302,7 @@ fn draw_replica_sets_tab<B: Backend>(
     ActiveBlock::Namespaces => {
       draw_replica_sets_tab(app.get_prev_route().active_block, f, app, area);
     }
-    _ => draw_replica_sets(f, app, area),
+    _ => draw_replica_sets_block(f, app, area),
   };
 }
 
@@ -313,7 +313,7 @@ fn draw_deployments_tab<B: Backend>(
   area: Rect,
 ) {
   match block {
-    ActiveBlock::Yaml => draw_describe(
+    ActiveBlock::Yaml => draw_describe_block(
       f,
       app,
       area,
@@ -331,11 +331,11 @@ fn draw_deployments_tab<B: Backend>(
     ActiveBlock::Namespaces => {
       draw_config_maps_tab(app.get_prev_route().active_block, f, app, area);
     }
-    _ => draw_deployments(f, app, area),
+    _ => draw_deployments_block(f, app, area),
   };
 }
 
-fn draw_context_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_context_info_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let chunks = vertical_chunks_with_margin(
     vec![
       Constraint::Length(3),
@@ -398,7 +398,7 @@ fn draw_context_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   f.render_widget(mem_gauge, chunks[2]);
 }
 
-fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_namespaces_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = format!(
     "Namespaces {} (all: {})",
     DEFAULT_KEYBINDING.jump_to_namespace.key, DEFAULT_KEYBINDING.select_all_namespace.key
@@ -436,13 +436,13 @@ fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   }
 }
 
-fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_pods_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, PODS_TITLE, "", app.data.pods.items.len());
 
-  draw_resource(
+  draw_resource_block(
     f,
     area,
-    ResourceTable {
+    ResourceTableProps {
       title,
       inline_help: format!("| Containers <enter> {}", DESCRIBE_AND_YAML_HINT),
       resource: &mut app.data.pods,
@@ -473,13 +473,13 @@ fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   );
 }
 
-fn draw_containers<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_containers_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = get_container_title(app, app.data.containers.items.len(), "");
 
-  draw_resource(
+  draw_resource_block(
     f,
     area,
-    ResourceTable {
+    ResourceTableProps {
       title,
       inline_help: format!("| Logs <enter> | {}", PODS_HINT),
       resource: &mut app.data.containers,
@@ -527,13 +527,13 @@ fn draw_containers<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   );
 }
 
-fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_nodes_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = get_node_title(app, "");
 
-  draw_resource(
+  draw_resource_block(
     f,
     area,
-    ResourceTable {
+    ResourceTableProps {
       title,
       inline_help: DESCRIBE_AND_YAML_HINT.into(),
       resource: &mut app.data.nodes,
@@ -583,13 +583,13 @@ fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   );
 }
 
-fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_services_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, SERVICES_TITLE, "", app.data.services.items.len());
 
-  draw_resource(
+  draw_resource_block(
     f,
     area,
-    ResourceTable {
+    ResourceTableProps {
       title,
       inline_help: YAML_HINT.into(),
       resource: &mut app.data.services,
@@ -629,13 +629,13 @@ fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   );
 }
 
-fn draw_config_maps<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_config_maps_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, CONFIG_MAPS_TITLE, "", app.data.config_maps.items.len());
 
-  draw_resource(
+  draw_resource_block(
     f,
     area,
-    ResourceTable {
+    ResourceTableProps {
       title,
       inline_help: YAML_HINT.into(),
       resource: &mut app.data.config_maps,
@@ -661,13 +661,13 @@ fn draw_config_maps<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   );
 }
 
-fn draw_stateful_sets<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_stateful_sets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, STFS_TITLE, "", app.data.stateful_sets.items.len());
 
-  draw_resource(
+  draw_resource_block(
     f,
     area,
-    ResourceTable {
+    ResourceTableProps {
       title,
       inline_help: YAML_HINT.into(),
       resource: &mut app.data.stateful_sets,
@@ -695,7 +695,7 @@ fn draw_stateful_sets<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   );
 }
 
-fn draw_replica_sets<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_replica_sets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = get_resource_title(
     app,
     REPLICA_SETS_TITLE,
@@ -703,10 +703,10 @@ fn draw_replica_sets<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     app.data.replica_sets.items.len(),
   );
 
-  draw_resource(
+  draw_resource_block(
     f,
     area,
-    ResourceTable {
+    ResourceTableProps {
       title,
       inline_help: YAML_HINT.into(),
       resource: &mut app.data.replica_sets,
@@ -736,13 +736,13 @@ fn draw_replica_sets<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   );
 }
 
-fn draw_deployments<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_deployments_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, DEPLOYMENTS_TITLE, "", app.data.deployments.items.len());
 
-  draw_resource(
+  draw_resource_block(
     f,
     area,
-    ResourceTable {
+    ResourceTableProps {
       title,
       inline_help: YAML_HINT.into(),
       resource: &mut app.data.deployments,
@@ -779,7 +779,7 @@ fn draw_deployments<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   );
 }
 
-fn draw_logs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_logs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let selected_container = app.data.selected.container.clone();
   let container_name = selected_container.unwrap_or_default();
 
@@ -805,7 +805,7 @@ fn draw_logs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   }
 }
 
-fn draw_describe<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect, title: Spans) {
+fn draw_describe_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect, title: Spans) {
   let block = layout_block_top_border(title);
 
   let txt = &app.data.describe_out.get_txt();
@@ -825,7 +825,7 @@ fn draw_describe<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect, title:
 
 // Utility methods
 
-struct ResourceTable<'a, T> {
+struct ResourceTableProps<'a, T> {
   title: String,
   inline_help: String,
   resource: &'a mut StatefulTable<T>,
@@ -834,10 +834,10 @@ struct ResourceTable<'a, T> {
 }
 
 /// Draw a kubernetes resource i overview tab
-fn draw_resource<'a, B, T, F>(
+fn draw_resource_block<'a, B, T, F>(
   f: &mut Frame<B>,
   area: Rect,
-  table_props: ResourceTable<'a, T>,
+  table_props: ResourceTableProps<'a, T>,
   row_cell_mapper: F,
   light_theme: bool,
   is_loading: bool,
@@ -941,5 +941,328 @@ fn nw_loading_indicator<'a>(loading: bool) -> &'a str {
 
 #[cfg(test)]
 mod tests {
-  // TODO
+  use tui::{
+    backend::TestBackend,
+    buffer::Buffer,
+    style::{Color, Modifier},
+    Terminal,
+  };
+
+  use crate::app::pods::KubePod;
+
+  use super::*;
+
+  #[test]
+  fn test_draw_resource_tabs_block() {
+    let backend = TestBackend::new(100, 7);
+    let mut terminal = Terminal::new(backend).unwrap();
+
+    terminal
+      .draw(|f| {
+        let size = f.size();
+        let mut app = App::default();
+        let mut pod = KubePod::default();
+        pod.name = "pod name test".into();
+        pod.namespace = "pod namespace test".into();
+        pod.ready = "0/2".into();
+        pod.status = "Failed".into();
+        pod.age = "6h52m".into();
+        app.data.pods.set_items(vec![pod]);
+        draw_resource_tabs_block(f, &mut app, size);
+      })
+      .unwrap();
+
+    let mut expected = Buffer::with_lines(vec![
+      "┌Resources─────────────────────────────────────────────────────────────────────────────────────────┐",
+      "│ Pods <1> │ Services <2> │ Nodes <3> │ ConfigMaps <4> │ StatefulSets <5> │ ReplicaSets <6> │ Deplo│",
+      "│                                                                                                  │",
+      "│Pods (ns: all) [1] | Containers <enter> | describe <d> | yaml <y>─────────────────────────────────│",
+      "│   Namespace               Name                             Ready     Status    Restarts  Age     │",
+      "│=> pod namespace test      pod name test                    0/2       Failed    0         6h52m   │",
+      "└──────────────────────────────────────────────────────────────────────────────────────────────────┘",
+    ]);
+    // set row styles
+    // First row heading style
+    for col in 0..=99 {
+      match col {
+        0 | 10..=99 => {
+          expected
+            .get_mut(col, 0)
+            .set_style(Style::default().fg(Color::Yellow));
+        }
+        _ => {
+          expected.get_mut(col, 0).set_style(
+            Style::default()
+              .fg(Color::Yellow)
+              .add_modifier(Modifier::BOLD),
+          );
+        }
+      }
+    }
+    // second row tab headings
+    for col in 0..=99 {
+      match col {
+        0..=12 | 25..=27 | 37..=39 | 54..=56 | 73..=75 | 91..=93 | 99 => {
+          expected
+            .get_mut(col, 1)
+            .set_style(Style::default().fg(Color::Yellow));
+        }
+        _ => {
+          expected
+            .get_mut(col, 1)
+            .set_style(Style::default().fg(Color::White));
+        }
+      }
+    }
+    // third empty row
+    for col in 0..=99 {
+      expected
+        .get_mut(col, 2)
+        .set_style(Style::default().fg(Color::Yellow));
+    }
+
+    // fourth row tab header style
+    for col in 0..=99 {
+      match col {
+        0 | 66..=99 => {
+          expected
+            .get_mut(col, 3)
+            .set_style(Style::default().fg(Color::Yellow));
+        }
+        1..=19 => {
+          expected.get_mut(col, 3).set_style(
+            Style::default()
+              .fg(Color::Yellow)
+              .add_modifier(Modifier::BOLD),
+          );
+        }
+        _ => {
+          expected.get_mut(col, 3).set_style(
+            Style::default()
+              .fg(Color::White)
+              .add_modifier(Modifier::BOLD),
+          );
+        }
+      }
+    }
+    // table header row
+    for col in 0..=99 {
+      match col {
+        1..=98 => {
+          expected
+            .get_mut(col, 4)
+            .set_style(Style::default().fg(Color::White));
+        }
+        _ => {
+          expected
+            .get_mut(col, 4)
+            .set_style(Style::default().fg(Color::Yellow));
+        }
+      }
+    }
+    // first table data row style
+    for col in 0..=99 {
+      match col {
+        1..=98 => {
+          expected.get_mut(col, 5).set_style(
+            Style::default()
+              .fg(Color::Red)
+              .add_modifier(Modifier::REVERSED),
+          );
+        }
+        _ => {
+          expected
+            .get_mut(col, 5)
+            .set_style(Style::default().fg(Color::Yellow));
+        }
+      }
+    }
+
+    // last row
+    for col in 0..=99 {
+      expected
+        .get_mut(col, 6)
+        .set_style(Style::default().fg(Color::Yellow));
+    }
+
+    terminal.backend().assert_buffer(&expected);
+  }
+
+  #[test]
+  fn test_draw_resource_block() {
+    let backend = TestBackend::new(100, 6);
+    let mut terminal = Terminal::new(backend).unwrap();
+
+    struct RenderTest {
+      pub name: String,
+      pub namespace: String,
+      pub data: i32,
+      pub age: String,
+    }
+    terminal
+      .draw(|f| {
+        let size = f.size();
+        let mut resource: StatefulTable<RenderTest> = StatefulTable::new();
+        resource.set_items(vec![
+          RenderTest {
+            name: "Test 1".into(),
+            namespace: "Test ns".into(),
+            age: "65h3m".into(),
+            data: 5,
+          },
+          RenderTest {
+            name: "Test long name that should be truncated from view".into(),
+            namespace: "Test ns".into(),
+            age: "65h3m".into(),
+            data: 3,
+          },
+          RenderTest {
+            name: "test_long_name_that_should_be_truncated_from_view".into(),
+            namespace: "Test ns long value check that should be truncated".into(),
+            age: "65h3m".into(),
+            data: 6,
+          },
+        ]);
+        draw_resource_block(
+          f,
+          size,
+          ResourceTableProps {
+            title: "Test".into(),
+            inline_help: "-> yaml <y>".into(),
+            resource: &mut resource,
+            table_headers: vec!["Namespace", "Name", "Data", "Age"],
+            column_widths: vec![
+              Constraint::Percentage(30),
+              Constraint::Percentage(40),
+              Constraint::Percentage(15),
+              Constraint::Percentage(15),
+            ],
+          },
+          |c| {
+            Row::new(vec![
+              Cell::from(c.namespace.to_owned()),
+              Cell::from(c.name.to_owned()),
+              Cell::from(c.data.to_string()),
+              Cell::from(c.age.to_owned()),
+            ])
+            .style(style_primary())
+          },
+          false,
+          false,
+        );
+      })
+      .unwrap();
+
+    let mut expected = Buffer::with_lines(vec![
+      "Test-> yaml <y>─────────────────────────────────────────────────────────────────────────────────────",
+      "   Namespace                    Name                                   Data           Age           ",
+      "=> Test ns                      Test 1                                 5              65h3m         ",
+      "   Test ns                      Test long name that should be truncate 3              65h3m         ",
+      "   Test ns long value check tha test_long_name_that_should_be_truncate 6              65h3m         ",
+      "                                                                                                    ",
+    ]);
+    // set row styles
+    // First row heading style
+    for col in 0..=99 {
+      match col {
+        0..=3 => {
+          expected.get_mut(col, 0).set_style(
+            Style::default()
+              .fg(Color::Yellow)
+              .add_modifier(Modifier::BOLD),
+          );
+        }
+        4..=14 => {
+          expected.get_mut(col, 0).set_style(
+            Style::default()
+              .fg(Color::White)
+              .add_modifier(Modifier::BOLD),
+          );
+        }
+        _ => {}
+      }
+    }
+
+    // Second row table header style
+    for col in 0..=99 {
+      expected
+        .get_mut(col, 1)
+        .set_style(Style::default().fg(Color::White));
+    }
+    // first table data row style
+    for col in 0..=99 {
+      expected.get_mut(col, 2).set_style(
+        Style::default()
+          .fg(Color::Cyan)
+          .add_modifier(Modifier::REVERSED),
+      );
+    }
+    // remaining table data row style
+    for row in 3..=4 {
+      for col in 0..=99 {
+        expected
+          .get_mut(col, row)
+          .set_style(Style::default().fg(Color::Cyan));
+      }
+    }
+
+    terminal.backend().assert_buffer(&expected);
+  }
+
+  #[test]
+  #[allow(clippy::float_cmp)]
+  fn test_get_nm_ratio() {
+    let mut app = App::default();
+    assert_eq!(
+      get_nm_ratio(app.data.node_metrics.as_ref(), |acc, nm| {
+        acc + nm.cpu_percent
+      }),
+      0.0f64
+    );
+    app.data.node_metrics = vec![
+      NodeMetrics {
+        cpu_percent: 80f64,
+        ..NodeMetrics::default()
+      },
+      NodeMetrics {
+        cpu_percent: 60f64,
+        ..NodeMetrics::default()
+      },
+    ];
+    assert_eq!(
+      get_nm_ratio(app.data.node_metrics.as_ref(), |acc, nm| {
+        acc + nm.cpu_percent
+      }),
+      0.7f64
+    );
+  }
+
+  #[test]
+  fn test_get_node_title() {
+    let app = App::default();
+    assert_eq!(get_node_title(&app, "-> hello"), "Nodes [0] -> hello");
+  }
+
+  #[test]
+  fn test_get_resource_title() {
+    let app = App::default();
+    assert_eq!(
+      get_resource_title(&app, "Title", "-> hello", 5),
+      "Title (ns: all) [5] -> hello"
+    );
+  }
+
+  #[test]
+  fn test_get_container_title() {
+    let app = App::default();
+    assert_eq!(
+      get_container_title(&app, 3, "hello"),
+      "Pods (ns: all) [0] -> Containers [3] hello"
+    );
+  }
+
+  #[test]
+  fn test_title_with_ns() {
+    assert_eq!(title_with_ns("Title", "hello", 3), "Title (ns: hello) [3]");
+  }
 }

@@ -6,7 +6,7 @@ mod utilization;
 mod utils;
 
 use self::contexts::draw_contexts;
-use self::help::draw_help_menu;
+use self::help::draw_help;
 use self::overview::draw_overview;
 use self::utilization::draw_utilization;
 use self::utils::{
@@ -36,7 +36,7 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
   match app.get_current_route().id {
     RouteId::HelpMenu => {
-      draw_help_menu(f, app, chunks[1]);
+      draw_help(f, app, chunks[1]);
     }
     RouteId::Error => {
       if app.api_error.is_empty() {
