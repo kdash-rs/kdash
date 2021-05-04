@@ -938,3 +938,8 @@ fn nw_loading_indicator<'a>(loading: bool) -> &'a str {
     ""
   }
 }
+
+#[cfg(test)]
+mod tests {
+  // TODO
+}

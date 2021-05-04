@@ -370,10 +370,10 @@ mod tests {
 
     // circle back after last index
     handle_table_scroll(&mut item, false);
-    assert_eq!(item.state.selected(), Some(0));
+    assert_eq!(item.state.selected(), Some(2));
     // previous
     handle_table_scroll(&mut item, true);
-    assert_eq!(item.state.selected(), Some(2));
+    assert_eq!(item.state.selected(), Some(1));
   }
 
   #[tokio::test]

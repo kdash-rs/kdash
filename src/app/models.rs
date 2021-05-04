@@ -60,25 +60,19 @@ impl<T> StatefulTable<T> {
 
 impl<T> Scrollable for StatefulTable<T> {
   fn scroll_down(&mut self) {
-    let i = self.state.selected().map_or(0, |i| {
-      if i >= self.items.len().wrapping_sub(1) {
-        0
-      } else {
-        i + 1
+    if let Some(i) = self.state.selected() {
+      if i < self.items.len().wrapping_sub(1) {
+        self.state.select(Some(i + 1));
       }
-    });
-    self.state.select(Some(i));
+    }
   }
 
   fn scroll_up(&mut self) {
-    let i = self.state.selected().map_or(0, |i| {
-      if i == 0 {
-        self.items.len().wrapping_sub(1)
-      } else {
-        i - 1
+    if let Some(i) = self.state.selected() {
+      if i != 0 {
+        self.state.select(Some(i - 1));
       }
-    });
-    self.state.select(Some(i));
+    }
   }
 }
 

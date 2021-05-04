@@ -1,12 +1,20 @@
 # Changelog
 
-## [Unreleased] - 27-Apr-2021
+## [Unreleased] - 04-May-2021
+
+## [0.0.8] - 04-May-2021
+
+### Added
+
+- Get YAML for all resources (pod, svc, node, statefulset, replicaset, configmap, deployment)
+
+### Fixed
+
+- Table scrolling doesnt circle back now. This seems to be better UX when having long lists
 
 ### Fixed
 
 - Describe view spacing
-- Get YAML for pods
-- Get YAML for nodes
 
 ## [0.0.7] - 03-May-2021
 

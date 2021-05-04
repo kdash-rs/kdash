@@ -150,7 +150,7 @@ Press `?` while running the app to see keybindings
 
 [K9S](https://github.com/derailed/k9s) is a beast compared to this as it offers way more features including CRUD actions.
 
-KDash only offers a view of most used resources with a focus on speed and UX. Hence the UI/UX is designed to be more user friendly and easier to navigate with contextual help everywhere and a tab system to switch between different resources easily.
+KDash only offers a view of most used resources with a focus on speed and UX. Really, if something is slow or have bad UX then please raise a bug. Hence the UI/UX is designed to be more user friendly and easier to navigate with contextual help everywhere and a tab system to switch between different resources easily.
 
 At least for now there are no plans to add CRUD for resources
 

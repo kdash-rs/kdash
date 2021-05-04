@@ -10,7 +10,7 @@ test:
 
 ## Builds the app for current os-arch
 build:  
-	@cargo clean && make test && cargo build --release
+	@make test && cargo clean && cargo build --release
 
 ## Runs the app
 run:  
