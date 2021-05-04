@@ -1,4 +1,6 @@
-use super::super::app::{key_binding::DEFAULT_KEYBINDING, nodes::NodeMetrics, ActiveBlock, App};
+use super::super::app::{
+  key_binding::DEFAULT_KEYBINDING, models::StatefulTable, nodes::NodeMetrics, ActiveBlock, App,
+};
 use super::super::banner::BANNER;
 use super::utils::{
   get_gauge_style, horizontal_chunks, layout_block_default, layout_block_top_border, loading,
@@ -16,21 +18,31 @@ use tui::{
   Frame,
 };
 
-static DESCRIBE_YAML: &str = "| describe <d> | yaml <y>";
-static YAML: &str = "| yaml <y>";
-static COPY: &str = "| copy <c>";
+static DESCRIBE_AND_YAML_HINT: &str = "| describe <d> | yaml <y>";
+static YAML_HINT: &str = "| yaml <y>";
+static COPY_HINT: &str = "| copy <c>";
+static PODS_HINT: &str = "Pods <esc>";
+static NODES_HINT: &str = "Nodes <esc>";
+static PODS_TITLE: &str = "Pods";
+static SERVICES_TITLE: &str = "Services";
+static CONFIG_MAPS_TITLE: &str = "ConfigMaps";
+static STFS_TITLE: &str = "StatefulSets";
+static REPLICA_SETS_TITLE: &str = "ReplicaSets";
+static DEPLOYMENTS_TITLE: &str = "Deployments";
+static DESCRIBE_ACTIVE: &str = "-> Describe ";
+static YAML_ACTIVE: &str = "-> YAML ";
 
 pub fn draw_overview<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   if app.show_info_bar {
     let chunks = vertical_chunks(vec![Constraint::Length(9), Constraint::Min(10)], area);
-    draw_status(f, app, chunks[0]);
-    draw_active_context_tabs(f, app, chunks[1]);
+    draw_status_block(f, app, chunks[0]);
+    draw_resource_tabs(f, app, chunks[1]);
   } else {
-    draw_active_context_tabs(f, app, area);
+    draw_resource_tabs(f, app, area);
   }
 }
 
-fn draw_status<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_status_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let chunks = horizontal_chunks(
     vec![
       Constraint::Length(30),
@@ -41,13 +53,13 @@ fn draw_status<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     area,
   );
 
-  draw_cli_status(f, app, chunks[0]);
+  draw_cli_version_block(f, app, chunks[0]);
   draw_context_info(f, app, chunks[1]);
   draw_namespaces(f, app, chunks[2]);
-  draw_logo(f, app, chunks[3])
+  draw_logo_block(f, app, chunks[3])
 }
 
-fn draw_logo<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_logo_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   // Banner text with correct styling
   let text = format!(
     "{}\nv{} with ♥ in Rust {}",
@@ -63,15 +75,7 @@ fn draw_logo<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   f.render_widget(paragraph, area);
 }
 
-fn nw_loading_indicator<'a>(loading: bool) -> &'a str {
-  if loading {
-    "..."
-  } else {
-    ""
-  }
-}
-
-fn draw_cli_status<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_cli_version_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let block = layout_block_default("CLI Info");
   if !app.data.clis.is_empty() {
     let rows = app.data.clis.iter().map(|s| {
@@ -96,7 +100,7 @@ fn draw_cli_status<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   }
 }
 
-fn draw_active_context_tabs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_resource_tabs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let chunks =
     vertical_chunks_with_margin(vec![Constraint::Length(2), Constraint::Min(0)], area, 1);
 
@@ -139,8 +143,8 @@ fn draw_pods_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App
       app,
       area,
       title_with_dual_style(
-        get_pod_title(app, "-> Describe "),
-        format!("{} | Pods <esc>", COPY),
+        get_resource_title(app, PODS_TITLE, DESCRIBE_ACTIVE, app.data.pods.items.len()),
+        format!("{} | {}", COPY_HINT, PODS_HINT),
         app.light_theme,
       ),
     ),
@@ -149,8 +153,8 @@ fn draw_pods_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App
       app,
       area,
       title_with_dual_style(
-        get_pod_title(app, "-> YAML "),
-        format!("{} | Pods <esc>", COPY),
+        get_resource_title(app, PODS_TITLE, YAML_ACTIVE, app.data.pods.items.len()),
+        format!("{} | {}", COPY_HINT, PODS_HINT),
         app.light_theme,
       ),
     ),
@@ -169,8 +173,8 @@ fn draw_nodes_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut Ap
       app,
       area,
       title_with_dual_style(
-        get_node_title(app, "-> Describe "),
-        format!("{} | Nodes <esc>", COPY),
+        get_node_title(app, DESCRIBE_ACTIVE),
+        format!("{} | {}", COPY_HINT, NODES_HINT),
         app.light_theme,
       ),
     ),
@@ -179,8 +183,8 @@ fn draw_nodes_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut Ap
       app,
       area,
       title_with_dual_style(
-        get_node_title(app, "-> YAML "),
-        format!("{} | Nodes <esc>", COPY),
+        get_node_title(app, YAML_ACTIVE),
+        format!("{} | {}", COPY_HINT, NODES_HINT),
         app.light_theme,
       ),
     ),
@@ -198,8 +202,13 @@ fn draw_services_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut
       app,
       area,
       title_with_dual_style(
-        get_svc_title(app, "-> YAML "),
-        format!("{} | Services <esc>", COPY),
+        get_resource_title(
+          app,
+          SERVICES_TITLE,
+          YAML_ACTIVE,
+          app.data.services.items.len(),
+        ),
+        format!("{} | Services <esc>", COPY_HINT),
         app.light_theme,
       ),
     ),
@@ -222,8 +231,13 @@ fn draw_config_maps_tab<B: Backend>(
       app,
       area,
       title_with_dual_style(
-        get_config_map_title(app, "-> YAML "),
-        format!("{} | ConfigMaps <esc>", COPY),
+        get_resource_title(
+          app,
+          CONFIG_MAPS_TITLE,
+          YAML_ACTIVE,
+          app.data.config_maps.items.len(),
+        ),
+        format!("{} | ConfigMaps <esc>", COPY_HINT),
         app.light_theme,
       ),
     ),
@@ -246,8 +260,13 @@ fn draw_stateful_sets_tab<B: Backend>(
       app,
       area,
       title_with_dual_style(
-        get_stateful_sets_title(app, "-> YAML "),
-        format!("{} | StatefulSets <esc>", COPY),
+        get_resource_title(
+          app,
+          STFS_TITLE,
+          YAML_ACTIVE,
+          app.data.stateful_sets.items.len(),
+        ),
+        format!("{} | StatefulSets <esc>", COPY_HINT),
         app.light_theme,
       ),
     ),
@@ -270,8 +289,13 @@ fn draw_replica_sets_tab<B: Backend>(
       app,
       area,
       title_with_dual_style(
-        get_replica_sets_title(app, "-> YAML "),
-        format!("{} | ReplicaSets <esc>", COPY),
+        get_resource_title(
+          app,
+          REPLICA_SETS_TITLE,
+          YAML_ACTIVE,
+          app.data.replica_sets.items.len(),
+        ),
+        format!("{} | ReplicaSets <esc>", COPY_HINT),
         app.light_theme,
       ),
     ),
@@ -294,8 +318,13 @@ fn draw_deployments_tab<B: Backend>(
       app,
       area,
       title_with_dual_style(
-        get_deployments_title(app, "-> YAML "),
-        format!("{} | Deployments <esc>", COPY),
+        get_resource_title(
+          app,
+          DEPLOYMENTS_TITLE,
+          YAML_ACTIVE,
+          app.data.deployments.items.len(),
+        ),
+        format!("{} | Deployments <esc>", COPY_HINT),
         app.light_theme,
       ),
     ),
@@ -408,211 +437,172 @@ fn draw_namespaces<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_pods<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = title_with_dual_style(
-    get_pod_title(app, ""),
-    format!("| Containers <enter> {}", DESCRIBE_YAML),
-    app.light_theme,
-  );
-  let block = layout_block_top_border(title);
+  let title = get_resource_title(app, PODS_TITLE, "", app.data.pods.items.len());
 
-  if !app.data.pods.items.is_empty() {
-    let rows = app.data.pods.items.iter().map(|c| {
-      let style = get_resource_row_style(&c.status.as_str());
-      Row::new(vec![
-        Cell::from(c.namespace.as_ref()),
-        Cell::from(c.name.as_ref()),
-        Cell::from(c.ready.as_ref()),
-        Cell::from(c.status.as_ref()),
-        Cell::from(c.restarts.to_string()),
-        Cell::from(c.age.as_ref()),
-      ])
-      .style(style)
-    });
-
-    let table = Table::new(rows)
-      .header(table_header_style(
-        vec!["Namespace", "Name", "Ready", "Status", "Restarts", "Age"],
-        app.light_theme,
-      ))
-      .block(block)
-      .highlight_style(style_highlight())
-      .highlight_symbol(HIGHLIGHT)
-      .widths(&[
+  draw_resource(
+    f,
+    area,
+    ResourceTable {
+      title,
+      inline_help: format!("| Containers <enter> {}", DESCRIBE_AND_YAML_HINT),
+      resource: &mut app.data.pods,
+      table_headers: vec!["Namespace", "Name", "Ready", "Status", "Restarts", "Age"],
+      column_widths: vec![
         Constraint::Percentage(25),
         Constraint::Percentage(35),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
-      ]);
-    f.render_stateful_widget(table, area, &mut app.data.pods.state);
-  } else {
-    loading(f, block, area, app.is_loading);
-  }
+      ],
+    },
+    |c| {
+      let style = get_resource_row_style(&c.status.as_str());
+      Row::new(vec![
+        Cell::from(c.namespace.to_owned()),
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.ready.to_owned()),
+        Cell::from(c.status.to_owned()),
+        Cell::from(c.restarts.to_string()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style)
+    },
+    app.light_theme,
+    app.is_loading,
+  );
 }
 
 fn draw_containers<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = title_with_dual_style(
-    get_container_title(app, app.data.containers.items.len(), ""),
-    "| Logs <enter> | Pods <esc>".into(),
-    app.light_theme,
-  );
+  let title = get_container_title(app, app.data.containers.items.len(), "");
 
-  let block = layout_block_top_border(title);
-
-  if !app.data.containers.items.is_empty() {
-    let rows = app.data.containers.items.iter().map(|c| {
+  draw_resource(
+    f,
+    area,
+    ResourceTable {
+      title,
+      inline_help: format!("| Logs <enter> | {}", PODS_HINT),
+      resource: &mut app.data.containers,
+      table_headers: vec![
+        "Name",
+        "Image",
+        "Ready",
+        "State",
+        "Restarts",
+        "Probes(L/R)",
+        "Ports",
+        "Age",
+      ],
+      column_widths: vec![
+        Constraint::Percentage(20),
+        Constraint::Percentage(30),
+        Constraint::Percentage(5),
+        Constraint::Percentage(10),
+        Constraint::Percentage(5),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+      ],
+    },
+    |c| {
       let style = get_resource_row_style(&c.status.as_str());
       Row::new(vec![
-        Cell::from(c.name.as_ref()),
-        Cell::from(c.image.as_ref()),
-        Cell::from(c.ready.as_ref()),
-        Cell::from(c.status.as_ref()),
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.image.to_owned()),
+        Cell::from(c.ready.to_owned()),
+        Cell::from(c.status.to_owned()),
         Cell::from(c.restarts.to_string()),
         Cell::from(format!(
           "{}/{}",
           c.liveliness_probe.to_string(),
           c.readiness_probe.to_string()
         )),
-        Cell::from(c.ports.as_ref()),
-        Cell::from(c.age.as_ref()),
+        Cell::from(c.ports.to_owned()),
+        Cell::from(c.age.to_owned()),
       ])
       .style(style)
-    });
-
-    let table = Table::new(rows)
-      .header(table_header_style(
-        vec![
-          "Name",
-          "Image",
-          "Ready",
-          "State",
-          "Restarts",
-          "Probes(L/R)",
-          "Ports",
-          "Age",
-        ],
-        app.light_theme,
-      ))
-      .block(block)
-      .highlight_style(style_highlight())
-      .highlight_symbol(HIGHLIGHT)
-      .widths(&[
-        Constraint::Percentage(20),
-        Constraint::Percentage(30),
-        Constraint::Percentage(5),
-        Constraint::Percentage(10),
-        Constraint::Percentage(5),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-      ]);
-    f.render_stateful_widget(table, area, &mut app.data.containers.state);
-  } else {
-    loading(f, block, area, app.is_loading);
-  }
+    },
+    app.light_theme,
+    app.is_loading,
+  );
 }
 
 fn draw_nodes<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = title_with_dual_style(
-    get_node_title(app, ""),
-    DESCRIBE_YAML.into(),
-    app.light_theme,
-  );
-  let block = layout_block_top_border(title);
+  let title = get_node_title(app, "");
 
-  if !app.data.nodes.items.is_empty() {
-    let rows = app.data.nodes.items.iter().map(|c| {
+  draw_resource(
+    f,
+    area,
+    ResourceTable {
+      title,
+      inline_help: DESCRIBE_AND_YAML_HINT.into(),
+      resource: &mut app.data.nodes,
+      table_headers: vec![
+        "Name", "Status", "Roles", "Version", PODS_TITLE, "CPU", "Mem", "CPU %", "Mem %", "CPU/A",
+        "Mem/A", "Age",
+      ],
+      column_widths: vec![
+        Constraint::Percentage(25),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(5),
+        Constraint::Percentage(5),
+        Constraint::Percentage(5),
+        Constraint::Percentage(5),
+        Constraint::Percentage(5),
+        Constraint::Percentage(5),
+        Constraint::Percentage(5),
+        Constraint::Percentage(10),
+      ],
+    },
+    |c| {
       let style = if c.status != "Ready" {
         style_failure()
       } else {
         style_primary()
       };
-      let pods = c.pods.to_string();
       Row::new(vec![
-        Cell::from(c.name.as_ref()),
-        Cell::from(c.status.as_ref()),
-        Cell::from(c.role.as_ref()),
-        Cell::from(c.version.as_ref()),
-        Cell::from(pods),
-        Cell::from(c.cpu.as_ref()),
-        Cell::from(c.mem.as_ref()),
-        Cell::from(c.cpu_percent.as_ref()),
-        Cell::from(c.mem_percent.as_ref()),
-        Cell::from(c.cpu_a.as_ref()),
-        Cell::from(c.mem_a.as_ref()),
-        Cell::from(c.age.as_ref()),
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.status.to_owned()),
+        Cell::from(c.role.to_owned()),
+        Cell::from(c.version.to_owned()),
+        Cell::from(c.pods.to_string()),
+        Cell::from(c.cpu.to_owned()),
+        Cell::from(c.mem.to_owned()),
+        Cell::from(c.cpu_percent.to_owned()),
+        Cell::from(c.mem_percent.to_owned()),
+        Cell::from(c.cpu_a.to_owned()),
+        Cell::from(c.mem_a.to_owned()),
+        Cell::from(c.age.to_owned()),
       ])
       .style(style)
-    });
-
-    let table = Table::new(rows)
-      .header(table_header_style(
-        vec![
-          "Name", "Status", "Roles", "Version", "Pods", "CPU", "Mem", "CPU %", "Mem %", "CPU/A",
-          "Mem/A", "Age",
-        ],
-        app.light_theme,
-      ))
-      .block(block)
-      .highlight_style(style_highlight())
-      .highlight_symbol(HIGHLIGHT)
-      .widths(&[
-        Constraint::Percentage(25),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(5),
-        Constraint::Percentage(5),
-        Constraint::Percentage(5),
-        Constraint::Percentage(5),
-        Constraint::Percentage(5),
-        Constraint::Percentage(5),
-        Constraint::Percentage(5),
-        Constraint::Percentage(10),
-      ]);
-
-    f.render_stateful_widget(table, area, &mut app.data.nodes.state);
-  } else {
-    loading(f, block, area, app.is_loading);
-  }
+    },
+    app.light_theme,
+    app.is_loading,
+  );
 }
 
 fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = title_with_dual_style(get_svc_title(app, ""), YAML.into(), app.light_theme);
-  let block = layout_block_top_border(title);
+  let title = get_resource_title(app, SERVICES_TITLE, "", app.data.services.items.len());
 
-  if !app.data.services.items.is_empty() {
-    let rows = app.data.services.items.iter().map(|c| {
-      Row::new(vec![
-        Cell::from(c.namespace.as_ref()),
-        Cell::from(c.name.as_ref()),
-        Cell::from(c.type_.as_ref()),
-        Cell::from(c.cluster_ip.as_ref()),
-        Cell::from(c.external_ip.as_ref()),
-        Cell::from(c.ports.as_ref()),
-        Cell::from(c.age.as_ref()),
-      ])
-      .style(style_primary())
-    });
-
-    let table = Table::new(rows)
-      .header(table_header_style(
-        vec![
-          "Namespace",
-          "Name",
-          "Type",
-          "Cluster IP",
-          "External IP",
-          "Ports",
-          "Age",
-        ],
-        app.light_theme,
-      ))
-      .block(block)
-      .highlight_style(style_highlight())
-      .highlight_symbol(HIGHLIGHT)
-      .widths(&[
+  draw_resource(
+    f,
+    area,
+    ResourceTable {
+      title,
+      inline_help: YAML_HINT.into(),
+      resource: &mut app.data.services,
+      table_headers: vec![
+        "Namespace",
+        "Name",
+        "Type",
+        "Cluster IP",
+        "External IP",
+        "Ports",
+        "Age",
+      ],
+      column_widths: vec![
         Constraint::Percentage(10),
         Constraint::Percentage(25),
         Constraint::Percentage(10),
@@ -620,181 +610,173 @@ fn draw_services<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         Constraint::Percentage(15),
         Constraint::Percentage(20),
         Constraint::Percentage(10),
-      ]);
-
-    f.render_stateful_widget(table, area, &mut app.data.services.state);
-  } else {
-    loading(f, block, area, app.is_loading);
-  }
+      ],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.namespace.to_owned()),
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.type_.to_owned()),
+        Cell::from(c.cluster_ip.to_owned()),
+        Cell::from(c.external_ip.to_owned()),
+        Cell::from(c.ports.to_owned()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary())
+    },
+    app.light_theme,
+    app.is_loading,
+  );
 }
 
 fn draw_config_maps<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = title_with_dual_style(get_config_map_title(app, ""), YAML.into(), app.light_theme);
-  let block = layout_block_top_border(title);
+  let title = get_resource_title(app, CONFIG_MAPS_TITLE, "", app.data.config_maps.items.len());
 
-  if !app.data.config_maps.items.is_empty() {
-    let rows = app.data.config_maps.items.iter().map(|c| {
-      Row::new(vec![
-        Cell::from(c.namespace.as_ref()),
-        Cell::from(c.name.as_ref()),
-        Cell::from(c.data.len().to_string()),
-        Cell::from(c.age.as_ref()),
-      ])
-      .style(style_primary())
-    });
-
-    let table = Table::new(rows)
-      .header(table_header_style(
-        vec!["Namespace", "Name", "Data", "Age"],
-        app.light_theme,
-      ))
-      .block(block)
-      .highlight_style(style_highlight())
-      .highlight_symbol(HIGHLIGHT)
-      .widths(&[
+  draw_resource(
+    f,
+    area,
+    ResourceTable {
+      title,
+      inline_help: YAML_HINT.into(),
+      resource: &mut app.data.config_maps,
+      table_headers: vec!["Namespace", "Name", "Data", "Age"],
+      column_widths: vec![
         Constraint::Percentage(30),
         Constraint::Percentage(40),
         Constraint::Percentage(15),
         Constraint::Percentage(15),
-      ]);
-
-    f.render_stateful_widget(table, area, &mut app.data.config_maps.state);
-  } else {
-    loading(f, block, area, app.is_loading);
-  }
+      ],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.namespace.to_owned()),
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.data.len().to_string()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary())
+    },
+    app.light_theme,
+    app.is_loading,
+  );
 }
 
 fn draw_stateful_sets<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = title_with_dual_style(
-    get_stateful_sets_title(app, ""),
-    YAML.into(),
-    app.light_theme,
-  );
-  let block = layout_block_top_border(title);
+  let title = get_resource_title(app, STFS_TITLE, "", app.data.stateful_sets.items.len());
 
-  if !app.data.stateful_sets.items.is_empty() {
-    let rows = app.data.stateful_sets.items.iter().map(|c| {
-      Row::new(vec![
-        Cell::from(c.namespace.as_ref()),
-        Cell::from(c.name.as_ref()),
-        Cell::from(c.ready.as_ref()),
-        Cell::from(c.service.as_ref()),
-        Cell::from(c.age.as_ref()),
-      ])
-      .style(style_primary())
-    });
-
-    let table = Table::new(rows)
-      .header(table_header_style(
-        vec!["Namespace", "Name", "Ready", "Service", "Age"],
-        app.light_theme,
-      ))
-      .block(block)
-      .highlight_style(style_highlight())
-      .highlight_symbol(HIGHLIGHT)
-      .widths(&[
+  draw_resource(
+    f,
+    area,
+    ResourceTable {
+      title,
+      inline_help: YAML_HINT.into(),
+      resource: &mut app.data.stateful_sets,
+      table_headers: vec!["Namespace", "Name", "Ready", "Service", "Age"],
+      column_widths: vec![
         Constraint::Percentage(25),
         Constraint::Percentage(30),
         Constraint::Percentage(10),
         Constraint::Percentage(25),
         Constraint::Percentage(10),
-      ]);
-
-    f.render_stateful_widget(table, area, &mut app.data.stateful_sets.state);
-  } else {
-    loading(f, block, area, app.is_loading);
-  }
+      ],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.namespace.to_owned()),
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.ready.to_owned()),
+        Cell::from(c.service.to_owned()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary())
+    },
+    app.light_theme,
+    app.is_loading,
+  );
 }
 
 fn draw_replica_sets<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = title_with_dual_style(
-    get_replica_sets_title(app, ""),
-    YAML.into(),
-    app.light_theme,
+  let title = get_resource_title(
+    app,
+    REPLICA_SETS_TITLE,
+    "",
+    app.data.replica_sets.items.len(),
   );
-  let block = layout_block_top_border(title);
 
-  if !app.data.replica_sets.items.is_empty() {
-    let rows = app.data.replica_sets.items.iter().map(|c| {
+  draw_resource(
+    f,
+    area,
+    ResourceTable {
+      title,
+      inline_help: YAML_HINT.into(),
+      resource: &mut app.data.replica_sets,
+      table_headers: vec!["Namespace", "Name", "Desired", "Current", "Ready", "Age"],
+      column_widths: vec![
+        Constraint::Percentage(25),
+        Constraint::Percentage(35),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+      ],
+    },
+    |c| {
       Row::new(vec![
-        Cell::from(c.namespace.as_ref()),
-        Cell::from(c.name.as_ref()),
+        Cell::from(c.namespace.to_owned()),
+        Cell::from(c.name.to_owned()),
         Cell::from(c.desired.to_string()),
         Cell::from(c.current.to_string()),
         Cell::from(c.ready.to_string()),
-        Cell::from(c.age.as_ref()),
+        Cell::from(c.age.to_owned()),
       ])
       .style(style_primary())
-    });
-
-    let table = Table::new(rows)
-      .header(table_header_style(
-        vec!["Namespace", "Name", "Desired", "Current", "Ready", "Age"],
-        app.light_theme,
-      ))
-      .block(block)
-      .highlight_style(style_highlight())
-      .highlight_symbol(HIGHLIGHT)
-      .widths(&[
-        Constraint::Percentage(25),
-        Constraint::Percentage(35),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-      ]);
-
-    f.render_stateful_widget(table, area, &mut app.data.replica_sets.state);
-  } else {
-    loading(f, block, area, app.is_loading);
-  }
+    },
+    app.light_theme,
+    app.is_loading,
+  );
 }
 
 fn draw_deployments<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = title_with_dual_style(get_deployments_title(app, ""), YAML.into(), app.light_theme);
-  let block = layout_block_top_border(title);
+  let title = get_resource_title(app, DEPLOYMENTS_TITLE, "", app.data.deployments.items.len());
 
-  if !app.data.deployments.items.is_empty() {
-    let rows = app.data.deployments.items.iter().map(|c| {
-      Row::new(vec![
-        Cell::from(c.namespace.as_ref()),
-        Cell::from(c.name.as_ref()),
-        Cell::from(c.ready.as_ref()),
-        Cell::from(c.updated.to_string()),
-        Cell::from(c.available.to_string()),
-        Cell::from(c.age.as_ref()),
-      ])
-      .style(style_primary())
-    });
-
-    let table = Table::new(rows)
-      .header(table_header_style(
-        vec![
-          "Namespace",
-          "Name",
-          "Ready",
-          "Up-to-date",
-          "Available",
-          "Age",
-        ],
-        app.light_theme,
-      ))
-      .block(block)
-      .highlight_style(style_highlight())
-      .highlight_symbol(HIGHLIGHT)
-      .widths(&[
+  draw_resource(
+    f,
+    area,
+    ResourceTable {
+      title,
+      inline_help: YAML_HINT.into(),
+      resource: &mut app.data.deployments,
+      table_headers: vec![
+        "Namespace",
+        "Name",
+        "Ready",
+        "Up-to-date",
+        "Available",
+        "Age",
+      ],
+      column_widths: vec![
         Constraint::Percentage(25),
         Constraint::Percentage(35),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
-      ]);
-
-    f.render_stateful_widget(table, area, &mut app.data.deployments.state);
-  } else {
-    loading(f, block, area, app.is_loading);
-  }
+      ],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.namespace.to_owned()),
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.ready.to_owned()),
+        Cell::from(c.updated.to_string()),
+        Cell::from(c.available.to_string()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary())
+    },
+    app.light_theme,
+    app.is_loading,
+  );
 }
 
 fn draw_logs<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
@@ -841,6 +823,52 @@ fn draw_describe<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect, title:
   }
 }
 
+// Utility methods
+
+struct ResourceTable<'a, T> {
+  title: String,
+  inline_help: String,
+  resource: &'a mut StatefulTable<T>,
+  table_headers: Vec<&'a str>,
+  column_widths: Vec<Constraint>,
+}
+
+/// Draw a kubernetes resource i overview tab
+fn draw_resource<'a, B, T, F>(
+  f: &mut Frame<B>,
+  area: Rect,
+  table_props: ResourceTable<'a, T>,
+  row_cell_mapper: F,
+  light_theme: bool,
+  is_loading: bool,
+) where
+  B: Backend,
+  F: Fn(&T) -> Row<'a>,
+{
+  let title = title_with_dual_style(table_props.title, table_props.inline_help, light_theme);
+  let block = layout_block_top_border(title);
+
+  if !table_props.resource.items.is_empty() {
+    let rows = table_props
+      .resource
+      .items
+      .iter()
+      //   .map(|c| { Row::new(row_cell_mapper(c)) }.style(style_primary()));
+      .map(row_cell_mapper);
+
+    let table = Table::new(rows)
+      .header(table_header_style(table_props.table_headers, light_theme))
+      .block(block)
+      .highlight_style(style_highlight())
+      .highlight_symbol(HIGHLIGHT)
+      .widths(&table_props.column_widths);
+
+    f.render_stateful_widget(table, area, &mut table_props.resource.state);
+  } else {
+    loading(f, block, area, is_loading);
+  }
+}
+
 /// covert percent value from metrics to ratio that gauge can understand
 fn get_nm_ratio(node_metrics: &[NodeMetrics], f: fn(a: f64, b: &NodeMetrics) -> f64) -> f64 {
   if !node_metrics.is_empty() {
@@ -872,116 +900,41 @@ fn get_node_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
   format!("Nodes [{}] {}", app.data.nodes.items.len(), suffix.as_ref())
 }
 
-fn get_svc_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
+fn get_resource_title<S: AsRef<str>>(app: &App, title: S, suffix: S, items_len: usize) -> String {
   format!(
     "{} {}",
     title_with_ns(
-      "Services",
+      title.as_ref(),
       app
         .data
         .selected
         .ns
         .as_ref()
         .unwrap_or(&String::from("all")),
-      app.data.services.items.len()
-    ),
-    suffix.as_ref(),
-  )
-}
-
-fn get_config_map_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
-  format!(
-    "{} {}",
-    title_with_ns(
-      "ConfigMaps",
-      app
-        .data
-        .selected
-        .ns
-        .as_ref()
-        .unwrap_or(&String::from("all")),
-      app.data.config_maps.items.len()
-    ),
-    suffix.as_ref(),
-  )
-}
-
-fn get_stateful_sets_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
-  format!(
-    "{} {}",
-    title_with_ns(
-      "StatefulSets",
-      app
-        .data
-        .selected
-        .ns
-        .as_ref()
-        .unwrap_or(&String::from("all")),
-      app.data.stateful_sets.items.len()
-    ),
-    suffix.as_ref(),
-  )
-}
-
-fn get_replica_sets_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
-  format!(
-    "{} {}",
-    title_with_ns(
-      "ReplicaSets",
-      app
-        .data
-        .selected
-        .ns
-        .as_ref()
-        .unwrap_or(&String::from("all")),
-      app.data.replica_sets.items.len()
-    ),
-    suffix.as_ref(),
-  )
-}
-
-fn get_deployments_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
-  format!(
-    "{} {}",
-    title_with_ns(
-      "Deployments",
-      app
-        .data
-        .selected
-        .ns
-        .as_ref()
-        .unwrap_or(&String::from("all")),
-      app.data.deployments.items.len()
-    ),
-    suffix.as_ref(),
-  )
-}
-
-fn get_pod_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
-  format!(
-    "{} {}",
-    title_with_ns(
-      "Pods",
-      app
-        .data
-        .selected
-        .ns
-        .as_ref()
-        .unwrap_or(&String::from("all")),
-      app.data.pods.items.len()
+      items_len
     ),
     suffix.as_ref(),
   )
 }
 
 fn get_container_title<S: AsRef<str>>(app: &App, container_len: usize, suffix: S) -> String {
-  let title = get_pod_title(
+  let title = get_resource_title(
     app,
-    format!("-> Containers [{}] {}", container_len, suffix.as_ref()),
+    PODS_TITLE,
+    format!("-> Containers [{}] {}", container_len, suffix.as_ref()).as_str(),
+    app.data.pods.items.len(),
   );
   title
 }
 
 fn title_with_ns(title: &str, ns: &str, length: usize) -> String {
   format!("{} (ns: {}) [{}]", title, ns, length)
+}
+
+fn nw_loading_indicator<'a>(loading: bool) -> &'a str {
+  if loading {
+    "..."
+  } else {
+    ""
+  }
 }
