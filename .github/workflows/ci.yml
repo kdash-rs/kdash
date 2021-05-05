@@ -56,14 +56,14 @@ jobs:
           RUSTDOCFLAGS: "-Cpanic=abort"
           CARGO_INCREMENTAL: 0
         run: |
-          cargo build --verbose
-          cargo test --verbose
+          cargo build
+          cargo test
           grcov . -s . --binary-path ./target/debug/ -t lcov --branch --ignore-not-existing -o ./target/debug/coverage/
       - name: Push grcov results to Coveralls
         uses: coverallsapp/github-action@v1.1.2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          path-to-lcov: "lcov.info"
+          path-to-lcov: "./target/debug/coverage/lcov.info"
 
   fmt:
     name: Rustfmt
