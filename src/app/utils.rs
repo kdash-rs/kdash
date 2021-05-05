@@ -242,7 +242,5 @@ mod tests {
       ),
       String::from("2676w14h")
     );
-    // TODO remove
-    assert_eq!(true, false);
   }
 }
