@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: prepare
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v1
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
@@ -47,21 +47,20 @@ jobs:
           override: true
       # These dependencies are required for `clipboard`
       - run: sudo apt-get install -y -qq libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
-      - name: Run grcov for test coverage
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
         env:
-          RUSTFLAGS: "-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort"
-          RUSTDOCFLAGS: "-Cpanic=abort"
-          CARGO_INCREMENTAL: 0
-        run: |
-          cargo install grcov
-          cargo build
-          cargo test
-          grcov . --binary-path ./target/debug/ -t coveralls -s . > coveralls.json
+          CARGO_INCREMENTAL: '0'
+          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+          RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+      - id: coverage 
+        uses: actions-rs/grcov@v0.1
       - name: Push grcov results to Coveralls
-        uses: coverallsapp/github-action@v1.0.1
+        uses: coverallsapp/github-action@master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          path-to-lcov: "lcov.info"
+          path-to-lcov: ${{ steps.coverage.outputs.report }}
 
   fmt:
     name: Rustfmt
