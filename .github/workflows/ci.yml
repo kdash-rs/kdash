@@ -56,6 +56,7 @@ jobs:
           RUSTDOCFLAGS: "-Cpanic=abort"
           CARGO_INCREMENTAL: 0
         run: |
+          cargo install grcov
           cargo build
           cargo test
           grcov . -s . --binary-path ./target/debug/ -t lcov --branch --ignore-not-existing -o ./target/debug/coverage/
