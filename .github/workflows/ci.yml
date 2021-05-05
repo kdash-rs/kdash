@@ -47,9 +47,6 @@ jobs:
           override: true
       # These dependencies are required for `clipboard`
       - run: sudo apt-get install -y -qq libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
-      # - uses: actions-rs/cargo@v1
-      #   with:
-      #     command: test
       - name: Run grcov for test coverage
         env:
           RUSTFLAGS: "-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort"
@@ -59,12 +56,12 @@ jobs:
           cargo install grcov
           cargo build
           cargo test
-          grcov . -s . --binary-path ./target/debug/ -t lcov --branch --ignore-not-existing -o ./target/debug/coverage/
+          grcov . -s . --binary-path ./target/debug/ -t lcov --branch --ignore-not-existing -o lcov.info
       - name: Push grcov results to Coveralls
         uses: coverallsapp/github-action@v1.1.2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          path-to-lcov: "./target/debug/coverage/lcov.info"
+          path-to-lcov: "lcov.info"
 
   fmt:
     name: Rustfmt
