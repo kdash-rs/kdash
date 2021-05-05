@@ -56,6 +56,8 @@ jobs:
           RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
       - id: coverage 
         uses: actions-rs/grcov@v0.1
+        with:
+          config: .github/grcov.yml
       - name: Push grcov results to Coveralls
         uses: coverallsapp/github-action@master
         with:

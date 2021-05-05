@@ -1,0 +1,12 @@
+branch: true
+ignore-not-existing: true
+llvm: true
+filter: covered
+ignore:
+  - "/*"
+  - "C:/*"
+  - "../*"
+excl-line: "#\\[derive\\("
+excl-br-line: "#\\[derive\\("
+excl-start: "mod tests \\{"
+excl-br-start: "mod tests \\{"
