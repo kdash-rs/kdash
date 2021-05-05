@@ -7,6 +7,7 @@
 [![crates.io link](https://img.shields.io/crates/v/kdash.svg)](https://crates.io/crates/kdash)
 ![Docker Release](https://img.shields.io/docker/v/deepu105/kdash?label=Docker%20version)
 ![Release](https://img.shields.io/github/v/release/kdash-rs/kdash?color=%23c694ff)
+[![Coverage](https://coveralls.io/repos/github/kdash-rs/kdash/badge.svg?branch=main)](https://coveralls.io/github/kdash-rs/kdash?branch=main)
 
 <!-- [![Downloads](https://img.shields.io/github/downloads/kdash-rs/kdash/total.svg)](https://github.com/kdash-rs/kdash/releases)
 ![Docker pulls](https://img.shields.io/docker/pulls/deepu105/kdash)
