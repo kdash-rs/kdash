@@ -58,7 +58,7 @@ jobs:
           cargo test
           grcov . -s . --binary-path ./target/debug/ -t lcov --branch --ignore-not-existing -o lcov.info
       - name: Push grcov results to Coveralls
-        uses: coverallsapp/github-action@v1.1.2
+        uses: coverallsapp/github-action@v1.0.1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-lcov: "lcov.info"
