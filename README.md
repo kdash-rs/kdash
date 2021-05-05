@@ -1,5 +1,19 @@
 # KDash - A fast and simple dashboard for Kubernetes
 
+![ci](https://github.com/kdash-rs/kdash/actions/workflows/ci.yml/badge.svg)
+![cd](https://github.com/kdash-rs/kdash/actions/workflows/cd.yml/badge.svg)
+![Licence](https://img.shields.io/badge/license-MIT-blueviolet.svg)
+![LOC](https://tokei.rs/b1/github/kdash-rs/kdash?category=code)
+[![crates.io link](https://img.shields.io/crates/v/kdash.svg)](https://crates.io/crates/kdash)
+![Docker Release](https://img.shields.io/docker/v/deepu105/kdash?label=Docker%20version)
+![Release](https://img.shields.io/github/v/release/kdash-rs/kdash?color=%23c694ff)
+
+<!-- [![Downloads](https://img.shields.io/github/downloads/kdash-rs/kdash/total.svg)](https://github.com/kdash-rs/kdash/releases)
+![Docker pulls](https://img.shields.io/docker/pulls/deepu105/kdash)
+![crate downloads](https://img.shields.io/crates/d/kdash) -->
+
+[![Follow Deepu K Sasidharan (deepu105)](https://img.shields.io/twitter/follow/deepu105?label=Follow%20Deepu%20K%20Sasidharan%20%28deepu105%29&style=social)](https://twitter.com/intent/follow?screen_name=deepu105)
+
 **Note**: This is a beta version and is being actively developed. Feedback, feature requests and contributions are welcome
 
 ```rust
@@ -25,6 +39,12 @@ brew install kdash
 brew install kdash-rs/kdash/kdash
 ```
 
+To upgrade
+
+```bash
+brew upgrade kdash
+```
+
 ### Chocolatey
 
 TODO
@@ -36,6 +56,14 @@ TODO
 ### Manual
 
 Binaries for macOS, Linux and Windows are available on the [releases](https://github.com/kdash-rs/kdash/releases) page
+
+1. Download the latest [binary](https://github.com/kdash-rs/kdash/releases) for your OS.
+1. For Linux/macOS:
+   1. `cd` to the file you just downloaded and run `tar -C /usr/local/bin -xzf downloaded-file-name`. Use sudo if required.
+   1. Run with `kdash`
+1. For Windows:
+   1. Use 7-Zip or TarTool to unpack the tar file.
+   1. Run the executable file `kdash.exe`
 
 ### Docker
 

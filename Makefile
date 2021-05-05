@@ -4,9 +4,9 @@ IMAGE    := ${IMG_NAME}:${VERSION}
 
 default: run
 
- ## Run all tests
+ ## Run all tests - `cargo install cargo-tarpaulin`
 test:  
-	@cargo check && cargo test
+	@cargo check && cargo tarpaulin
 
 ## Builds the app for current os-arch
 build:  

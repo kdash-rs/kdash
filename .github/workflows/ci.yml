@@ -42,14 +42,29 @@ jobs:
       - uses: actions/checkout@master
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly
           profile: minimal
           override: true
       # These dependencies are required for `clipboard`
       - run: sudo apt-get install -y -qq libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
-      - uses: actions-rs/cargo@v1
+      # - uses: actions-rs/cargo@v1
+      #   with:
+      #     command: test
+      - name: Run grcov for test coverage
+        env:
+          PROJECT_NAME: "kdash"
+          RUSTFLAGS: "-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Zno-landing-pads"
+          CARGO_INCREMENTAL: 0
+        run: |
+          cargo build --verbose
+          cargo test --verbose
+          zip -0 cov.zip $(find . -name "$PROJECT_NAME*.gc*" -print)
+          grcov cov.zip -s . -t lcov --llvm --ignore-not-existing --ignore "/*" -o lcov.info
+      - name: Push grcov results to Coveralls
+        uses: coverallsapp/github-action@v1.1.2
         with:
-          command: test
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-lcov: "lcov.info"
 
   fmt:
     name: Rustfmt
