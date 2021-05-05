@@ -56,7 +56,7 @@ jobs:
           cargo install grcov
           cargo build
           cargo test
-          grcov . -s . --binary-path ./target/debug/ -t lcov --branch --ignore-not-existing -o lcov.info
+          grcov . --binary-path ./target/debug/ -t coveralls -s . > coveralls.json
       - name: Push grcov results to Coveralls
         uses: coverallsapp/github-action@v1.0.1
         with:
