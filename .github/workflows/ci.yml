@@ -52,14 +52,13 @@ jobs:
       #     command: test
       - name: Run grcov for test coverage
         env:
-          PROJECT_NAME: "kdash"
-          RUSTFLAGS: "-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Zno-landing-pads"
+          RUSTFLAGS: "-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort"
+          RUSTDOCFLAGS: "-Cpanic=abort"
           CARGO_INCREMENTAL: 0
         run: |
           cargo build --verbose
           cargo test --verbose
-          zip -0 cov.zip $(find . -name "$PROJECT_NAME*.gc*" -print)
-          grcov cov.zip -s . -t lcov --llvm --ignore-not-existing --ignore "/*" -o lcov.info
+          grcov . -s . --binary-path ./target/debug/ -t lcov --branch --ignore-not-existing -o ./target/debug/coverage/
       - name: Push grcov results to Coveralls
         uses: coverallsapp/github-action@v1.1.2
         with:
