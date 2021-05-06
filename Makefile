@@ -14,7 +14,7 @@ build:
 
 ## Runs the app
 run:  
-	@cargo fmt && make lint && cargo run
+	@CARGO_INCREMENTAL=1 cargo fmt && make lint && cargo run
 
 ## Run clippy
 lint:  
@@ -39,3 +39,7 @@ docker:
 ## Run Docker Image locally
 docker-run:    
 	@docker run --rm ${IMAGE}
+
+## Analyse for unsafe usage - `cargo install cargo-geiger`
+analyse:  
+	@cargo geiger
