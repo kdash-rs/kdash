@@ -1,3 +1,4 @@
+#[deny(clippy::shadow_unrelated)]
 mod app;
 mod banner;
 mod cli;

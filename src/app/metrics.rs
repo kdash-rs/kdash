@@ -207,6 +207,7 @@ impl Qty {
 
 impl FromStr for Qty {
   type Err = Error;
+  #[allow(clippy::shadow_unrelated)]
   fn from_str(val: &str) -> Result<Self, Self::Err> {
     let (num_str, scale_str): (&str, &str) = match val
       .find(|c: char| !c.is_digit(10) && c != 'E' && c != 'e' && c != '+' && c != '-' && c != '.')

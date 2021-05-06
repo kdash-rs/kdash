@@ -264,7 +264,7 @@ impl LogsState {
         .flatten(),
     );
 
-    let lines_to_skip = if follow {
+    let wrapped_lines_to_skip = if follow {
       wrapped_lines_len.saturating_sub(available_lines)
     } else {
       0
@@ -274,7 +274,7 @@ impl LogsState {
       .into_iter()
       // Wrapping could have created more lines than what we can display;
       // skip them
-      .skip(lines_to_skip)
+      .skip(wrapped_lines_to_skip)
       .collect::<Vec<_>>();
 
     self.wrapped_length = items.len();
