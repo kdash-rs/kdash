@@ -135,7 +135,7 @@ Press `?` while running the app to see keybindings
   - [x] Context watch
   - [x] Change namespace?
   - [x] Context switch
-- [x] Resources utilizations for nodes, pods and namespaces based on metrics server
+- [x] Resources utilizations for nodes, pods and namespaces based on metrics server. Requires [metrics-server](https://kubernetes.io/docs/tasks/debug-application-cluster/resource-metrics-pipeline/#metrics-server) to be deployed on the cluster.
 - [x] Dark/Light themes
 - [ ] Custom keymap
 - [ ] Custom theme
