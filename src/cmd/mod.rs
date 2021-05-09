@@ -148,10 +148,7 @@ fn get_info_by_regex(command: &str, args: &[&str], regex: &str) -> Option<String
   match cmd(command, args).read() {
     Ok(out) => match Regex::new(regex) {
       Ok(re) => match re.captures(out.as_str()) {
-        Some(cap) => match cap.get(1) {
-          Some(text) => Some(text.as_str().into()),
-          _ => None,
-        },
+        Some(cap) => cap.get(1).map(|text| text.as_str().into()),
         _ => None,
       },
       _ => None,
