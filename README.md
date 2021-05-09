@@ -92,6 +92,10 @@ You can also clone the repo and run `cargo run` or `make` to build and run the a
 
 ## USAGE:
 
+```bash
+kdash
+```
+
 Press `?` while running the app to see keybindings
 
 ## FLAGS:
