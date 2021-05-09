@@ -20,10 +20,6 @@ run:
 lint:  
 	@find . | grep '\.\/src\/.*\.rs$$' | xargs touch && cargo clippy --all-targets --workspace
 
-## Force Run clippy
-lint-force:  
-	@cargo clean && cargo clippy
-
 ## Fix lint
 lint-fix:  
 	@cargo fix
