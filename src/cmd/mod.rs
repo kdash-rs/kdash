@@ -8,7 +8,7 @@ use anyhow::anyhow;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum IoCmdEvent {
   GetCliInfo,
   GetDescribe {

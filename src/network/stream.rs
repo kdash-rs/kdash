@@ -11,7 +11,7 @@ use std::{sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 use tokio_stream::StreamExt;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum IoStreamEvent {
   RefreshClient,
   GetPodLogs(bool),
@@ -94,6 +94,7 @@ impl<'a> NetworkStream<'a> {
       follow: true,
       previous: false,
       //   timestamps: true,
+      // tail only on first call to avoid duplicates on disconnect
       tail_lines: if tail { Some(10) } else { Some(0) },
       ..Default::default()
     };

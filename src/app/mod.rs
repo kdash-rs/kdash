@@ -381,6 +381,8 @@ impl App {
       self.dispatch(IoEvent::GetStatefulSets).await;
       self.dispatch(IoEvent::GetReplicaSets).await;
       self.dispatch(IoEvent::GetDeployments).await;
+
+      self.refresh = false;
     }
     // make network requests only in intervals to avoid hogging up the network
     if self.tick_count == 0 || self.is_routing {
@@ -410,6 +412,7 @@ impl App {
             }
             ActiveBlock::Logs => {
               if !self.is_streaming {
+                // do not tail to avoid duplicates
                 self.dispatch_stream(IoStreamEvent::GetPodLogs(false)).await;
               }
             }
@@ -429,9 +432,116 @@ impl App {
     if self.tick_count > self.tick_until_poll {
       self.tick_count = 0; // reset ticks
     }
+  }
+}
 
-    if self.refresh {
-      self.refresh = false;
-    }
+#[cfg(test)]
+mod tests {
+
+  use tokio::sync::mpsc;
+
+  use super::*;
+
+  #[tokio::test]
+  async fn test_on_tick_first_render() {
+    let (sync_io_tx, mut sync_io_rx) = mpsc::channel::<IoEvent>(500);
+    let (sync_io_cmd_tx, mut sync_io_cmd_rx) = mpsc::channel::<IoCmdEvent>(500);
+
+    let mut app = App {
+      tick_until_poll: 2,
+      io_tx: Some(sync_io_tx),
+      io_cmd_tx: Some(sync_io_cmd_tx),
+      ..App::default()
+    };
+
+    assert_eq!(app.tick_count, 0);
+    // test first render
+    app.on_tick(true).await;
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetKubeConfig);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetServices);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetConfigMaps);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetStatefulSets);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetReplicaSets);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetDeployments);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
+
+    assert_eq!(sync_io_cmd_rx.recv().await.unwrap(), IoCmdEvent::GetCliInfo);
+
+    assert!(!app.refresh);
+    assert!(!app.is_routing);
+    assert_eq!(app.tick_count, 1);
+  }
+  #[tokio::test]
+  async fn test_on_tick_refresh_tick_limit() {
+    let (sync_io_tx, mut sync_io_rx) = mpsc::channel::<IoEvent>(500);
+    let (sync_io_stream_tx, mut sync_io_stream_rx) = mpsc::channel::<IoStreamEvent>(500);
+    let (sync_io_cmd_tx, mut sync_io_cmd_rx) = mpsc::channel::<IoCmdEvent>(500);
+
+    let mut app = App {
+      tick_until_poll: 2,
+      tick_count: 2,
+      refresh: true,
+      io_tx: Some(sync_io_tx),
+      io_stream_tx: Some(sync_io_stream_tx),
+      io_cmd_tx: Some(sync_io_cmd_tx),
+      ..App::default()
+    };
+
+    assert_eq!(app.tick_count, 2);
+    // test first render
+    app.on_tick(false).await;
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::RefreshClient);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetKubeConfig);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetServices);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetConfigMaps);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetStatefulSets);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetReplicaSets);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetDeployments);
+
+    assert_eq!(
+      sync_io_stream_rx.recv().await.unwrap(),
+      IoStreamEvent::RefreshClient
+    );
+    assert_eq!(sync_io_cmd_rx.recv().await.unwrap(), IoCmdEvent::GetCliInfo);
+
+    assert!(!app.refresh);
+    assert!(!app.is_routing);
+    assert_eq!(app.tick_count, 0);
+  }
+  #[tokio::test]
+  async fn test_on_tick_routing() {
+    let (sync_io_tx, mut sync_io_rx) = mpsc::channel::<IoEvent>(500);
+    let (sync_io_stream_tx, mut sync_io_stream_rx) = mpsc::channel::<IoStreamEvent>(500);
+
+    let mut app = App {
+      tick_until_poll: 2,
+      tick_count: 2,
+      is_routing: true,
+      refresh: false,
+      io_tx: Some(sync_io_tx),
+      io_stream_tx: Some(sync_io_stream_tx),
+      ..App::default()
+    };
+
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Logs);
+
+    assert_eq!(app.tick_count, 2);
+    // test first render
+    app.on_tick(false).await;
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
+
+    assert_eq!(
+      sync_io_stream_rx.recv().await.unwrap(),
+      IoStreamEvent::GetPodLogs(false)
+    );
+
+    assert!(!app.refresh);
+    assert!(!app.is_routing);
+    assert_eq!(app.tick_count, 0);
   }
 }

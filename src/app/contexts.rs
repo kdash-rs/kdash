@@ -1,6 +1,6 @@
 use kube::config::{Kubeconfig, NamedContext};
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct KubeContext {
   pub name: String,
   pub cluster: String,

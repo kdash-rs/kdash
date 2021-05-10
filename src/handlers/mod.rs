@@ -407,7 +407,7 @@ fn copy_to_clipboard(content: String) {
 
 #[cfg(test)]
 mod tests {
-  use crate::app::pods::KubePod;
+  use crate::app::{contexts::KubeContext, pods::KubePod};
 
   use super::*;
 
@@ -528,5 +528,22 @@ mod tests {
 
     handle_scroll(&mut app, true, false).await;
     assert_eq!(app.data.logs.state.selected(), Some(0));
+  }
+
+  #[tokio::test]
+  async fn test_context_switch() {
+    let mut app = App::default();
+    let ctx = KubeContext {
+      name: "test".into(),
+      ..KubeContext::default()
+    };
+    app.data.contexts.set_items(vec![ctx]);
+
+    assert_eq!(app.data.selected.context, None);
+    app.route_contexts();
+    handle_route_events(Key::Enter, &mut app).await;
+
+    assert_eq!(app.data.selected.context, Some("test".into()));
+    assert!(app.refresh);
   }
 }

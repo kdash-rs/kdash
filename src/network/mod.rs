@@ -10,7 +10,7 @@ use kube::Client;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum IoEvent {
   GetKubeConfig,
   GetNodes,
