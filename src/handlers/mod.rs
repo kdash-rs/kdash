@@ -410,8 +410,8 @@ mod tests {
 
   #[test]
   fn test_inverse_dir() {
-    assert_eq!(inverse_dir(true, false), false);
-    assert_eq!(inverse_dir(true, true), true);
+    assert!(!inverse_dir(true, false));
+    assert!(inverse_dir(true, true));
   }
 
   #[test]
@@ -444,7 +444,7 @@ mod tests {
 
     let item = KubePod::default();
 
-    assert_eq!(
+    assert!(
       handle_describe_or_yaml_action(
         Key::Char('d'),
         &mut app,
@@ -455,14 +455,13 @@ mod tests {
           ns: Some("namespace".to_owned()),
         }
       )
-      .await,
-      true
+      .await
     );
 
     assert_eq!(app.get_current_route().active_block, ActiveBlock::Describe);
     assert_eq!(app.data.describe_out.get_txt(), "");
 
-    assert_eq!(
+    assert!(
       handle_describe_or_yaml_action(
         Key::Char('y'),
         &mut app,
@@ -473,8 +472,7 @@ mod tests {
           ns: Some("namespace".to_owned()),
         }
       )
-      .await,
-      true
+      .await
     );
 
     assert_eq!(app.get_current_route().active_block, ActiveBlock::Yaml);
@@ -483,8 +481,8 @@ mod tests {
       "---\napiVersion: v1\nkind: Pod\nmetadata: {}\n"
     );
 
-    assert_eq!(
-      handle_describe_or_yaml_action(
+    assert!(
+      !handle_describe_or_yaml_action(
         Key::Char('s'),
         &mut app,
         &item,
@@ -494,8 +492,7 @@ mod tests {
           ns: Some("namespace".to_owned()),
         }
       )
-      .await,
-      false
+      .await
     );
   }
 

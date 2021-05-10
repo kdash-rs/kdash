@@ -319,7 +319,7 @@ mod tests {
     assert_ne!(pods_yaml, "".to_string());
 
     let pods: serde_yaml::Result<ObjectList<Pod>> = serde_yaml::from_str(&*pods_yaml);
-    assert_eq!(pods.is_ok(), true);
+    assert!(pods.is_ok());
 
     let pods = pods.unwrap();
     let pods_list = pods.items.clone();
