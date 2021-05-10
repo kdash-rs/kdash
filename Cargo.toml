@@ -1,6 +1,6 @@
 [package]
 name = "kdash"
-version = "0.0.8"
+version = "0.0.9"
 authors = ["Deepu K Sasidharan <d4udts@gmail.com>"]
 description = """
 A fast and simple dashboard for Kubernetes
@@ -42,7 +42,6 @@ openssl = { version = "0.10.34", features = ["vendored"] }
 
 [dev-dependencies]
 spectral = "0.6.0"
-faux = "0.1"
 
 [dev-dependencies.cargo-husky]
 version = "1"

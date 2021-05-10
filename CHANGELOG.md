@@ -2,7 +2,10 @@
 
 ## [Unreleased] - 04-May-2021
 
+## [0.0.9] - 10-May-2021
+
 - Improved error handling and error display
+- Minor bug fixes and improvements
 
 ## [0.0.8] - 04-May-2021
 
