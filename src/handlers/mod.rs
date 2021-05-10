@@ -58,8 +58,12 @@ pub async fn handle_mouse_events(mouse: MouseEvent, app: &mut App) {
 }
 
 fn handle_escape(app: &mut App) {
+  // dismiss error
+  if !app.api_error.is_empty() {
+    app.api_error = String::default();
+  }
   match app.get_current_route().id {
-    RouteId::HelpMenu | RouteId::Error => {
+    RouteId::HelpMenu => {
       app.pop_navigation_stack();
     }
     _ => match app.get_current_route().active_block {
@@ -304,7 +308,6 @@ async fn handle_route_events(key: Key, app: &mut App) {
       if let Some(ctx) = handle_table_action(key, &mut app.data.contexts) {
         app.data.selected.context = Some(ctx.name);
         app.refresh();
-        app.route_home();
       }
     }
     RouteId::Utilization => {
@@ -323,7 +326,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         app.tick_count = 0; // to force network request
       }
     }
-    RouteId::Error | RouteId::HelpMenu => { /* Do nothing */ }
+    RouteId::HelpMenu => { /* Do nothing */ }
   }
   // reset tick_count so that network requests are made faster
   if key == DEFAULT_KEYBINDING.submit.key {

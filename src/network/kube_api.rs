@@ -32,7 +32,9 @@ impl<'a> Network<'a> {
         app.data.kubeconfig = Some(config);
       }
       Err(e) => {
-        self.handle_error(anyhow!(e)).await;
+        self
+          .handle_error(anyhow!("Failed to load Kubernetes config. {:?}", e))
+          .await;
       }
     }
   }
@@ -56,6 +58,7 @@ impl<'a> Network<'a> {
       Err(_) => {
         let mut app = self.app.lock().await;
         app.data.node_metrics = vec![];
+        // lets not show error as it will always be showing
       }
     };
   }
@@ -67,35 +70,48 @@ impl<'a> Network<'a> {
     match api.list(&ListParams::default()).await {
       Ok(node_list) => {
         if let Err(e) = Resource::compute_node_utilizations(node_list, &mut resources).await {
-          self.handle_error(anyhow!(e)).await;
+          self
+            .handle_error(anyhow!("Failed to compute node metrics. {:?}", e))
+            .await;
         }
       }
-      Err(e) => self.handle_error(anyhow!(e)).await,
+      Err(e) => {
+        self
+          .handle_error(anyhow!("Failed to gather node metrics. {:?}", e))
+          .await
+      }
     }
 
     let api: Api<Pod> = self.get_namespaced_api().await;
     match api.list(&ListParams::default()).await {
       Ok(pod_list) => {
         if let Err(e) = Resource::compute_pod_utilizations(pod_list, &mut resources).await {
-          self.handle_error(anyhow!(e)).await;
+          self
+            .handle_error(anyhow!("Failed to compute pod metrics. {:?}", e))
+            .await;
         }
       }
-      Err(e) => self.handle_error(anyhow!(e)).await,
+      Err(e) => {
+        self
+          .handle_error(anyhow!("Failed to gather pod metrics. {:?}", e))
+          .await
+      }
     }
 
     // custom request since metrics API doesnt exist on kube-rs
     let request = Request::new("/apis/metrics.k8s.io/v1beta1/pods");
-    if let Ok(pod_metrics) = self
+    match self
       .client
       .clone()
       .request::<ObjectList<metrics::PodMetrics>>(request.list(&ListParams::default()).unwrap())
       .await
     {
-      if let Err(_e) = Resource::compute_utilizations_metrics(pod_metrics, &mut resources).await {
-        // don't do anything to avoid showing constant error when metric-server is not found,
-        // since its not a mandatory component in a cluster
-        // TODO may be show a non intrusive warning
+      Ok(pod_metrics) => {
+        if let Err(e) = Resource::compute_utilizations_metrics(pod_metrics, &mut resources).await {
+          self.handle_error(anyhow!("Failed to compute utilization metrics. {:?}", e)).await;
+        }
       }
+      Err(_e) => self.handle_error(anyhow!("Failed to gather utilization metrics. Make sure you have a metrics-server deployed on your cluster.")).await,
     };
 
     let mut app = self.app.lock().await;
@@ -125,7 +141,9 @@ impl<'a> Network<'a> {
         app.data.nodes.set_items(items);
       }
       Err(e) => {
-        self.handle_error(anyhow!(e)).await;
+        self
+          .handle_error(anyhow!("Failed to get nodes. {:?}", e))
+          .await;
       }
     }
   }
@@ -144,7 +162,9 @@ impl<'a> Network<'a> {
         app.data.namespaces.set_items(items);
       }
       Err(e) => {
-        self.handle_error(anyhow!(e)).await;
+        self
+          .handle_error(anyhow!("Failed to get namespaces. {:?}", e))
+          .await;
       }
     }
   }
@@ -227,7 +247,9 @@ impl<'a> Network<'a> {
     match api.list(&lp).await {
       Ok(list) => list.iter().map(map_fn).collect::<Vec<_>>(),
       Err(e) => {
-        self.handle_error(anyhow!(e)).await;
+        self
+          .handle_error(anyhow!("Failed to get resource. {:?}", e))
+          .await;
         vec![]
       }
     }

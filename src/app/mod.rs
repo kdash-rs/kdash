@@ -55,7 +55,6 @@ pub enum ActiveBlock {
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum RouteId {
-  Error,
   Home,
   Contexts,
   Utilization,
@@ -257,8 +256,10 @@ impl App {
   }
 
   pub fn reset(&mut self) {
+    self.tick_count = 0;
     self.api_error = String::new();
     self.data = Data::default();
+    self.route_home();
   }
 
   // Send a network event to the network thread
@@ -312,7 +313,6 @@ impl App {
   }
 
   pub fn handle_error(&mut self, e: anyhow::Error) {
-    self.push_navigation_stack(RouteId::Error, ActiveBlock::Empty);
     self.api_error = e.to_string();
   }
 
@@ -362,7 +362,7 @@ impl App {
   }
 
   pub fn refresh(&mut self) {
-    self.refresh = true
+    self.refresh = true;
   }
 
   pub async fn on_tick(&mut self, first_render: bool) {
@@ -374,7 +374,7 @@ impl App {
       }
       self.dispatch(IoEvent::GetKubeConfig).await;
       self.dispatch_cmd(IoCmdEvent::GetCliInfo).await;
-      // call these once  to pre-load data
+      // call these once to pre-load data
       self.dispatch(IoEvent::GetPods).await;
       self.dispatch(IoEvent::GetServices).await;
       self.dispatch(IoEvent::GetConfigMaps).await;
@@ -430,11 +430,7 @@ impl App {
       self.tick_count = 0; // reset ticks
     }
 
-    // route to home after all network requests to avoid showing error again
     if self.refresh {
-      if !first_render {
-        self.route_home();
-      }
       self.refresh = false;
     }
   }

@@ -52,7 +52,10 @@ impl<'a> CmdRunner<'a> {
   async fn get_cli_info(&self) {
     let mut clis: Vec<Cli> = vec![];
 
-    let (version_c, version_s) = match cmd!("kubectl", "version", "-o", "json").read() {
+    let (version_c, version_s) = match cmd!("kubectl", "version", "-o", "json")
+      .stderr_null()
+      .read()
+    {
       Ok(out) => {
         let v: serde_json::Result<JValue> = serde_json::from_str(&*out);
         match v {
@@ -78,14 +81,28 @@ impl<'a> CmdRunner<'a> {
     clis.push(build_cli("kubectl server", version_s));
 
     let version = cmd!("docker", "version", "--format", "'{{.Client.Version}}'")
+      .stderr_null()
       .read()
-      .map_or(None, |out| Some(format!("v{}", out.replace("'", ""))));
+      .map_or(None, |out| {
+        if out.is_empty() {
+          None
+        } else {
+          Some(format!("v{}", out.replace("'", "")))
+        }
+      });
 
     clis.push(build_cli("docker", version));
 
     let version = cmd!("docker-compose", "version", "--short")
+      .stderr_null()
       .read()
-      .map_or(None, |out| Some(format!("v{}", out.replace("'", ""))));
+      .map_or(None, |out| {
+        if out.is_empty() {
+          None
+        } else {
+          Some(format!("v{}", out.replace("'", "")))
+        }
+      });
 
     clis.push(build_cli("docker-compose", version));
 
@@ -114,7 +131,7 @@ impl<'a> CmdRunner<'a> {
       args.push(ns.as_str());
     }
 
-    let out = duct::cmd("kubectl", &args).read();
+    let out = duct::cmd("kubectl", &args).stderr_null().read();
 
     match out {
       Ok(out) => {
@@ -145,7 +162,7 @@ fn build_cli(name: &str, version: Option<String>) -> app::Cli {
 
 /// execute a command and get info from it using regex
 fn get_info_by_regex(command: &str, args: &[&str], regex: &str) -> Option<String> {
-  match cmd(command, args).read() {
+  match cmd(command, args).stderr_null().read() {
     Ok(out) => match Regex::new(regex) {
       Ok(re) => match re.captures(out.as_str()) {
         Some(cap) => cap.get(1).map(|text| text.as_str().into()),

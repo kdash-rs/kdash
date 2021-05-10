@@ -4,7 +4,8 @@ pub(crate) mod stream;
 
 use super::app::{self, App};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
+use core::convert::TryFrom;
 use kube::Client;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -24,32 +25,27 @@ pub enum IoEvent {
   RefreshClient,
 }
 
-async fn refresh_kube_config(context: &Option<String>) -> Result<()> {
-  //HACK force refresh token by calling "kubectl cluster-info before loading configuration"
+async fn refresh_kube_config(context: &Option<String>) -> Result<kube::Client> {
+  // HACK force refresh token by calling "kubectl cluster-info before loading configuration"
   let mut args = vec!["cluster-info"];
 
   if let Some(context) = context {
     args.push("--context");
     args.push(context.as_str());
   }
-  let out = duct::cmd("kubectl", &args).read();
+  let out = duct::cmd("kubectl", &args)
+    .stderr_null()
+    // we don't care about the output
+    .stdout_null()
+    .read();
 
   if out.is_err() {
-    return Err(anyhow!(
-      "`kubectl cluster-info` failed with: {:?}",
-      &out.err()
-    ));
+    return Err(anyhow!("Running `kubectl cluster-info` failed",));
   }
-  Ok(())
+  Ok(get_client(context.to_owned()).await?)
 }
 
 pub async fn get_client(context: Option<String>) -> Result<kube::Client> {
-  use core::convert::TryFrom;
-  // TODO this fails when debugging, investigate
-  refresh_kube_config(&context)
-    .await
-    .with_context(|| "failed to refresh kubectl config".to_string())?;
-
   let client_config = match context.as_ref() {
     Some(context) => {
       kube::Config::from_kubeconfig(&kube::config::KubeConfigOptions {
@@ -60,8 +56,7 @@ pub async fn get_client(context: Option<String>) -> Result<kube::Client> {
     }
     None => kube::Config::infer().await?,
   };
-  kube::Client::try_from(client_config)
-    .with_context(|| "failed to create the kube client".to_string())
+  Ok(kube::Client::try_from(client_config)?)
 }
 
 #[derive(Clone)]
@@ -76,19 +71,31 @@ impl<'a> Network<'a> {
   }
 
   pub async fn refresh_client(&mut self) {
+    // TODO this fails when debugging, investigate
     let context = {
-      let app = self.app.lock().await;
-      app.data.selected.context.clone()
+      let mut app = self.app.lock().await;
+      let context = app.data.selected.context.clone();
+      // so that if refresh fails we dont see mixed results
+      app.data.selected.context = None;
+      context
     };
-    match get_client(context.clone()).await {
+
+    match refresh_kube_config(&context).await {
       Ok(client) => {
         self.client = client;
         let mut app = self.app.lock().await;
         app.reset();
         app.data.selected.context = context;
       }
-      Err(e) => self.handle_error(anyhow!(e)).await,
-    };
+      Err(e) => {
+        self
+          .handle_error(anyhow!(
+            "Failed to refresh client. {:?}. Loading default context. ",
+            e
+          ))
+          .await;
+      }
+    }
   }
 
   #[allow(clippy::cognitive_complexity)]

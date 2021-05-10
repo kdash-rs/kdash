@@ -1,5 +1,7 @@
-use super::app::{ActiveBlock, App};
-use super::get_client;
+use super::{
+  app::{ActiveBlock, App},
+  refresh_kube_config,
+};
 
 use anyhow::anyhow;
 use k8s_openapi::api::core::v1::Pod;
@@ -31,12 +33,16 @@ impl<'a> NetworkStream<'a> {
       let app = self.app.lock().await;
       app.data.selected.context.clone()
     };
-    match get_client(context).await {
+    match refresh_kube_config(&context).await {
       Ok(client) => {
         self.client = client;
       }
-      Err(e) => self.handle_error(anyhow!(e)).await,
-    };
+      Err(e) => {
+        self
+          .handle_error(anyhow!("Failed to refresh client. {:}", e))
+          .await
+      }
+    }
   }
 
   pub async fn handle_network_stream_event(&mut self, io_event: IoStreamEvent) {
@@ -121,7 +127,9 @@ impl<'a> NetworkStream<'a> {
         }
       }
       Err(e) => {
-        self.handle_error(anyhow!(e)).await;
+        self
+          .handle_error(anyhow!("Failed to stream logs. {:}", e))
+          .await;
       }
     };
 

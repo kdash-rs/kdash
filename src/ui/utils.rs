@@ -148,7 +148,7 @@ pub fn title_with_dual_style<'a>(part_1: String, part_2: String, light: bool) ->
 
 /// helper function to create a centered rect using up
 /// certain percentage of the available rect `r`
-pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+pub fn _centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
   let popup_layout = Layout::default()
     .direction(Direction::Vertical)
     .constraints(

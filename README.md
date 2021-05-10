@@ -119,6 +119,7 @@ Press `?` while running the app to see keybindings
   - [x] ReplicaSets
   - [x] Deployments
 - Describe/YAML resources
+  - [x] select/copy output
   - [x] Pods
   - [x] Nodes
   - [x] Services
@@ -126,13 +127,12 @@ Press `?` while running the app to see keybindings
   - [x] ConfigMaps
   - [x] StatefulSets
   - [x] ReplicaSets
-    - [x] select/copy output
 - Stream logs/events
+  - [x] select/copy output
   - [x] Containers
   - [ ] Services
   - [ ] Deployments
   - [ ] StatefulSets
-    - [x] select/copy output
 - Context
   - [x] Context info
   - [x] Node metrics
