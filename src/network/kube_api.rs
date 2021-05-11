@@ -3,6 +3,7 @@ use super::super::app::{
   contexts,
   deployments::KubeDeployment,
   metrics::{self, Resource},
+  models::KubeResource,
   nodes::{KubeNode, NodeMetrics},
   ns::KubeNs,
   pods::KubePod,
@@ -15,9 +16,9 @@ use super::Network;
 use anyhow::anyhow;
 use k8s_openapi::api::core::v1::{Namespace, Node, Pod};
 use kube::{
-  api::{DynamicObject, GroupVersionKind, ListParams, ObjectList, Request},
+  api::{DynamicObject, GroupVersionKind, ListMeta, ListParams, ObjectList, Request},
   config::Kubeconfig,
-  Api, Resource as KubeResource,
+  Api, Resource as ApiResource,
 };
 use serde::de::DeserializeOwned;
 use std::fmt;
@@ -129,13 +130,20 @@ impl<'a> Network<'a> {
     match api_nodes.list(&lp).await {
       Ok(node_list) => {
         self.get_node_metrics().await;
-        let pods_list = api_pods.list(&lp).await;
+
+        let pods_list = match api_pods.list(&lp).await {
+          Ok(list) => list,
+          Err(_) => ObjectList {
+            metadata: ListMeta::default(),
+            items: vec![],
+          },
+        };
 
         let mut app = self.app.lock().await;
 
         let items = node_list
           .iter()
-          .map(|node| KubeNode::from_api(node, &pods_list, &mut app))
+          .map(|node| KubeNode::from_api_with_pods(node, &pods_list, &mut app))
           .collect::<Vec<_>>();
 
         app.data.nodes.set_items(items);
@@ -236,9 +244,9 @@ impl<'a> Network<'a> {
   }
 
   /// calls the kubernetes API to list the given resource for either selected namespace or all namespaces
-  async fn get_namespaced_resources<K: KubeResource, T, F>(&self, map_fn: F) -> Vec<T>
+  async fn get_namespaced_resources<K: ApiResource, T, F>(&self, map_fn: F) -> Vec<T>
   where
-    <K as KubeResource>::DynamicType: Default,
+    <K as ApiResource>::DynamicType: Default,
     K: Clone + DeserializeOwned + fmt::Debug,
     F: FnMut(&K) -> T,
   {
@@ -255,9 +263,9 @@ impl<'a> Network<'a> {
     }
   }
 
-  async fn get_namespaced_api<K: KubeResource>(&self) -> Api<K>
+  async fn get_namespaced_api<K: ApiResource>(&self) -> Api<K>
   where
-    <K as KubeResource>::DynamicType: Default,
+    <K as ApiResource>::DynamicType: Default,
   {
     let app = self.app.lock().await;
     match &app.data.selected.ns {

@@ -435,9 +435,74 @@ impl App {
   }
 }
 
+/// utility methods for tests
+#[cfg(test)]
+#[macro_use]
+mod test_utils {
+  use std::{fmt, fs};
+
+  use k8s_openapi::{
+    apimachinery::pkg::apis::meta::v1::Time,
+    chrono::{DateTime, TimeZone, Utc},
+  };
+  use kube::{api::ObjectList, Resource};
+  use serde::{de::DeserializeOwned, Serialize};
+
+  use super::models::KubeResource;
+
+  pub fn convert_resource_from_file<K: Serialize, T>(filename: &str) -> (Vec<T>, Vec<K>)
+  where
+    <K as Resource>::DynamicType: Default,
+    K: Clone + DeserializeOwned + fmt::Debug,
+    K: Resource,
+    T: KubeResource<K>,
+  {
+    let res_list = load_resource_from_file(filename);
+    let original_res_list = res_list.items.clone();
+
+    let resources: Vec<T> = res_list
+      .iter()
+      .map(|it| T::from_api(it))
+      .collect::<Vec<_>>();
+
+    (resources, original_res_list)
+  }
+
+  pub fn load_resource_from_file<K>(filename: &str) -> ObjectList<K>
+  where
+    <K as Resource>::DynamicType: Default,
+    K: Clone + DeserializeOwned + fmt::Debug,
+    K: Resource,
+  {
+    let yaml = fs::read_to_string(format!("./test_data/{}.yaml", filename))
+      .expect("Something went wrong reading yaml file");
+    assert_ne!(yaml, "".to_string());
+
+    let res_list: serde_yaml::Result<ObjectList<K>> = serde_yaml::from_str(&*yaml);
+    assert!(res_list.is_ok());
+
+    res_list.unwrap()
+  }
+
+  pub fn get_time(s: &str) -> Time {
+    Time(to_utc(s))
+  }
+
+  fn to_utc(s: &str) -> DateTime<Utc> {
+    Utc.datetime_from_str(s, "%Y-%m-%dT%H:%M:%SZ").unwrap()
+  }
+
+  #[macro_export]
+  macro_rules! map {
+    // map-like
+    ($($k:expr => $v:expr),* $(,)?) => {
+        std::iter::Iterator::collect(std::array::IntoIter::new([$(($k.to_string(), $v.to_string()),)*]))
+    };
+  }
+}
+
 #[cfg(test)]
 mod tests {
-
   use tokio::sync::mpsc;
 
   use super::*;

@@ -1,5 +1,5 @@
 use super::{
-  models::ResourceToYaml,
+  models::KubeResource,
   utils::{self, UNKNOWN},
 };
 use k8s_openapi::{
@@ -19,8 +19,8 @@ pub struct KubeSvc {
   k8s_obj: Service,
 }
 
-impl KubeSvc {
-  pub fn from_api(service: &Service) -> Self {
+impl KubeResource<Service> for KubeSvc {
+  fn from_api(service: &Service) -> Self {
     let (type_, cluster_ip, external_ip, ports) = match &service.spec {
       Some(spec) => {
         let type_ = match &spec.type_ {
@@ -68,9 +68,7 @@ impl KubeSvc {
       k8s_obj: service.to_owned(),
     }
   }
-}
 
-impl ResourceToYaml<Service> for KubeSvc {
   fn get_k8s_obj(&self) -> &Service {
     &self.k8s_obj
   }

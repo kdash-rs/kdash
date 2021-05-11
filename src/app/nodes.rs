@@ -2,14 +2,11 @@ use k8s_openapi::{
   api::core::v1::{Node, Pod},
   chrono::Utc,
 };
-use kube::{
-  api::{DynamicObject, ObjectList},
-  Error,
-};
+use kube::api::{DynamicObject, ObjectList};
 use tokio::sync::MutexGuard;
 
 use super::{
-  models::ResourceToYaml,
+  models::KubeResource,
   utils::{self, UNKNOWN},
   App,
 };
@@ -45,9 +42,9 @@ static NODE_LABEL_ROLE: &str = "kubernetes.io/role";
 static NONE_ROLE: &str = "<none>";
 
 impl KubeNode {
-  pub fn from_api(
+  pub fn from_api_with_pods(
     node: &Node,
-    pods_list: &Result<ObjectList<Pod>, Error>,
+    pods_list: &ObjectList<Pod>,
     app: &mut MutexGuard<App>,
   ) -> Self {
     let node_name = node.metadata.name.clone().unwrap_or_default();
@@ -89,13 +86,10 @@ impl KubeNode {
       None => (None, None, None, None),
     };
 
-    let pod_count = match &pods_list {
-      Ok(pods) => pods.iter().fold(0, |acc, pod| {
-        let p_node_name = pod.spec.as_ref().and_then(|spec| spec.node_name.clone());
-        p_node_name.map_or(acc, |v| if v == node_name { acc + 1 } else { acc })
-      }),
-      _ => 0,
-    };
+    let pod_count = pods_list.iter().fold(0, |acc, pod| {
+      let p_node_name = pod.spec.as_ref().and_then(|spec| spec.node_name.clone());
+      p_node_name.map_or(acc, |v| if v == node_name { acc + 1 } else { acc })
+    });
 
     let role = match &node.metadata.labels {
       Some(labels) => labels
@@ -168,9 +162,13 @@ impl KubeNode {
   }
 }
 
-impl ResourceToYaml<Node> for KubeNode {
+impl KubeResource<Node> for KubeNode {
   fn get_k8s_obj(&self) -> &Node {
     &self.k8s_obj
+  }
+
+  fn from_api(_item: &Node) -> Self {
+    unimplemented!()
   }
 }
 

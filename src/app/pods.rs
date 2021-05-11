@@ -1,5 +1,5 @@
 use super::{
-  models::ResourceToYaml,
+  models::KubeResource,
   utils::{self, UNKNOWN},
 };
 use k8s_openapi::{
@@ -38,8 +38,8 @@ pub struct KubeContainer {
   pub pod_name: String,
 }
 
-impl KubePod {
-  pub fn from_api(pod: &Pod) -> Self {
+impl KubeResource<Pod> for KubePod {
+  fn from_api(pod: &Pod) -> Self {
     let age = utils::to_age(pod.metadata.creation_timestamp.as_ref(), Utc::now());
     let pod_name = pod.metadata.name.clone().unwrap_or_default();
     let (status, cr, restarts, c_stats_len, containers) = match &pod.status {
@@ -93,9 +93,7 @@ impl KubePod {
       k8s_obj: pod.to_owned(),
     }
   }
-}
 
-impl ResourceToYaml<Pod> for KubePod {
   fn get_k8s_obj(&self) -> &Pod {
     &self.k8s_obj
   }
@@ -296,38 +294,12 @@ fn get_container_ports(ports: &Option<Vec<ContainerPort>>) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+  use super::super::test_utils::{convert_resource_from_file, get_time};
   use super::*;
-  use k8s_openapi::{
-    apimachinery::pkg::apis::meta::v1::Time,
-    chrono::{DateTime, TimeZone},
-  };
-  use kube::api::ObjectList;
-  use std::fs;
 
   #[test]
   fn test_pod_from_api() {
-    fn get_time(s: &str) -> Time {
-      Time(to_utc(s))
-    }
-
-    fn to_utc(s: &str) -> DateTime<Utc> {
-      Utc.datetime_from_str(s, "%Y-%m-%dT%H:%M:%SZ").unwrap()
-    }
-
-    let pods_yaml =
-      fs::read_to_string("./test_data/pods.yaml").expect("Something went wrong reading pods.yaml");
-    assert_ne!(pods_yaml, "".to_string());
-
-    let pods: serde_yaml::Result<ObjectList<Pod>> = serde_yaml::from_str(&*pods_yaml);
-    assert!(pods.is_ok());
-
-    let pods = pods.unwrap();
-    let pods_list = pods.items.clone();
-
-    let pods: Vec<KubePod> = pods
-      .iter()
-      .map(|it| KubePod::from_api(it))
-      .collect::<Vec<_>>();
+    let (pods, pods_list): (Vec<KubePod>, Vec<_>) = convert_resource_from_file("pods");
 
     assert_eq!(pods.len(), 11);
     assert_eq!(

@@ -1,0 +1,281 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  data:
+    client-ca-file: |
+      -----BEGIN CERTIFICATE-----
+      MIIBdjCCAR2gAwIBAgIBADAKBggqhkjOPQQDAjAjMSEwHwYDVQQDDBhrM3MtY2xp
+      ZW50LWNhQDE2MjA2ODMyNzkwHhcNMjEwNTEwMjE0NzU5WhcNMzEwNTA4MjE0NzU5
+      WjAjMSEwHwYDVQQDDBhrM3MtY2xpZW50LWNhQDE2MjA2ODMyNzkwWTATBgcqhkjO
+      PQIBBggqhkjOPQMBBwNCAATQnQ4/3PQe/VdAfIjWoaDxN2vX7hMpHr5uOTW8V+GR
+      zRxwLHNB2h4b3bbfDwkCjXg0HJWv4KQB3KyQ1GBND6ZAo0IwQDAOBgNVHQ8BAf8E
+      BAMCAqQwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUy/tsudG9dX/Y1pa+jfnM
+      T3yXZfkwCgYIKoZIzj0EAwIDRwAwRAIgdTf7esWYeszzj3riNNqYytXpTsZK3prb
+      gGu/jkVqvaICIDQCAM/1NyHHgpdtntOgeDVEeWNomHHb8TZmXbDcx+XX
+      -----END CERTIFICATE-----
+    requestheader-allowed-names: '["system:auth-proxy"]'
+    requestheader-client-ca-file: |
+      -----BEGIN CERTIFICATE-----
+      MIIBhzCCAS2gAwIBAgIBADAKBggqhkjOPQQDAjArMSkwJwYDVQQDDCBrM3MtcmVx
+      dWVzdC1oZWFkZXItY2FAMTYyMDY4MzI3OTAeFw0yMTA1MTAyMTQ3NTlaFw0zMTA1
+      MDgyMTQ3NTlaMCsxKTAnBgNVBAMMIGszcy1yZXF1ZXN0LWhlYWRlci1jYUAxNjIw
+      NjgzMjc5MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEJTPbt57KGef9LeZlR2DA
+      jYUaMdhXM8xnwQW9cIiH5dlJIQaEgOVEEiHYx0EmhSj9nhPxTTBRwiBrTVMembXR
+      K6NCMEAwDgYDVR0PAQH/BAQDAgKkMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYE
+      FPmlBLfAmlxF5H4snC7wB8Zd1iDzMAoGCCqGSM49BAMCA0gAMEUCIQCKwv/4dJH9
+      Jqtnv35balKAtG+bJyIVop73W18t9ZaatAIgU3h5i3IQp+cgVjQhi4ZvRXUA6c3l
+      DSZ1C2gMf1ONFJQ=
+      -----END CERTIFICATE-----
+    requestheader-extra-headers-prefix: '["X-Remote-Extra-"]'
+    requestheader-group-headers: '["X-Remote-Group"]'
+    requestheader-username-headers: '["X-Remote-User"]'
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2021-05-10T21:48:02Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:data:
+          .: {}
+          f:client-ca-file: {}
+          f:requestheader-allowed-names: {}
+          f:requestheader-client-ca-file: {}
+          f:requestheader-extra-headers-prefix: {}
+          f:requestheader-group-headers: {}
+          f:requestheader-username-headers: {}
+      manager: k3s
+      operation: Update
+      time: "2021-05-10T21:48:02Z"
+    name: extension-apiserver-authentication
+    namespace: kube-system
+    resourceVersion: "37"
+    uid: f150a7d6-f032-462d-9cb9-1f83a8d71358
+- apiVersion: v1
+  data:
+    clusterDNS: 10.43.0.10
+    clusterDomain: cluster.local
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2021-05-10T21:48:06Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:data:
+          .: {}
+          f:clusterDNS: {}
+          f:clusterDomain: {}
+      manager: k3s
+      operation: Update
+      time: "2021-05-10T21:48:06Z"
+    name: cluster-dns
+    namespace: kube-system
+    resourceVersion: "207"
+    uid: 97f9d57a-8877-44c6-a767-217e3799660e
+- apiVersion: v1
+  data:
+    config.json: |-
+      {
+        "nodePathMap":[
+        {
+          "node":"DEFAULT_PATH_FOR_NON_LISTED_NODES",
+          "paths":["/var/lib/rancher/k3s/storage"]
+        }
+        ]
+      }
+    helperPod.yaml: |-
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: helper-pod
+      spec:
+        containers:
+        - name: helper-pod
+          image: rancher/library-busybox:1.32.1
+    setup: |-
+      #!/bin/sh
+      while getopts "m:s:p:" opt
+      do
+          case $opt in
+              p)
+              absolutePath=$OPTARG
+              ;;
+              s)
+              sizeInBytes=$OPTARG
+              ;;
+              m)
+              volMode=$OPTARG
+              ;;
+          esac
+      done
+      mkdir -m 0777 -p ${absolutePath}
+    teardown: |-
+      #!/bin/sh
+      while getopts "m:s:p:" opt
+      do
+          case $opt in
+              p)
+              absolutePath=$OPTARG
+              ;;
+              s)
+              sizeInBytes=$OPTARG
+              ;;
+              m)
+              volMode=$OPTARG
+              ;;
+          esac
+      done
+      rm -rf ${absolutePath}
+  kind: ConfigMap
+  metadata:
+    annotations:
+      objectset.rio.cattle.io/applied: H4sIAAAAAAAA/+SUUU/bOhTHv4rvubxcqWlaAqUy4qF3wIYGtIJuLzOqTuLTxjSxLdst66p+98npKjoN2N6Xh8j2P7+T/zn28RrQqs/kvDIaOCy70AKJAYGvoTB6qmbtR99Ia6EZE6CNpBGG8gatAP4lLjbKThPABZxfXA4+XY8no8H4w+RyeDe5Hd5Orq/uxxfnk9vh+cW9gNYOshhK34SCdIkurVSeOtRFSS6dZz71wTickYCHSGzi60HoDbSgpMqSGxnZXmFdAd9LhbNlV+i50pKzkZFC1xQw5sUjr7EmzrZ4YqPsLRWNVBgdUGlyvpkmL3wbbasaZ8TZzmelcoduleQLv8rNV95tZ4ftWEpPYWGBw7//pLnSqS+FfipVRWxGwdjgmYCae265AGZsEFqa7Q8K9MQOjA1M6e1KfOx/z2PMvakWodmMs4PhaDy4e/+snp4+j/0e5dU3utL/rwL5t6F6D1qa6sZIeh0gj0X0rknoei6VY0nNOicnJyyx7GC9bzVuXCB00jzpv6swrmaJm/5Sjk0L4jkFDu+afrtBCy3YndfYh6i1CRiU0T5OTf5IRfAU2k6ZdoEhVNRWJlUxBrRe1c2TJpfMlnPgMM/8nrLstthHpeXZQEqjfxsitgRwqEyBVfKjPf8I8haLSM4XOSV+5QPVMf0Kc6reTK1EXwKHbj+bZsdF73g6zYus0zvqdbLpUTbtHvc7sl/0+ngoMZdHMehPJuMdk2yvM9hKL1rZfA8AAP//AKxBYQ4FAAA
+      objectset.rio.cattle.io/id: ""
+      objectset.rio.cattle.io/owner-gvk: k3s.cattle.io/v1, Kind=Addon
+      objectset.rio.cattle.io/owner-name: local-storage
+      objectset.rio.cattle.io/owner-namespace: kube-system
+    creationTimestamp: "2021-05-10T21:48:06Z"
+    labels:
+      objectset.rio.cattle.io/hash: 183f35c65ffbc3064603f43f1580d8c68a2dabd4
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:data:
+          .: {}
+          f:config.json: {}
+          f:helperPod.yaml: {}
+          f:setup: {}
+          f:teardown: {}
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:objectset.rio.cattle.io/applied: {}
+            f:objectset.rio.cattle.io/id: {}
+            f:objectset.rio.cattle.io/owner-gvk: {}
+            f:objectset.rio.cattle.io/owner-name: {}
+            f:objectset.rio.cattle.io/owner-namespace: {}
+          f:labels:
+            .: {}
+            f:objectset.rio.cattle.io/hash: {}
+      manager: k3s
+      operation: Update
+      time: "2021-05-10T21:48:06Z"
+    name: local-path-config
+    namespace: kube-system
+    resourceVersion: "224"
+    uid: bde02a9c-d106-4434-8033-c2989a5dbb34
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    annotations:
+      objectset.rio.cattle.io/applied: '{"kind":"ConfigMap","apiVersion":"v1","metadata":{"name":"chart-content-traefik","namespace":"kube-system","creationTimestamp":null,"labels":{"objectset.rio.cattle.io/hash":"c42f5b5dd9ee50718523a82c68d4392a7dec9fc4"},"annotations":{"objectset.rio.cattle.io/id":"helm-controller","objectset.rio.cattle.io/owner-gvk":"helm.cattle.io/v1,
+        Kind=HelmChart","objectset.rio.cattle.io/owner-name":"traefik","objectset.rio.cattle.io/owner-namespace":"kube-system"}}}'
+      objectset.rio.cattle.io/id: helm-controller
+      objectset.rio.cattle.io/owner-gvk: helm.cattle.io/v1, Kind=HelmChart
+      objectset.rio.cattle.io/owner-name: traefik
+      objectset.rio.cattle.io/owner-namespace: kube-system
+    creationTimestamp: "2021-05-10T21:48:06Z"
+    labels:
+      objectset.rio.cattle.io/hash: c42f5b5dd9ee50718523a82c68d4392a7dec9fc4
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:objectset.rio.cattle.io/applied: {}
+            f:objectset.rio.cattle.io/id: {}
+            f:objectset.rio.cattle.io/owner-gvk: {}
+            f:objectset.rio.cattle.io/owner-name: {}
+            f:objectset.rio.cattle.io/owner-namespace: {}
+          f:labels:
+            .: {}
+            f:objectset.rio.cattle.io/hash: {}
+      manager: k3s
+      operation: Update
+      time: "2021-05-10T21:48:06Z"
+    name: chart-content-traefik
+    namespace: kube-system
+    resourceVersion: "253"
+    uid: 2bb4b42b-04ee-46c2-a626-c91fd7018c95
+- apiVersion: v1
+  data:
+    ca.crt: |
+      -----BEGIN CERTIFICATE-----
+      MIIBeDCCAR2gAwIBAgIBADAKBggqhkjOPQQDAjAjMSEwHwYDVQQDDBhrM3Mtc2Vy
+      dmVyLWNhQDE2MjA2ODMyNzkwHhcNMjEwNTEwMjE0NzU5WhcNMzEwNTA4MjE0NzU5
+      WjAjMSEwHwYDVQQDDBhrM3Mtc2VydmVyLWNhQDE2MjA2ODMyNzkwWTATBgcqhkjO
+      PQIBBggqhkjOPQMBBwNCAAR5RMn6pUUsQDIRhe0lEtKcBnXfOVhby2gu6lrOtVE6
+      YMvSHyUKsOpye4vv5qxJG851ujHdAgchXAAI4WqyEiU5o0IwQDAOBgNVHQ8BAf8E
+      BAMCAqQwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQU5KVzmsOvs4GYd9M4lW4q
+      wZfQ2UwwCgYIKoZIzj0EAwIDSQAwRgIhAOqpzcIevpC2nUO9yes9VJmF3ij3s7B2
+      4rJrJp9ZXJGwAiEA325UlEKQGC/JuVD1HzhgLLQTgfaXB7E4p/JShnIrrfk=
+      -----END CERTIFICATE-----
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2021-05-10T21:48:19Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:data:
+          .: {}
+          f:ca.crt: {}
+      manager: k3s
+      operation: Update
+      time: "2021-05-10T21:48:19Z"
+    name: kube-root-ca.crt
+    namespace: default
+    resourceVersion: "393"
+    uid: 5de97f25-c211-43bf-99ee-ab343cc79ec4
+- apiVersion: v1
+  data:
+    run.sh: |-
+      @test "Test Access" {
+        curl -D - http://traefik/
+      }
+  kind: ConfigMap
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: traefik
+      meta.helm.sh/release-namespace: kube-system
+    creationTimestamp: "2021-05-10T21:48:35Z"
+    labels:
+      app: traefik
+      app.kubernetes.io/managed-by: Helm
+      chart: traefik-1.81.0
+      heritage: Helm
+      release: traefik
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:data:
+          .: {}
+          f:run.sh: {}
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:meta.helm.sh/release-name: {}
+            f:meta.helm.sh/release-namespace: {}
+          f:labels:
+            .: {}
+            f:app: {}
+            f:app.kubernetes.io/managed-by: {}
+            f:chart: {}
+            f:heritage: {}
+            f:release: {}
+      manager: Go-http-client
+      operation: Update
+      time: "2021-05-10T21:48:35Z"
+    name: traefik-test
+    namespace: kube-system
+    resourceVersion: "490"
+    uid: 7ddcab6b-a42b-485a-b22b-b50267277395
+kind: List
+metadata:
+  resourceVersion: ""
+  selfLink: ""

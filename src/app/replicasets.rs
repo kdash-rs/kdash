@@ -1,8 +1,8 @@
 use k8s_openapi::{api::apps::v1::ReplicaSet, chrono::Utc};
 
-use super::{models::ResourceToYaml, utils};
+use super::{models::KubeResource, utils};
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct KubeReplicaSet {
   pub name: String,
   pub namespace: String,
@@ -13,8 +13,8 @@ pub struct KubeReplicaSet {
   k8s_obj: ReplicaSet,
 }
 
-impl KubeReplicaSet {
-  pub fn from_api(rps: &ReplicaSet) -> Self {
+impl KubeResource<ReplicaSet> for KubeReplicaSet {
+  fn from_api(rps: &ReplicaSet) -> Self {
     let (current, ready) = match rps.status.as_ref() {
       Some(s) => (s.replicas, s.ready_replicas.unwrap_or_default()),
       _ => (0, 0),
@@ -33,10 +33,34 @@ impl KubeReplicaSet {
       k8s_obj: rps.to_owned(),
     }
   }
-}
 
-impl ResourceToYaml<ReplicaSet> for KubeReplicaSet {
   fn get_k8s_obj(&self) -> &ReplicaSet {
     &self.k8s_obj
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::super::test_utils::{convert_resource_from_file, get_time};
+  use super::*;
+
+  #[test]
+  fn test_replica_sets_from_api() {
+    let (rpls, rpls_list): (Vec<KubeReplicaSet>, Vec<_>) =
+      convert_resource_from_file("replicasets");
+
+    assert_eq!(rpls.len(), 4);
+    assert_eq!(
+      rpls[0],
+      KubeReplicaSet {
+        name: "metrics-server-86cbb8457f".into(),
+        namespace: "kube-system".into(),
+        age: utils::to_age(Some(&get_time("2021-05-10T21:48:19Z")), Utc::now()),
+        k8s_obj: rpls_list[0].clone(),
+        desired: 1,
+        current: 1,
+        ready: 1,
+      }
+    );
   }
 }

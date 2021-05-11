@@ -1,7 +1,7 @@
 use crossterm::event::{MouseEvent, MouseEventKind};
 use serde::Serialize;
 
-use crate::app::models::ResourceToYaml;
+use crate::app::models::KubeResource;
 
 use super::app::{
   key_binding::DEFAULT_KEYBINDING,
@@ -86,7 +86,7 @@ async fn handle_describe_or_yaml_action<T, S>(
   action: IoCmdEvent,
 ) -> bool
 where
-  T: ResourceToYaml<S>,
+  T: KubeResource<S>,
   S: Serialize,
 {
   if key == DEFAULT_KEYBINDING.describe_resource.key {

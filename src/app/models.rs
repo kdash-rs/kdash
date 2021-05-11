@@ -11,10 +11,13 @@ use tui::{
   Frame,
 };
 
-/// generate YAML from the original kubernetes resource
-pub trait ResourceToYaml<T: Serialize> {
+pub trait KubeResource<T: Serialize> {
+  /// convert a kube API object
+  fn from_api(item: &T) -> Self;
+
   fn get_k8s_obj(&self) -> &T;
 
+  /// generate YAML from the original kubernetes resource
   fn resource_to_yaml(&self) -> String {
     match serde_yaml::to_string(&self.get_k8s_obj()) {
       Ok(yaml) => yaml,
