@@ -4,13 +4,17 @@ IMAGE    := ${IMG_NAME}:${VERSION}
 
 default: run
 
- ## Run all tests - `cargo install cargo-tarpaulin`
+ ## Run all tests
 test:  
-	@cargo check && cargo tarpaulin
+	@cargo test
+
+ ## Run all tests with coverage- `cargo install cargo-tarpaulin`
+test-cov:  
+	@cargo tarpaulin
 
 ## Builds the app for current os-arch
 build:  
-	@make test && cargo clean && cargo build --release
+	@make test && cargo build --release
 
 ## Runs the app
 run:  

@@ -19,5 +19,5 @@ Install Rust tool belt following [this](https://www.rust-lang.org/tools/install)
 1. Create a PR
 
 - There are other commands that are configured on the Makefile. If you have make installed then you can use those directly
-- For `make test` you need to install tarpaulin with `cargo install cargo-tarpaulin`
+- For `make test-cov` you need to install tarpaulin with `cargo install cargo-tarpaulin`
 - For `make analyse` you need to install geiger with `cargo install cargo-geiger`
