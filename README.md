@@ -9,9 +9,9 @@
 ![Release](https://img.shields.io/github/v/release/kdash-rs/kdash?color=%23c694ff)
 [![Coverage](https://coveralls.io/repos/github/kdash-rs/kdash/badge.svg?branch=main)](https://coveralls.io/github/kdash-rs/kdash?branch=main)
 
-<!-- [![Downloads](https://img.shields.io/github/downloads/kdash-rs/kdash/total.svg)](https://github.com/kdash-rs/kdash/releases)
-![Docker pulls](https://img.shields.io/docker/pulls/deepu105/kdash)
-![crate downloads](https://img.shields.io/crates/d/kdash) -->
+<!-- [![GitHub Downloads](https://img.shields.io/github/downloads/kdash-rs/kdash/total.svg?label=GitHub%20downloads)](https://github.com/kdash-rs/kdash/releases)
+![Docker pulls](https://img.shields.io/docker/pulls/deepu105/kdash?label=Docker%20downloads)
+![Crate.io downloads](https://img.shields.io/crates/d/kdash?label=Crate%20downloads) -->
 
 [![Follow Deepu K Sasidharan (deepu105)](https://img.shields.io/twitter/follow/deepu105?label=Follow%20Deepu%20K%20Sasidharan%20%28deepu105%29&style=social)](https://twitter.com/intent/follow?screen_name=deepu105)
 
@@ -170,6 +170,7 @@ Press `?` while running the app to see keybindings
 ## Libraries used
 
 - [tui-rs](https://github.com/fdehau/tui-rs)
+- [crossterm](https://github.com/crossterm-rs/crossterm)
 - [clap](https://github.com/clap-rs/clap)
 - [tokio](https://github.com/tokio-rs/tokio)
 - [duct.rs](https://github.com/oconnor663/duct.rs)
