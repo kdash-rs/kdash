@@ -245,6 +245,6 @@ mod tests {
 
   #[test]
   fn test_as_iter() {
-    assert!(DEFAULT_KEYBINDING.as_iter().len() >= 29);
+    assert!(DEFAULT_KEYBINDING.as_iter().len() >= 28);
   }
 }
