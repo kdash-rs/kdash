@@ -36,41 +36,6 @@ use tui::{
   Terminal,
 };
 
-// shutdown the CLI and show terminal
-fn shutdown(mut terminal: Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
-  disable_raw_mode()?;
-  execute!(terminal.backend_mut(), LeaveAlternateScreen,)?;
-  terminal.show_cursor()?;
-  Ok(())
-}
-
-fn panic_hook(info: &PanicInfo<'_>) {
-  if cfg!(debug_assertions) {
-    let location = info.location().unwrap();
-
-    let msg = match info.payload().downcast_ref::<&'static str>() {
-      Some(s) => *s,
-      None => match info.payload().downcast_ref::<String>() {
-        Some(s) => &s[..],
-        None => "Box<Any>",
-      },
-    };
-
-    let stacktrace: String = format!("{:?}", Backtrace::new()).replace('\n', "\n\r");
-
-    disable_raw_mode().unwrap();
-    execute!(
-      io::stdout(),
-      LeaveAlternateScreen,
-      Print(format!(
-        "thread '<unnamed>' panicked at '{}', {}\n\r{}",
-        msg, location, stacktrace
-      )),
-    )
-    .unwrap();
-  }
-}
-
 #[tokio::main]
 async fn main() -> Result<()> {
   panic::set_hook(Box::new(|info| {
@@ -245,4 +210,39 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
   shutdown(terminal)?;
 
   Ok(())
+}
+
+// shutdown the CLI and show terminal
+fn shutdown(mut terminal: Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
+  disable_raw_mode()?;
+  execute!(terminal.backend_mut(), LeaveAlternateScreen,)?;
+  terminal.show_cursor()?;
+  Ok(())
+}
+
+fn panic_hook(info: &PanicInfo<'_>) {
+  if cfg!(debug_assertions) {
+    let location = info.location().unwrap();
+
+    let msg = match info.payload().downcast_ref::<&'static str>() {
+      Some(s) => *s,
+      None => match info.payload().downcast_ref::<String>() {
+        Some(s) => &s[..],
+        None => "Box<Any>",
+      },
+    };
+
+    let stacktrace: String = format!("{:?}", Backtrace::new()).replace('\n', "\n\r");
+
+    disable_raw_mode().unwrap();
+    execute!(
+      io::stdout(),
+      LeaveAlternateScreen,
+      Print(format!(
+        "thread '<unnamed>' panicked at '{}', {}\n\r{}",
+        msg, location, stacktrace
+      )),
+    )
+    .unwrap();
+  }
 }

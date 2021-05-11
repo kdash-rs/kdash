@@ -71,7 +71,6 @@ impl<'a> Network<'a> {
   }
 
   pub async fn refresh_client(&mut self) {
-    // TODO this fails when debugging, investigate
     let context = {
       let mut app = self.app.lock().await;
       let context = app.data.selected.context.clone();

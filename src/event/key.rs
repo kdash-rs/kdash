@@ -100,19 +100,7 @@ impl fmt::Display for Key {
       Key::Ctrl(c) => write!(f, "<Ctrl+{}>", c),
       Key::Char(c) => write!(f, "<{}>", c),
       Key::Left | Key::Right | Key::Up | Key::Down => write!(f, "<{:?} Arrow Key>", self),
-      Key::Enter
-      | Key::Tab
-      | Key::Backspace
-      | Key::Esc
-      | Key::Ins
-      | Key::Delete
-      | Key::Home
-      | Key::End
-      | Key::PageUp
-      | Key::PageDown => {
-        write!(f, "<{:?}>", self)
-      }
-      _ => write!(f, "{:?}", self),
+      _ => write!(f, "<{:?}>", self),
     }
   }
 }
@@ -198,5 +186,48 @@ impl From<event::KeyEvent> for Key {
 
       _ => Key::Unknown,
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  #[test]
+  fn test_key_fmt() {
+    assert_eq!(format!("{}", Key::Left), "<Left Arrow Key>");
+    assert_eq!(format!("{}", Key::Alt(' ')), "<Alt+Space>");
+    assert_eq!(format!("{}", Key::Alt('c')), "<Alt+c>");
+    assert_eq!(format!("{}", Key::Char('c')), "<c>");
+    assert_eq!(format!("{}", Key::Enter), "<Enter>");
+    assert_eq!(format!("{}", Key::F10), "<F10>");
+  }
+  #[test]
+  fn test_key_from_event() {
+    assert_eq!(
+      Key::from(event::KeyEvent::from(event::KeyCode::Esc)),
+      Key::Esc
+    );
+    assert_eq!(
+      Key::from(event::KeyEvent::from(event::KeyCode::F(2))),
+      Key::F2
+    );
+    assert_eq!(
+      Key::from(event::KeyEvent::from(event::KeyCode::Char('J'))),
+      Key::Char('J')
+    );
+    assert_eq!(
+      Key::from(event::KeyEvent {
+        code: event::KeyCode::Char('c'),
+        modifiers: event::KeyModifiers::ALT
+      }),
+      Key::Alt('c')
+    );
+    assert_eq!(
+      Key::from(event::KeyEvent {
+        code: event::KeyCode::Char('c'),
+        modifiers: event::KeyModifiers::CONTROL
+      }),
+      Key::Ctrl('c')
+    );
   }
 }
