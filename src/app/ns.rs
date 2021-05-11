@@ -2,7 +2,7 @@ use k8s_openapi::api::core::v1::Namespace;
 
 use super::{models::KubeResource, utils::UNKNOWN};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct KubeNs {
   pub name: String,
   pub status: String,

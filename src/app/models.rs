@@ -46,12 +46,18 @@ impl<T> StatefulTable<T> {
   }
 
   pub fn set_items(&mut self, items: Vec<T>) {
+    let item_len = items.len();
     self.items = items;
     if !self.items.is_empty() {
-      let i = self
-        .state
-        .selected()
-        .map_or(0, |i| if i > 0 { i } else { 0 });
+      let i = self.state.selected().map_or(0, |i| {
+        if i > 0 && i < item_len {
+          i
+        } else if i >= item_len {
+          item_len - 1
+        } else {
+          0
+        }
+      });
       self.state.select(Some(i));
     }
   }
@@ -165,7 +171,7 @@ impl Scrollable for ScrollableTxt {
   fn scroll_down(&mut self) {
     // scroll only if offset is less than total lines in text
     // we subtract 8 to keep the text in view. Its just an arbitrary number that works
-    if self.offset < (self.items.len() - 8) as u16 {
+    if self.offset < self.items.len().saturating_sub(8) as u16 {
       self.offset += 1;
     }
   }
@@ -323,5 +329,247 @@ impl Scrollable for LogsState {
 
 #[cfg(test)]
 mod tests {
-  // TODO
+  use crate::app::ns::KubeNs;
+
+  use super::*;
+  use k8s_openapi::api::core::v1::Namespace;
+  use kube::api::ObjectMeta;
+  use tui::{backend::TestBackend, buffer::Buffer, Terminal};
+
+  #[test]
+  fn test_kube_resource() {
+    struct TestStruct {
+      k8s_obj: Namespace,
+    }
+    impl KubeResource<Namespace> for TestStruct {
+      fn from_api(_: &Namespace) -> Self {
+        unimplemented!()
+      }
+
+      fn get_k8s_obj(&self) -> &Namespace {
+        &self.k8s_obj
+      }
+    }
+    let ts = TestStruct {
+      k8s_obj: Namespace {
+        metadata: ObjectMeta {
+          name: Some("test".into()),
+          namespace: Some("test".into()),
+          ..ObjectMeta::default()
+        },
+        ..Namespace::default()
+      },
+    };
+    assert_eq!(
+      ts.resource_to_yaml(),
+      "---\napiVersion: v1\nkind: Namespace\nmetadata:\n  name: test\n  namespace: test\n"
+    )
+  }
+
+  #[test]
+  fn test_stateful_table() {
+    let mut sft: StatefulTable<KubeNs> = StatefulTable::new();
+
+    assert_eq!(sft.items.len(), 0);
+    assert_eq!(sft.state.selected(), None);
+    // check default selection on set
+    sft.set_items(vec![KubeNs::default(), KubeNs::default()]);
+    assert_eq!(sft.items.len(), 2);
+    assert_eq!(sft.state.selected(), Some(0));
+    // check selection retain on set
+    sft.state.select(Some(1));
+    sft.set_items(vec![
+      KubeNs::default(),
+      KubeNs::default(),
+      KubeNs::default(),
+    ]);
+    assert_eq!(sft.items.len(), 3);
+    assert_eq!(sft.state.selected(), Some(1));
+    // check selection overflow prevention
+    sft.state.select(Some(2));
+    sft.set_items(vec![KubeNs::default(), KubeNs::default()]);
+    assert_eq!(sft.items.len(), 2);
+    assert_eq!(sft.state.selected(), Some(1));
+    // check scroll down
+    sft.state.select(Some(0));
+    assert_eq!(sft.state.selected(), Some(0));
+    sft.scroll_down();
+    assert_eq!(sft.state.selected(), Some(1));
+    // check scroll overflow
+    sft.scroll_down();
+    assert_eq!(sft.state.selected(), Some(1));
+    sft.scroll_up();
+    assert_eq!(sft.state.selected(), Some(0));
+    // check scroll overflow
+    sft.scroll_up();
+    assert_eq!(sft.state.selected(), Some(0));
+  }
+
+  #[test]
+  fn test_stateful_tab() {
+    let mut tab = TabsState::with_active_blocks(
+      vec!["Hello".into(), "Test".into()],
+      vec![ActiveBlock::Pods, ActiveBlock::Nodes],
+    );
+
+    assert_eq!(tab.index, 0);
+    assert_eq!(tab.active_block, Some(ActiveBlock::Pods));
+    tab.next();
+    assert_eq!(tab.index, 1);
+    assert_eq!(tab.active_block, Some(ActiveBlock::Nodes));
+    tab.next();
+    assert_eq!(tab.index, 0);
+    assert_eq!(tab.active_block, Some(ActiveBlock::Pods));
+    tab.previous();
+    assert_eq!(tab.index, 1);
+    assert_eq!(tab.active_block, Some(ActiveBlock::Nodes));
+    tab.previous();
+    assert_eq!(tab.index, 0);
+    assert_eq!(tab.active_block, Some(ActiveBlock::Pods));
+  }
+
+  #[test]
+  fn test_scrollable_txt() {
+    let mut stxt = ScrollableTxt::with_string("test\n multiline\n string".into());
+
+    assert_eq!(stxt.offset, 0);
+    assert_eq!(stxt.items.len(), 3);
+
+    assert_eq!(stxt.get_txt(), "test\n multiline\n string");
+
+    stxt.scroll_down();
+    assert_eq!(stxt.offset, 0);
+
+    let mut stxt = ScrollableTxt::with_string("te\nst\nmul\ntil\ni\nne\nstr\ni\nn\ng".into());
+    assert_eq!(stxt.items.len(), 10);
+    stxt.scroll_down();
+    assert_eq!(stxt.offset, 1);
+    stxt.scroll_down();
+    assert_eq!(stxt.offset, 2);
+    stxt.scroll_down();
+    // no overflow past (len - 8)
+    assert_eq!(stxt.offset, 2);
+    stxt.scroll_up();
+    assert_eq!(stxt.offset, 1);
+    stxt.scroll_up();
+    assert_eq!(stxt.offset, 0);
+    stxt.scroll_up();
+    // no overflow past (0)
+    assert_eq!(stxt.offset, 0);
+  }
+
+  #[test]
+  fn test_logs_state() {
+    let mut log = LogsState::new("1".into());
+    log.add_record("record 1".into());
+    log.add_record("record 2".into());
+
+    assert_eq!(log.get_plain_text(), "\nrecord 1\nrecord 2");
+
+    let backend = TestBackend::new(20, 7);
+    let mut terminal = Terminal::new(backend).unwrap();
+
+    log.add_record("record 4 should be long enough to be wrapped".into());
+    log.add_record("record 5".into());
+    log.add_record("record 6".into());
+    log.add_record("record 7".into());
+    log.add_record("record 8".into());
+
+    terminal
+      .draw(|f| log.render_list(f, f.size(), Block::default(), Style::default(), true))
+      .unwrap();
+
+    let expected = Buffer::with_lines(vec![
+      "record 4 should be  ",
+      "long enough to be   ",
+      "wrapped             ",
+      "record 5            ",
+      "record 6            ",
+      "record 7            ",
+      "record 8            ",
+    ]);
+
+    terminal.backend().assert_buffer(&expected);
+
+    terminal
+      .draw(|f| log.render_list(f, f.size(), Block::default(), Style::default(), false))
+      .unwrap();
+
+    let expected = Buffer::with_lines(vec![
+      "record 1            ",
+      "record 2            ",
+      "record 4 should be  ",
+      "long enough to be   ",
+      "wrapped             ",
+      "record 5            ",
+      "record 6            ",
+    ]);
+
+    terminal.backend().assert_buffer(&expected);
+
+    log.add_record("record 9".into());
+    log.add_record("record 10 which is again looooooooooooooooooooooooooooooonnnng".into());
+    log.add_record("record 11".into());
+    // enabling follow should scroll back to bottom
+    terminal
+      .draw(|f| log.render_list(f, f.size(), Block::default(), Style::default(), true))
+      .unwrap();
+
+    let expected = Buffer::with_lines(vec![
+      "record 8            ",
+      "record 9            ",
+      "record 10           ",
+      "which is again      ",
+      "looooooooooooooooooo",
+      "oooooooooooonnnng   ",
+      "record 11           ",
+    ]);
+
+    terminal.backend().assert_buffer(&expected);
+
+    terminal
+      .draw(|f| log.render_list(f, f.size(), Block::default(), Style::default(), false))
+      .unwrap();
+
+    let expected = Buffer::with_lines(vec![
+      "record 1            ",
+      "record 2            ",
+      "record 4 should be  ",
+      "long enough to be   ",
+      "wrapped             ",
+      "record 5            ",
+      "record 6            ",
+    ]);
+
+    terminal.backend().assert_buffer(&expected);
+
+    log.scroll_up(); // to reset select state
+    log.scroll_down();
+    log.scroll_down();
+    log.scroll_down();
+    log.scroll_down();
+    log.scroll_down();
+    log.scroll_down();
+    log.scroll_down();
+    log.scroll_down();
+    log.scroll_down();
+    log.scroll_down();
+    log.scroll_down();
+
+    terminal
+      .draw(|f| log.render_list(f, f.size(), Block::default(), Style::default(), false))
+      .unwrap();
+
+    let expected = Buffer::with_lines(vec![
+      "record 5            ",
+      "record 6            ",
+      "record 7            ",
+      "record 8            ",
+      "record 9            ",
+      "record 10           ",
+      "which is again      ",
+    ]);
+
+    terminal.backend().assert_buffer(&expected);
+  }
 }
