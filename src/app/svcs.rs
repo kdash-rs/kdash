@@ -7,7 +7,7 @@ use k8s_openapi::{
   chrono::Utc,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct KubeSvc {
   pub namespace: String,
   pub name: String,
@@ -132,5 +132,78 @@ fn get_lb_ext_ips(service: &Service, external_ips: Option<Vec<String>>) -> Optio
 
 #[cfg(test)]
 mod tests {
-  // TODO
+  use super::super::test_utils::{convert_resource_from_file, get_time};
+  use super::*;
+
+  #[test]
+  fn test_stateful_sets_from_api() {
+    let (svcs, svc_list): (Vec<KubeSvc>, Vec<_>) = convert_resource_from_file("svcs");
+
+    assert_eq!(svcs.len(), 5);
+    assert_eq!(
+      svcs[0],
+      KubeSvc {
+        name: "kubernetes".into(),
+        namespace: "default".into(),
+        age: utils::to_age(Some(&get_time("2021-05-10T21:48:03Z")), Utc::now()),
+        k8s_obj: svc_list[0].clone(),
+        type_: "ClusterIP".into(),
+        cluster_ip: "10.43.0.1".into(),
+        external_ip: "".into(),
+        ports: "https:443►0".into(),
+      }
+    );
+    assert_eq!(
+      svcs[1],
+      KubeSvc {
+        name: "kube-dns".into(),
+        namespace: "kube-system".into(),
+        age: utils::to_age(Some(&get_time("2021-05-10T21:48:03Z")), Utc::now()),
+        k8s_obj: svc_list[1].clone(),
+        type_: "ClusterIP".into(),
+        cluster_ip: "10.43.0.10".into(),
+        external_ip: "".into(),
+        ports: "dns:53►0/UDP dns-tcp:53►0 metrics:9153►0".into(),
+      }
+    );
+    assert_eq!(
+      svcs[2],
+      KubeSvc {
+        name: "metrics-server".into(),
+        namespace: "kube-system".into(),
+        age: utils::to_age(Some(&get_time("2021-05-10T21:48:03Z")), Utc::now()),
+        k8s_obj: svc_list[2].clone(),
+        type_: "ClusterIP".into(),
+        cluster_ip: "10.43.93.186".into(),
+        external_ip: "".into(),
+        ports: "443►0".into(),
+      }
+    );
+    assert_eq!(
+      svcs[3],
+      KubeSvc {
+        name: "traefik-prometheus".into(),
+        namespace: "kube-system".into(),
+        age: utils::to_age(Some(&get_time("2021-05-10T21:48:35Z")), Utc::now()),
+        k8s_obj: svc_list[3].clone(),
+        type_: "ClusterIP".into(),
+        cluster_ip: "10.43.9.106".into(),
+        external_ip: "".into(),
+        ports: "metrics:9100►0".into(),
+      }
+    );
+    assert_eq!(
+      svcs[4],
+      KubeSvc {
+        name: "traefik".into(),
+        namespace: "kube-system".into(),
+        age: utils::to_age(Some(&get_time("2021-05-10T21:48:35Z")), Utc::now()),
+        k8s_obj: svc_list[4].clone(),
+        type_: "LoadBalancer".into(),
+        cluster_ip: "10.43.235.227".into(),
+        external_ip: "172.20.0.2".into(),
+        ports: "http:80►30723 https:443►31954".into(),
+      }
+    );
+  }
 }

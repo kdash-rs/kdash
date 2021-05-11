@@ -20,7 +20,7 @@ pub struct NodeMetrics {
   pub mem_percent: f64,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct KubeNode {
   pub name: String,
   pub status: String,
@@ -203,5 +203,50 @@ impl NodeMetrics {
 
 #[cfg(test)]
 mod tests {
-  // TODO
+  use tokio::sync::Mutex;
+
+  use super::super::test_utils::{get_time, load_resource_from_file};
+  use super::*;
+
+  #[tokio::test]
+  async fn test_stateful_sets_from_api() {
+    let nodes = load_resource_from_file("nodes");
+    let node_list = nodes.items.clone();
+    let pods_list = load_resource_from_file("pods");
+    let mut app = App::default();
+    app.data.node_metrics = vec![NodeMetrics {
+      name: "gke-hello-hipster-default-pool-9e6f6ffb-q16l".into(),
+      cpu: "1414m".into(),
+      cpu_percent: 0f64,
+      mem: "590Mi".into(),
+      mem_percent: 0f64,
+    }];
+    let app = Mutex::new(app);
+    let mut app = app.lock().await;
+
+    let nodes = nodes
+      .iter()
+      .map(|it| KubeNode::from_api_with_pods(it, &pods_list, &mut app))
+      .collect::<Vec<_>>();
+
+    assert_eq!(nodes.len(), 1);
+    assert_eq!(
+      nodes[0],
+      KubeNode {
+        name: "gke-hello-hipster-default-pool-9e6f6ffb-q16l".into(),
+        age: utils::to_age(Some(&get_time("2021-05-10T21:48:07Z")), Utc::now()),
+        k8s_obj: node_list[0].clone(),
+        status: "Ready".into(),
+        role: "control-plane,master".into(),
+        version: "v1.20.6+k3s1".into(),
+        pods: 5,
+        cpu: "1414m".into(),
+        mem: "590Mi".into(),
+        cpu_a: "8000m".into(),
+        mem_a: "31967Mi".into(),
+        cpu_percent: "17".into(),
+        mem_percent: "1".into(),
+      }
+    );
+  }
 }

@@ -1,0 +1,257 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Node
+  metadata:
+    annotations:
+      flannel.alpha.coreos.com/backend-data: '{"VtepMAC":"c2:9c:34:d2:b7:16"}'
+      flannel.alpha.coreos.com/backend-type: vxlan
+      flannel.alpha.coreos.com/kube-subnet-manager: "true"
+      flannel.alpha.coreos.com/public-ip: 172.20.0.2
+      k3s.io/node-args: '["server","--tls-san","0.0.0.0"]'
+      k3s.io/node-config-hash: D7CBSUVNY5FSJVW3U5ZIAK74FHUOS5TZOOMQE6FTIWUTHA7QHGKQ====
+      k3s.io/node-env: '{"K3S_KUBECONFIG_OUTPUT":"/output/kubeconfig.yaml","K3S_TOKEN":"********"}'
+      node.alpha.kubernetes.io/ttl: "0"
+      volumes.kubernetes.io/controller-managed-attach-detach: "true"
+    creationTimestamp: "2021-05-10T21:48:07Z"
+    finalizers:
+    - wrangler.cattle.io/node
+    labels:
+      beta.kubernetes.io/arch: amd64
+      beta.kubernetes.io/instance-type: k3s
+      beta.kubernetes.io/os: linux
+      k3s.io/hostname: gke-hello-hipster-default-pool-9e6f6ffb-q16l
+      k3s.io/internal-ip: 172.20.0.2
+      kubernetes.io/arch: amd64
+      kubernetes.io/hostname: gke-hello-hipster-default-pool-9e6f6ffb-q16l
+      kubernetes.io/os: linux
+      node-role.kubernetes.io/control-plane: "true"
+      node-role.kubernetes.io/master: "true"
+      node.kubernetes.io/instance-type: k3s
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:flannel.alpha.coreos.com/backend-data: {}
+            f:flannel.alpha.coreos.com/backend-type: {}
+            f:flannel.alpha.coreos.com/kube-subnet-manager: {}
+            f:flannel.alpha.coreos.com/public-ip: {}
+            f:k3s.io/node-args: {}
+            f:k3s.io/node-config-hash: {}
+            f:k3s.io/node-env: {}
+            f:node.alpha.kubernetes.io/ttl: {}
+            f:volumes.kubernetes.io/controller-managed-attach-detach: {}
+          f:finalizers:
+            .: {}
+            v:"wrangler.cattle.io/node": {}
+          f:labels:
+            .: {}
+            f:beta.kubernetes.io/arch: {}
+            f:beta.kubernetes.io/instance-type: {}
+            f:beta.kubernetes.io/os: {}
+            f:k3s.io/hostname: {}
+            f:k3s.io/internal-ip: {}
+            f:kubernetes.io/arch: {}
+            f:kubernetes.io/hostname: {}
+            f:kubernetes.io/os: {}
+            f:node-role.kubernetes.io/control-plane: {}
+            f:node-role.kubernetes.io/master: {}
+            f:node.kubernetes.io/instance-type: {}
+        f:spec:
+          f:podCIDR: {}
+          f:podCIDRs:
+            .: {}
+            v:"10.42.0.0/24": {}
+          f:providerID: {}
+          f:taints: {}
+        f:status:
+          f:addresses:
+            .: {}
+            k:{"type":"Hostname"}:
+              .: {}
+              f:address: {}
+              f:type: {}
+            k:{"type":"InternalIP"}:
+              .: {}
+              f:address: {}
+              f:type: {}
+          f:allocatable:
+            .: {}
+            f:cpu: {}
+            f:ephemeral-storage: {}
+            f:hugepages-1Gi: {}
+            f:hugepages-2Mi: {}
+            f:memory: {}
+            f:pods: {}
+          f:capacity:
+            .: {}
+            f:cpu: {}
+            f:ephemeral-storage: {}
+            f:hugepages-1Gi: {}
+            f:hugepages-2Mi: {}
+            f:memory: {}
+            f:pods: {}
+          f:conditions:
+            .: {}
+            k:{"type":"DiskPressure"}:
+              .: {}
+              f:lastHeartbeatTime: {}
+              f:lastTransitionTime: {}
+              f:message: {}
+              f:reason: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"MemoryPressure"}:
+              .: {}
+              f:lastHeartbeatTime: {}
+              f:lastTransitionTime: {}
+              f:message: {}
+              f:reason: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"NetworkUnavailable"}:
+              .: {}
+              f:lastHeartbeatTime: {}
+              f:lastTransitionTime: {}
+              f:message: {}
+              f:reason: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"PIDPressure"}:
+              .: {}
+              f:lastHeartbeatTime: {}
+              f:lastTransitionTime: {}
+              f:message: {}
+              f:reason: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastHeartbeatTime: {}
+              f:lastTransitionTime: {}
+              f:message: {}
+              f:reason: {}
+              f:status: {}
+              f:type: {}
+          f:daemonEndpoints:
+            f:kubeletEndpoint:
+              f:Port: {}
+          f:images: {}
+          f:nodeInfo:
+            f:architecture: {}
+            f:bootID: {}
+            f:containerRuntimeVersion: {}
+            f:kernelVersion: {}
+            f:kubeProxyVersion: {}
+            f:kubeletVersion: {}
+            f:operatingSystem: {}
+            f:osImage: {}
+            f:systemUUID: {}
+      manager: k3s
+      operation: Update
+      time: "2021-05-10T22:01:09Z"
+    name: gke-hello-hipster-default-pool-9e6f6ffb-q16l
+    resourceVersion: "8762"
+    uid: 32e5afcb-a116-456b-992a-b52518d7b0b0
+  spec:
+    podCIDR: 10.42.0.0/24
+    podCIDRs:
+    - 10.42.0.0/24
+    providerID: k3s://gke-hello-hipster-default-pool-9e6f6ffb-q16l
+    taints:
+    - effect: NoSchedule
+      key: node.kubernetes.io/disk-pressure
+      timeAdded: "2021-05-10T22:01:09Z"
+  status:
+    addresses:
+    - address: 172.20.0.2
+      type: InternalIP
+    - address: gke-hello-hipster-default-pool-9e6f6ffb-q16l
+      type: Hostname
+    allocatable:
+      cpu: "8"
+      ephemeral-storage: "69773255011"
+      hugepages-1Gi: "0"
+      hugepages-2Mi: "0"
+      memory: 32734444Ki
+      pods: "110"
+    capacity:
+      cpu: "8"
+      ephemeral-storage: 71724152Ki
+      hugepages-1Gi: "0"
+      hugepages-2Mi: "0"
+      memory: 32734444Ki
+      pods: "110"
+    conditions:
+    - lastHeartbeatTime: "2021-05-10T21:48:20Z"
+      lastTransitionTime: "2021-05-10T21:48:20Z"
+      message: Flannel is running on this node
+      reason: FlannelIsUp
+      status: "False"
+      type: NetworkUnavailable
+    - lastHeartbeatTime: "2021-05-11T10:36:51Z"
+      lastTransitionTime: "2021-05-10T21:48:06Z"
+      message: kubelet has sufficient memory available
+      reason: KubeletHasSufficientMemory
+      status: "False"
+      type: MemoryPressure
+    - lastHeartbeatTime: "2021-05-11T10:36:51Z"
+      lastTransitionTime: "2021-05-10T22:01:09Z"
+      message: kubelet has disk pressure
+      reason: KubeletHasDiskPressure
+      status: "True"
+      type: DiskPressure
+    - lastHeartbeatTime: "2021-05-11T10:36:51Z"
+      lastTransitionTime: "2021-05-10T21:48:06Z"
+      message: kubelet has sufficient PID available
+      reason: KubeletHasSufficientPID
+      status: "False"
+      type: PIDPressure
+    - lastHeartbeatTime: "2021-05-11T10:36:51Z"
+      lastTransitionTime: "2021-05-10T21:48:17Z"
+      message: kubelet is posting ready status
+      reason: KubeletReady
+      status: "True"
+      type: Ready
+    daemonEndpoints:
+      kubeletEndpoint:
+        Port: 10250
+    images:
+    - names:
+      - docker.io/rancher/library-traefik@sha256:3ba3ed48c4632f2b02671923950b30b5b7f1b556e559ce15446d1f5d648a037d
+      - docker.io/rancher/library-traefik:1.7.19
+      sizeBytes: 24011762
+    - names:
+      - docker.io/rancher/local-path-provisioner@sha256:9666b1635fec95d4e2251661e135c90678b8f45fd0f8324c55db99c80e2a958c
+      - docker.io/rancher/local-path-provisioner:v0.0.19
+      sizeBytes: 13585626
+    - names:
+      - docker.io/rancher/coredns-coredns@sha256:8b675d12eb9faf3121475b12db478ac2cf5129046d92137aa9067dd04f3b4e10
+      - docker.io/rancher/coredns-coredns:1.8.0
+      sizeBytes: 12944537
+    - names:
+      - docker.io/rancher/metrics-server@sha256:b85628b103169d7db52a32a48b46d8942accb7bde3709c0a4888a23d035f9f1e
+      - docker.io/rancher/metrics-server:v0.3.6
+      sizeBytes: 10543877
+    - names:
+      - docker.io/rancher/klipper-lb@sha256:2fb97818f5d64096d635bc72501a6cb2c8b88d5d16bc031cf71b5b6460925e4a
+      - docker.io/rancher/klipper-lb:v0.1.2
+      sizeBytes: 2708293
+    nodeInfo:
+      architecture: amd64
+      bootID: 6ac9f263-9a7f-4d0d-9c22-0e51e9f3b06c
+      containerRuntimeVersion: containerd://1.4.4-k3s1
+      kernelVersion: 5.11.13-100.fc32.x86_64
+      kubeProxyVersion: v1.20.6+k3s1
+      kubeletVersion: v1.20.6+k3s1
+      machineID: ""
+      operatingSystem: linux
+      osImage: Unknown
+      systemUUID: 4c4c4544-0039-4e10-8047-b5c04f544332
+kind: List
+metadata:
+  resourceVersion: ""
+  selfLink: ""
