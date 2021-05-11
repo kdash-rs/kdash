@@ -34,7 +34,7 @@ pub async fn handle_key_events(key: Key, app: &mut App) {
       app.refresh();
     }
     _ if key == DEFAULT_KEYBINDING.help.key => {
-      app.push_navigation_stack(RouteId::HelpMenu, ActiveBlock::Empty)
+      app.push_navigation_stack(RouteId::HelpMenu, ActiveBlock::Help)
     }
     _ if key == DEFAULT_KEYBINDING.jump_to_all_context.key => {
       app.route_contexts();
@@ -302,8 +302,10 @@ async fn handle_route_events(key: Key, app: &mut App) {
             .await;
           }
         }
-        ActiveBlock::Contexts | ActiveBlock::Utilization | ActiveBlock::Empty => { /* Do nothing */
-        }
+        ActiveBlock::Contexts
+        | ActiveBlock::Utilization
+        | ActiveBlock::Empty
+        | ActiveBlock::Help => { /* Do nothing */ }
       }
     }
     RouteId::Contexts => {
@@ -393,6 +395,7 @@ async fn handle_scroll(app: &mut App, down: bool, is_mouse: bool) {
         app.data.describe_out.scroll_up();
       }
     }
+    ActiveBlock::Help => handle_table_scroll(&mut app.help_docs, down),
     ActiveBlock::Empty => { /* Do nothing */ }
   }
 }

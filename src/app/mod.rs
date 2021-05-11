@@ -37,6 +37,7 @@ use tui::layout::Rect;
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum ActiveBlock {
   Empty,
+  Help,
   Pods,
   Containers,
   Logs,
@@ -135,6 +136,7 @@ pub struct App {
   pub refresh: bool,
   pub log_auto_scroll: bool,
   pub utilization_group_by: Vec<GroupBy>,
+  pub help_docs: StatefulTable<Vec<String>>,
   pub data: Data,
 }
 
@@ -232,6 +234,7 @@ impl Default for App {
         GroupBy::Namespace,
         GroupBy::Pod,
       ],
+      help_docs: StatefulTable::with_items(key_binding::get_help_docs()),
       data: Data::default(),
     }
   }
@@ -373,7 +376,6 @@ impl App {
         self.dispatch_stream(IoStreamEvent::RefreshClient).await;
       }
       self.dispatch(IoEvent::GetKubeConfig).await;
-      self.dispatch_cmd(IoCmdEvent::GetCliInfo).await;
       // call these once to pre-load data
       self.dispatch(IoEvent::GetPods).await;
       self.dispatch(IoEvent::GetServices).await;
@@ -385,10 +387,13 @@ impl App {
       self.refresh = false;
     }
     // make network requests only in intervals to avoid hogging up the network
-    if self.tick_count == 0 || self.is_routing {
+    if self.tick_count % self.tick_until_poll == 0 || self.is_routing {
       // make periodic network calls based on active route and active block to avoid hogging
       match self.get_current_route().id {
         RouteId::Home => {
+          if self.data.clis.is_empty() {
+            self.dispatch_cmd(IoCmdEvent::GetCliInfo).await;
+          }
           self.dispatch(IoEvent::GetNamespaces).await;
           self.dispatch(IoEvent::GetNodes).await;
           match self.get_current_route().active_block {
@@ -428,10 +433,6 @@ impl App {
     }
 
     self.tick_count += 1;
-
-    if self.tick_count > self.tick_until_poll {
-      self.tick_count = 0; // reset ticks
-    }
   }
 }
 
@@ -575,7 +576,7 @@ mod tests {
 
     assert!(!app.refresh);
     assert!(!app.is_routing);
-    assert_eq!(app.tick_count, 0);
+    assert_eq!(app.tick_count, 3);
   }
   #[tokio::test]
   async fn test_on_tick_routing() {
@@ -607,6 +608,6 @@ mod tests {
 
     assert!(!app.refresh);
     assert!(!app.is_routing);
-    assert_eq!(app.tick_count, 0);
+    assert_eq!(app.tick_count, 3);
   }
 }

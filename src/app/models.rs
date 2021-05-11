@@ -45,6 +45,15 @@ impl<T> StatefulTable<T> {
     }
   }
 
+  pub fn with_items(items: Vec<T>) -> StatefulTable<T> {
+    let mut table = StatefulTable::new();
+    if !items.is_empty() {
+      table.state.select(Some(0));
+    }
+    table.set_items(items);
+    table
+  }
+
   pub fn set_items(&mut self, items: Vec<T>) {
     let item_len = items.len();
     self.items = items;
@@ -402,6 +411,9 @@ mod tests {
     assert_eq!(sft.state.selected(), Some(0));
     // check scroll overflow
     sft.scroll_up();
+    assert_eq!(sft.state.selected(), Some(0));
+
+    let sft = StatefulTable::with_items(vec![KubeNs::default(), KubeNs::default()]);
     assert_eq!(sft.state.selected(), Some(0));
   }
 

@@ -239,6 +239,24 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
   },
 };
 
+pub fn get_help_docs() -> Vec<Vec<String>> {
+  let items = DEFAULT_KEYBINDING.as_iter();
+
+  items.iter().map(|it| help_row(it)).collect()
+}
+
+fn help_row(item: &KeyBinding) -> Vec<String> {
+  vec![
+    if item.alt.is_some() {
+      format!("{} | {}", item.key, item.alt.unwrap())
+    } else {
+      item.key.to_string()
+    },
+    String::from(item.desc),
+    item.context.to_string(),
+  ]
+}
+
 #[cfg(test)]
 mod tests {
   use super::DEFAULT_KEYBINDING;
