@@ -18,13 +18,13 @@ pub async fn handle_key_events(key: Key, app: &mut App) {
     _ if key == DEFAULT_KEYBINDING.esc.key => {
       handle_escape(app);
     }
-    _ if key == DEFAULT_KEYBINDING.quit.key => {
+    _ if key == DEFAULT_KEYBINDING.quit.key || key == DEFAULT_KEYBINDING.quit.alt.unwrap() => {
       app.should_quit = true;
     }
-    _ if key == DEFAULT_KEYBINDING.down.key => {
+    _ if key == DEFAULT_KEYBINDING.down.key || key == DEFAULT_KEYBINDING.down.alt.unwrap() => {
       handle_scroll(app, true, false).await;
     }
-    _ if key == DEFAULT_KEYBINDING.up.key => {
+    _ if key == DEFAULT_KEYBINDING.up.key || key == DEFAULT_KEYBINDING.up.alt.unwrap() => {
       handle_scroll(app, false, false).await;
     }
     _ if key == DEFAULT_KEYBINDING.toggle_theme.key => {
@@ -111,14 +111,16 @@ async fn handle_route_events(key: Key, app: &mut App) {
     // handle resource tabs on overview
     RouteId::Home => {
       match key {
-        _ if key == DEFAULT_KEYBINDING.right.key => {
+        _ if key == DEFAULT_KEYBINDING.right.key
+          || key == DEFAULT_KEYBINDING.right.alt.unwrap() =>
+        {
           app.context_tabs.next();
           app.push_navigation_stack(
             RouteId::Home,
             app.context_tabs.active_block.unwrap_or(ActiveBlock::Empty),
           );
         }
-        _ if key == DEFAULT_KEYBINDING.left.key => {
+        _ if key == DEFAULT_KEYBINDING.left.key || key == DEFAULT_KEYBINDING.left.alt.unwrap() => {
           app.context_tabs.previous();
           app.push_navigation_stack(
             RouteId::Home,

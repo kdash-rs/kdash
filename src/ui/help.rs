@@ -1,8 +1,7 @@
 use super::super::app::{
-  key_binding::{HContext, DEFAULT_KEYBINDING},
+  key_binding::{KeyBinding, DEFAULT_KEYBINDING},
   App,
 };
-use super::super::event::Key;
 use super::utils::{
   layout_block_active_span, style_primary, style_secondary, title_with_dual_style, vertical_chunks,
 };
@@ -48,12 +47,17 @@ pub fn draw_help<B: Backend>(f: &mut Frame<B>, app: &App, area: Rect) {
 fn get_help_docs() -> Vec<Vec<String>> {
   let items = DEFAULT_KEYBINDING.as_iter();
 
-  items
-    .iter()
-    .map(|it| help_row(it.key, it.desc, it.context))
-    .collect()
+  items.iter().map(|it| help_row(it)).collect()
 }
 
-fn help_row(key: Key, desc: &str, context: HContext) -> Vec<String> {
-  vec![key.to_string(), String::from(desc), context.to_string()]
+fn help_row(item: &KeyBinding) -> Vec<String> {
+  vec![
+    if item.alt.is_some() {
+      format!("{} | {}", item.key, item.alt.unwrap())
+    } else {
+      item.key.to_string()
+    },
+    String::from(item.desc),
+    item.context.to_string(),
+  ]
 }

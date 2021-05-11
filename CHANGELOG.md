@@ -2,6 +2,9 @@
 
 ## [Unreleased] - 04-May-2021
 
+- Minor bug fixes
+- Add vim key bindings for arrow keys
+
 ## [0.0.9] - 10-May-2021
 
 - Improved error handling and error display
