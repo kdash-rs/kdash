@@ -2,6 +2,52 @@ use std::fmt;
 
 use super::super::event::Key;
 
+// using a macro so that we can automatically generate an iterable vector for bindings. This beats reflection :)
+macro_rules! generate_keybindings {
+  ($($field:ident),+) => {
+    pub struct KeyBindings { $(pub $field: KeyBinding),+ }
+    impl KeyBindings {
+      pub fn as_iter(&self) -> Vec<&KeyBinding> {
+        vec![
+            $(&self.$field),+
+        ]
+      }
+    }
+  };
+}
+
+generate_keybindings! {
+  // order here is shown as is in Help
+  ctr_c,
+  quit,
+  esc,
+  help,
+  submit,
+  refresh,
+  toggle_theme,
+  jump_to_current_context,
+  jump_to_all_context,
+  jump_to_utilization,
+  copy_to_clipboard,
+  down,
+  up,
+  left,
+  right,
+  toggle_info,
+  log_auto_scroll,
+  select_all_namespace,
+  jump_to_namespace,
+  describe_resource,
+  resource_yaml,
+  jump_to_pods,
+  jump_to_services,
+  jump_to_nodes,
+  jump_to_configmaps,
+  jump_to_statefulsets,
+  jump_to_replicasets,
+  jump_to_deployments,
+  cycle_group_by
+}
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Debug)]
 pub enum HContext {
   General,
@@ -21,40 +67,6 @@ pub struct KeyBinding {
   pub context: HContext,
 }
 
-#[derive(Clone)]
-pub struct KeyBindings {
-  pub ctr_c: KeyBinding,
-  pub quit: KeyBinding,
-  pub esc: KeyBinding,
-  pub help: KeyBinding,
-  pub submit: KeyBinding,
-  pub refresh: KeyBinding,
-  pub toggle_theme: KeyBinding,
-  pub jump_to_all_context: KeyBinding,
-  pub jump_to_current_context: KeyBinding,
-  pub jump_to_utilization: KeyBinding,
-  pub up: KeyBinding,
-  pub down: KeyBinding,
-  pub left: KeyBinding,
-  pub right: KeyBinding,
-  pub toggle_info: KeyBinding,
-  pub log_auto_scroll: KeyBinding,
-  pub select_all_namespace: KeyBinding,
-  pub jump_to_namespace: KeyBinding,
-  pub jump_to_pods: KeyBinding,
-  pub jump_to_services: KeyBinding,
-  pub jump_to_nodes: KeyBinding,
-  pub jump_to_configmaps: KeyBinding,
-  pub jump_to_deployments: KeyBinding,
-  pub jump_to_statefulsets: KeyBinding,
-  pub jump_to_replicasets: KeyBinding,
-  pub describe_resource: KeyBinding,
-  pub resource_yaml: KeyBinding,
-  pub cycle_group_by: KeyBinding,
-  pub copy_to_clipboard: KeyBinding,
-}
-
-// update the as_vec method below with field as well
 pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
   ctr_c: KeyBinding {
     key: Key::Ctrl('c'),
@@ -203,40 +215,12 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
   },
 };
 
-impl KeyBindings {
-  // mainly used for showing the help screen
-  pub fn as_vec(&self) -> Vec<&KeyBinding> {
-    vec![
-      // order here is shown as is in Help
-      &self.ctr_c,
-      &self.quit,
-      &self.esc,
-      &self.help,
-      &self.submit,
-      &self.refresh,
-      &self.toggle_theme,
-      &self.jump_to_current_context,
-      &self.jump_to_all_context,
-      &self.jump_to_utilization,
-      &self.copy_to_clipboard,
-      &self.down,
-      &self.up,
-      &self.left,
-      &self.right,
-      &self.toggle_info,
-      &self.log_auto_scroll,
-      &self.select_all_namespace,
-      &self.jump_to_namespace,
-      &self.describe_resource,
-      &self.resource_yaml,
-      &self.jump_to_pods,
-      &self.jump_to_services,
-      &self.jump_to_nodes,
-      &self.jump_to_configmaps,
-      &self.jump_to_statefulsets,
-      &self.jump_to_replicasets,
-      &self.jump_to_deployments,
-      &self.cycle_group_by,
-    ]
+#[cfg(test)]
+mod tests {
+  use super::DEFAULT_KEYBINDING;
+
+  #[test]
+  fn test_as_iter() {
+    assert!(DEFAULT_KEYBINDING.as_iter().len() >= 29);
   }
 }

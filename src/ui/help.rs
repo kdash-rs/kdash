@@ -46,7 +46,7 @@ pub fn draw_help<B: Backend>(f: &mut Frame<B>, app: &App, area: Rect) {
 }
 
 fn get_help_docs() -> Vec<Vec<String>> {
-  let items = DEFAULT_KEYBINDING.as_vec();
+  let items = DEFAULT_KEYBINDING.as_iter();
 
   items
     .iter()

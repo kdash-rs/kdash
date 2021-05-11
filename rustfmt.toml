@@ -6,3 +6,5 @@ reorder_imports = true
 reorder_modules = true
 merge_derives = true
 use_field_init_shorthand = true
+#format_macro_matchers = true
+#format_macro_bodies = true
