@@ -157,9 +157,9 @@ jobs:
           name: artifacts
           path: artifacts
 
-  publish-brew-formula:
+  publish-package-formula:
     needs: [build-release]
-    name: Update homebrew formula
+    name: Update homebrew & choco formulas
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -179,7 +179,9 @@ jobs:
           macos_sha="$(cat ./artifacts/kdash-macos.sha256 | awk '{print $1}')"
           echo "MACOS_SHA=$macos_sha" >> $GITHUB_ENV
           linux_sha="$(cat ./artifacts/kdash-linux-musl.sha256 | awk '{print $1}')"
-          echo "LINUX_SHA=$linux_sha" >> $GITHUB_ENV
+          echo "LINUX_SHA=$linux_sha" >> $GITHUB_ENV          
+          windows_sha="$(cat ./artifacts/kdash-windows.sha256 | awk '{print $1}')"
+          echo "WINDOWS_SHA=$windows_sha" >> $GITHUB_ENV
           release_version="$(cat ./artifacts/release-version)"
           echo "RELEASE_VERSION=$release_version" >> $GITHUB_ENV
 
@@ -187,6 +189,7 @@ jobs:
         run: |
           echo "Release SHA macos: ${{ env.MACOS_SHA }}"
           echo "Release SHA linux: ${{ env.LINUX_SHA }}"
+          echo "Release SHA windows: ${{ env.WINDOWS_SHA }}"
           echo "Release version: ${{ env.RELEASE_VERSION }}"
 
       - name: Execute Homebrew packaging script
@@ -204,6 +207,34 @@ jobs:
           user_email: "d4udts@gmail.com"
           user_name: "deepu105"
           commit_message: "Update formula for KDash release ${{ env.RELEASE_VERSION }}"
+
+      - name: Execute chcolatey packaging script
+        run: |
+          python "./deployment/chocolatey/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/chocolatey/kdash.nuspec.template" "./kdash.nuspec" ${{ env.WINDOWS_SHA }};
+          python "./deployment/chocolatey/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/chocolatey/chocolateyinstall.ps1.template" "./chocolateyinstall.ps1" ${{ env.WINDOWS_SHA }};
+
+      - name: Commit nuspec to kdash-rs/choco-kdash
+        uses: dmnemec/copy_file_to_another_repo_action@main
+        env:
+          API_TOKEN_GITHUB: ${{ secrets.CHOCO_GITHUB_TOKEN }}
+        with:
+          source_file: "kdash.nuspec"
+          destination_repo: "kdash-rs/choco-kdash"
+          user_email: "d4udts@gmail.com"
+          user_name: "deepu105"
+          commit_message: "Update nuspec for KDash release ${{ env.RELEASE_VERSION }}"
+
+      - name: Commit chocolateyinstall to kdash-rs/choco-kdash
+        uses: dmnemec/copy_file_to_another_repo_action@main
+        env:
+          API_TOKEN_GITHUB: ${{ secrets.CHOCO_GITHUB_TOKEN }}
+        with:
+          source_file: "kdash.nuspec"
+          destination_repo: "kdash-rs/choco-kdash"
+          destination_folder: "tools"
+          user_email: "d4udts@gmail.com"
+          user_name: "deepu105"
+          commit_message: "Update chocolateyinstall for KDash release ${{ env.RELEASE_VERSION }}"
 
   publish-cargo:
     name: Publishing to Cargo

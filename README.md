@@ -48,7 +48,21 @@ brew upgrade kdash
 
 ### Chocolatey
 
-TODO
+Choco package located [here](https://chocolatey.org/packages/kdash).
+Since validation of the package takes time, it may take a while to become available after a release.
+
+```bash
+choco install kdash
+
+# Version number may be required for newer releases, if available:
+choco install kdash --version=0.0.9
+```
+
+To upgrade
+
+```bash
+choco upgrade kdash --version=0.0.9
+```
 
 ### Install script
 

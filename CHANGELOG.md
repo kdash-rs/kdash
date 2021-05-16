@@ -4,6 +4,7 @@
 
 - Minor bug fixes
 - Add vim key bindings for arrow keys
+- Chocolatey deployment for Windows 10
 
 ## [0.0.9] - 10-May-2021
 
