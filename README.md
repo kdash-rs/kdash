@@ -46,7 +46,7 @@ To upgrade
 brew upgrade kdash
 ```
 
-### Chocolatey
+### Chocolatey (Windows)
 
 Choco package located [here](https://chocolatey.org/packages/kdash).
 Since validation of the package takes time, it may take a while to become available after a release.
