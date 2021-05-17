@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - 04-May-2021
+## [0.0.10] - 17-May-2021
 
 - Minor bug fixes
 - Add vim key bindings for arrow keys
