@@ -158,7 +158,7 @@ jobs:
   #         path: artifacts
 
   publish-package-formula:
-    needs: [build-release]
+    # needs: [build-release]
     name: Update homebrew & choco formulas
     runs-on: ubuntu-latest
     steps:
