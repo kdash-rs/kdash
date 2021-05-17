@@ -5,6 +5,15 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Windows - Debug executable 'kdash'",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}\\target\\debug\\kdash.exe",
+            "args": [],
+            "sourceLanguages": [ "rust" ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
             "type": "lldb",
             "request": "launch",
             "name": "Debug executable 'kdash'",
