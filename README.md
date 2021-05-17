@@ -64,6 +64,8 @@ To upgrade
 choco upgrade kdash --version=0.0.9
 ```
 
+**Note**: Looks better on CMD. Powershell default theme makes the colours look weird.
+
 ### Install script
 
 TODO
