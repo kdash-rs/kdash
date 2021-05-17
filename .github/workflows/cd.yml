@@ -52,16 +52,16 @@ jobs:
           #     target: "x86_64-unknown-linux-gnu",
           #     artifact_prefix: "linux",
           #   }
-          - {
-              os: "ubuntu-latest",
-              target: "x86_64-unknown-linux-musl",
-              artifact_prefix: "linux-musl",
-            }
-          - {
-              os: "macOS-latest",
-              target: "x86_64-apple-darwin",
-              artifact_prefix: "macos",
-            }
+          # - {
+          #     os: "ubuntu-latest",
+          #     target: "x86_64-unknown-linux-musl",
+          #     artifact_prefix: "linux-musl",
+          #   }
+          # - {
+          #     os: "macOS-latest",
+          #     target: "x86_64-apple-darwin",
+          #     artifact_prefix: "macos",
+          #   }
           - {
               os: "windows-latest",
               target: "x86_64-pc-windows-msvc",
@@ -192,18 +192,18 @@ jobs:
           echo "Release SHA windows: ${{ env.WINDOWS_SHA }}"
           echo "Release version: ${{ env.RELEASE_VERSION }}"
 
-      - name: Execute Homebrew packaging script
-        run: |
-          python "./deployment/homebrew/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/homebrew/kdash.rb.template" "./kdash.rb" ${{ env.MACOS_SHA }} ${{ env.LINUX_SHA }}
-          git config user.email "d4udts@gmail.com"
-          git config user.name "deepu105"
-          git clone https://.:${{ secrets.GITHUB_TOKEN }}@github.com/kdash-rs/homebrew-kdash brew
-          rm brew/Formula/kdash.rb
-          cp kdash.rb brew/Formula
-          cd brew
-          git add .
-          git diff-index --quiet HEAD || git commit -am "Update formula for KDash release ${{ env.RELEASE_VERSION }}"
-          git push origin main
+      # - name: Execute Homebrew packaging script
+      #   run: |
+      #     python "./deployment/homebrew/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/homebrew/kdash.rb.template" "./kdash.rb" ${{ env.MACOS_SHA }} ${{ env.LINUX_SHA }}
+      #     git config --global user.email "d4udts@gmail.com"
+      #     git config --global user.name "deepu105"
+      #     git clone https://.:${{ secrets.GITHUB_TOKEN }}@github.com/kdash-rs/homebrew-kdash brew
+      #     rm brew/Formula/kdash.rb
+      #     cp kdash.rb brew/Formula
+      #     cd brew
+      #     git add .
+      #     git diff-index --quiet HEAD || git commit -am "Update formula for KDash release ${{ env.RELEASE_VERSION }}"
+      #     git push origin main
 
       # - name: Commit formula to kdash-rs/homebrew-kdash
       #   uses: dmnemec/copy_file_to_another_repo_action@main
@@ -221,8 +221,8 @@ jobs:
         run: |
           python "./deployment/chocolatey/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/chocolatey/kdash.nuspec.template" "./kdash.nuspec" ${{ env.WINDOWS_SHA }}
           python "./deployment/chocolatey/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/chocolatey/chocolateyinstall.ps1.template" "./chocolateyinstall.ps1" ${{ env.WINDOWS_SHA }}
-          git config user.email "d4udts@gmail.com"
-          git config user.name "deepu105"
+          git config --global user.email "d4udts@gmail.com"
+          git config --global user.name "deepu105"
           git clone https://.:${{ secrets.GITHUB_TOKEN }}@github.com/kdash-rs/choco-kdash choco
           rm choco/kdash.nuspec
           rm choco/tools/chocolateyinstall.ps1
