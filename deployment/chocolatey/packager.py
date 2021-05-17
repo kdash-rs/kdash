@@ -3,7 +3,7 @@ import sys
 from string import Template
 
 args = sys.argv
-version = args[1]
+version = args[1].replace("v", "")
 template_file_path = args[2]
 generated_file_path = args[3]
 
