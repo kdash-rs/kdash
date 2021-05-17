@@ -47,11 +47,11 @@ jobs:
       matrix:
         rust: [stable]
         triple:
-          - {
-              os: "ubuntu-latest",
-              target: "x86_64-unknown-linux-gnu",
-              artifact_prefix: "linux",
-            }
+          # - {
+          #     os: "ubuntu-latest",
+          #     target: "x86_64-unknown-linux-gnu",
+          #     artifact_prefix: "linux",
+          #   }
           - {
               os: "ubuntu-latest",
               target: "x86_64-unknown-linux-musl",
@@ -195,6 +195,8 @@ jobs:
       - name: Execute Homebrew packaging script
         run: |
           python "./deployment/homebrew/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/homebrew/kdash.rb.template" "./kdash.rb" ${{ env.MACOS_SHA }} ${{ env.LINUX_SHA }}
+          git config user.email "d4udts@gmail.com"
+          git config user.name "deepu105"
           git clone https://.:${{ secrets.GITHUB_TOKEN }}@github.com/kdash-rs/homebrew-kdash brew
           rm brew/Formula/kdash.rb
           cp kdash.rb brew/Formula
@@ -219,6 +221,8 @@ jobs:
         run: |
           python "./deployment/chocolatey/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/chocolatey/kdash.nuspec.template" "./kdash.nuspec" ${{ env.WINDOWS_SHA }}
           python "./deployment/chocolatey/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/chocolatey/chocolateyinstall.ps1.template" "./chocolateyinstall.ps1" ${{ env.WINDOWS_SHA }}
+          git config user.email "d4udts@gmail.com"
+          git config user.name "deepu105"
           git clone https://.:${{ secrets.GITHUB_TOKEN }}@github.com/kdash-rs/choco-kdash choco
           rm choco/kdash.nuspec
           rm choco/tools/chocolateyinstall.ps1
@@ -252,33 +256,33 @@ jobs:
       #     user_name: "deepu105"
       #     commit_message: "Update chocolateyinstall for KDash release ${{ env.RELEASE_VERSION }}"
 
-  publish-cargo:
-    name: Publishing to Cargo
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      - run: |
-          sudo apt-get update
-          sudo apt-get install -y -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
-      - uses: actions-rs/cargo@v1
-        with:
-          command: publish
-          args: --token ${{ secrets.CARGO_API_KEY }} --allow-dirty
+  # publish-cargo:
+  #   name: Publishing to Cargo
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #     - uses: actions-rs/toolchain@v1
+  #       with:
+  #         toolchain: stable
+  #         override: true
+  #     - run: |
+  #         sudo apt-get update
+  #         sudo apt-get install -y -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+  #     - uses: actions-rs/cargo@v1
+  #       with:
+  #         command: publish
+  #         args: --token ${{ secrets.CARGO_API_KEY }} --allow-dirty
 
-  publish-docker-image:
-    name: Publishing Docker image to Docker Hub
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out the repo
-        uses: actions/checkout@v2
-      - name: Push to Docker Hub
-        uses: docker/build-push-action@v1
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          repository: deepu105/kdash
-          tag_with_ref: true
+  # publish-docker-image:
+  #   name: Publishing Docker image to Docker Hub
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Check out the repo
+  #       uses: actions/checkout@v2
+  #     - name: Push to Docker Hub
+  #       uses: docker/build-push-action@v1
+  #       with:
+  #         username: ${{ secrets.DOCKER_USERNAME }}
+  #         password: ${{ secrets.DOCKER_PASSWORD }}
+  #         repository: deepu105/kdash
+  #         tag_with_ref: true
