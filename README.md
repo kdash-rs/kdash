@@ -64,8 +64,6 @@ To upgrade
 choco upgrade kdash --version=0.0.9
 ```
 
-**Note**: KDash looks better on CMD since Powershell's default theme makes the colours look weird.
-
 ### Install script
 
 TODO
@@ -120,6 +118,11 @@ Press `?` while running the app to see keybindings
 - `-V, --version`: Prints version information
 - `-t, --tick-rate <tick-rate>`: Set the tick rate (milliseconds): the lower the number the higher the FPS.
 - `-p, --poll-rate <poll-rate>`: Set the network call polling rate (milliseconds, should be multiples of tick-rate): the lower the number the higher the network calls.
+
+## Limitations/Known issues
+
+- [Windows] KDash looks better on CMD since Powershell's default theme makes the colours look weird.
+- [Windows] If using k3d for local clusters, set the server URL to 127.0.0.1 as 0.0.0.0 doesn't work with kube-rs. You can use `k3d cluster create --api-port 127.0.0.1:6550` or change the `cluster.server` value in your `.kube/config` for the k3d cluster to `127.0.0.1:<port>`
 
 ## Features & Todos
 
