@@ -209,7 +209,7 @@ jobs:
           python "./deployment/homebrew/packager.py" v0.0.10 "./deployment/homebrew/kdash.rb.template" "./kdash.rb" 12358 12345
           git config --global user.email "d4udts@gmail.com"
           git config --global user.name "deepu105"
-          git clone https://.:${{ secrets.GITHUB_TOKEN }}@github.com/kdash-rs/homebrew-kdash brew
+          git clone https://.:${{ secrets.TAP_GITHUB_TOKEN }}@github.com/kdash-rs/homebrew-kdash brew
           rm brew/Formula/kdash.rb
           cp kdash.rb brew/Formula
           cd brew
