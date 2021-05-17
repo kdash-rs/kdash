@@ -8,8 +8,8 @@ template_file_path = args[2]
 generated_file_path = args[3]
 
 # Deployment files
-hash_mac = args[4]
-hash_linux = args[5]
+hash_mac = args[4].strip()
+hash_linux = args[5].strip()
 
 print("Generating formula")
 print("     VERSION: %s" % version)
