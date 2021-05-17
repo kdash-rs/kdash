@@ -1,6 +1,6 @@
 [package]
 name = "kdash"
-version = "0.0.10"
+version = "0.1.0"
 authors = ["Deepu K Sasidharan <d4udts@gmail.com>"]
 description = """
 A fast and simple dashboard for Kubernetes
