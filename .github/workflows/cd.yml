@@ -6,159 +6,159 @@ on:
       - "v*.*.*"
 
 jobs:
-  # create-github-release:
-  #   name: create-github-release
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Create artifacts directory
-  #       run: mkdir artifacts
+  create-github-release:
+    name: create-github-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create artifacts directory
+        run: mkdir artifacts
 
-  #     - name: Get the release version from the tag
-  #       if: env.VERSION == ''
-  #       run: |
-  #         if [[ -n "${{ github.event.inputs.tag }}" ]]; then
-  #           echo "Manual run against a tag; overriding actual tag in the environment..."
-  #           echo "VERSION=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
-  #         else
-  #           echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-  #         fi
+      - name: Get the release version from the tag
+        if: env.VERSION == ''
+        run: |
+          if [[ -n "${{ github.event.inputs.tag }}" ]]; then
+            echo "Manual run against a tag; overriding actual tag in the environment..."
+            echo "VERSION=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          fi
 
-  #     - name: Validate version environment variable
-  #       run: |
-  #         echo "Version being built against is version ${{ env.VERSION }}"!
+      - name: Validate version environment variable
+        run: |
+          echo "Version being built against is version ${{ env.VERSION }}"!
 
-  #     - name: Save version number to artifact
-  #       run: echo "${{ env.VERSION }}" > artifacts/release-version
+      - name: Save version number to artifact
+        run: echo "${{ env.VERSION }}" > artifacts/release-version
 
-  #     - name: Upload artifacts
-  #       uses: actions/upload-artifact@v1
-  #       with:
-  #         name: artifacts
-  #         path: artifacts
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: artifacts
+          path: artifacts
 
-  # build-release:
-  #   name: build-release
-  #   needs: [create-github-release]
-  #   runs-on: ${{ matrix.triple.os }}
-  #   env:
-  #     RUST_BACKTRACE: 1
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       rust: [stable]
-  #       triple:
-  #         # - {
-  #         #     os: "ubuntu-latest",
-  #         #     target: "x86_64-unknown-linux-gnu",
-  #         #     artifact_prefix: "linux",
-  #         #   }
-  #         # - {
-  #         #     os: "ubuntu-latest",
-  #         #     target: "x86_64-unknown-linux-musl",
-  #         #     artifact_prefix: "linux-musl",
-  #         #   }
-  #         # - {
-  #         #     os: "macOS-latest",
-  #         #     target: "x86_64-apple-darwin",
-  #         #     artifact_prefix: "macos",
-  #         #   }
-  #         - {
-  #             os: "windows-latest",
-  #             target: "x86_64-pc-windows-msvc",
-  #             artifact_prefix: "windows",
-  #           }
+  build-release:
+    name: build-release
+    needs: [create-github-release]
+    runs-on: ${{ matrix.triple.os }}
+    env:
+      RUST_BACKTRACE: 1
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [stable]
+        triple:
+          - {
+              os: "ubuntu-latest",
+              target: "x86_64-unknown-linux-gnu",
+              artifact_prefix: "linux",
+            }
+          - {
+              os: "ubuntu-latest",
+              target: "x86_64-unknown-linux-musl",
+              artifact_prefix: "linux-musl",
+            }
+          - {
+              os: "macOS-latest",
+              target: "x86_64-apple-darwin",
+              artifact_prefix: "macos",
+            }
+          - {
+              os: "windows-latest",
+              target: "x86_64-pc-windows-msvc",
+              artifact_prefix: "windows",
+            }
 
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v2
-  #       with:
-  #         fetch-depth: 1
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
 
-  #     - name: Get shared artifacts
-  #       uses: actions/download-artifact@v2
-  #       with:
-  #         name: artifacts
-  #         path: artifacts
+      - name: Get shared artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: artifacts
+          path: artifacts
 
-  #     - name: Set release version
-  #       shell: bash
-  #       run: |
-  #         release_version="$(cat ./artifacts/release-version)"
-  #         echo "RELEASE_VERSION=$release_version" >> $GITHUB_ENV
+      - name: Set release version
+        shell: bash
+        run: |
+          release_version="$(cat ./artifacts/release-version)"
+          echo "RELEASE_VERSION=$release_version" >> $GITHUB_ENV
 
-  #     - name: Validate release environment variables
-  #       run: |
-  #         echo "Release version: ${{ env.RELEASE_VERSION }}"
+      - name: Validate release environment variables
+        run: |
+          echo "Release version: ${{ env.RELEASE_VERSION }}"
 
-  #     - name: Install toolchain
-  #       uses: actions-rs/toolchain@v1
-  #       with:
-  #         toolchain: ${{ matrix.rust }}
-  #         override: true
-  #         target: ${{ matrix.triple.target }}
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+          target: ${{ matrix.triple.target }}
 
-  #     - name: Installing needed macOS dependencies
-  #       if: matrix.triple.os == 'macos-latest'
-  #       run: brew install openssl@1.1
+      - name: Installing needed macOS dependencies
+        if: matrix.triple.os == 'macos-latest'
+        run: brew install openssl@1.1
 
-  #     - name: Installing needed Ubuntu dependencies
-  #       if: matrix.triple.os == 'ubuntu-latest'
-  #       run: |
-  #         sudo apt-get update
-  #         sudo apt-get install -y -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev musl-tools
+      - name: Installing needed Ubuntu dependencies
+        if: matrix.triple.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev musl-tools
 
-  #     - name: Build
-  #       uses: actions-rs/cargo@v1
-  #       with:
-  #         command: build
-  #         args: --release --verbose --target=${{ matrix.triple.target }}
-  #         toolchain: ${{ matrix.rust }}
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --verbose --target=${{ matrix.triple.target }}
+          toolchain: ${{ matrix.rust }}
 
-  #     - name: Packaging final binary (Windows)
-  #       if: matrix.triple.os == 'windows-latest'
-  #       shell: bash
-  #       run: |
-  #         cd target/${{ matrix.triple.target }}/release
-  #         BINARY_NAME=kdash.exe
-  #         strip $BINARY_NAME
-  #         RELEASE_NAME=kdash-${{ matrix.triple.artifact_prefix }}
-  #         tar czvf $RELEASE_NAME.tar.gz $BINARY_NAME
-  #         certutil -hashfile $RELEASE_NAME.tar.gz sha256 | grep -E [A-Fa-f0-9]{64} > $RELEASE_NAME.sha256
-  #         echo "RELEASE_NAME=$RELEASE_NAME" >> $GITHUB_ENV
+      - name: Packaging final binary (Windows)
+        if: matrix.triple.os == 'windows-latest'
+        shell: bash
+        run: |
+          cd target/${{ matrix.triple.target }}/release
+          BINARY_NAME=kdash.exe
+          strip $BINARY_NAME
+          RELEASE_NAME=kdash-${{ matrix.triple.artifact_prefix }}
+          tar czvf $RELEASE_NAME.tar.gz $BINARY_NAME
+          certutil -hashfile $RELEASE_NAME.tar.gz sha256 | grep -E [A-Fa-f0-9]{64} > $RELEASE_NAME.sha256
+          echo "RELEASE_NAME=$RELEASE_NAME" >> $GITHUB_ENV
 
-  #     - name: Packaging final binary (macOS and Linux)
-  #       if: matrix.triple.os != 'windows-latest'
-  #       shell: bash
-  #       run: |
-  #         cd target/${{ matrix.triple.target }}/release
-  #         BINARY_NAME=kdash
-  #         strip $BINARY_NAME
-  #         RELEASE_NAME=kdash-${{ matrix.triple.artifact_prefix }}
-  #         tar czvf $RELEASE_NAME.tar.gz $BINARY_NAME
-  #         shasum -a 256 $RELEASE_NAME.tar.gz > $RELEASE_NAME.sha256
-  #         echo "RELEASE_NAME=$RELEASE_NAME" >> $GITHUB_ENV
+      - name: Packaging final binary (macOS and Linux)
+        if: matrix.triple.os != 'windows-latest'
+        shell: bash
+        run: |
+          cd target/${{ matrix.triple.target }}/release
+          BINARY_NAME=kdash
+          strip $BINARY_NAME
+          RELEASE_NAME=kdash-${{ matrix.triple.artifact_prefix }}
+          tar czvf $RELEASE_NAME.tar.gz $BINARY_NAME
+          shasum -a 256 $RELEASE_NAME.tar.gz > $RELEASE_NAME.sha256
+          echo "RELEASE_NAME=$RELEASE_NAME" >> $GITHUB_ENV
 
-  #     - name: Releasing assets
-  #       uses: softprops/action-gh-release@v1
-  #       with:
-  #         files: |
-  #           target/${{ matrix.triple.target }}/release/${{ env.RELEASE_NAME }}.tar.gz
-  #           target/${{ matrix.triple.target }}/release/${{ env.RELEASE_NAME }}.sha256
-  #       env:
-  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Releasing assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            target/${{ matrix.triple.target }}/release/${{ env.RELEASE_NAME }}.tar.gz
+            target/${{ matrix.triple.target }}/release/${{ env.RELEASE_NAME }}.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  #     - name: Add SHA to artifacts
-  #       run: |
-  #         cp target/${{ matrix.triple.target }}/release/${{ env.RELEASE_NAME }}.sha256 artifacts/
+      - name: Add SHA to artifacts
+        run: |
+          cp target/${{ matrix.triple.target }}/release/${{ env.RELEASE_NAME }}.sha256 artifacts/
 
-  #     - name: Upload artifacts
-  #       uses: actions/upload-artifact@v1
-  #       with:
-  #         name: artifacts
-  #         path: artifacts
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: artifacts
+          path: artifacts
 
   publish-package-formula:
-    # needs: [build-release]
+    needs: [build-release]
     name: Update homebrew & choco formulas
     runs-on: ubuntu-latest
     steps:
@@ -167,46 +167,34 @@ jobs:
         with:
           fetch-depth: 1
 
-      # - name: Get release artifacts
-      #   uses: actions/download-artifact@v2
-      #   with:
-      #     name: artifacts
-      #     path: artifacts
+      - name: Get release artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: artifacts
+          path: artifacts
 
-      # - name: Set release assets and version
-      #   shell: bash
-      #   run: |
-      #     macos_sha="$(cat ./artifacts/kdash-macos.sha256 | awk '{print $1}')"
-      #     echo "MACOS_SHA=$macos_sha" >> $GITHUB_ENV
-      #     linux_sha="$(cat ./artifacts/kdash-linux-musl.sha256 | awk '{print $1}')"
-      #     echo "LINUX_SHA=$linux_sha" >> $GITHUB_ENV          
-      #     windows_sha="$(cat ./artifacts/kdash-windows.sha256 | awk '{print $1}')"
-      #     echo "WINDOWS_SHA=$windows_sha" >> $GITHUB_ENV
-      #     release_version="$(cat ./artifacts/release-version)"
-      #     echo "RELEASE_VERSION=$release_version" >> $GITHUB_ENV
+      - name: Set release assets and version
+        shell: bash
+        run: |
+          macos_sha="$(cat ./artifacts/kdash-macos.sha256 | awk '{print $1}')"
+          echo "MACOS_SHA=$macos_sha" >> $GITHUB_ENV
+          linux_sha="$(cat ./artifacts/kdash-linux-musl.sha256 | awk '{print $1}')"
+          echo "LINUX_SHA=$linux_sha" >> $GITHUB_ENV          
+          windows_sha="$(cat ./artifacts/kdash-windows.sha256 | awk '{print $1}')"
+          echo "WINDOWS_SHA=$windows_sha" >> $GITHUB_ENV
+          release_version="$(cat ./artifacts/release-version)"
+          echo "RELEASE_VERSION=$release_version" >> $GITHUB_ENV
 
-      # - name: Validate release environment variables
-      #   run: |
-      #     echo "Release SHA macos: ${{ env.MACOS_SHA }}"
-      #     echo "Release SHA linux: ${{ env.LINUX_SHA }}"
-      #     echo "Release SHA windows: ${{ env.WINDOWS_SHA }}"
-      #     echo "Release version: ${{ env.RELEASE_VERSION }}"
+      - name: Validate release environment variables
+        run: |
+          echo "Release SHA macos: ${{ env.MACOS_SHA }}"
+          echo "Release SHA linux: ${{ env.LINUX_SHA }}"
+          echo "Release SHA windows: ${{ env.WINDOWS_SHA }}"
+          echo "Release version: ${{ env.RELEASE_VERSION }}"
 
-      # - name: Execute Homebrew packaging script
-      #   run: |
-      #     python "./deployment/homebrew/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/homebrew/kdash.rb.template" "./kdash.rb" ${{ env.MACOS_SHA }} ${{ env.LINUX_SHA }}
-      #     git config --global user.email "d4udts@gmail.com"
-      #     git config --global user.name "deepu105"
-      #     git clone https://.:${{ secrets.GITHUB_TOKEN }}@github.com/kdash-rs/homebrew-kdash brew
-      #     rm brew/Formula/kdash.rb
-      #     cp kdash.rb brew/Formula
-      #     cd brew
-      #     git add .
-      #     git diff-index --quiet HEAD || git commit -am "Update formula for KDash release ${{ env.RELEASE_VERSION }}"
-      #     git push origin main
       - name: Execute Homebrew packaging script
         run: |
-          python "./deployment/homebrew/packager.py" v0.0.10 "./deployment/homebrew/kdash.rb.template" "./kdash.rb" 12358 12345
+          python "./deployment/homebrew/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/homebrew/kdash.rb.template" "./kdash.rb" ${{ env.MACOS_SHA }} ${{ env.LINUX_SHA }}
           git config --global user.email "d4udts@gmail.com"
           git config --global user.name "deepu105"
           git clone https://deepu105:${{ secrets.TAP_GITHUB_TOKEN }}@github.com/kdash-rs/homebrew-kdash.git --branch=main brew
@@ -214,87 +202,52 @@ jobs:
           cp kdash.rb brew/Formula
           cd brew
           git add .
-          git diff-index --quiet HEAD || git commit -am "Update formula for KDash release v0.0.10"
+          git diff-index --quiet HEAD || git commit -am "Update formula for KDash release ${{ env.RELEASE_VERSION }}"
           git push origin main
 
-      # - name: Commit formula to kdash-rs/homebrew-kdash
-      #   uses: dmnemec/copy_file_to_another_repo_action@main
-      #   env:
-      #     API_TOKEN_GITHUB: ${{ secrets.TAP_GITHUB_TOKEN }}
-      #   with:
-      #     source_file: "kdash.rb"
-      #     destination_repo: "kdash-rs/homebrew-kdash"
-      #     destination_folder: "Formula"
-      #     user_email: "d4udts@gmail.com"
-      #     user_name: "deepu105"
-      #     commit_message: "Update formula for KDash release ${{ env.RELEASE_VERSION }}"
+      - name: Execute chocolatey packaging script
+        run: |
+          python "./deployment/chocolatey/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/chocolatey/kdash.nuspec.template" "./kdash.nuspec" ${{ env.WINDOWS_SHA }}
+          python "./deployment/chocolatey/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/chocolatey/chocolateyinstall.ps1.template" "./chocolateyinstall.ps1" ${{ env.WINDOWS_SHA }}
+          git config --global user.email "d4udts@gmail.com"
+          git config --global user.name "deepu105"
+          git clone https://deepu105:${{ secrets.CHOCO_GITHUB_TOKEN }}@github.com/kdash-rs/choco-kdash --branch=main choco
+          rm choco/kdash.nuspec
+          rm choco/tools/chocolateyinstall.ps1
+          cp kdash.nuspec choco/kdash.nuspec
+          cp chocolateyinstall.ps1 choco/tools/chocolateyinstall.ps1
+          cd choco
+          git add .
+          git diff-index --quiet HEAD || git commit -am "Update package for KDash release ${{ env.RELEASE_VERSION }}"
+          git push origin main
 
-      # - name: Execute chocolatey packaging script
-      #   run: |
-      #     python "./deployment/chocolatey/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/chocolatey/kdash.nuspec.template" "./kdash.nuspec" ${{ env.WINDOWS_SHA }}
-      #     python "./deployment/chocolatey/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/chocolatey/chocolateyinstall.ps1.template" "./chocolateyinstall.ps1" ${{ env.WINDOWS_SHA }}
-      #     git config --global user.email "d4udts@gmail.com"
-      #     git config --global user.name "deepu105"
-      #     git clone https://.:${{ secrets.GITHUB_TOKEN }}@github.com/kdash-rs/choco-kdash choco
-      #     rm choco/kdash.nuspec
-      #     rm choco/tools/chocolateyinstall.ps1
-      #     cp kdash.nuspec choco/kdash.nuspec
-      #     cp chocolateyinstall.ps1 choco/tools/chocolateyinstall.ps1
-      #     cd choco
-      #     git add .
-      #     git diff-index --quiet HEAD || git commit -am "Update formula for KDash release ${{ env.RELEASE_VERSION }}"
-      #     git push origin main
+  publish-cargo:
+    name: Publishing to Cargo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+      - uses: actions-rs/cargo@v1
+        with:
+          command: publish
+          args: --token ${{ secrets.CARGO_API_KEY }} --allow-dirty
 
-      # - name: Commit nuspec to kdash-rs/choco-kdash
-      #   uses: dmnemec/copy_file_to_another_repo_action@main
-      #   env:
-      #     API_TOKEN_GITHUB: ${{ secrets.CHOCO_GITHUB_TOKEN }}
-      #   with:
-      #     source_file: "kdash.nuspec"
-      #     destination_repo: "kdash-rs/choco-kdash"
-      #     user_email: "d4udts@gmail.com"
-      #     user_name: "deepu105"
-      #     commit_message: "Update nuspec for KDash release ${{ env.RELEASE_VERSION }}"
-
-      # - name: Commit chocolateyinstall to kdash-rs/choco-kdash
-      #   uses: dmnemec/copy_file_to_another_repo_action@main
-      #   env:
-      #     API_TOKEN_GITHUB: ${{ secrets.CHOCO_GITHUB_TOKEN }}
-      #   with:
-      #     source_file: "chocolateyinstall.ps1"
-      #     destination_repo: "kdash-rs/choco-kdash"
-      #     destination_folder: "tools"
-      #     user_email: "d4udts@gmail.com"
-      #     user_name: "deepu105"
-      #     commit_message: "Update chocolateyinstall for KDash release ${{ env.RELEASE_VERSION }}"
-
-  # publish-cargo:
-  #   name: Publishing to Cargo
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v2
-  #     - uses: actions-rs/toolchain@v1
-  #       with:
-  #         toolchain: stable
-  #         override: true
-  #     - run: |
-  #         sudo apt-get update
-  #         sudo apt-get install -y -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
-  #     - uses: actions-rs/cargo@v1
-  #       with:
-  #         command: publish
-  #         args: --token ${{ secrets.CARGO_API_KEY }} --allow-dirty
-
-  # publish-docker-image:
-  #   name: Publishing Docker image to Docker Hub
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Check out the repo
-  #       uses: actions/checkout@v2
-  #     - name: Push to Docker Hub
-  #       uses: docker/build-push-action@v1
-  #       with:
-  #         username: ${{ secrets.DOCKER_USERNAME }}
-  #         password: ${{ secrets.DOCKER_PASSWORD }}
-  #         repository: deepu105/kdash
-  #         tag_with_ref: true
+  publish-docker-image:
+    name: Publishing Docker image to Docker Hub
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+      - name: Push to Docker Hub
+        uses: docker/build-push-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          repository: deepu105/kdash
+          tag_with_ref: true
