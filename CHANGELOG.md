@@ -1,7 +1,8 @@
 # Changelog
 
-## [0.0.10] - 17-May-2021
+## [0.1.0] - 17-May-2021
 
+- Stable release
 - Minor bug fixes
 - Add vim key bindings for arrow keys
 - Chocolatey deployment for Windows 10
