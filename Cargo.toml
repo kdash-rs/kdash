@@ -35,7 +35,7 @@ textwrap = "0.13"
 itertools = "0.10.0"
 regex = "1"
 clipboard = "0.5"
-kube = "0.52"
+kube = "0.53"
 kube-runtime = "0.52"
 k8s-openapi = { version = "0.11", default-features = false, features = ["v1_20"] }
 openssl = { version = "0.10.34", features = ["vendored"] }
