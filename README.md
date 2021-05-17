@@ -15,7 +15,7 @@
 
 [![Follow Deepu K Sasidharan (deepu105)](https://img.shields.io/twitter/follow/deepu105?label=Follow%20Deepu%20K%20Sasidharan%20%28deepu105%29&style=social)](https://twitter.com/intent/follow?screen_name=deepu105)
 
-**Note**: This is a beta version and is being actively developed. Feedback, feature requests and contributions are welcome
+**Note**: Feedback, feature requests and contributions are welcome
 
 ```rust
  _  __ ___             _
@@ -55,13 +55,13 @@ Since validation of the package takes time, it may take a while to become availa
 choco install kdash
 
 # Version number may be required for newer releases, if available:
-choco install kdash --version=0.0.9
+choco install kdash --version=0.1.0
 ```
 
 To upgrade
 
 ```bash
-choco upgrade kdash --version=0.0.9
+choco upgrade kdash --version=0.1.0
 ```
 
 ### Install script
