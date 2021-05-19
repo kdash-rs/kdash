@@ -15,14 +15,7 @@
 
 [![Follow Deepu K Sasidharan (deepu105)](https://img.shields.io/twitter/follow/deepu105?label=Follow%20Deepu%20K%20Sasidharan%20%28deepu105%29&style=social)](https://twitter.com/intent/follow?screen_name=deepu105)
 
-**Note**: Feedback, feature requests and contributions are welcome
-
-```rust
- _  __ ___             _
-| |/ /|   \  __ _  ___| |_
-| ' < | |) |/ _` |(_-<| ' \
-|_|\_\|___/ \__,_|/__/|_||_|
-```
+![logo](artwork/logo.png)
 
 A simple terminal dashboard for Kubernetes built with Rust
 
