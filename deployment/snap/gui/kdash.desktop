@@ -1,9 +1,0 @@
-[Desktop Entry]
-Name=KDash
-Exec=kdash
-Comment=A fast and simple dashboard for Kubernetes
-Icon=${SNAP}/meta/gui/kdash.png
-Type=Application
-Terminal=true
-StartupNotify=false
-Categories=Programming;
