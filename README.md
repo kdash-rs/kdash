@@ -19,7 +19,7 @@
 
 A simple terminal dashboard for Kubernetes built with Rust
 
-![UI](./ui.gif)
+![UI](./screenshots/ui.gif)
 
 ## Installation
 
