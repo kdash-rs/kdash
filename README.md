@@ -39,6 +39,14 @@ To upgrade
 brew upgrade kdash
 ```
 
+### Scoop (Windows - Recommended)
+
+```bash
+scoop bucket add kdash-bucket https://github.com/kdash-rs/scoop-kdash
+
+scoop install kdash
+```
+
 ### Chocolatey (Windows)
 
 Choco package located [here](https://chocolatey.org/packages/kdash).

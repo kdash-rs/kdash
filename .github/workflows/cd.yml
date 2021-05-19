@@ -221,6 +221,19 @@ jobs:
           git diff-index --quiet HEAD || git commit -am "Update package for KDash release ${{ env.RELEASE_VERSION }}"
           git push origin main
 
+      - name: Execute Scoop packaging script
+        run: |
+          python "./deployment/scoop/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/scoop/kdash.json.template" "./kdash.json" ${{ env.WINDOWS_SHA }}
+          git config --global user.email "d4udts@gmail.com"
+          git config --global user.name "deepu105"
+          git clone https://deepu105:${{ secrets.CHOCO_GITHUB_TOKEN }}@github.com/kdash-rs/scoop-kdash --branch=main scoop
+          rm scoop/kdash.json
+          cp kdash.json scoop/kdash.json
+          cd scoop
+          git add .
+          git diff-index --quiet HEAD || git commit -am "Update package for KDash release ${{ env.RELEASE_VERSION }}"
+          git push origin main
+
   publish-cargo:
     name: Publishing to Cargo
     runs-on: ubuntu-latest
