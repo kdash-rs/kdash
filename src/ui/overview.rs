@@ -92,7 +92,8 @@ fn draw_cli_version_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rec
 
     let table = Table::new(rows)
       .block(block)
-      .widths(&[Constraint::Percentage(50), Constraint::Percentage(50)]);
+      // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
+      .widths(&[Constraint::Percentage(50), Constraint::Percentage(49)]);
     f.render_widget(table, area);
   } else {
     loading(f, block, area, app.is_loading);
@@ -414,7 +415,8 @@ fn draw_namespaces_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect
       .block(block)
       .highlight_style(style_highlight())
       .highlight_symbol(HIGHLIGHT)
-      .widths(&[Constraint::Percentage(80), Constraint::Percentage(20)]);
+      // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
+      .widths(&[Constraint::Percentage(80), Constraint::Percentage(19)]);
 
     f.render_stateful_widget(table, area, &mut app.data.namespaces.state);
   } else {
@@ -435,7 +437,8 @@ fn draw_pods_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
       table_headers: vec!["Namespace", "Name", "Ready", "Status", "Restarts", "Age"],
       column_widths: vec![
         Constraint::Percentage(25),
-        Constraint::Percentage(35),
+        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
+        Constraint::Percentage(34),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
@@ -481,7 +484,8 @@ fn draw_containers_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect
       ],
       column_widths: vec![
         Constraint::Percentage(20),
-        Constraint::Percentage(30),
+        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
+        Constraint::Percentage(29),
         Constraint::Percentage(5),
         Constraint::Percentage(10),
         Constraint::Percentage(5),
@@ -528,7 +532,8 @@ fn draw_nodes_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         "Mem/A", "Age",
       ],
       column_widths: vec![
-        Constraint::Percentage(25),
+        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
+        Constraint::Percentage(24),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
@@ -589,8 +594,9 @@ fn draw_services_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) 
         "Age",
       ],
       column_widths: vec![
+        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
         Constraint::Percentage(10),
-        Constraint::Percentage(25),
+        Constraint::Percentage(24),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
         Constraint::Percentage(15),
@@ -628,7 +634,8 @@ fn draw_config_maps_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rec
       table_headers: vec!["Namespace", "Name", "Data", "Age"],
       column_widths: vec![
         Constraint::Percentage(30),
-        Constraint::Percentage(40),
+        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
+        Constraint::Percentage(39),
         Constraint::Percentage(15),
         Constraint::Percentage(15),
       ],
@@ -660,7 +667,8 @@ fn draw_stateful_sets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: R
       table_headers: vec!["Namespace", "Name", "Ready", "Service", "Age"],
       column_widths: vec![
         Constraint::Percentage(25),
-        Constraint::Percentage(30),
+        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
+        Constraint::Percentage(29),
         Constraint::Percentage(10),
         Constraint::Percentage(25),
         Constraint::Percentage(10),
@@ -699,7 +707,8 @@ fn draw_replica_sets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Re
       table_headers: vec!["Namespace", "Name", "Desired", "Current", "Ready", "Age"],
       column_widths: vec![
         Constraint::Percentage(25),
-        Constraint::Percentage(35),
+        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
+        Constraint::Percentage(34),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
@@ -742,7 +751,8 @@ fn draw_deployments_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rec
       ],
       column_widths: vec![
         Constraint::Percentage(25),
-        Constraint::Percentage(35),
+        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
+        Constraint::Percentage(34),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
@@ -978,8 +988,8 @@ mod tests {
       "│ Pods <1> │ Services <2> │ Nodes <3> │ ConfigMaps <4> │ StatefulSets <5> │ ReplicaSets <6> │ Deplo│",
       "│                                                                                                  │",
       "│Pods (ns: all) [1] | Containers <enter> | describe <d> | yaml <y>─────────────────────────────────│",
-      "│   Namespace               Name                             Ready     Status    Restarts  Age     │",
-      "│=> pod namespace test      pod name test                    0/2       Failed    0         6h52m   │",
+      "│   Namespace               Name                            Ready     Status    Restarts  Age      │",
+      "│=> pod namespace test      pod name test                   0/2       Failed    0         6h52m    │",
       "└──────────────────────────────────────────────────────────────────────────────────────────────────┘",
     ]);
     // set row styles
@@ -1134,7 +1144,8 @@ mod tests {
             table_headers: vec!["Namespace", "Name", "Data", "Age"],
             column_widths: vec![
               Constraint::Percentage(30),
-              Constraint::Percentage(40),
+              // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
+              Constraint::Percentage(39),
               Constraint::Percentage(15),
               Constraint::Percentage(15),
             ],
@@ -1156,10 +1167,10 @@ mod tests {
 
     let mut expected = Buffer::with_lines(vec![
       "Test-> yaml <y>─────────────────────────────────────────────────────────────────────────────────────",
-      "   Namespace                    Name                                   Data           Age           ",
-      "=> Test ns                      Test 1                                 5              65h3m         ",
-      "   Test ns                      Test long name that should be truncate 3              65h3m         ",
-      "   Test ns long value check tha test_long_name_that_should_be_truncate 6              65h3m         ",
+      "   Namespace                    Name                                  Data           Age            ",
+      "=> Test ns                      Test 1                                5              65h3m          ",
+      "   Test ns                      Test long name that should be truncat 3              65h3m          ",
+      "   Test ns long value check tha test_long_name_that_should_be_truncat 6              65h3m          ",
       "                                                                                                    ",
     ]);
     // set row styles
