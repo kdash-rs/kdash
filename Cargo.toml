@@ -30,7 +30,7 @@ tokio-stream = { version = "0.1.6", features = ["time"] }
 rand = "0.8"
 duct = "0.13"
 anyhow = "1.0.38"
-backtrace = "0.3.59"
+backtrace = "0.3.60"
 textwrap = "0.13"
 itertools = "0.10.0"
 regex = "1"
