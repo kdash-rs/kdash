@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.1.1] - 04-June-2021
+
+- Fix a small bug that crashes the app in certain terminal size
+
 ## [0.1.0] - 17-May-2021
 
 - Stable release
