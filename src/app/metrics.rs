@@ -17,8 +17,8 @@ use super::{utils, App};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Usage {
-  pub cpu: String,
-  pub memory: String,
+  cpu: String,
+  memory: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
