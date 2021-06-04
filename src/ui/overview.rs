@@ -1,5 +1,6 @@
 use super::super::app::{
-  key_binding::DEFAULT_KEYBINDING, models::StatefulTable, nodes::NodeMetrics, ActiveBlock, App,
+  key_binding::DEFAULT_KEYBINDING, metrics::KubeNodeMetrics, models::StatefulTable, ActiveBlock,
+  App,
 };
 use super::super::banner::BANNER;
 use super::utils::{
@@ -855,7 +856,10 @@ fn draw_resource_block<'a, B, T, F>(
 }
 
 /// covert percent value from metrics to ratio that gauge can understand
-fn get_nm_ratio(node_metrics: &[NodeMetrics], f: fn(a: f64, b: &NodeMetrics) -> f64) -> f64 {
+fn get_nm_ratio(
+  node_metrics: &[KubeNodeMetrics],
+  f: fn(a: f64, b: &KubeNodeMetrics) -> f64,
+) -> f64 {
   if !node_metrics.is_empty() {
     let sum = node_metrics.iter().fold(0f64, f);
     (sum / node_metrics.len() as f64) / 100f64
@@ -1217,13 +1221,13 @@ mod tests {
       0.0f64
     );
     app.data.node_metrics = vec![
-      NodeMetrics {
+      KubeNodeMetrics {
         cpu_percent: 80f64,
-        ..NodeMetrics::default()
+        ..KubeNodeMetrics::default()
       },
-      NodeMetrics {
+      KubeNodeMetrics {
         cpu_percent: 60f64,
-        ..NodeMetrics::default()
+        ..KubeNodeMetrics::default()
       },
     ];
     assert_eq!(

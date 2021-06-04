@@ -11,11 +11,14 @@ use kube::api::ObjectList;
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, collections::BTreeMap};
 use std::{collections::HashMap, str::FromStr};
+use tokio::sync::MutexGuard;
+
+use super::{utils, App};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Usage {
-  cpu: String,
-  memory: String,
+  pub cpu: String,
+  pub memory: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,6 +33,42 @@ pub struct PodMetrics {
   containers: Vec<Container>,
   timestamp: String,
   window: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeMetrics {
+  metadata: kube::api::ObjectMeta,
+  usage: Usage,
+  timestamp: String,
+  window: String,
+}
+
+#[derive(Clone, Default)]
+pub struct KubeNodeMetrics {
+  pub name: String,
+  pub cpu: String,
+  pub cpu_percent: f64,
+  pub mem: String,
+  pub mem_percent: f64,
+}
+
+impl KubeNodeMetrics {
+  pub fn from_api(metric: &NodeMetrics, app: &MutexGuard<App>) -> Self {
+    let name = metric.metadata.name.clone().unwrap_or_default();
+
+    let (cpu_percent, mem_percent) = match app.data.node_metrics.iter().find(|it| it.name == name) {
+      Some(nm) => (nm.cpu_percent, nm.mem_percent),
+      None => (0f64, 0f64),
+    };
+
+    KubeNodeMetrics {
+      name,
+      cpu: utils::cpu_to_milli(metric.usage.cpu.trim_matches('"').to_owned()),
+      mem: utils::mem_to_mi(metric.usage.memory.trim_matches('"').to_owned()),
+      cpu_percent,
+      mem_percent,
+    }
+  }
 }
 
 #[derive(Debug, Clone, Default)]

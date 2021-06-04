@@ -2,7 +2,7 @@ use k8s_openapi::{
   api::core::v1::{Node, Pod},
   chrono::Utc,
 };
-use kube::api::{DynamicObject, ObjectList};
+use kube::api::ObjectList;
 use tokio::sync::MutexGuard;
 
 use super::{
@@ -10,15 +10,6 @@ use super::{
   utils::{self, UNKNOWN},
   App,
 };
-
-#[derive(Clone, Default)]
-pub struct NodeMetrics {
-  pub name: String,
-  pub cpu: String,
-  pub cpu_percent: f64,
-  pub mem: String,
-  pub mem_percent: f64,
-}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct KubeNode {
@@ -172,39 +163,11 @@ impl KubeResource<Node> for KubeNode {
   }
 }
 
-impl NodeMetrics {
-  pub fn from_api(metric: &DynamicObject, app: &MutexGuard<App>) -> Self {
-    let name = metric.metadata.name.clone().unwrap_or_default();
-
-    let (cpu_percent, mem_percent) = match app.data.node_metrics.iter().find(|it| it.name == name) {
-      Some(nm) => (nm.cpu_percent, nm.mem_percent),
-      None => (0f64, 0f64),
-    };
-
-    NodeMetrics {
-      name: metric.metadata.name.clone().unwrap_or_default(),
-      cpu: utils::cpu_to_milli(
-        metric.data["usage"]["cpu"]
-          .to_string()
-          .trim_matches('"')
-          .to_owned(),
-      ),
-      mem: utils::mem_to_mi(
-        metric.data["usage"]["memory"]
-          .to_string()
-          .trim_matches('"')
-          .to_owned(),
-      ),
-      cpu_percent,
-      mem_percent,
-    }
-  }
-}
-
 #[cfg(test)]
 mod tests {
   use tokio::sync::Mutex;
 
+  use super::super::metrics::KubeNodeMetrics;
   use super::super::test_utils::{get_time, load_resource_from_file};
   use super::*;
 
@@ -214,7 +177,7 @@ mod tests {
     let node_list = nodes.items.clone();
     let pods_list = load_resource_from_file("pods");
     let mut app = App::default();
-    app.data.node_metrics = vec![NodeMetrics {
+    app.data.node_metrics = vec![KubeNodeMetrics {
       name: "gke-hello-hipster-default-pool-9e6f6ffb-q16l".into(),
       cpu: "1414m".into(),
       cpu_percent: 0f64,

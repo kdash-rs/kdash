@@ -2,9 +2,9 @@ use super::super::app::{
   configmaps::KubeConfigMap,
   contexts,
   deployments::KubeDeployment,
-  metrics::{self, Resource},
+  metrics::{self, KubeNodeMetrics, Resource},
   models::KubeResource,
-  nodes::{KubeNode, NodeMetrics},
+  nodes::KubeNode,
   ns::KubeNs,
   pods::KubePod,
   replicasets::KubeReplicaSet,
@@ -16,7 +16,7 @@ use super::Network;
 use anyhow::anyhow;
 use k8s_openapi::api::core::v1::{Namespace, Node, Pod};
 use kube::{
-  api::{DynamicObject, GroupVersionKind, ListMeta, ListParams, ObjectList, Request},
+  api::{ListMeta, ListParams, ObjectList, Request},
   config::Kubeconfig,
   Api, Resource as ApiResource,
 };
@@ -42,16 +42,19 @@ impl<'a> Network<'a> {
 
   pub async fn get_node_metrics(&self) {
     // custom request since metrics API doesnt exist on kube-rs
-    let gvk = GroupVersionKind::gvk("metrics.k8s.io", "v1beta1", "nodemetrics").unwrap();
-    let api: Api<DynamicObject> = Api::all_with(self.client.clone(), &gvk);
-    match api.list(&ListParams::default()).await {
-      Ok(metrics) => {
+    let request = Request::new("/apis/metrics.k8s.io/v1beta1/nodes");
+    match self
+      .client
+      .clone()
+      .request::<ObjectList<metrics::NodeMetrics>>(request.list(&ListParams::default()).unwrap())
+      .await
+    {
+      Ok(node_metrics) => {
         let mut app = self.app.lock().await;
 
-        let items = metrics
-          .items
+        let items = node_metrics
           .iter()
-          .map(|metric| NodeMetrics::from_api(metric, &app))
+          .map(|metric| KubeNodeMetrics::from_api(metric, &app))
           .collect();
 
         app.data.node_metrics = items;
@@ -59,7 +62,8 @@ impl<'a> Network<'a> {
       Err(_) => {
         let mut app = self.app.lock().await;
         app.data.node_metrics = vec![];
-        // lets not show error as it will always be showing
+        // lets not show error as it will always be showing up and be annoying
+        // TODO may eb show once and then disable polling
       }
     };
   }
@@ -112,7 +116,7 @@ impl<'a> Network<'a> {
           self.handle_error(anyhow!("Failed to compute utilization metrics. {:?}", e)).await;
         }
       }
-      Err(_e) => self.handle_error(anyhow!("Failed to gather utilization metrics. Make sure you have a metrics-server deployed on your cluster.")).await,
+      Err(_e) => self.handle_error(anyhow!("Failed to gather pod utilization metrics. Make sure you have a metrics-server deployed on your cluster.")).await,
     };
 
     let mut app = self.app.lock().await;
