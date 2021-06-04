@@ -39,7 +39,7 @@ To upgrade
 brew upgrade kdash
 ```
 
-### Scoop (Windows - Recommended)
+### Scoop (Windows - Recommended way)
 
 ```bash
 scoop bucket add kdash-bucket https://github.com/kdash-rs/scoop-kdash
@@ -67,7 +67,11 @@ choco upgrade kdash --version=0.1.0
 
 ### Install script
 
-TODO
+Run the below command to install the latest binary. Run with sudo if you dont have write access to /usr/local/bin. Else the script will install to current directory
+
+```sh
+curl https://raw.githubusercontent.com/kdash-rs/kdash/main/deployment/getLatest.sh | bash
+```
 
 ### Manual
 
