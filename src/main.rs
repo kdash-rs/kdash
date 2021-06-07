@@ -19,10 +19,8 @@ use network::{
 };
 
 use anyhow::Result;
-use backtrace::Backtrace;
 use crossterm::{
   execute,
-  style::Print,
   terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::{
@@ -220,29 +218,47 @@ fn shutdown(mut terminal: Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
   Ok(())
 }
 
+#[cfg(debug_assertions)]
 fn panic_hook(info: &PanicInfo<'_>) {
-  if cfg!(debug_assertions) {
-    let location = info.location().unwrap();
+  use backtrace::Backtrace;
+  use crossterm::style::Print;
 
-    let msg = match info.payload().downcast_ref::<&'static str>() {
-      Some(s) => *s,
-      None => match info.payload().downcast_ref::<String>() {
-        Some(s) => &s[..],
-        None => "Box<Any>",
-      },
-    };
+  let location = info.location().unwrap();
 
-    let stacktrace: String = format!("{:?}", Backtrace::new()).replace('\n', "\n\r");
+  let msg = match info.payload().downcast_ref::<&'static str>() {
+    Some(s) => *s,
+    None => match info.payload().downcast_ref::<String>() {
+      Some(s) => &s[..],
+      None => "Box<Any>",
+    },
+  };
 
-    disable_raw_mode().unwrap();
-    execute!(
-      io::stdout(),
-      LeaveAlternateScreen,
-      Print(format!(
-        "thread '<unnamed>' panicked at '{}', {}\n\r{}",
-        msg, location, stacktrace
-      )),
-    )
-    .unwrap();
-  }
+  let stacktrace: String = format!("{:?}", Backtrace::new()).replace('\n', "\n\r");
+
+  disable_raw_mode().unwrap();
+  execute!(
+    io::stdout(),
+    LeaveAlternateScreen,
+    Print(format!(
+      "thread '<unnamed>' panicked at '{}', {}\n\r{}",
+      msg, location, stacktrace
+    )),
+  )
+  .unwrap();
+}
+
+#[cfg(not(debug_assertions))]
+fn panic_hook(info: &PanicInfo<'_>) {
+  use human_panic::{handle_dump, print_msg, Metadata};
+
+  let meta = Metadata {
+    version: env!("CARGO_PKG_VERSION").into(),
+    name: env!("CARGO_PKG_NAME").into(),
+    authors: env!("CARGO_PKG_AUTHORS").replace(":", ", ").into(),
+    homepage: env!("CARGO_PKG_HOMEPAGE").into(),
+  };
+  let file_path = handle_dump(&meta, info);
+  disable_raw_mode().unwrap();
+  execute!(io::stdout(), LeaveAlternateScreen).unwrap();
+  print_msg(file_path, &meta).expect("human-panic: printing error message to console failed");
 }

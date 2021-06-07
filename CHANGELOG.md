@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.1.2 - Unreleased] - 07-June-2021
+
+- Add friendly crash messages
+
 ## [0.1.1] - 04-June-2021
 
 - Fix a small bug that crashes the app in certain terminal size
