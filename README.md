@@ -129,7 +129,7 @@ Press `?` while running the app to see keybindings
 - [Windows] KDash looks better on CMD since Powershell's default theme makes the colours look weird.
 - [Windows] If using k3d for local clusters, set the server URL to 127.0.0.1 as 0.0.0.0 doesn't work with kube-rs. You can use `k3d cluster create --api-port 127.0.0.1:6550` or change the `cluster.server` value in your `.kube/config` for the k3d cluster to `127.0.0.1:<port>`
 
-## Features & Todos
+## Features
 
 - CLI Info
 - Resource Watch (configurable polling interval with `-p` flag)
@@ -142,15 +142,10 @@ Press `?` while running the app to see keybindings
   - [x] StatefulSets
   - [x] ReplicaSets
   - [x] Deployments
-- Describe/YAML resources
-  - [x] select/copy output
-  - [x] Pods
-  - [x] Nodes
-  - [x] Services
-  - [x] Deployments
-  - [x] ConfigMaps
-  - [x] StatefulSets
-  - [x] ReplicaSets
+- Describe resources
+  - [x] copy output
+- Get YAML for resources
+  - [x] copy output
 - Stream logs/events
   - [x] select/copy output
   - [x] Containers
@@ -167,7 +162,6 @@ Press `?` while running the app to see keybindings
 - [x] Dark/Light themes
 - [ ] Custom keymap
 - [ ] Custom theme
-- [ ] Tests, a lot of them :)
 
 ## Screenshots
 
@@ -209,7 +203,7 @@ Press `?` while running the app to see keybindings
 
 KDash only offers a view of most used resources with a focus on speed and UX. Really, if something is slow or have bad UX then please raise a bug. Hence the UI/UX is designed to be more user friendly and easier to navigate with contextual help everywhere and a tab system to switch between different resources easily.
 
-At least for now there are no plans to add CRUD for resources
+At least for now there are no plans to add full CRUD for resources but we will add more resources and more useful actions
 
 ## Licence
 
