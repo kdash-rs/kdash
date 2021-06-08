@@ -1,10 +1,10 @@
-use super::super::app::{metrics::Qty, App};
-use super::tree;
+use super::super::app::App;
 use super::utils::{
   layout_block_active, loading, style_highlight, style_primary, style_success, style_warning,
   table_header_style,
 };
 
+use kubectl_view_allocations::{qty::Qty, tree::provide_prefix};
 use tui::{
   backend::Backend,
   layout::{Constraint, Rect},
@@ -28,7 +28,7 @@ pub fn draw_utilization<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect)
   if !app.data.metrics.items.is_empty() {
     let data = &app.data.metrics.items;
 
-    let prefixes = tree::provide_prefix(&data, |parent, item| parent.0.len() + 1 == item.0.len());
+    let prefixes = provide_prefix(&data, |parent, item| parent.0.len() + 1 == item.0.len());
 
     // Create the table
     let mut rows: Vec<Row> = vec![];

@@ -17,7 +17,7 @@ use self::{
   contexts::KubeContext,
   deployments::KubeDeployment,
   key_binding::DEFAULT_KEYBINDING,
-  metrics::{GroupBy, KubeNodeMetrics, QtyByQualifier},
+  metrics::KubeNodeMetrics,
   models::{LogsState, ScrollableTxt, StatefulTable, TabsState},
   nodes::KubeNode,
   ns::KubeNs,
@@ -31,6 +31,7 @@ use super::network::{stream::IoStreamEvent, IoEvent};
 
 use anyhow::anyhow;
 use kube::config::Kubeconfig;
+use kubectl_view_allocations::{GroupBy, QtyByQualifier};
 use tokio::sync::mpsc::Sender;
 use tui::layout::Rect;
 
@@ -229,10 +230,10 @@ impl Default for App {
       refresh: true,
       log_auto_scroll: true,
       utilization_group_by: vec![
-        GroupBy::Resource,
-        GroupBy::Node,
-        GroupBy::Namespace,
-        GroupBy::Pod,
+        GroupBy::resource,
+        GroupBy::node,
+        GroupBy::namespace,
+        GroupBy::pod,
       ],
       help_docs: StatefulTable::with_items(key_binding::get_help_docs()),
       data: Data::default(),

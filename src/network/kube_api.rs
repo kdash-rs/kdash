@@ -2,7 +2,7 @@ use super::super::app::{
   configmaps::KubeConfigMap,
   contexts,
   deployments::KubeDeployment,
-  metrics::{self, KubeNodeMetrics, Resource},
+  metrics::{self, KubeNodeMetrics},
   models::KubeResource,
   nodes::KubeNode,
   ns::KubeNs,
@@ -19,6 +19,10 @@ use kube::{
   api::{ListMeta, ListParams, ObjectList, Request},
   config::Kubeconfig,
   Api, Resource as ApiResource,
+};
+use kubectl_view_allocations::{
+  extract_allocatable_from_nodes, extract_allocatable_from_pods,
+  extract_utilizations_from_pod_metrics, make_qualifiers, metrics::PodMetrics, Resource,
 };
 use serde::de::DeserializeOwned;
 use std::fmt;
@@ -41,14 +45,9 @@ impl<'a> Network<'a> {
   }
 
   pub async fn get_node_metrics(&self) {
-    // custom request since metrics API doesnt exist on kube-rs
-    let request = Request::new("/apis/metrics.k8s.io/v1beta1/nodes");
-    match self
-      .client
-      .clone()
-      .request::<ObjectList<metrics::NodeMetrics>>(request.list(&ListParams::default()).unwrap())
-      .await
-    {
+    let api_node_metrics: Api<metrics::NodeMetrics> = Api::all(self.client.clone());
+
+    match api_node_metrics.list(&ListParams::default()).await {
       Ok(node_metrics) => {
         let mut app = self.app.lock().await;
 
@@ -63,7 +62,7 @@ impl<'a> Network<'a> {
         let mut app = self.app.lock().await;
         app.data.node_metrics = vec![];
         // lets not show error as it will always be showing up and be annoying
-        // TODO may eb show once and then disable polling
+        // TODO may be show once and then disable polling
       }
     };
   }
@@ -74,15 +73,21 @@ impl<'a> Network<'a> {
     let api: Api<Node> = Api::all(self.client.clone());
     match api.list(&ListParams::default()).await {
       Ok(node_list) => {
-        if let Err(e) = Resource::compute_node_utilizations(node_list, &mut resources).await {
+        if let Err(e) = extract_allocatable_from_nodes(node_list, &mut resources).await {
           self
-            .handle_error(anyhow!("Failed to compute node metrics. {:?}", e))
+            .handle_error(anyhow!(
+              "Failed to extract node allocation metrics. {:?}",
+              e
+            ))
             .await;
         }
       }
       Err(e) => {
         self
-          .handle_error(anyhow!("Failed to gather node metrics. {:?}", e))
+          .handle_error(anyhow!(
+            "Failed to extract node allocation metrics. {:?}",
+            e
+          ))
           .await
       }
     }
@@ -90,15 +95,15 @@ impl<'a> Network<'a> {
     let api: Api<Pod> = self.get_namespaced_api().await;
     match api.list(&ListParams::default()).await {
       Ok(pod_list) => {
-        if let Err(e) = Resource::compute_pod_utilizations(pod_list, &mut resources).await {
+        if let Err(e) = extract_allocatable_from_pods(pod_list, &mut resources).await {
           self
-            .handle_error(anyhow!("Failed to compute pod metrics. {:?}", e))
+            .handle_error(anyhow!("Failed to extract pod allocation metrics. {:?}", e))
             .await;
         }
       }
       Err(e) => {
         self
-          .handle_error(anyhow!("Failed to gather pod metrics. {:?}", e))
+          .handle_error(anyhow!("Failed to extract pod allocation metrics. {:?}", e))
           .await
       }
     }
@@ -108,20 +113,20 @@ impl<'a> Network<'a> {
     match self
       .client
       .clone()
-      .request::<ObjectList<metrics::PodMetrics>>(request.list(&ListParams::default()).unwrap())
+      .request::<ObjectList<PodMetrics>>(request.list(&ListParams::default()).unwrap())
       .await
     {
       Ok(pod_metrics) => {
-        if let Err(e) = Resource::compute_utilizations_metrics(pod_metrics, &mut resources).await {
-          self.handle_error(anyhow!("Failed to compute utilization metrics. {:?}", e)).await;
+        if let Err(e) = extract_utilizations_from_pod_metrics(pod_metrics, &mut resources).await {
+          self.handle_error(anyhow!("Failed to extract pod utilization metrics. {:?}", e)).await;
         }
       }
-      Err(_e) => self.handle_error(anyhow!("Failed to gather pod utilization metrics. Make sure you have a metrics-server deployed on your cluster.")).await,
+      Err(_e) => self.handle_error(anyhow!("Failed to extract pod utilization metrics. Make sure you have a metrics-server deployed on your cluster.")).await,
     };
 
     let mut app = self.app.lock().await;
 
-    let data = Resource::make_qualifiers(&resources, &app.utilization_group_by);
+    let data = make_qualifiers(&resources, &app.utilization_group_by, &[]);
 
     app.data.metrics.set_items(data);
   }

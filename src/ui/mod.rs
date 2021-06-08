@@ -1,7 +1,6 @@
 mod contexts;
 mod help;
 mod overview;
-mod tree;
 mod utilization;
 mod utils;
 

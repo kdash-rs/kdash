@@ -1,0 +1,35 @@
+{
+  "kind": "NodeMetricsList",
+  "apiVersion": "metrics.k8s.io/v1beta1",
+  "metadata": {
+    "selfLink": "/apis/metrics.k8s.io/v1beta1/nodes"
+  },
+  "items": [
+    {
+      "metadata": {
+        "name": "k3d-my-kdash-cluster-server-0",
+        "selfLink": "/apis/metrics.k8s.io/v1beta1/nodes/k3d-my-kdash-cluster-server-0",
+        "creationTimestamp": "2021-06-08T08:38:53Z"
+      },
+      "timestamp": "2021-06-08T08:38:43Z",
+      "window": "30s",
+      "usage": {
+        "cpu": "162953844n",
+        "memory": "582980Ki"
+      }
+    },
+    {
+      "metadata": {
+        "name": "k3d-my-kdash-cluster-server-1",
+        "selfLink": "/apis/metrics.k8s.io/v1beta1/nodes/k3d-my-kdash-cluster-server-0",
+        "creationTimestamp": "2021-06-08T08:38:53Z"
+      },
+      "timestamp": "2021-06-08T08:38:43Z",
+      "window": "30s",
+      "usage": {
+        "cpu": "102953844n",
+        "memory": "282980Ki"
+      }
+    }
+  ]
+}

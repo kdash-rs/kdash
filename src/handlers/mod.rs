@@ -1,11 +1,11 @@
 use crossterm::event::{MouseEvent, MouseEventKind};
+use kubectl_view_allocations::GroupBy;
 use serde::Serialize;
 
 use crate::app::models::KubeResource;
 
 use super::app::{
   key_binding::DEFAULT_KEYBINDING,
-  metrics::GroupBy,
   models::{Scrollable, ScrollableTxt, StatefulTable},
   ActiveBlock, App, RouteId,
 };
@@ -318,10 +318,10 @@ async fn handle_route_events(key: Key, app: &mut App) {
       if key == DEFAULT_KEYBINDING.cycle_group_by.key {
         if app.utilization_group_by.len() == 1 {
           app.utilization_group_by = vec![
-            GroupBy::Resource,
-            GroupBy::Node,
-            GroupBy::Namespace,
-            GroupBy::Pod,
+            GroupBy::resource,
+            GroupBy::node,
+            GroupBy::namespace,
+            GroupBy::pod,
           ];
         } else {
           // keep removing items until just one is left
