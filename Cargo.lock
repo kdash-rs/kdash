@@ -772,7 +772,7 @@ dependencies = [
 [[package]]
 name = "kubectl-view-allocations"
 version = "0.14.1-dev"
-source = "git+https://github.com/deepu105/kubectl-view-allocations?branch=lib_improvements#fbb107f35908f9d7962698283002eed545fc1c51"
+source = "git+https://github.com/deepu105/kubectl-view-allocations?branch=lib_improvements#24cc8e8eb0769cb29c24668f34c72be744851d39"
 dependencies = [
  "chrono",
  "itertools",
