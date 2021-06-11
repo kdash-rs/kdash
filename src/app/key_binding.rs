@@ -24,6 +24,7 @@ generate_keybindings! {
   submit,
   refresh,
   toggle_theme,
+  cycle_main_views,
   jump_to_current_context,
   jump_to_all_context,
   jump_to_utilization,
@@ -121,6 +122,12 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
     key: Key::Char('U'),
     alt: None,
     desc: "Switch to resource utilization view",
+    context: HContext::General,
+  },
+  cycle_main_views: KeyBinding {
+    key: Key::Tab,
+    alt: None,
+    desc: "Cycle through main views",
     context: HContext::General,
   },
   copy_to_clipboard: KeyBinding {

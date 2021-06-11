@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use super::ActiveBlock;
+use super::Route;
 use serde::Serialize;
 use tui::{
   backend::Backend,
@@ -106,48 +106,38 @@ impl<T: Clone> StatefulTable<T> {
   }
 }
 
+#[derive(Clone)]
+pub struct TabRoute {
+  pub title: String,
+  pub route: Route,
+}
+
 pub struct TabsState {
-  pub titles: Vec<String>,
+  pub items: Vec<TabRoute>,
   pub index: usize,
-  pub active_block_ids: Option<Vec<ActiveBlock>>,
-  pub active_block: Option<ActiveBlock>,
 }
 
 impl TabsState {
-  pub fn new(titles: Vec<String>) -> TabsState {
-    TabsState {
-      titles,
-      index: 0,
-      active_block_ids: None,
-      active_block: None,
-    }
+  pub fn new(items: Vec<TabRoute>) -> TabsState {
+    TabsState { items, index: 0 }
   }
-  pub fn with_active_blocks(titles: Vec<String>, blocks: Vec<ActiveBlock>) -> TabsState {
-    TabsState {
-      titles,
-      index: 0,
-      active_block: Some(blocks[0]),
-      active_block_ids: Some(blocks),
-    }
-  }
-  pub fn set_index(&mut self, index: usize) {
+  pub fn set_index(&mut self, index: usize) -> &TabRoute {
     self.index = index;
-    self.set_active();
+    &self.items[self.index]
   }
-  pub fn set_active(&mut self) {
-    self.active_block = self.active_block_ids.as_ref().map(|ids| ids[self.index]);
+  pub fn get_active_route(&self) -> &Route {
+    &self.items[self.index].route
   }
+
   pub fn next(&mut self) {
-    self.index = (self.index + 1) % self.titles.len();
-    self.set_active();
+    self.index = (self.index + 1) % self.items.len();
   }
   pub fn previous(&mut self) {
     if self.index > 0 {
       self.index -= 1;
     } else {
-      self.index = self.titles.len() - 1;
+      self.index = self.items.len() - 1;
     }
-    self.set_active();
   }
 }
 
@@ -338,7 +328,7 @@ impl Scrollable for LogsState {
 
 #[cfg(test)]
 mod tests {
-  use crate::app::ns::KubeNs;
+  use crate::app::{ns::KubeNs, ActiveBlock, RouteId};
 
   use super::*;
   use k8s_openapi::api::core::v1::Namespace;
@@ -419,25 +409,37 @@ mod tests {
 
   #[test]
   fn test_stateful_tab() {
-    let mut tab = TabsState::with_active_blocks(
-      vec!["Hello".into(), "Test".into()],
-      vec![ActiveBlock::Pods, ActiveBlock::Nodes],
-    );
+    let mut tab = TabsState::new(vec![
+      TabRoute {
+        title: "Hello".into(),
+        route: Route {
+          active_block: ActiveBlock::Pods,
+          id: RouteId::Home,
+        },
+      },
+      TabRoute {
+        title: "Test".into(),
+        route: Route {
+          active_block: ActiveBlock::Nodes,
+          id: RouteId::Home,
+        },
+      },
+    ]);
 
     assert_eq!(tab.index, 0);
-    assert_eq!(tab.active_block, Some(ActiveBlock::Pods));
+    assert_eq!(tab.get_active_route().active_block, ActiveBlock::Pods);
     tab.next();
     assert_eq!(tab.index, 1);
-    assert_eq!(tab.active_block, Some(ActiveBlock::Nodes));
+    assert_eq!(tab.get_active_route().active_block, ActiveBlock::Nodes);
     tab.next();
     assert_eq!(tab.index, 0);
-    assert_eq!(tab.active_block, Some(ActiveBlock::Pods));
+    assert_eq!(tab.get_active_route().active_block, ActiveBlock::Pods);
     tab.previous();
     assert_eq!(tab.index, 1);
-    assert_eq!(tab.active_block, Some(ActiveBlock::Nodes));
+    assert_eq!(tab.get_active_route().active_block, ActiveBlock::Nodes);
     tab.previous();
     assert_eq!(tab.index, 0);
-    assert_eq!(tab.active_block, Some(ActiveBlock::Pods));
+    assert_eq!(tab.get_active_route().active_block, ActiveBlock::Pods);
   }
 
   #[test]

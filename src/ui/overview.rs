@@ -111,9 +111,9 @@ fn draw_resource_tabs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: R
 
   let titles = app
     .context_tabs
-    .titles
+    .items
     .iter()
-    .map(|t| Spans::from(Span::styled(t, style_default(app.light_theme))))
+    .map(|t| Spans::from(Span::styled(&t.title, style_default(app.light_theme))))
     .collect();
   let tabs = Tabs::new(titles)
     .block(block)

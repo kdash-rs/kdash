@@ -18,7 +18,7 @@ use self::{
   deployments::KubeDeployment,
   key_binding::DEFAULT_KEYBINDING,
   metrics::KubeNodeMetrics,
-  models::{LogsState, ScrollableTxt, StatefulTable, TabsState},
+  models::{LogsState, ScrollableTxt, StatefulTable, TabRoute, TabsState},
   nodes::KubeNode,
   ns::KubeNs,
   pods::{KubeContainer, KubePod},
@@ -37,7 +37,6 @@ use tui::layout::Rect;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum ActiveBlock {
-  Empty,
   Help,
   Pods,
   Containers,
@@ -63,7 +62,7 @@ pub enum RouteId {
   HelpMenu,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Route {
   pub id: RouteId,
   pub active_block: ActiveBlock,
@@ -181,39 +180,88 @@ impl Default for App {
       title: " KDash - A simple Kubernetes dashboard ",
       should_quit: false,
       main_tabs: TabsState::new(vec![
-        format!(
-          "Active Context {}",
-          DEFAULT_KEYBINDING.jump_to_current_context.key
-        ),
-        format!(
-          "All Contexts {}",
-          DEFAULT_KEYBINDING.jump_to_all_context.key
-        ),
-        format!("Utilization {}", DEFAULT_KEYBINDING.jump_to_utilization.key),
+        TabRoute {
+          title: format!(
+            "Active Context {}",
+            DEFAULT_KEYBINDING.jump_to_current_context.key
+          ),
+          route: Route {
+            active_block: ActiveBlock::Pods,
+            id: RouteId::Home,
+          },
+        },
+        TabRoute {
+          title: format!(
+            "All Contexts {}",
+            DEFAULT_KEYBINDING.jump_to_all_context.key
+          ),
+          route: Route {
+            active_block: ActiveBlock::Contexts,
+            id: RouteId::Contexts,
+          },
+        },
+        TabRoute {
+          title: format!("Utilization {}", DEFAULT_KEYBINDING.jump_to_utilization.key),
+          route: Route {
+            active_block: ActiveBlock::Utilization,
+            id: RouteId::Utilization,
+          },
+        },
       ]),
-      context_tabs: TabsState::with_active_blocks(
-        vec![
-          format!("Pods {}", DEFAULT_KEYBINDING.jump_to_pods.key),
-          format!("Services {}", DEFAULT_KEYBINDING.jump_to_services.key),
-          format!("Nodes {}", DEFAULT_KEYBINDING.jump_to_nodes.key),
-          format!("ConfigMaps {}", DEFAULT_KEYBINDING.jump_to_configmaps.key),
-          format!(
+      context_tabs: TabsState::new(vec![
+        TabRoute {
+          title: format!("Pods {}", DEFAULT_KEYBINDING.jump_to_pods.key),
+          route: Route {
+            active_block: ActiveBlock::Pods,
+            id: RouteId::Home,
+          },
+        },
+        TabRoute {
+          title: format!("Services {}", DEFAULT_KEYBINDING.jump_to_services.key),
+          route: Route {
+            active_block: ActiveBlock::Services,
+            id: RouteId::Home,
+          },
+        },
+        TabRoute {
+          title: format!("Nodes {}", DEFAULT_KEYBINDING.jump_to_nodes.key),
+          route: Route {
+            active_block: ActiveBlock::Nodes,
+            id: RouteId::Home,
+          },
+        },
+        TabRoute {
+          title: format!("ConfigMaps {}", DEFAULT_KEYBINDING.jump_to_configmaps.key),
+          route: Route {
+            active_block: ActiveBlock::ConfigMaps,
+            id: RouteId::Home,
+          },
+        },
+        TabRoute {
+          title: format!(
             "StatefulSets {}",
             DEFAULT_KEYBINDING.jump_to_statefulsets.key
           ),
-          format!("ReplicaSets {}", DEFAULT_KEYBINDING.jump_to_replicasets.key),
-          format!("Deployments {}", DEFAULT_KEYBINDING.jump_to_deployments.key),
-        ],
-        vec![
-          ActiveBlock::Pods,
-          ActiveBlock::Services,
-          ActiveBlock::Nodes,
-          ActiveBlock::ConfigMaps,
-          ActiveBlock::StatefulSets,
-          ActiveBlock::ReplicaSets,
-          ActiveBlock::Deployments,
-        ],
-      ),
+          route: Route {
+            active_block: ActiveBlock::StatefulSets,
+            id: RouteId::Home,
+          },
+        },
+        TabRoute {
+          title: format!("ReplicaSets {}", DEFAULT_KEYBINDING.jump_to_replicasets.key),
+          route: Route {
+            active_block: ActiveBlock::ReplicaSets,
+            id: RouteId::Home,
+          },
+        },
+        TabRoute {
+          title: format!("Deployments {}", DEFAULT_KEYBINDING.jump_to_deployments.key),
+          route: Route {
+            active_block: ActiveBlock::Deployments,
+            id: RouteId::Home,
+          },
+        },
+      ]),
       show_info_bar: true,
       is_loading: false,
       is_streaming: false,
@@ -321,7 +369,11 @@ impl App {
   }
 
   pub fn push_navigation_stack(&mut self, id: RouteId, active_block: ActiveBlock) {
-    self.navigation_stack.push(Route { id, active_block });
+    self.push_navigation_route(Route { id, active_block });
+  }
+
+  pub fn push_navigation_route(&mut self, route: Route) {
+    self.navigation_stack.push(route);
     self.is_routing = true;
   }
 
@@ -344,19 +396,25 @@ impl App {
     &self.navigation_stack[self.navigation_stack.len() - 2]
   }
 
+  pub fn cycle_main_routes(&mut self) {
+    self.main_tabs.next();
+    let route = self.main_tabs.get_active_route().clone();
+    self.push_navigation_route(route);
+  }
+
   pub fn route_home(&mut self) {
-    self.main_tabs.set_index(0);
-    self.push_navigation_stack(RouteId::Home, ActiveBlock::Pods);
+    let route = self.main_tabs.set_index(0).route.clone();
+    self.push_navigation_route(route);
   }
 
   pub fn route_contexts(&mut self) {
-    self.main_tabs.set_index(1);
-    self.push_navigation_stack(RouteId::Contexts, ActiveBlock::Contexts);
+    let route = self.main_tabs.set_index(1).route.clone();
+    self.push_navigation_route(route);
   }
 
   pub fn route_utilization(&mut self) {
-    self.main_tabs.set_index(2);
-    self.push_navigation_stack(RouteId::Utilization, ActiveBlock::Utilization);
+    let route = self.main_tabs.set_index(2).route.clone();
+    self.push_navigation_route(route);
   }
 
   pub async fn dispatch_container_logs(&mut self, id: String) {

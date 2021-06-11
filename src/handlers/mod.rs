@@ -45,6 +45,9 @@ pub async fn handle_key_events(key: Key, app: &mut App) {
     _ if key == DEFAULT_KEYBINDING.jump_to_utilization.key => {
       app.route_utilization();
     }
+    _ if key == DEFAULT_KEYBINDING.cycle_main_views.key => {
+      app.cycle_main_routes();
+    }
     _ => handle_route_events(key, app).await,
   }
 }
@@ -115,17 +118,11 @@ async fn handle_route_events(key: Key, app: &mut App) {
           || key == DEFAULT_KEYBINDING.right.alt.unwrap() =>
         {
           app.context_tabs.next();
-          app.push_navigation_stack(
-            RouteId::Home,
-            app.context_tabs.active_block.unwrap_or(ActiveBlock::Empty),
-          );
+          app.push_navigation_route(app.context_tabs.get_active_route().clone());
         }
         _ if key == DEFAULT_KEYBINDING.left.key || key == DEFAULT_KEYBINDING.left.alt.unwrap() => {
           app.context_tabs.previous();
-          app.push_navigation_stack(
-            RouteId::Home,
-            app.context_tabs.active_block.unwrap_or(ActiveBlock::Empty),
-          );
+          app.push_navigation_route(app.context_tabs.get_active_route().clone());
         }
         _ if key == DEFAULT_KEYBINDING.toggle_info.key => {
           app.show_info_bar = !app.show_info_bar;
@@ -136,32 +133,32 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         // as these are tabs with index the order here matters, atleast for readability
         _ if key == DEFAULT_KEYBINDING.jump_to_pods.key => {
-          app.context_tabs.set_index(0);
-          app.push_navigation_stack(RouteId::Home, ActiveBlock::Pods);
+          let route = app.context_tabs.set_index(0).route.clone();
+          app.push_navigation_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_services.key => {
-          app.context_tabs.set_index(1);
-          app.push_navigation_stack(RouteId::Home, ActiveBlock::Services);
+          let route = app.context_tabs.set_index(1).route.clone();
+          app.push_navigation_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_nodes.key => {
-          app.context_tabs.set_index(2);
-          app.push_navigation_stack(RouteId::Home, ActiveBlock::Nodes);
+          let route = app.context_tabs.set_index(2).route.clone();
+          app.push_navigation_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_configmaps.key => {
-          app.context_tabs.set_index(3);
-          app.push_navigation_stack(RouteId::Home, ActiveBlock::ConfigMaps);
+          let route = app.context_tabs.set_index(3).route.clone();
+          app.push_navigation_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_statefulsets.key => {
-          app.context_tabs.set_index(4);
-          app.push_navigation_stack(RouteId::Home, ActiveBlock::StatefulSets);
+          let route = app.context_tabs.set_index(4).route.clone();
+          app.push_navigation_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_replicasets.key => {
-          app.context_tabs.set_index(5);
-          app.push_navigation_stack(RouteId::Home, ActiveBlock::ReplicaSets);
+          let route = app.context_tabs.set_index(5).route.clone();
+          app.push_navigation_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_deployments.key => {
-          app.context_tabs.set_index(6);
-          app.push_navigation_stack(RouteId::Home, ActiveBlock::Deployments);
+          let route = app.context_tabs.set_index(6).route.clone();
+          app.push_navigation_route(route);
         }
         _ => {}
       };
@@ -302,10 +299,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
             .await;
           }
         }
-        ActiveBlock::Contexts
-        | ActiveBlock::Utilization
-        | ActiveBlock::Empty
-        | ActiveBlock::Help => { /* Do nothing */ }
+        ActiveBlock::Contexts | ActiveBlock::Utilization | ActiveBlock::Help => { /* Do nothing */ }
       }
     }
     RouteId::Contexts => {
@@ -396,7 +390,6 @@ async fn handle_scroll(app: &mut App, down: bool, is_mouse: bool) {
       }
     }
     ActiveBlock::Help => handle_table_scroll(&mut app.help_docs, down),
-    ActiveBlock::Empty => { /* Do nothing */ }
   }
 }
 
