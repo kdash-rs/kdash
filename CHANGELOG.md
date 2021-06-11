@@ -4,6 +4,7 @@
 
 - Add friendly crash messages
 - Migrate to kubectl-view-allocations library
+- Add Tab keybinding to cycle through views
 
 ## [0.1.1] - 04-June-2021
 
