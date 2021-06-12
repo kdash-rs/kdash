@@ -1,10 +1,12 @@
 # Changelog
 
-## [0.1.2 - Unreleased] - 07-June-2021
+## [0.1.3 - Unreleased] - 07-June-2021
 
-- Add friendly crash messages
-- Migrate to kubectl-view-allocations library
+## [0.1.2] - 12-June-2021
+
+- Add human friendly crash messages
 - Add Tab keybinding to cycle through views
+- Migrate to kubectl-view-allocations library
 
 ## [0.1.1] - 04-June-2021
 
