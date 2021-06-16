@@ -672,6 +672,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "k8s-openapi"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fbff78f6da26dde0d74188966d23fc763431d730d0f766ecf7699209f8fc243c"
+dependencies = [
+ "base64",
+ "bytes",
+ "chrono",
+ "serde",
+ "serde-value",
+ "serde_json",
+]
+
+[[package]]
 name = "kdash"
 version = "0.1.2"
 dependencies = [
@@ -683,7 +697,7 @@ dependencies = [
  "crossterm",
  "duct",
  "human-panic",
- "k8s-openapi",
+ "k8s-openapi 0.12.0",
  "kube",
  "kube-runtime",
  "kubectl-view-allocations",
@@ -717,7 +731,7 @@ dependencies = [
  "hyper-timeout",
  "hyper-tls",
  "jsonpath_lib",
- "k8s-openapi",
+ "k8s-openapi 0.11.0",
  "kube-core",
  "openssl",
  "pem",
@@ -743,7 +757,7 @@ checksum = "5e16429f67308cec5fc942ead44c144eb50dfbdcc29fa9b7fcc9e676571c530c"
 dependencies = [
  "form_urlencoded",
  "http",
- "k8s-openapi",
+ "k8s-openapi 0.11.0",
  "once_cell",
  "serde",
  "serde_json",
@@ -759,7 +773,7 @@ dependencies = [
  "dashmap",
  "derivative",
  "futures",
- "k8s-openapi",
+ "k8s-openapi 0.11.0",
  "kube",
  "pin-project 1.0.6",
  "serde",
@@ -777,7 +791,7 @@ checksum = "25ed2c9122dfa84fed6ec30a2d35d4b49487940014a749fbd5feab27625414d0"
 dependencies = [
  "chrono",
  "itertools",
- "k8s-openapi",
+ "k8s-openapi 0.11.0",
  "kube",
  "openssl",
  "serde",
