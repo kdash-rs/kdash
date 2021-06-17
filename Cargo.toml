@@ -50,3 +50,7 @@ features = ["user-hooks"]
 bench = false
 path = "src/main.rs"
 name = "kdash"
+
+[profile.release]
+lto = true
+codegen-units = 1
