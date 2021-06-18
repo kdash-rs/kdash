@@ -205,128 +205,6 @@ items:
     labels:
       app: cartservice
       pod-template-hash: 67b89ffc69
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:metadata:
-          f:generateName: {}
-          f:labels:
-            .: {}
-            f:app: {}
-            f:pod-template-hash: {}
-          f:ownerReferences:
-            .: {}
-            k:{"uid":"7ff41755-d0ef-4fbb-9e1a-7f56149e33e2"}:
-              .: {}
-              f:apiVersion: {}
-              f:blockOwnerDeletion: {}
-              f:controller: {}
-              f:kind: {}
-              f:name: {}
-              f:uid: {}
-        f:spec:
-          f:containers:
-            k:{"name":"server"}:
-              .: {}
-              f:env:
-                .: {}
-                k:{"name":"REDIS_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-              f:image: {}
-              f:imagePullPolicy: {}
-              f:livenessProbe:
-                .: {}
-                f:exec:
-                  .: {}
-                  f:command: {}
-                f:failureThreshold: {}
-                f:initialDelaySeconds: {}
-                f:periodSeconds: {}
-                f:successThreshold: {}
-                f:timeoutSeconds: {}
-              f:name: {}
-              f:ports:
-                .: {}
-                k:{"containerPort":7070,"protocol":"TCP"}:
-                  .: {}
-                  f:containerPort: {}
-                  f:protocol: {}
-              f:readinessProbe:
-                .: {}
-                f:exec:
-                  .: {}
-                  f:command: {}
-                f:failureThreshold: {}
-                f:initialDelaySeconds: {}
-                f:periodSeconds: {}
-                f:successThreshold: {}
-                f:timeoutSeconds: {}
-              f:resources:
-                .: {}
-                f:limits:
-                  .: {}
-                  f:cpu: {}
-                  f:memory: {}
-                f:requests:
-                  .: {}
-                  f:cpu: {}
-                  f:memory: {}
-              f:terminationMessagePath: {}
-              f:terminationMessagePolicy: {}
-          f:dnsPolicy: {}
-          f:enableServiceLinks: {}
-          f:restartPolicy: {}
-          f:schedulerName: {}
-          f:securityContext: {}
-          f:serviceAccount: {}
-          f:serviceAccountName: {}
-          f:terminationGracePeriodSeconds: {}
-      manager: kube-controller-manager
-      operation: Update
-      time: "2021-04-27T10:13:57Z"
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:status:
-          f:conditions:
-            k:{"type":"ContainersReady"}:
-              .: {}
-              f:lastProbeTime: {}
-              f:lastTransitionTime: {}
-              f:message: {}
-              f:reason: {}
-              f:status: {}
-              f:type: {}
-            k:{"type":"Initialized"}:
-              .: {}
-              f:lastProbeTime: {}
-              f:lastTransitionTime: {}
-              f:status: {}
-              f:type: {}
-            k:{"type":"Ready"}:
-              .: {}
-              f:lastProbeTime: {}
-              f:lastTransitionTime: {}
-              f:message: {}
-              f:reason: {}
-              f:status: {}
-              f:type: {}
-          f:containerStatuses: {}
-          f:hostIP: {}
-          f:phase: {}
-          f:podIP: {}
-          f:podIPs:
-            .: {}
-            k:{"ip":"10.24.1.9"}:
-              .: {}
-              f:ip: {}
-          f:startTime: {}
-      manager: kubelet
-      operation: Update
-      time: "2021-04-27T10:14:10Z"
     name: cartservice-67b89ffc69-s5qp8
     namespace: default
     ownerReferences:
@@ -466,104 +344,6 @@ items:
     labels:
       app: currencyservice
       pod-template-hash: 68887d98fd
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:metadata:
-          f:generateName: {}
-          f:labels:
-            .: {}
-            f:app: {}
-            f:pod-template-hash: {}
-          f:ownerReferences:
-            .: {}
-            k:{"uid":"1c58bffc-8789-40a9-8342-4db390ca3389"}:
-              .: {}
-              f:apiVersion: {}
-              f:blockOwnerDeletion: {}
-              f:controller: {}
-              f:kind: {}
-              f:name: {}
-              f:uid: {}
-        f:spec:
-          f:containers:
-            k:{"name":"server"}:
-              .: {}
-              f:env:
-                .: {}
-                k:{"name":"PORT"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-              f:image: {}
-              f:imagePullPolicy: {}
-              f:livenessProbe:
-                .: {}
-                f:exec:
-                  .: {}
-                  f:command: {}
-                f:failureThreshold: {}
-                f:periodSeconds: {}
-                f:successThreshold: {}
-                f:timeoutSeconds: {}
-              f:name: {}
-              f:ports:
-                .: {}
-                k:{"containerPort":7000,"protocol":"TCP"}:
-                  .: {}
-                  f:containerPort: {}
-                  f:name: {}
-                  f:protocol: {}
-              f:readinessProbe:
-                .: {}
-                f:exec:
-                  .: {}
-                  f:command: {}
-                f:failureThreshold: {}
-                f:periodSeconds: {}
-                f:successThreshold: {}
-                f:timeoutSeconds: {}
-              f:resources:
-                .: {}
-                f:limits:
-                  .: {}
-                  f:cpu: {}
-                  f:memory: {}
-                f:requests:
-                  .: {}
-                  f:cpu: {}
-                  f:memory: {}
-              f:terminationMessagePath: {}
-              f:terminationMessagePolicy: {}
-          f:dnsPolicy: {}
-          f:enableServiceLinks: {}
-          f:restartPolicy: {}
-          f:schedulerName: {}
-          f:securityContext: {}
-          f:serviceAccount: {}
-          f:serviceAccountName: {}
-          f:terminationGracePeriodSeconds: {}
-      manager: kube-controller-manager
-      operation: Update
-      time: "2021-04-27T10:14:02Z"
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:status:
-          f:conditions:
-            .: {}
-            k:{"type":"PodScheduled"}:
-              .: {}
-              f:lastProbeTime: {}
-              f:lastTransitionTime: {}
-              f:message: {}
-              f:reason: {}
-              f:status: {}
-              f:type: {}
-      manager: kube-scheduler
-      operation: Update
-      time: "2021-04-27T10:14:02Z"
     name: currencyservice-68887d98fd-gc9cn
     namespace: default
     ownerReferences:
@@ -661,126 +441,6 @@ items:
     labels:
       app: emailservice
       pod-template-hash: 5f8fc7dbb4
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:metadata:
-          f:generateName: {}
-          f:labels:
-            .: {}
-            f:app: {}
-            f:pod-template-hash: {}
-          f:ownerReferences:
-            .: {}
-            k:{"uid":"3b13016e-0661-4dc8-a542-6c017997d98b"}:
-              .: {}
-              f:apiVersion: {}
-              f:blockOwnerDeletion: {}
-              f:controller: {}
-              f:kind: {}
-              f:name: {}
-              f:uid: {}
-        f:spec:
-          f:containers:
-            k:{"name":"server"}:
-              .: {}
-              f:env:
-                .: {}
-                k:{"name":"DISABLE_PROFILER"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"PORT"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-              f:image: {}
-              f:imagePullPolicy: {}
-              f:livenessProbe:
-                .: {}
-                f:exec:
-                  .: {}
-                  f:command: {}
-                f:failureThreshold: {}
-                f:periodSeconds: {}
-                f:successThreshold: {}
-                f:timeoutSeconds: {}
-              f:name: {}
-              f:ports:
-                .: {}
-                k:{"containerPort":8080,"protocol":"TCP"}:
-                  .: {}
-                  f:containerPort: {}
-                  f:protocol: {}
-              f:readinessProbe:
-                .: {}
-                f:exec:
-                  .: {}
-                  f:command: {}
-                f:failureThreshold: {}
-                f:periodSeconds: {}
-                f:successThreshold: {}
-                f:timeoutSeconds: {}
-              f:resources:
-                .: {}
-                f:limits:
-                  .: {}
-                  f:cpu: {}
-                  f:memory: {}
-                f:requests:
-                  .: {}
-                  f:cpu: {}
-                  f:memory: {}
-              f:terminationMessagePath: {}
-              f:terminationMessagePolicy: {}
-          f:dnsPolicy: {}
-          f:enableServiceLinks: {}
-          f:restartPolicy: {}
-          f:schedulerName: {}
-          f:securityContext: {}
-          f:serviceAccount: {}
-          f:serviceAccountName: {}
-          f:terminationGracePeriodSeconds: {}
-      manager: kube-controller-manager
-      operation: Update
-      time: "2021-04-27T10:13:56Z"
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:status:
-          f:conditions:
-            k:{"type":"ContainersReady"}:
-              .: {}
-              f:lastProbeTime: {}
-              f:lastTransitionTime: {}
-              f:status: {}
-              f:type: {}
-            k:{"type":"Initialized"}:
-              .: {}
-              f:lastProbeTime: {}
-              f:lastTransitionTime: {}
-              f:status: {}
-              f:type: {}
-            k:{"type":"Ready"}:
-              .: {}
-              f:lastProbeTime: {}
-              f:lastTransitionTime: {}
-              f:status: {}
-              f:type: {}
-          f:containerStatuses: {}
-          f:hostIP: {}
-          f:phase: {}
-          f:podIP: {}
-          f:podIPs:
-            .: {}
-            k:{"ip":"10.24.0.3"}:
-              .: {}
-              f:ip: {}
-          f:startTime: {}
-      manager: kubelet
-      operation: Update
-      time: "2021-04-27T10:15:18Z"
     name: emailservice-5f8fc7dbb4-5lqdb
     namespace: default
     ownerReferences:
@@ -915,140 +575,6 @@ items:
     labels:
       app: frontend
       pod-template-hash: 5c4745dfdb
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:metadata:
-          f:annotations:
-            .: {}
-            f:sidecar.istio.io/rewriteAppHTTPProbers: {}
-          f:generateName: {}
-          f:labels:
-            .: {}
-            f:app: {}
-            f:pod-template-hash: {}
-          f:ownerReferences:
-            .: {}
-            k:{"uid":"0177c475-1b94-424a-bdee-a2f56b071c19"}:
-              .: {}
-              f:apiVersion: {}
-              f:blockOwnerDeletion: {}
-              f:controller: {}
-              f:kind: {}
-              f:name: {}
-              f:uid: {}
-        f:spec:
-          f:containers:
-            k:{"name":"server"}:
-              .: {}
-              f:env:
-                .: {}
-                k:{"name":"AD_SERVICE_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"CART_SERVICE_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"CHECKOUT_SERVICE_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"CURRENCY_SERVICE_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"ENV_PLATFORM"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"PORT"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"PRODUCT_CATALOG_SERVICE_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"RECOMMENDATION_SERVICE_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"SHIPPING_SERVICE_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-              f:image: {}
-              f:imagePullPolicy: {}
-              f:livenessProbe:
-                .: {}
-                f:failureThreshold: {}
-                f:httpGet:
-                  .: {}
-                  f:httpHeaders: {}
-                  f:path: {}
-                  f:port: {}
-                  f:scheme: {}
-                f:initialDelaySeconds: {}
-                f:periodSeconds: {}
-                f:successThreshold: {}
-                f:timeoutSeconds: {}
-              f:name: {}
-              f:ports:
-                .: {}
-                k:{"containerPort":8080,"protocol":"TCP"}:
-                  .: {}
-                  f:containerPort: {}
-                  f:protocol: {}
-              f:readinessProbe:
-                .: {}
-                f:failureThreshold: {}
-                f:httpGet:
-                  .: {}
-                  f:httpHeaders: {}
-                  f:path: {}
-                  f:port: {}
-                  f:scheme: {}
-                f:initialDelaySeconds: {}
-                f:periodSeconds: {}
-                f:successThreshold: {}
-                f:timeoutSeconds: {}
-              f:resources:
-                .: {}
-                f:limits:
-                  .: {}
-                  f:cpu: {}
-                  f:memory: {}
-                f:requests:
-                  .: {}
-                  f:cpu: {}
-                  f:memory: {}
-              f:terminationMessagePath: {}
-              f:terminationMessagePolicy: {}
-          f:dnsPolicy: {}
-          f:enableServiceLinks: {}
-          f:restartPolicy: {}
-          f:schedulerName: {}
-          f:securityContext: {}
-          f:serviceAccount: {}
-          f:serviceAccountName: {}
-          f:terminationGracePeriodSeconds: {}
-      manager: kube-controller-manager
-      operation: Update
-      time: "2021-04-27T10:14:48Z"
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:status:
-          f:message: {}
-          f:phase: {}
-          f:reason: {}
-          f:startTime: {}
-      manager: kubelet
-      operation: Update
-      time: "2021-04-27T10:14:49Z"
     name: frontend-5c4745dfdb-6k8wf
     namespace: default
     ownerReferences:
@@ -1168,140 +694,6 @@ items:
     labels:
       app: frontend
       pod-template-hash: 5c4745dfdb
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:metadata:
-          f:annotations:
-            .: {}
-            f:sidecar.istio.io/rewriteAppHTTPProbers: {}
-          f:generateName: {}
-          f:labels:
-            .: {}
-            f:app: {}
-            f:pod-template-hash: {}
-          f:ownerReferences:
-            .: {}
-            k:{"uid":"0177c475-1b94-424a-bdee-a2f56b071c19"}:
-              .: {}
-              f:apiVersion: {}
-              f:blockOwnerDeletion: {}
-              f:controller: {}
-              f:kind: {}
-              f:name: {}
-              f:uid: {}
-        f:spec:
-          f:containers:
-            k:{"name":"server"}:
-              .: {}
-              f:env:
-                .: {}
-                k:{"name":"AD_SERVICE_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"CART_SERVICE_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"CHECKOUT_SERVICE_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"CURRENCY_SERVICE_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"ENV_PLATFORM"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"PORT"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"PRODUCT_CATALOG_SERVICE_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"RECOMMENDATION_SERVICE_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"SHIPPING_SERVICE_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-              f:image: {}
-              f:imagePullPolicy: {}
-              f:livenessProbe:
-                .: {}
-                f:failureThreshold: {}
-                f:httpGet:
-                  .: {}
-                  f:httpHeaders: {}
-                  f:path: {}
-                  f:port: {}
-                  f:scheme: {}
-                f:initialDelaySeconds: {}
-                f:periodSeconds: {}
-                f:successThreshold: {}
-                f:timeoutSeconds: {}
-              f:name: {}
-              f:ports:
-                .: {}
-                k:{"containerPort":8080,"protocol":"TCP"}:
-                  .: {}
-                  f:containerPort: {}
-                  f:protocol: {}
-              f:readinessProbe:
-                .: {}
-                f:failureThreshold: {}
-                f:httpGet:
-                  .: {}
-                  f:httpHeaders: {}
-                  f:path: {}
-                  f:port: {}
-                  f:scheme: {}
-                f:initialDelaySeconds: {}
-                f:periodSeconds: {}
-                f:successThreshold: {}
-                f:timeoutSeconds: {}
-              f:resources:
-                .: {}
-                f:limits:
-                  .: {}
-                  f:cpu: {}
-                  f:memory: {}
-                f:requests:
-                  .: {}
-                  f:cpu: {}
-                  f:memory: {}
-              f:terminationMessagePath: {}
-              f:terminationMessagePolicy: {}
-          f:dnsPolicy: {}
-          f:enableServiceLinks: {}
-          f:restartPolicy: {}
-          f:schedulerName: {}
-          f:securityContext: {}
-          f:serviceAccount: {}
-          f:serviceAccountName: {}
-          f:terminationGracePeriodSeconds: {}
-      manager: kube-controller-manager
-      operation: Update
-      time: "2021-04-27T10:13:57Z"
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:status:
-          f:message: {}
-          f:phase: {}
-          f:reason: {}
-          f:startTime: {}
-      manager: kubelet
-      operation: Update
-      time: "2021-04-27T10:14:42Z"
     name: frontend-5c4745dfdb-qz7fg
     namespace: default
     ownerReferences:
@@ -1407,140 +799,6 @@ items:
     labels:
       app: frontend
       pod-template-hash: 5c4745dfdb
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:metadata:
-          f:annotations:
-            .: {}
-            f:sidecar.istio.io/rewriteAppHTTPProbers: {}
-          f:generateName: {}
-          f:labels:
-            .: {}
-            f:app: {}
-            f:pod-template-hash: {}
-          f:ownerReferences:
-            .: {}
-            k:{"uid":"0177c475-1b94-424a-bdee-a2f56b071c19"}:
-              .: {}
-              f:apiVersion: {}
-              f:blockOwnerDeletion: {}
-              f:controller: {}
-              f:kind: {}
-              f:name: {}
-              f:uid: {}
-        f:spec:
-          f:containers:
-            k:{"name":"server"}:
-              .: {}
-              f:env:
-                .: {}
-                k:{"name":"AD_SERVICE_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"CART_SERVICE_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"CHECKOUT_SERVICE_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"CURRENCY_SERVICE_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"ENV_PLATFORM"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"PORT"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"PRODUCT_CATALOG_SERVICE_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"RECOMMENDATION_SERVICE_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"SHIPPING_SERVICE_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-              f:image: {}
-              f:imagePullPolicy: {}
-              f:livenessProbe:
-                .: {}
-                f:failureThreshold: {}
-                f:httpGet:
-                  .: {}
-                  f:httpHeaders: {}
-                  f:path: {}
-                  f:port: {}
-                  f:scheme: {}
-                f:initialDelaySeconds: {}
-                f:periodSeconds: {}
-                f:successThreshold: {}
-                f:timeoutSeconds: {}
-              f:name: {}
-              f:ports:
-                .: {}
-                k:{"containerPort":8080,"protocol":"TCP"}:
-                  .: {}
-                  f:containerPort: {}
-                  f:protocol: {}
-              f:readinessProbe:
-                .: {}
-                f:failureThreshold: {}
-                f:httpGet:
-                  .: {}
-                  f:httpHeaders: {}
-                  f:path: {}
-                  f:port: {}
-                  f:scheme: {}
-                f:initialDelaySeconds: {}
-                f:periodSeconds: {}
-                f:successThreshold: {}
-                f:timeoutSeconds: {}
-              f:resources:
-                .: {}
-                f:limits:
-                  .: {}
-                  f:cpu: {}
-                  f:memory: {}
-                f:requests:
-                  .: {}
-                  f:cpu: {}
-                  f:memory: {}
-              f:terminationMessagePath: {}
-              f:terminationMessagePolicy: {}
-          f:dnsPolicy: {}
-          f:enableServiceLinks: {}
-          f:restartPolicy: {}
-          f:schedulerName: {}
-          f:securityContext: {}
-          f:serviceAccount: {}
-          f:serviceAccountName: {}
-          f:terminationGracePeriodSeconds: {}
-      manager: kube-controller-manager
-      operation: Update
-      time: "2021-04-27T10:14:48Z"
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:status:
-          f:message: {}
-          f:phase: {}
-          f:reason: {}
-          f:startTime: {}
-      manager: kubelet
-      operation: Update
-      time: "2021-04-27T10:14:49Z"
     name: frontend-5c4745dfdb-6k8wf
     namespace: default
     ownerReferences:
@@ -1665,86 +923,6 @@ items:
     labels:
       app: loadgenerator
       pod-template-hash: 86f46dcb88
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:metadata:
-          f:annotations:
-            .: {}
-            f:sidecar.istio.io/rewriteAppHTTPProbers: {}
-          f:generateName: {}
-          f:labels:
-            .: {}
-            f:app: {}
-            f:pod-template-hash: {}
-          f:ownerReferences:
-            .: {}
-            k:{"uid":"deaac054-36ad-470f-ad46-77791cc1f5c2"}:
-              .: {}
-              f:apiVersion: {}
-              f:blockOwnerDeletion: {}
-              f:controller: {}
-              f:kind: {}
-              f:name: {}
-              f:uid: {}
-        f:spec:
-          f:containers:
-            k:{"name":"main"}:
-              .: {}
-              f:env:
-                .: {}
-                k:{"name":"FRONTEND_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"USERS"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-              f:image: {}
-              f:imagePullPolicy: {}
-              f:name: {}
-              f:resources:
-                .: {}
-                f:limits:
-                  .: {}
-                  f:cpu: {}
-                  f:memory: {}
-                f:requests:
-                  .: {}
-                  f:cpu: {}
-                  f:memory: {}
-              f:terminationMessagePath: {}
-              f:terminationMessagePolicy: {}
-          f:dnsPolicy: {}
-          f:enableServiceLinks: {}
-          f:restartPolicy: {}
-          f:schedulerName: {}
-          f:securityContext: {}
-          f:serviceAccount: {}
-          f:serviceAccountName: {}
-          f:terminationGracePeriodSeconds: {}
-      manager: kube-controller-manager
-      operation: Update
-      time: "2021-04-27T10:13:57Z"
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:status:
-          f:conditions:
-            .: {}
-            k:{"type":"PodScheduled"}:
-              .: {}
-              f:lastProbeTime: {}
-              f:lastTransitionTime: {}
-              f:message: {}
-              f:reason: {}
-              f:status: {}
-              f:type: {}
-      manager: kube-scheduler
-      operation: Update
-      time: "2021-04-27T10:13:57Z"
     name: loadgenerator-86f46dcb88-62vzw
     namespace: default
     ownerReferences:
@@ -1822,122 +1000,6 @@ items:
     labels:
       app: paymentservice
       pod-template-hash: "6658569876"
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:metadata:
-          f:generateName: {}
-          f:labels:
-            .: {}
-            f:app: {}
-            f:pod-template-hash: {}
-          f:ownerReferences:
-            .: {}
-            k:{"uid":"4887b6a9-cd7b-4246-9547-b80766f43c06"}:
-              .: {}
-              f:apiVersion: {}
-              f:blockOwnerDeletion: {}
-              f:controller: {}
-              f:kind: {}
-              f:name: {}
-              f:uid: {}
-        f:spec:
-          f:containers:
-            k:{"name":"server"}:
-              .: {}
-              f:env:
-                .: {}
-                k:{"name":"PORT"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-              f:image: {}
-              f:imagePullPolicy: {}
-              f:livenessProbe:
-                .: {}
-                f:exec:
-                  .: {}
-                  f:command: {}
-                f:failureThreshold: {}
-                f:periodSeconds: {}
-                f:successThreshold: {}
-                f:timeoutSeconds: {}
-              f:name: {}
-              f:ports:
-                .: {}
-                k:{"containerPort":50051,"protocol":"TCP"}:
-                  .: {}
-                  f:containerPort: {}
-                  f:protocol: {}
-              f:readinessProbe:
-                .: {}
-                f:exec:
-                  .: {}
-                  f:command: {}
-                f:failureThreshold: {}
-                f:periodSeconds: {}
-                f:successThreshold: {}
-                f:timeoutSeconds: {}
-              f:resources:
-                .: {}
-                f:limits:
-                  .: {}
-                  f:cpu: {}
-                  f:memory: {}
-                f:requests:
-                  .: {}
-                  f:cpu: {}
-                  f:memory: {}
-              f:terminationMessagePath: {}
-              f:terminationMessagePolicy: {}
-          f:dnsPolicy: {}
-          f:enableServiceLinks: {}
-          f:restartPolicy: {}
-          f:schedulerName: {}
-          f:securityContext: {}
-          f:serviceAccount: {}
-          f:serviceAccountName: {}
-          f:terminationGracePeriodSeconds: {}
-      manager: kube-controller-manager
-      operation: Update
-      time: "2021-04-27T10:13:57Z"
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:status:
-          f:conditions:
-            k:{"type":"ContainersReady"}:
-              .: {}
-              f:lastProbeTime: {}
-              f:lastTransitionTime: {}
-              f:status: {}
-              f:type: {}
-            k:{"type":"Initialized"}:
-              .: {}
-              f:lastProbeTime: {}
-              f:lastTransitionTime: {}
-              f:status: {}
-              f:type: {}
-            k:{"type":"Ready"}:
-              .: {}
-              f:lastProbeTime: {}
-              f:lastTransitionTime: {}
-              f:status: {}
-              f:type: {}
-          f:containerStatuses: {}
-          f:hostIP: {}
-          f:phase: {}
-          f:podIP: {}
-          f:podIPs:
-            .: {}
-            k:{"ip":"10.24.1.8"}:
-              .: {}
-              f:ip: {}
-          f:startTime: {}
-      manager: kubelet
-      operation: Update
-      time: "2021-04-27T10:14:32Z"
     name: paymentservice-6658569876-d6r72
     namespace: default
     ownerReferences:
@@ -2062,126 +1124,6 @@ items:
     labels:
       app: recommendationservice
       pod-template-hash: 78965f984b
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:metadata:
-          f:generateName: {}
-          f:labels:
-            .: {}
-            f:app: {}
-            f:pod-template-hash: {}
-          f:ownerReferences:
-            .: {}
-            k:{"uid":"e8c68c70-7d17-45cd-88e4-80f61b91d76e"}:
-              .: {}
-              f:apiVersion: {}
-              f:blockOwnerDeletion: {}
-              f:controller: {}
-              f:kind: {}
-              f:name: {}
-              f:uid: {}
-        f:spec:
-          f:containers:
-            k:{"name":"server"}:
-              .: {}
-              f:env:
-                .: {}
-                k:{"name":"PORT"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-                k:{"name":"PRODUCT_CATALOG_SERVICE_ADDR"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-              f:image: {}
-              f:imagePullPolicy: {}
-              f:livenessProbe:
-                .: {}
-                f:exec:
-                  .: {}
-                  f:command: {}
-                f:failureThreshold: {}
-                f:periodSeconds: {}
-                f:successThreshold: {}
-                f:timeoutSeconds: {}
-              f:name: {}
-              f:ports:
-                .: {}
-                k:{"containerPort":8080,"protocol":"TCP"}:
-                  .: {}
-                  f:containerPort: {}
-                  f:protocol: {}
-              f:readinessProbe:
-                .: {}
-                f:exec:
-                  .: {}
-                  f:command: {}
-                f:failureThreshold: {}
-                f:periodSeconds: {}
-                f:successThreshold: {}
-                f:timeoutSeconds: {}
-              f:resources:
-                .: {}
-                f:limits:
-                  .: {}
-                  f:cpu: {}
-                  f:memory: {}
-                f:requests:
-                  .: {}
-                  f:cpu: {}
-                  f:memory: {}
-              f:terminationMessagePath: {}
-              f:terminationMessagePolicy: {}
-          f:dnsPolicy: {}
-          f:enableServiceLinks: {}
-          f:restartPolicy: {}
-          f:schedulerName: {}
-          f:securityContext: {}
-          f:serviceAccount: {}
-          f:serviceAccountName: {}
-          f:terminationGracePeriodSeconds: {}
-      manager: kube-controller-manager
-      operation: Update
-      time: "2021-04-27T10:13:57Z"
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:status:
-          f:conditions:
-            k:{"type":"ContainersReady"}:
-              .: {}
-              f:lastProbeTime: {}
-              f:lastTransitionTime: {}
-              f:status: {}
-              f:type: {}
-            k:{"type":"Initialized"}:
-              .: {}
-              f:lastProbeTime: {}
-              f:lastTransitionTime: {}
-              f:status: {}
-              f:type: {}
-            k:{"type":"Ready"}:
-              .: {}
-              f:lastProbeTime: {}
-              f:lastTransitionTime: {}
-              f:status: {}
-              f:type: {}
-          f:containerStatuses: {}
-          f:hostIP: {}
-          f:phase: {}
-          f:podIP: {}
-          f:podIPs:
-            .: {}
-            k:{"ip":"10.24.0.7"}:
-              .: {}
-              f:ip: {}
-          f:startTime: {}
-      manager: kubelet
-      operation: Update
-      time: "2021-04-27T10:14:54Z"
     name: recommendationservice-78965f984b-z9x79
     namespace: default
     ownerReferences:
@@ -2314,122 +1256,6 @@ items:
     labels:
       app: shippingservice
       pod-template-hash: "6998959488"
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:metadata:
-          f:generateName: {}
-          f:labels:
-            .: {}
-            f:app: {}
-            f:pod-template-hash: {}
-          f:ownerReferences:
-            .: {}
-            k:{"uid":"eda69dc9-cfbf-4e08-828c-e85e414a0b60"}:
-              .: {}
-              f:apiVersion: {}
-              f:blockOwnerDeletion: {}
-              f:controller: {}
-              f:kind: {}
-              f:name: {}
-              f:uid: {}
-        f:spec:
-          f:containers:
-            k:{"name":"server"}:
-              .: {}
-              f:env:
-                .: {}
-                k:{"name":"PORT"}:
-                  .: {}
-                  f:name: {}
-                  f:value: {}
-              f:image: {}
-              f:imagePullPolicy: {}
-              f:livenessProbe:
-                .: {}
-                f:exec:
-                  .: {}
-                  f:command: {}
-                f:failureThreshold: {}
-                f:periodSeconds: {}
-                f:successThreshold: {}
-                f:timeoutSeconds: {}
-              f:name: {}
-              f:ports:
-                .: {}
-                k:{"containerPort":50051,"protocol":"TCP"}:
-                  .: {}
-                  f:containerPort: {}
-                  f:protocol: {}
-              f:readinessProbe:
-                .: {}
-                f:exec:
-                  .: {}
-                  f:command: {}
-                f:failureThreshold: {}
-                f:periodSeconds: {}
-                f:successThreshold: {}
-                f:timeoutSeconds: {}
-              f:resources:
-                .: {}
-                f:limits:
-                  .: {}
-                  f:cpu: {}
-                  f:memory: {}
-                f:requests:
-                  .: {}
-                  f:cpu: {}
-                  f:memory: {}
-              f:terminationMessagePath: {}
-              f:terminationMessagePolicy: {}
-          f:dnsPolicy: {}
-          f:enableServiceLinks: {}
-          f:restartPolicy: {}
-          f:schedulerName: {}
-          f:securityContext: {}
-          f:serviceAccount: {}
-          f:serviceAccountName: {}
-          f:terminationGracePeriodSeconds: {}
-      manager: kube-controller-manager
-      operation: Update
-      time: "2021-04-27T10:13:58Z"
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:status:
-          f:conditions:
-            k:{"type":"ContainersReady"}:
-              .: {}
-              f:lastProbeTime: {}
-              f:lastTransitionTime: {}
-              f:status: {}
-              f:type: {}
-            k:{"type":"Initialized"}:
-              .: {}
-              f:lastProbeTime: {}
-              f:lastTransitionTime: {}
-              f:status: {}
-              f:type: {}
-            k:{"type":"Ready"}:
-              .: {}
-              f:lastProbeTime: {}
-              f:lastTransitionTime: {}
-              f:status: {}
-              f:type: {}
-          f:containerStatuses: {}
-          f:hostIP: {}
-          f:phase: {}
-          f:podIP: {}
-          f:podIPs:
-            .: {}
-            k:{"ip":"10.24.0.9"}:
-              .: {}
-              f:ip: {}
-          f:startTime: {}
-      manager: kubelet
-      operation: Update
-      time: "2021-04-27T10:14:38Z"
     name: shippingservice-6998959488-tvhph
     namespace: default
     ownerReferences:
@@ -2546,6 +1372,306 @@ items:
     - ip: 10.24.0.9
     qosClass: Burstable
     startTime: "2021-04-27T10:13:58Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Pod","metadata":{"annotations":{},"labels":{"purpose":"initContainers-demo"},"name":"pod-init-container","namespace":"default"},"spec":{"containers":[{"command":["echo","Hello main container"],"image":"busybox","name":"main-busybox"}],"initContainers":[{"command":["echo","I am init-conatiner"],"image":"busybox","name":"init-busybox1"},{"command":["sleep","30"],"image":"busybox","name":"init-busybox2"}],"restartPolicy":"Never"}}
+    creationTimestamp: "2021-06-18T08:57:56Z"
+    labels:
+      purpose: initContainers-demo
+    name: pod-init-container
+    namespace: default
+    resourceVersion: "178777"
+    uid: ef6d1039-3d83-44dc-9a84-456205ecb757
+  spec:
+    containers:
+    - command:
+      - echo
+      - Hello main container
+      image: busybox
+      imagePullPolicy: Always
+      name: main-busybox
+      resources: {}
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: default-token-b7z5m
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    initContainers:
+    - command:
+      - echo
+      - I am init-conatiner
+      image: busybox
+      imagePullPolicy: Always
+      name: init-busybox1
+      resources: {}
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: default-token-b7z5m
+        readOnly: true
+    - command:
+      - sleep
+      - "30"
+      image: busybox
+      imagePullPolicy: Always
+      name: init-busybox2
+      resources: {}
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: default-token-b7z5m
+        readOnly: true
+    nodeName: k3d-my-kdash-cluster-server-0
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Never
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: default-token-b7z5m
+      secret:
+        defaultMode: 420
+        secretName: default-token-b7z5m
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2021-06-18T08:57:56Z"
+      message: 'containers with incomplete status: [init-busybox2]'
+      reason: ContainersNotInitialized
+      status: "False"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2021-06-18T08:57:56Z"
+      message: 'containers with unready status: [main-busybox]'
+      reason: ContainersNotReady
+      status: "False"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2021-06-18T08:57:56Z"
+      message: 'containers with unready status: [main-busybox]'
+      reason: ContainersNotReady
+      status: "False"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2021-06-18T08:57:56Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - image: busybox
+      imageID: ""
+      lastState: {}
+      name: main-busybox
+      ready: false
+      restartCount: 0
+      started: false
+      state:
+        waiting:
+          reason: PodInitializing
+    hostIP: 172.18.0.3
+    initContainerStatuses:
+    - containerID: containerd://a391f8d2b76c7fa71ad81f5ef610bdcf5cf3a27eabedafa291cdb485eaaac71a
+      image: docker.io/library/busybox:latest
+      imageID: docker.io/library/busybox@sha256:930490f97e5b921535c153e0e7110d251134cc4b72bbb8133c6a5065cc68580d
+      lastState: {}
+      name: init-busybox1
+      ready: true
+      restartCount: 0
+      state:
+        terminated:
+          containerID: containerd://a391f8d2b76c7fa71ad81f5ef610bdcf5cf3a27eabedafa291cdb485eaaac71a
+          exitCode: 0
+          finishedAt: "2021-06-18T08:58:01Z"
+          reason: Completed
+          startedAt: "2021-06-18T08:58:01Z"
+    - containerID: containerd://060df52ecee63c7c973b5ccc8384db6af66af166d694f45e370919d15f7d9efa
+      image: docker.io/library/busybox:latest
+      imageID: docker.io/library/busybox@sha256:930490f97e5b921535c153e0e7110d251134cc4b72bbb8133c6a5065cc68580d
+      lastState: {}
+      name: init-busybox2
+      ready: false
+      restartCount: 0
+      state:
+        running:
+          startedAt: "2021-06-18T08:58:03Z"
+    phase: Pending
+    podIP: 10.42.0.20
+    podIPs:
+    - ip: 10.42.0.20
+    qosClass: BestEffort
+    startTime: "2021-06-18T08:57:56Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Pod","metadata":{"annotations":{},"labels":{"purpose":"initContainers-demo"},"name":"pod-init-container-2","namespace":"default"},"spec":{"containers":[{"command":["echo","Hello main container"],"image":"busybox","name":"main-busybox"}],"initContainers":[{"command":["echo","I am init-conatiner"],"image":"busybox","name":"init-busybox1"},{"command":["sleep","30"],"image":"busybox","name":"init-busybox2"}],"restartPolicy":"Never"}}
+    creationTimestamp: "2021-06-18T09:26:11Z"
+    labels:
+      purpose: initContainers-demo
+    name: pod-init-container-2
+    namespace: default
+    resourceVersion: "180004"
+    uid: a93a4df6-e02e-4986-b8c8-6195e4d0de62
+  spec:
+    containers:
+    - command:
+      - echo
+      - Hello main container
+      image: busybox
+      imagePullPolicy: Always
+      name: main-busybox
+      resources: {}
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: default-token-b7z5m
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    initContainers:
+    - command:
+      - echo
+      - I am init-conatiner
+      image: busybox
+      imagePullPolicy: Always
+      name: init-busybox1
+      resources: {}
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: default-token-b7z5m
+        readOnly: true
+    - command:
+      - sleep
+      - "30"
+      image: busybox
+      imagePullPolicy: Always
+      name: init-busybox2
+      resources: {}
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: default-token-b7z5m
+        readOnly: true
+    nodeName: k3d-my-kdash-cluster-server-0
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Never
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: default-token-b7z5m
+      secret:
+        defaultMode: 420
+        secretName: default-token-b7z5m
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2021-06-18T09:26:45Z"
+      reason: PodCompleted
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2021-06-18T09:26:11Z"
+      reason: PodCompleted
+      status: "False"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2021-06-18T09:26:11Z"
+      reason: PodCompleted
+      status: "False"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2021-06-18T09:26:11Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: containerd://91d3b603162bdc401fbd8f379f2c88e8f579b58aba63af73f87b62161d04fc6e
+      image: docker.io/library/busybox:latest
+      imageID: docker.io/library/busybox@sha256:930490f97e5b921535c153e0e7110d251134cc4b72bbb8133c6a5065cc68580d
+      lastState: {}
+      name: main-busybox
+      ready: false
+      restartCount: 0
+      started: false
+      state:
+        terminated:
+          containerID: containerd://91d3b603162bdc401fbd8f379f2c88e8f579b58aba63af73f87b62161d04fc6e
+          exitCode: 0
+          finishedAt: "2021-06-18T09:26:46Z"
+          reason: Completed
+          startedAt: "2021-06-18T09:26:46Z"
+    hostIP: 172.18.0.3
+    initContainerStatuses:
+    - containerID: containerd://21826ac45998a9d297bfdcc944dfc4f9e61c33b3866280c8bdf75e0cc01bdebd
+      image: docker.io/library/busybox:latest
+      imageID: docker.io/library/busybox@sha256:930490f97e5b921535c153e0e7110d251134cc4b72bbb8133c6a5065cc68580d
+      lastState: {}
+      name: init-busybox1
+      ready: true
+      restartCount: 0
+      state:
+        terminated:
+          containerID: containerd://21826ac45998a9d297bfdcc944dfc4f9e61c33b3866280c8bdf75e0cc01bdebd
+          exitCode: 0
+          finishedAt: "2021-06-18T09:26:13Z"
+          reason: Completed
+          startedAt: "2021-06-18T09:26:13Z"
+    - containerID: containerd://4815f0c7d0f250c77c7c1ada50e6bbc1f366a07553347c77e8ee53d620ad2d5c
+      image: docker.io/library/busybox:latest
+      imageID: docker.io/library/busybox@sha256:930490f97e5b921535c153e0e7110d251134cc4b72bbb8133c6a5065cc68580d
+      lastState: {}
+      name: init-busybox2
+      ready: true
+      restartCount: 0
+      state:
+        terminated:
+          containerID: containerd://4815f0c7d0f250c77c7c1ada50e6bbc1f366a07553347c77e8ee53d620ad2d5c
+          exitCode: 0
+          finishedAt: "2021-06-18T09:26:45Z"
+          reason: Completed
+          startedAt: "2021-06-18T09:26:15Z"
+    phase: Succeeded
+    podIP: 10.42.0.21
+    podIPs:
+    - ip: 10.42.0.21
+    qosClass: BestEffort
+    startTime: "2021-06-18T09:26:11Z"
 kind: List
 metadata:
   resourceVersion: ""

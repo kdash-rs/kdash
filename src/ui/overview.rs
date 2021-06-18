@@ -6,7 +6,8 @@ use super::super::banner::BANNER;
 use super::utils::{
   get_gauge_style, horizontal_chunks, layout_block_default, layout_block_top_border, loading,
   style_default, style_failure, style_highlight, style_logo, style_primary, style_secondary,
-  table_header_style, title_with_dual_style, vertical_chunks, vertical_chunks_with_margin,
+  style_success, table_header_style, title_with_dual_style, vertical_chunks,
+  vertical_chunks_with_margin,
 };
 use super::HIGHLIGHT;
 
@@ -940,8 +941,10 @@ fn get_nm_ratio(
 }
 
 fn get_resource_row_style(status: &str) -> Style {
-  if ["Running", "Completed"].contains(&status) {
+  if status == "Running" {
     style_primary()
+  } else if status == "Completed" {
+    style_success()
   } else if [
     "ContainerCreating",
     "PodInitializing",

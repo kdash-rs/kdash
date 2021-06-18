@@ -21,6 +21,8 @@ impl k8s_openapi::Resource for NodeMetrics {
   const KIND: &'static str = "node";
   const VERSION: &'static str = "v1beta1";
   const API_VERSION: &'static str = "metrics.k8s.io/v1beta1";
+  const URL_PATH_SEGMENT: &'static str = "nodes";
+  type Scope = k8s_openapi::ClusterResourceScope;
 }
 
 impl k8s_openapi::Metadata for NodeMetrics {

@@ -45,18 +45,12 @@ impl KubeResource<Pod> for KubePod {
     let (status, cr, restarts, c_stats_len, containers) = match &pod.status {
       Some(status) => {
         let (mut cr, mut rc) = (0, 0);
-        let c_stats_len = match status.container_statuses.as_ref() {
-          Some(c_stats) => {
-            c_stats.iter().for_each(|cs| {
-              if cs.ready {
-                cr += 1;
-              }
-              rc += cs.restart_count;
-            });
-            c_stats.len()
+        status.container_statuses.iter().for_each(|cs| {
+          if cs.ready {
+            cr += 1;
           }
-          None => 0,
-        };
+          rc += cs.restart_count;
+        });
 
         let containers: Vec<KubeContainer> = pod
           .spec
@@ -74,7 +68,13 @@ impl KubeResource<Pod> for KubePod {
           })
           .collect();
 
-        (get_status(status, pod), cr, rc, c_stats_len, containers)
+        (
+          get_status(status, pod),
+          cr,
+          rc,
+          status.container_statuses.len(),
+          containers,
+        )
       }
       _ => (UNKNOWN.into(), 0, 0, 0, vec![]),
     };
@@ -104,17 +104,16 @@ impl KubeContainer {
     container: &Container,
     pod_name: String,
     age: String,
-    c_stats: &Option<Vec<ContainerStatus>>,
+    c_stats: &[ContainerStatus],
   ) -> Self {
     let (mut ready, mut status, mut restarts) = ("false".to_string(), "<none>".to_string(), 0);
-    if let Some(c_stats) = c_stats {
-      let c_stat = c_stats.iter().find(|cs| cs.name == container.name);
-      if let Some(c_stat) = c_stat {
-        ready = c_stat.ready.to_string();
-        status = get_container_state(c_stat.state.clone());
-        restarts = c_stat.restart_count;
-      }
+    let c_stat = c_stats.iter().find(|cs| cs.name == container.name);
+    if let Some(c_stat) = c_stat {
+      ready = c_stat.ready.to_string();
+      status = get_container_state(c_stat.state.clone());
+      restarts = c_stat.restart_count;
     }
+
     KubeContainer {
       name: container.name.clone(),
       pod_name,
@@ -124,7 +123,7 @@ impl KubeContainer {
       restarts,
       liveliness_probe: container.liveness_probe.is_some(),
       readiness_probe: container.readiness_probe.is_some(),
-      ports: get_container_ports(&container.ports).unwrap_or_default(),
+      ports: get_container_ports(&container.ports),
       age,
     }
   }
@@ -164,94 +163,89 @@ fn get_status(stat: &PodStatus, pod: &Pod) -> String {
   };
 
   // get int container status
-  let status = match &stat.init_container_statuses {
-    Some(ics) => {
-      for (i, cs) in ics.iter().enumerate() {
-        let status = match &cs.state {
-          Some(s) => {
-            if let Some(st) = &s.terminated {
-              if st.exit_code == 0 {
-                "".into()
-              } else if st.reason.as_ref().unwrap_or(&String::default()).is_empty() {
-                format!("Init:{}", st.reason.as_ref().unwrap())
-              } else if st.signal.unwrap_or_default() != 0 {
-                format!("Init:Signal:{}", st.signal.unwrap())
-              } else {
-                format!("Init:ExitCode:{}", st.exit_code)
-              }
-            } else if is_pod_init(s.waiting.clone()) {
-              format!(
-                "Init:{}",
-                s.waiting
-                  .as_ref()
-                  .unwrap()
-                  .reason
-                  .as_ref()
-                  .unwrap_or(&String::default())
-              )
+  let status = {
+    for (i, cs) in stat.init_container_statuses.iter().enumerate() {
+      let status = match &cs.state {
+        Some(s) => {
+          if let Some(st) = &s.terminated {
+            if st.exit_code == 0 {
+              "".into()
+            } else if st.reason.as_ref().unwrap_or(&String::default()).is_empty() {
+              format!("Init:{}", st.reason.as_ref().unwrap())
+            } else if st.signal.unwrap_or_default() != 0 {
+              format!("Init:Signal:{}", st.signal.unwrap())
             } else {
-              format!(
-                "Init:{}/{}",
-                i,
-                pod
-                  .spec
-                  .as_ref()
-                  .and_then(|ps| ps.init_containers.as_ref().map(|pic| pic.len()))
-                  .unwrap_or(0)
-              )
+              format!("Init:ExitCode:{}", st.exit_code)
             }
+          } else if is_pod_init(s.waiting.clone()) {
+            format!(
+              "Init:{}",
+              s.waiting
+                .as_ref()
+                .unwrap()
+                .reason
+                .as_ref()
+                .unwrap_or(&String::default())
+            )
+          } else {
+            format!(
+              "Init:{}/{}",
+              i,
+              pod
+                .spec
+                .as_ref()
+                .map(|ps| ps.init_containers.len())
+                .unwrap_or(0)
+            )
           }
-          None => "".into(),
-        };
-        if !status.is_empty() {
-          return status;
         }
+        None => "".into(),
+      };
+      if !status.is_empty() {
+        return status;
       }
-      status
     }
-    None => status,
+    status
   };
 
-  let (mut status, running) = match &stat.container_statuses {
-    Some(css) => {
-      let mut running = false;
-      let status = css
-        .iter()
-        .rev()
-        .find_map(|cs| {
-          cs.state.as_ref().and_then(|s| {
-            if cs.ready && s.running.is_some() {
-              running = true;
-            }
-            if s
-              .waiting
-              .as_ref()
-              .and_then(|w| w.reason.as_ref().map(|v| !v.is_empty()))
-              .unwrap_or_default()
-            {
-              s.waiting.as_ref().and_then(|w| w.reason.clone())
-            } else if s
-              .terminated
-              .as_ref()
-              .and_then(|w| w.reason.as_ref().map(|v| !v.is_empty()))
-              .unwrap_or_default()
-            {
-              s.terminated.as_ref().and_then(|w| w.reason.clone())
-            } else if let Some(st) = &s.terminated {
-              if st.signal.unwrap_or_default() != 0 {
-                Some(format!("Signal:{}", st.signal.unwrap_or_default()))
-              } else {
-                Some(format!("ExitCode:{}", st.exit_code))
-              }
+  let (mut status, running) = {
+    let mut running = false;
+    let status = stat
+      .container_statuses
+      .iter()
+      .rev()
+      .find_map(|cs| {
+        cs.state.as_ref().and_then(|s| {
+          if cs.ready && s.running.is_some() {
+            running = true;
+          }
+          if s
+            .waiting
+            .as_ref()
+            .and_then(|w| w.reason.as_ref().map(|v| !v.is_empty()))
+            .unwrap_or_default()
+          {
+            s.waiting.as_ref().and_then(|w| w.reason.clone())
+          } else if s
+            .terminated
+            .as_ref()
+            .and_then(|w| w.reason.as_ref().map(|v| !v.is_empty()))
+            .unwrap_or_default()
+          {
+            s.terminated.as_ref().and_then(|w| w.reason.clone())
+          } else if let Some(st) = &s.terminated {
+            if st.signal.unwrap_or_default() != 0 {
+              Some(format!("Signal:{}", st.signal.unwrap_or_default()))
             } else {
-              Some(status.clone())
+              Some(format!("ExitCode:{}", st.exit_code))
             }
-          })
+          } else {
+            None
+          }
         })
-        .unwrap_or_default();
-      (status, running)
-    }
-    None => (status, false),
+      })
+      .unwrap_or(status);
+    (status, running)
   };
 
   if running && status == "Completed" {
@@ -270,26 +264,24 @@ fn is_pod_init(sw: Option<ContainerStateWaiting>) -> bool {
     .unwrap_or_default()
 }
 
-fn get_container_ports(ports: &Option<Vec<ContainerPort>>) -> Option<String> {
-  ports.as_ref().map(|ports| {
-    ports
-      .iter()
-      .map(|c_port| {
-        let mut port = String::new();
-        if let Some(name) = c_port.name.clone() {
-          port = format!("{}:", name);
+fn get_container_ports(ports: &[ContainerPort]) -> String {
+  ports
+    .iter()
+    .map(|c_port| {
+      let mut port = String::new();
+      if let Some(name) = c_port.name.clone() {
+        port = format!("{}:", name);
+      }
+      port = format!("{}{}", port, c_port.container_port);
+      if let Some(protocol) = c_port.protocol.clone() {
+        if protocol != "TCP" {
+          port = format!("{}/{}", port, c_port.protocol.clone().unwrap());
         }
-        port = format!("{}{}", port, c_port.container_port);
-        if let Some(protocol) = c_port.protocol.clone() {
-          if protocol != "TCP" {
-            port = format!("{}/{}", port, c_port.protocol.clone().unwrap());
-          }
-        }
-        port
-      })
-      .collect::<Vec<_>>()
-      .join(", ")
-  })
+      }
+      port
+    })
+    .collect::<Vec<_>>()
+    .join(", ")
 }
 
 #[cfg(test)]
@@ -301,7 +293,7 @@ mod tests {
   fn test_pod_from_api() {
     let (pods, pods_list): (Vec<KubePod>, Vec<_>) = convert_resource_from_file("pods");
 
-    assert_eq!(pods.len(), 11);
+    assert_eq!(pods.len(), 13);
     assert_eq!(
       pods[0],
       KubePod {
@@ -458,6 +450,58 @@ mod tests {
         k8s_obj: pods_list[6].clone()
       }
     );
-    // TODO add tests for init-container-statuses and NodeLost cases
+    assert_eq!(
+      pods[11],
+      KubePod {
+        namespace: "default".into(),
+        name: "pod-init-container".into(),
+        ready: "0/1".into(),
+        status: "Init:1/2".into(),
+        restarts: 0,
+        cpu: "".into(),
+        mem: "".into(),
+        age: utils::to_age(Some(&get_time("2021-06-18T08:57:56Z")), Utc::now()),
+        containers: vec![KubeContainer {
+          name: "main-busybox".into(),
+          image: "busybox".into(),
+          ready: "false".into(),
+          status: "PodInitializing".into(),
+          restarts: 0,
+          liveliness_probe: false,
+          readiness_probe: false,
+          ports: "".into(),
+          age: utils::to_age(Some(&get_time("2021-06-18T08:57:56Z")), Utc::now()),
+          pod_name: "pod-init-container".into()
+        }],
+        k8s_obj: pods_list[11].clone()
+      }
+    );
+    assert_eq!(
+      pods[12],
+      KubePod {
+        namespace: "default".into(),
+        name: "pod-init-container-2".into(),
+        ready: "0/1".into(),
+        status: "Completed".into(),
+        restarts: 0,
+        cpu: "".into(),
+        mem: "".into(),
+        age: utils::to_age(Some(&get_time("2021-06-18T09:26:11Z")), Utc::now()),
+        containers: vec![KubeContainer {
+          name: "main-busybox".into(),
+          image: "busybox".into(),
+          ready: "false".into(),
+          status: "Completed".into(),
+          restarts: 0,
+          liveliness_probe: false,
+          readiness_probe: false,
+          ports: "".into(),
+          age: utils::to_age(Some(&get_time("2021-06-18T09:26:11Z")), Utc::now()),
+          pod_name: "pod-init-container-2".into()
+        }],
+        k8s_obj: pods_list[12].clone()
+      }
+    );
+    // TODO add tests for NodeLost case
   }
 }
