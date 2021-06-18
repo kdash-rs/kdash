@@ -36,6 +36,7 @@ pub struct KubeContainer {
   pub ports: String,
   pub age: String,
   pub pod_name: String,
+  pub init: bool,
 }
 
 impl KubeResource<Pod> for KubePod {
@@ -52,7 +53,7 @@ impl KubeResource<Pod> for KubePod {
           rc += cs.restart_count;
         });
 
-        let containers: Vec<KubeContainer> = pod
+        let mut containers: Vec<KubeContainer> = pod
           .spec
           .as_ref()
           .unwrap_or(&PodSpec::default())
@@ -64,9 +65,30 @@ impl KubeResource<Pod> for KubePod {
               pod_name.to_owned(),
               age.to_owned(),
               &status.container_statuses,
+              false,
             )
           })
           .collect();
+
+        let mut init_containers: Vec<KubeContainer> = pod
+          .spec
+          .as_ref()
+          .unwrap_or(&PodSpec::default())
+          .init_containers
+          .iter()
+          .map(|c| {
+            KubeContainer::from_api(
+              c,
+              pod_name.to_owned(),
+              age.to_owned(),
+              &status.init_container_statuses,
+              true,
+            )
+          })
+          .collect();
+
+        // merge containers and init-containers into single array
+        containers.append(&mut init_containers);
 
         (
           get_status(status, pod),
@@ -105,6 +127,7 @@ impl KubeContainer {
     pod_name: String,
     age: String,
     c_stats: &[ContainerStatus],
+    init: bool,
   ) -> Self {
     let (mut ready, mut status, mut restarts) = ("false".to_string(), "<none>".to_string(), 0);
     let c_stat = c_stats.iter().find(|cs| cs.name == container.name);
@@ -125,6 +148,7 @@ impl KubeContainer {
       readiness_probe: container.readiness_probe.is_some(),
       ports: get_container_ports(&container.ports),
       age,
+      init,
     }
   }
 }
@@ -315,7 +339,8 @@ mod tests {
           readiness_probe: true,
           ports: "9555".into(),
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
-          pod_name: "adservice-f787c8dcd-tb6x2".into()
+          pod_name: "adservice-f787c8dcd-tb6x2".into(),
+          init: false,
         }],
         k8s_obj: pods_list[0].clone()
       }
@@ -341,7 +366,8 @@ mod tests {
           readiness_probe: true,
           ports: "7070".into(),
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
-          pod_name: "cartservice-67b89ffc69-s5qp8".into()
+          pod_name: "cartservice-67b89ffc69-s5qp8".into(),
+          init: false,
         }],
         k8s_obj: pods_list[1].clone()
       }
@@ -367,7 +393,8 @@ mod tests {
           readiness_probe: true,
           ports: "8080".into(),
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
-          pod_name: "emailservice-5f8fc7dbb4-5lqdb".into()
+          pod_name: "emailservice-5f8fc7dbb4-5lqdb".into(),
+          init: false,
         }],
         k8s_obj: pods_list[3].clone()
       }
@@ -393,7 +420,8 @@ mod tests {
           readiness_probe: true,
           ports: "8080".into(),
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
-          pod_name: "frontend-5c4745dfdb-6k8wf".into()
+          pod_name: "frontend-5c4745dfdb-6k8wf".into(),
+          init: false,
         }],
         k8s_obj: pods_list[4].clone()
       }
@@ -419,7 +447,8 @@ mod tests {
           readiness_probe: true,
           ports: "8080/HTTP".into(),
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
-          pod_name: "frontend-5c4745dfdb-qz7fg".into()
+          pod_name: "frontend-5c4745dfdb-qz7fg".into(),
+          init: false,
         }],
         k8s_obj: pods_list[5].clone()
       }
@@ -445,7 +474,8 @@ mod tests {
           readiness_probe: true,
           ports: "8080, 8081/UDP, Foo:8082/UDP, 8083".into(),
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
-          pod_name: "frontend-5c4745dfdb-6k8wf".into()
+          pod_name: "frontend-5c4745dfdb-6k8wf".into(),
+          init: false,
         }],
         k8s_obj: pods_list[6].clone()
       }
@@ -461,18 +491,47 @@ mod tests {
         cpu: "".into(),
         mem: "".into(),
         age: utils::to_age(Some(&get_time("2021-06-18T08:57:56Z")), Utc::now()),
-        containers: vec![KubeContainer {
-          name: "main-busybox".into(),
-          image: "busybox".into(),
-          ready: "false".into(),
-          status: "PodInitializing".into(),
-          restarts: 0,
-          liveliness_probe: false,
-          readiness_probe: false,
-          ports: "".into(),
-          age: utils::to_age(Some(&get_time("2021-06-18T08:57:56Z")), Utc::now()),
-          pod_name: "pod-init-container".into()
-        }],
+        containers: vec![
+          KubeContainer {
+            name: "main-busybox".into(),
+            image: "busybox".into(),
+            ready: "false".into(),
+            status: "PodInitializing".into(),
+            restarts: 0,
+            liveliness_probe: false,
+            readiness_probe: false,
+            ports: "".into(),
+            age: utils::to_age(Some(&get_time("2021-06-18T08:57:56Z")), Utc::now()),
+            pod_name: "pod-init-container".into(),
+            init: false,
+          },
+          KubeContainer {
+            name: "init-busybox1".into(),
+            image: "busybox".into(),
+            ready: "true".into(),
+            status: "Completed".into(),
+            restarts: 0,
+            liveliness_probe: false,
+            readiness_probe: false,
+            ports: "".into(),
+            age: utils::to_age(Some(&get_time("2021-06-18T08:57:56Z")), Utc::now()),
+            pod_name: "pod-init-container".into(),
+            init: true,
+          },
+          KubeContainer {
+            name: "init-busybox2".into(),
+            image: "busybox".into(),
+            ready: "false".into(),
+            status: "Running".into(),
+            restarts: 0,
+            liveliness_probe: false,
+            readiness_probe: false,
+            ports: "".into(),
+            age: utils::to_age(Some(&get_time("2021-06-18T08:57:56Z")), Utc::now()),
+            pod_name: "pod-init-container".into(),
+            init: true,
+          }
+        ],
         k8s_obj: pods_list[11].clone()
       }
     );
@@ -487,18 +546,47 @@ mod tests {
         cpu: "".into(),
         mem: "".into(),
         age: utils::to_age(Some(&get_time("2021-06-18T09:26:11Z")), Utc::now()),
-        containers: vec![KubeContainer {
-          name: "main-busybox".into(),
-          image: "busybox".into(),
-          ready: "false".into(),
-          status: "Completed".into(),
-          restarts: 0,
-          liveliness_probe: false,
-          readiness_probe: false,
-          ports: "".into(),
-          age: utils::to_age(Some(&get_time("2021-06-18T09:26:11Z")), Utc::now()),
-          pod_name: "pod-init-container-2".into()
-        }],
+        containers: vec![
+          KubeContainer {
+            name: "main-busybox".into(),
+            image: "busybox".into(),
+            ready: "false".into(),
+            status: "Completed".into(),
+            restarts: 0,
+            liveliness_probe: false,
+            readiness_probe: false,
+            ports: "".into(),
+            age: utils::to_age(Some(&get_time("2021-06-18T09:26:11Z")), Utc::now()),
+            pod_name: "pod-init-container-2".into(),
+            init: false,
+          },
+          KubeContainer {
+            name: "init-busybox1".into(),
+            image: "busybox".into(),
+            ready: "true".into(),
+            status: "Completed".into(),
+            restarts: 0,
+            liveliness_probe: false,
+            readiness_probe: false,
+            ports: "".into(),
+            age: utils::to_age(Some(&get_time("2021-06-18T09:26:11Z")), Utc::now()),
+            pod_name: "pod-init-container-2".into(),
+            init: true,
+          },
+          KubeContainer {
+            name: "init-busybox2".into(),
+            image: "busybox".into(),
+            ready: "true".into(),
+            status: "Completed".into(),
+            restarts: 0,
+            liveliness_probe: false,
+            readiness_probe: false,
+            ports: "".into(),
+            age: utils::to_age(Some(&get_time("2021-06-18T09:26:11Z")), Utc::now()),
+            pod_name: "pod-init-container-2".into(),
+            init: true,
+          }
+        ],
         k8s_obj: pods_list[12].clone()
       }
     );

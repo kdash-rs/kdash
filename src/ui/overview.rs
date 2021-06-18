@@ -502,6 +502,7 @@ fn draw_containers_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect
       table_headers: vec![
         "Name",
         "Image",
+        "Init",
         "Ready",
         "State",
         "Restarts",
@@ -512,7 +513,8 @@ fn draw_containers_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect
       column_widths: vec![
         Constraint::Percentage(20),
         // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
-        Constraint::Percentage(29),
+        Constraint::Percentage(24),
+        Constraint::Percentage(5),
         Constraint::Percentage(5),
         Constraint::Percentage(10),
         Constraint::Percentage(5),
@@ -526,6 +528,7 @@ fn draw_containers_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect
       Row::new(vec![
         Cell::from(c.name.to_owned()),
         Cell::from(c.image.to_owned()),
+        Cell::from(c.init.to_string()),
         Cell::from(c.ready.to_owned()),
         Cell::from(c.status.to_owned()),
         Cell::from(c.restarts.to_string()),
