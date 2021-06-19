@@ -2,6 +2,7 @@ use super::super::app::{
   configmaps::KubeConfigMap,
   contexts,
   deployments::KubeDeployment,
+  jobs::KubeJob,
   metrics::{self, KubeNodeMetrics},
   models::KubeResource,
   nodes::KubeNode,
@@ -241,6 +242,15 @@ impl<'a> Network<'a> {
 
     let mut app = self.app.lock().await;
     app.data.replica_sets.set_items(items);
+  }
+
+  pub async fn get_jobs(&self) {
+    let items: Vec<KubeJob> = self
+      .get_namespaced_resources(|it| KubeJob::from_api(it))
+      .await;
+
+    let mut app = self.app.lock().await;
+    app.data.jobs.set_items(items);
   }
 
   pub async fn get_deployments(&self) {

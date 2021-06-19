@@ -46,6 +46,7 @@ generate_keybindings! {
   jump_to_statefulsets,
   jump_to_replicasets,
   jump_to_deployments,
+  jump_to_jobs,
   cycle_group_by
 }
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Debug)]
@@ -236,6 +237,12 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
     key: Key::Char('7'),
     alt: None,
     desc: "Select deployments tab",
+    context: HContext::Overview,
+  },
+  jump_to_jobs: KeyBinding {
+    key: Key::Char('8'),
+    alt: None,
+    desc: "Select jobs tab",
     context: HContext::Overview,
   },
   cycle_group_by: KeyBinding {
