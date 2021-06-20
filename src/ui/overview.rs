@@ -28,6 +28,7 @@ static CONFIG_MAPS_TITLE: &str = "ConfigMaps";
 static STFS_TITLE: &str = "StatefulSets";
 static REPLICA_SETS_TITLE: &str = "ReplicaSets";
 static DEPLOYMENTS_TITLE: &str = "Deployments";
+static JOBS_TITLE: &str = "Jobs";
 static DESCRIBE_ACTIVE: &str = "-> Describe ";
 static YAML_ACTIVE: &str = "-> YAML ";
 
@@ -131,6 +132,7 @@ fn draw_resource_tabs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: R
     4 => draw_stateful_sets_tab(app.get_current_route().active_block, f, app, chunks[1]),
     5 => draw_replica_sets_tab(app.get_current_route().active_block, f, app, chunks[1]),
     6 => draw_deployments_tab(app.get_current_route().active_block, f, app, chunks[1]),
+    7 => draw_jobs_tab(app.get_current_route().active_block, f, app, chunks[1]),
     _ => {}
   };
 }
@@ -319,6 +321,30 @@ fn draw_deployments_tab<B: Backend>(
       draw_config_maps_tab(app.get_prev_route().active_block, f, app, area);
     }
     _ => draw_deployments_block(f, app, area),
+  };
+}
+
+fn draw_jobs_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
+  match block {
+    ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
+      f,
+      app,
+      area,
+      title_with_dual_style(
+        get_resource_title(
+          app,
+          JOBS_TITLE,
+          get_describe_active(block),
+          app.data.jobs.items.len(),
+        ),
+        format!("{} | {} <esc>", COPY_HINT, JOBS_TITLE),
+        app.light_theme,
+      ),
+    ),
+    ActiveBlock::Namespaces => {
+      draw_jobs_tab(app.get_prev_route().active_block, f, app, area);
+    }
+    _ => draw_jobs_block(f, app, area),
   };
 }
 
@@ -766,6 +792,41 @@ fn draw_deployments_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rec
         Cell::from(c.ready.to_owned()),
         Cell::from(c.updated.to_string()),
         Cell::from(c.available.to_string()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary())
+    },
+    app.light_theme,
+    app.is_loading,
+  );
+}
+
+fn draw_jobs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let title = get_resource_title(app, JOBS_TITLE, "", app.data.jobs.items.len());
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: DESCRIBE_AND_YAML_HINT.into(),
+      resource: &mut app.data.jobs,
+      table_headers: vec!["Namespace", "Name", "Completions", "Duration", "Age"],
+      column_widths: vec![
+        Constraint::Percentage(25),
+        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
+        Constraint::Percentage(39),
+        Constraint::Percentage(15),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+      ],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.namespace.to_owned()),
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.completions.to_owned()),
+        Cell::from(c.duration.to_string()),
         Cell::from(c.age.to_owned()),
       ])
       .style(style_primary())

@@ -160,6 +160,10 @@ async fn handle_route_events(key: Key, app: &mut App) {
           let route = app.context_tabs.set_index(6).route.clone();
           app.push_navigation_route(route);
         }
+        _ if key == DEFAULT_KEYBINDING.jump_to_jobs.key => {
+          let route = app.context_tabs.set_index(7).route.clone();
+          app.push_navigation_route(route);
+        }
         _ => {}
       };
 
@@ -299,6 +303,21 @@ async fn handle_route_events(key: Key, app: &mut App) {
             .await;
           }
         }
+        ActiveBlock::Jobs => {
+          if let Some(res) = handle_table_action(key, &mut app.data.jobs) {
+            let _ok = handle_describe_or_yaml_action(
+              key,
+              app,
+              &res,
+              IoCmdEvent::GetDescribe {
+                kind: "job".to_owned(),
+                value: res.name.to_owned(),
+                ns: Some(res.namespace.to_owned()),
+              },
+            )
+            .await;
+          }
+        }
         ActiveBlock::Contexts | ActiveBlock::Utilization | ActiveBlock::Help => { /* Do nothing */ }
       }
     }
@@ -372,6 +391,7 @@ async fn handle_scroll(app: &mut App, down: bool, is_mouse: bool) {
     ActiveBlock::StatefulSets => handle_table_scroll(&mut app.data.stateful_sets, down),
     ActiveBlock::ReplicaSets => handle_table_scroll(&mut app.data.replica_sets, down),
     ActiveBlock::Deployments => handle_table_scroll(&mut app.data.deployments, down),
+    ActiveBlock::Jobs => handle_table_scroll(&mut app.help_docs, down),
     ActiveBlock::Contexts => handle_table_scroll(&mut app.data.contexts, down),
     ActiveBlock::Utilization => handle_table_scroll(&mut app.data.metrics, down),
     ActiveBlock::Logs => {

@@ -1,0 +1,331 @@
+apiVersion: v1
+items:
+- apiVersion: batch/v1
+  kind: Job
+  metadata:
+    annotations:
+      objectset.rio.cattle.io/applied: H4sIAAAAAAAA/6xUYW/iRhD9K9VI920xtjGJsXQfHHBKehdAJI1aVadoWQbYst61dseurhH/vVrHTUwvzalSv7GeNzPvzbzhCY5SbyGDn8wGGPBKPqB10mjIYMNJHIZNBAxKJL7lxCF7As1LhAwOqMqB1I64UgOyHHfyCKyNuooLDznWGxy4r46wBAbCIidp9L0s0REvK8h0rRQDxTeonC/ta4oDt+QC/zMQnEhhIM2w/QoZvDYym99RkEMKrDQ95IG7A2Qgkng33oy32wniOLyM0nE84mksLtJtMprE/HKLYrITCZwYcK0NtdxaFv9WWW7/li2MJmuUQvsOEfOHRjvYN8cuqxdqIvbDJ6m3H+eoymkr7Xt1uql/X/8r/K01nE4MXIXC69xwcTS73WdZSoIsCsOQAWFZKU7o4/2l/6/L+3bk7+QavZP7+fNS7+Z5PL74GEXj8egiKYrp5XQyS6M8iUbXkyJKL4tZehGn01k8Dos4HCWjIkyj6/D6Kkzz9OoqKaIwms7OptAYVZfoIPvtxdoNVzU6b9m2+S2ver5vaQ6eIS++P53YK8BoQk3vpneYXv6XFk5carRnZPw8gIEs+d4/LdfigHZ4VLKq0A58OGvCIAlG/n7t3idDd5fwhQHqpl9ukd8WwJ4lnq3kBfFQrO9ulov+p3WxWvbf8+Lz7eNsffNQrHu1HAqL1MdN5/n6/tG3vFvl037fM0/+I6EHOxBVLhsOPzx9+vmqWC+K++LuMV/dnD4MnbePePaWG3Y6BlGQRkEY0P7Pb/i+oes+X/9Y/CeCi+Xjar385dceMnCNYIFQtSO0gTKCKxaFQRIHYRAOo4v2Meoe4Bdt0ZnaCm+6pxPrHHhrak1v27D0oRUnfwLdQcCbhjsHtlfn+7XeWdVKrYyS4itkcLNbGFpZdD6vo0Tc0gtgqa+5VLVFYODQNlJgLoQvv+j9/b/a1x8UcapbSae/AgAA//8L+Vu5VgYAAA
+      objectset.rio.cattle.io/id: helm-controller
+      objectset.rio.cattle.io/owner-gvk: helm.cattle.io/v1, Kind=HelmChart
+      objectset.rio.cattle.io/owner-name: traefik
+      objectset.rio.cattle.io/owner-namespace: kube-system
+    creationTimestamp: "2021-06-11T13:49:45Z"
+    labels:
+      helmcharts.helm.cattle.io/chart: traefik
+      objectset.rio.cattle.io/hash: c42f5b5dd9ee50718523a82c68d4392a7dec9fc4
+    managedFields:
+    - apiVersion: batch/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:objectset.rio.cattle.io/applied: {}
+            f:objectset.rio.cattle.io/id: {}
+            f:objectset.rio.cattle.io/owner-gvk: {}
+            f:objectset.rio.cattle.io/owner-name: {}
+            f:objectset.rio.cattle.io/owner-namespace: {}
+          f:labels:
+            .: {}
+            f:helmcharts.helm.cattle.io/chart: {}
+            f:objectset.rio.cattle.io/hash: {}
+        f:spec:
+          f:backoffLimit: {}
+          f:completions: {}
+          f:parallelism: {}
+          f:template:
+            f:metadata:
+              f:annotations:
+                .: {}
+                f:helmcharts.helm.cattle.io/configHash: {}
+              f:labels:
+                .: {}
+                f:helmcharts.helm.cattle.io/chart: {}
+            f:spec:
+              f:containers:
+                k:{"name":"helm"}:
+                  .: {}
+                  f:args: {}
+                  f:env:
+                    .: {}
+                    k:{"name":"CHART"}:
+                      .: {}
+                      f:name: {}
+                      f:value: {}
+                    k:{"name":"CHART_NAMESPACE"}:
+                      .: {}
+                      f:name: {}
+                      f:value: {}
+                    k:{"name":"HELM_DRIVER"}:
+                      .: {}
+                      f:name: {}
+                      f:value: {}
+                    k:{"name":"HELM_VERSION"}:
+                      .: {}
+                      f:name: {}
+                    k:{"name":"NAME"}:
+                      .: {}
+                      f:name: {}
+                      f:value: {}
+                    k:{"name":"NO_PROXY"}:
+                      .: {}
+                      f:name: {}
+                      f:value: {}
+                    k:{"name":"REPO"}:
+                      .: {}
+                      f:name: {}
+                    k:{"name":"TARGET_NAMESPACE"}:
+                      .: {}
+                      f:name: {}
+                      f:value: {}
+                    k:{"name":"VERSION"}:
+                      .: {}
+                      f:name: {}
+                  f:image: {}
+                  f:imagePullPolicy: {}
+                  f:name: {}
+                  f:resources: {}
+                  f:terminationMessagePath: {}
+                  f:terminationMessagePolicy: {}
+                  f:volumeMounts:
+                    .: {}
+                    k:{"mountPath":"/chart"}:
+                      .: {}
+                      f:mountPath: {}
+                      f:name: {}
+                    k:{"mountPath":"/config"}:
+                      .: {}
+                      f:mountPath: {}
+                      f:name: {}
+              f:dnsPolicy: {}
+              f:restartPolicy: {}
+              f:schedulerName: {}
+              f:securityContext: {}
+              f:serviceAccount: {}
+              f:serviceAccountName: {}
+              f:terminationGracePeriodSeconds: {}
+              f:volumes:
+                .: {}
+                k:{"name":"content"}:
+                  .: {}
+                  f:configMap:
+                    .: {}
+                    f:defaultMode: {}
+                    f:name: {}
+                  f:name: {}
+                k:{"name":"values"}:
+                  .: {}
+                  f:configMap:
+                    .: {}
+                    f:defaultMode: {}
+                    f:name: {}
+                  f:name: {}
+        f:status:
+          f:completionTime: {}
+          f:conditions:
+            .: {}
+            k:{"type":"Complete"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:startTime: {}
+          f:succeeded: {}
+      manager: k3s
+      operation: Update
+      time: "2021-06-11T14:29:40Z"
+    name: helm-install-traefik
+    namespace: kube-system
+    resourceVersion: "800"
+    uid: 46c3d6ea-71f0-43c9-9746-1f4b2bc09a01
+  spec:
+    backoffLimit: 1000
+    completions: 1
+    parallelism: 1
+    selector:
+      matchLabels:
+        controller-uid: 46c3d6ea-71f0-43c9-9746-1f4b2bc09a01
+    template:
+      metadata:
+        annotations:
+          helmcharts.helm.cattle.io/configHash: SHA256=1155364EEC7C9D81A413F9E187ED8628CD250E20343E081F0FB08A8BB4E101CD
+        creationTimestamp: null
+        labels:
+          controller-uid: 46c3d6ea-71f0-43c9-9746-1f4b2bc09a01
+          helmcharts.helm.cattle.io/chart: traefik
+          job-name: helm-install-traefik
+      spec:
+        containers:
+        - args:
+          - install
+          env:
+          - name: NAME
+            value: traefik
+          - name: VERSION
+          - name: REPO
+          - name: HELM_DRIVER
+            value: secret
+          - name: CHART_NAMESPACE
+            value: kube-system
+          - name: CHART
+            value: https://%{KUBERNETES_API}%/static/charts/traefik-1.81.0.tgz
+          - name: HELM_VERSION
+          - name: TARGET_NAMESPACE
+            value: kube-system
+          - name: NO_PROXY
+            value: .svc,.cluster.local,10.42.0.0/16,10.43.0.0/16
+          image: rancher/klipper-helm:v0.4.3
+          imagePullPolicy: IfNotPresent
+          name: helm
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /config
+            name: values
+          - mountPath: /chart
+            name: content
+        dnsPolicy: ClusterFirst
+        restartPolicy: OnFailure
+        schedulerName: default-scheduler
+        securityContext: {}
+        serviceAccount: helm-traefik
+        serviceAccountName: helm-traefik
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - configMap:
+            defaultMode: 420
+            name: chart-values-traefik
+          name: values
+        - configMap:
+            defaultMode: 420
+            name: chart-content-traefik
+          name: content
+  status:
+    completionTime: "2021-06-11T14:29:40Z"
+    conditions:
+    - lastProbeTime: "2021-06-11T14:29:40Z"
+      lastTransitionTime: "2021-06-11T14:29:40Z"
+      status: "True"
+      type: Complete
+    startTime: "2021-06-11T13:49:56Z"
+    succeeded: 1
+- apiVersion: batch/v1
+  kind: Job
+  metadata:
+    annotations:
+      objectset.rio.cattle.io/applied: H4sIAAAAAAAA/6xUYW/iRhD9K9VI920xtjGJsXQfHHBKehdAJI1aVadoWQbYst61dseurhH/vVrHTUwvzalSv7GeNzPvzbzhCY5SbyGDn8wGGPBKPqB10mjIYMNJHIZNBAxKJL7lxCF7As1LhAwOqMqB1I64UgOyHHfyCKyNuooLDznWGxy4r46wBAbCIidp9L0s0REvK8h0rRQDxTeonC/ta4oDt+QC/zMQnEhhIM2w/QoZvDYym99RkEMKrDQ95IG7A2Qgkng33oy32wniOLyM0nE84mksLtJtMprE/HKLYrITCZwYcK0NtdxaFv9WWW7/li2MJmuUQvsOEfOHRjvYN8cuqxdqIvbDJ6m3H+eoymkr7Xt1uql/X/8r/K01nE4MXIXC69xwcTS73WdZSoIsCsOQAWFZKU7o4/2l/6/L+3bk7+QavZP7+fNS7+Z5PL74GEXj8egiKYrp5XQyS6M8iUbXkyJKL4tZehGn01k8Dos4HCWjIkyj6/D6Kkzz9OoqKaIwms7OptAYVZfoIPvtxdoNVzU6b9m2+S2ver5vaQ6eIS++P53YK8BoQk3vpneYXv6XFk5carRnZPw8gIEs+d4/LdfigHZ4VLKq0A58OGvCIAlG/n7t3idDd5fwhQHqpl9ukd8WwJ4lnq3kBfFQrO9ulov+p3WxWvbf8+Lz7eNsffNQrHu1HAqL1MdN5/n6/tG3vFvl037fM0/+I6EHOxBVLhsOPzx9+vmqWC+K++LuMV/dnD4MnbePePaWG3Y6BlGQRkEY0P7Pb/i+oes+X/9Y/CeCi+Xjar385dceMnCNYIFQtSO0gTKCKxaFQRIHYRAOo4v2Meoe4Bdt0ZnaCm+6pxPrHHhrak1v27D0oRUnfwLdQcCbhjsHtlfn+7XeWdVKrYyS4itkcLNbGFpZdD6vo0Tc0gtgqa+5VLVFYODQNlJgLoQvv+j9/b/a1x8UcapbSae/AgAA//8L+Vu5VgYAAA
+      objectset.rio.cattle.io/id: helm-controller
+      objectset.rio.cattle.io/owner-gvk: helm.cattle.io/v1, Kind=HelmChart
+      objectset.rio.cattle.io/owner-name: traefik
+      objectset.rio.cattle.io/owner-namespace: kube-system
+    creationTimestamp: "2021-06-11T13:49:45Z"
+    labels:
+      helmcharts.helm.cattle.io/chart: traefik
+      objectset.rio.cattle.io/hash: c42f5b5dd9ee50718523a82c68d4392a7dec9fc4
+    name: helm-install-traefik-2
+    namespace: kube-system
+    resourceVersion: "800"
+    uid: 46c3d6ea-71f0-43c9-9746-1f4b2bc09a01
+  spec:
+    backoffLimit: 1000
+    parallelism: 1
+    selector:
+      matchLabels:
+        controller-uid: 46c3d6ea-71f0-43c9-9746-1f4b2bc09a01
+    template:
+      metadata:
+        annotations:
+          helmcharts.helm.cattle.io/configHash: SHA256=1155364EEC7C9D81A413F9E187ED8628CD250E20343E081F0FB08A8BB4E101CD
+        creationTimestamp: null
+        labels:
+          controller-uid: 46c3d6ea-71f0-43c9-9746-1f4b2bc09a01
+          helmcharts.helm.cattle.io/chart: traefik
+          job-name: helm-install-traefik-2
+      spec:
+        containers:
+        - args:
+          - install
+          env:
+          - name: NAME
+            value: traefik
+          - name: VERSION
+          - name: REPO
+          - name: HELM_DRIVER
+            value: secret
+          - name: CHART_NAMESPACE
+            value: kube-system
+          - name: CHART
+            value: https://%{KUBERNETES_API}%/static/charts/traefik-1.81.0.tgz
+          - name: HELM_VERSION
+          - name: TARGET_NAMESPACE
+            value: kube-system
+          - name: NO_PROXY
+            value: .svc,.cluster.local,10.42.0.0/16,10.43.0.0/16
+          image: rancher/klipper-helm:v0.4.3
+          imagePullPolicy: IfNotPresent
+          name: helm
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /config
+            name: values
+          - mountPath: /chart
+            name: content
+        dnsPolicy: ClusterFirst
+        restartPolicy: OnFailure
+        schedulerName: default-scheduler
+        securityContext: {}
+        serviceAccount: helm-traefik
+        serviceAccountName: helm-traefik
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - configMap:
+            defaultMode: 420
+            name: chart-values-traefik
+          name: values
+        - configMap:
+            defaultMode: 420
+            name: chart-content-traefik
+          name: content
+  status:
+    completionTime: "2021-06-11T14:29:40Z"
+    conditions:
+    - lastProbeTime: "2021-06-11T14:29:40Z"
+      lastTransitionTime: "2021-06-11T14:29:40Z"
+      status: "True"
+      type: Complete
+    startTime: "2021-06-11T13:49:56Z"
+    succeeded: 1
+- apiVersion: batch/v1
+  kind: Job
+  metadata:
+    annotations:
+      objectset.rio.cattle.io/applied: H4sIAAAAAAAA/6xUYW/iRhD9K9VI920xtjGJsXQfHHBKehdAJI1aVadoWQbYst61dseurhH/vVrHTUwvzalSv7GeNzPvzbzhCY5SbyGDn8wGGPBKPqB10mjIYMNJHIZNBAxKJL7lxCF7As1LhAwOqMqB1I64UgOyHHfyCKyNuooLDznWGxy4r46wBAbCIidp9L0s0REvK8h0rRQDxTeonC/ta4oDt+QC/zMQnEhhIM2w/QoZvDYym99RkEMKrDQ95IG7A2Qgkng33oy32wniOLyM0nE84mksLtJtMprE/HKLYrITCZwYcK0NtdxaFv9WWW7/li2MJmuUQvsOEfOHRjvYN8cuqxdqIvbDJ6m3H+eoymkr7Xt1uql/X/8r/K01nE4MXIXC69xwcTS73WdZSoIsCsOQAWFZKU7o4/2l/6/L+3bk7+QavZP7+fNS7+Z5PL74GEXj8egiKYrp5XQyS6M8iUbXkyJKL4tZehGn01k8Dos4HCWjIkyj6/D6Kkzz9OoqKaIwms7OptAYVZfoIPvtxdoNVzU6b9m2+S2ver5vaQ6eIS++P53YK8BoQk3vpneYXv6XFk5carRnZPw8gIEs+d4/LdfigHZ4VLKq0A58OGvCIAlG/n7t3idDd5fwhQHqpl9ukd8WwJ4lnq3kBfFQrO9ulov+p3WxWvbf8+Lz7eNsffNQrHu1HAqL1MdN5/n6/tG3vFvl037fM0/+I6EHOxBVLhsOPzx9+vmqWC+K++LuMV/dnD4MnbePePaWG3Y6BlGQRkEY0P7Pb/i+oes+X/9Y/CeCi+Xjar385dceMnCNYIFQtSO0gTKCKxaFQRIHYRAOo4v2Meoe4Bdt0ZnaCm+6pxPrHHhrak1v27D0oRUnfwLdQcCbhjsHtlfn+7XeWdVKrYyS4itkcLNbGFpZdD6vo0Tc0gtgqa+5VLVFYODQNlJgLoQvv+j9/b/a1x8UcapbSae/AgAA//8L+Vu5VgYAAA
+      objectset.rio.cattle.io/id: helm-controller
+      objectset.rio.cattle.io/owner-gvk: helm.cattle.io/v1, Kind=HelmChart
+      objectset.rio.cattle.io/owner-name: traefik
+      objectset.rio.cattle.io/owner-namespace: kube-system
+    creationTimestamp: "2021-06-11T13:49:45Z"
+    labels:
+      helmcharts.helm.cattle.io/chart: traefik
+      objectset.rio.cattle.io/hash: c42f5b5dd9ee50718523a82c68d4392a7dec9fc4
+    name: helm-install-traefik-3
+    namespace: kube-system
+    resourceVersion: "800"
+    uid: 46c3d6ea-71f0-43c9-9746-1f4b2bc09a01
+  status:
+    completionTime: "2021-06-11T14:29:40Z"
+    conditions:
+    - lastProbeTime: "2021-06-11T14:29:40Z"
+      lastTransitionTime: "2021-06-11T14:29:40Z"
+      status: "True"
+      type: Complete
+    startTime: "2021-06-11T13:49:56Z"
+    succeeded: 1
+kind: List
+metadata:
+  resourceVersion: ""
+  selfLink: ""

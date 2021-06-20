@@ -1,6 +1,7 @@
 pub(crate) mod configmaps;
 pub(crate) mod contexts;
 pub(crate) mod deployments;
+pub(crate) mod jobs;
 pub(crate) mod key_binding;
 pub(crate) mod metrics;
 pub(crate) mod models;
@@ -16,6 +17,7 @@ use self::{
   configmaps::KubeConfigMap,
   contexts::KubeContext,
   deployments::KubeDeployment,
+  jobs::KubeJob,
   key_binding::DEFAULT_KEYBINDING,
   metrics::KubeNodeMetrics,
   models::{LogsState, ScrollableTxt, StatefulTable, TabRoute, TabsState},
@@ -52,6 +54,7 @@ pub enum ActiveBlock {
   Yaml,
   Contexts,
   Utilization,
+  Jobs,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -97,6 +100,7 @@ pub struct Data {
   pub stateful_sets: StatefulTable<KubeStatefulSet>,
   pub replica_sets: StatefulTable<KubeReplicaSet>,
   pub deployments: StatefulTable<KubeDeployment>,
+  pub jobs: StatefulTable<KubeJob>,
   pub logs: LogsState,
   pub describe_out: ScrollableTxt,
   pub metrics: StatefulTable<(Vec<String>, Option<QtyByQualifier>)>,
@@ -157,6 +161,7 @@ impl Default for Data {
       stateful_sets: StatefulTable::new(),
       replica_sets: StatefulTable::new(),
       deployments: StatefulTable::new(),
+      jobs: StatefulTable::new(),
       selected: Selected {
         ns: None,
         pod: None,
@@ -258,6 +263,13 @@ impl Default for App {
           title: format!("Deployments {}", DEFAULT_KEYBINDING.jump_to_deployments.key),
           route: Route {
             active_block: ActiveBlock::Deployments,
+            id: RouteId::Home,
+          },
+        },
+        TabRoute {
+          title: format!("Jobs {}", DEFAULT_KEYBINDING.jump_to_jobs.key),
+          route: Route {
+            active_block: ActiveBlock::Jobs,
             id: RouteId::Home,
           },
         },
@@ -442,7 +454,7 @@ impl App {
       self.dispatch(IoEvent::GetStatefulSets).await;
       self.dispatch(IoEvent::GetReplicaSets).await;
       self.dispatch(IoEvent::GetDeployments).await;
-
+      self.dispatch(IoEvent::GetJobs).await;
       self.refresh = false;
     }
     // make network requests only in intervals to avoid hogging up the network
@@ -473,6 +485,9 @@ impl App {
             }
             ActiveBlock::Deployments => {
               self.dispatch(IoEvent::GetDeployments).await;
+            }
+            ActiveBlock::Jobs => {
+              self.dispatch(IoEvent::GetJobs).await;
             }
             ActiveBlock::Logs => {
               if !self.is_streaming {
@@ -589,6 +604,7 @@ mod tests {
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetStatefulSets);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetReplicaSets);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetDeployments);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetJobs);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
