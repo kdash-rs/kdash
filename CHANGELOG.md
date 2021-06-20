@@ -2,6 +2,8 @@
 
 ## [0.1.3 - Unreleased] - 07-June-2021
 
+- Add support for Job resource - [#42](https://github.com/kdash-rs/kdash/pull/42), Thanks to [somayaj](https://github.com/somayaj)
+
 ## [0.1.2] - 12-June-2021
 
 - Add human friendly crash messages
