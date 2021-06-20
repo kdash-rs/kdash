@@ -486,6 +486,9 @@ impl App {
             ActiveBlock::Deployments => {
               self.dispatch(IoEvent::GetDeployments).await;
             }
+            ActiveBlock::Jobs => {
+              self.dispatch(IoEvent::GetJobs).await;
+            }
             ActiveBlock::Logs => {
               if !self.is_streaming {
                 // do not tail to avoid duplicates
@@ -605,7 +608,6 @@ mod tests {
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
-
 
     assert_eq!(sync_io_cmd_rx.recv().await.unwrap(), IoCmdEvent::GetCliInfo);
 

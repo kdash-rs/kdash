@@ -4,18 +4,15 @@ items:
   kind: Job
   metadata:
     annotations:
-      deployment.kubernetes.io/desired-replicas: "1"
-      deployment.kubernetes.io/max-replicas: "2"
-      deployment.kubernetes.io/revision: "1"
-      objectset.rio.cattle.io/applied: H4sIAAAAAAAA/6yTT2/TQBDFvwqas+00f9oQSxyqlhMQkJC4VDlMdifN4v2nnYnBivzd0cZUBLUmHHpbe3d+++bN2yNgNN8osQkeasAYedJOoYDGeA013FO0oXPkBQpwJKhREOojoPdBUEzwnD/D9jspYZIqmVApFLFUmTAxGQLF6H744SmVj20DNTRzPttpp8WbD8brd7daB38R4dER1FliMopLptRSKvW5/MsAjqgypTlsqeSOhRz0BVjckj212bzlEmN8dtE/6HvkPdRA0yuaLa5pOqfFDS5n12qltdaL3Yq2s/lqN10sl8vFTuf7XuwFhv8jEjmSygKZLCkJKa8ditp/vKy97wsQctGi0KnubMz/0fqo4DNZKnhB4ykx1A9HMA4fc0FCr/aUJn8X1u1VNa9uYNyINtiDo0/h4GUAurz8gpKdnoiLf2rFxVKbBP2m3xQQkwnJSHdnkXk9nBhMLH3QVKpkxCi0UEC+zCi6VSqz1yNKJFhKT8/g4QgNdVDD3W/MKbr82dsuByTmk3k08P6nYWHoiyPQbkdKoIZ1+Kr2pA+W8us7YU6SUrBU5WknT0KcI5XdTMGW0aKnVyU7ZBnS/By5efJ96JRclO7e5KT1L7nd9/2vAAAA//9qo4eWXQQAAA
-      objectset.rio.cattle.io/owner-gvk: k3s.cattle.io/v1, Kind=Addon
-      objectset.rio.cattle.io/owner-name: metrics-server-deployment
+      objectset.rio.cattle.io/applied: H4sIAAAAAAAA/6xUYW/iRhD9K9VI920xtjGJsXQfHHBKehdAJI1aVadoWQbYst61dseurhH/vVrHTUwvzalSv7GeNzPvzbzhCY5SbyGDn8wGGPBKPqB10mjIYMNJHIZNBAxKJL7lxCF7As1LhAwOqMqB1I64UgOyHHfyCKyNuooLDznWGxy4r46wBAbCIidp9L0s0REvK8h0rRQDxTeonC/ta4oDt+QC/zMQnEhhIM2w/QoZvDYym99RkEMKrDQ95IG7A2Qgkng33oy32wniOLyM0nE84mksLtJtMprE/HKLYrITCZwYcK0NtdxaFv9WWW7/li2MJmuUQvsOEfOHRjvYN8cuqxdqIvbDJ6m3H+eoymkr7Xt1uql/X/8r/K01nE4MXIXC69xwcTS73WdZSoIsCsOQAWFZKU7o4/2l/6/L+3bk7+QavZP7+fNS7+Z5PL74GEXj8egiKYrp5XQyS6M8iUbXkyJKL4tZehGn01k8Dos4HCWjIkyj6/D6Kkzz9OoqKaIwms7OptAYVZfoIPvtxdoNVzU6b9m2+S2ver5vaQ6eIS++P53YK8BoQk3vpneYXv6XFk5carRnZPw8gIEs+d4/LdfigHZ4VLKq0A58OGvCIAlG/n7t3idDd5fwhQHqpl9ukd8WwJ4lnq3kBfFQrO9ulov+p3WxWvbf8+Lz7eNsffNQrHu1HAqL1MdN5/n6/tG3vFvl037fM0/+I6EHOxBVLhsOPzx9+vmqWC+K++LuMV/dnD4MnbePePaWG3Y6BlGQRkEY0P7Pb/i+oes+X/9Y/CeCi+Xjar385dceMnCNYIFQtSO0gTKCKxaFQRIHYRAOo4v2Meoe4Bdt0ZnaCm+6pxPrHHhrak1v27D0oRUnfwLdQcCbhjsHtlfn+7XeWdVKrYyS4itkcLNbGFpZdD6vo0Tc0gtgqa+5VLVFYODQNlJgLoQvv+j9/b/a1x8UcapbSae/AgAA//8L+Vu5VgYAAA
+      objectset.rio.cattle.io/id: helm-controller
+      objectset.rio.cattle.io/owner-gvk: helm.cattle.io/v1, Kind=HelmChart
+      objectset.rio.cattle.io/owner-name: traefik
       objectset.rio.cattle.io/owner-namespace: kube-system
-    creationTimestamp: "2021-05-10T21:48:19Z"
-    generation: 1
+    creationTimestamp: "2021-06-11T13:49:45Z"
     labels:
-      k8s-app: metrics-server
-      pod-template-hash: 86cbb8457f
+      helmcharts.helm.cattle.io/chart: traefik
+      objectset.rio.cattle.io/hash: c42f5b5dd9ee50718523a82c68d4392a7dec9fc4
     managedFields:
     - apiVersion: batch/v1
       fieldsType: FieldsV1
@@ -23,871 +20,311 @@ items:
         f:metadata:
           f:annotations:
             .: {}
-            f:deployment.kubernetes.io/desired-replicas: {}
-            f:deployment.kubernetes.io/max-replicas: {}
-            f:deployment.kubernetes.io/revision: {}
             f:objectset.rio.cattle.io/applied: {}
+            f:objectset.rio.cattle.io/id: {}
             f:objectset.rio.cattle.io/owner-gvk: {}
             f:objectset.rio.cattle.io/owner-name: {}
             f:objectset.rio.cattle.io/owner-namespace: {}
           f:labels:
             .: {}
-            f:k8s-app: {}
-            f:pod-template-hash: {}
-          f:ownerReferences:
-            .: {}
-            k:{"uid":"21428a41-6ca3-44d7-b4c1-e2f4e242fabe"}:
-              .: {}
-              f:apiVersion: {}
-              f:blockOwnerDeletion: {}
-              f:controller: {}
-              f:kind: {}
-              f:name: {}
-              f:uid: {}
+            f:helmcharts.helm.cattle.io/chart: {}
+            f:objectset.rio.cattle.io/hash: {}
         f:spec:
-          f:replicas: {}
-          f:selector: {}
-          f:template:
-            f:metadata:
-              f:labels:
-                .: {}
-                f:k8s-app: {}
-                f:pod-template-hash: {}
-              f:name: {}
-            f:spec:
-              f:containers:
-                k:{"name":"metrics-server"}:
-                  .: {}
-                  f:image: {}
-                  f:imagePullPolicy: {}
-                  f:name: {}
-                  f:resources: {}
-                  f:terminationMessagePath: {}
-                  f:terminationMessagePolicy: {}
-                  f:volumeMounts:
-                    .: {}
-                    k:{"mountPath":"/tmp"}:
-                      .: {}
-                      f:mountPath: {}
-                      f:name: {}
-              f:dnsPolicy: {}
-              f:priorityClassName: {}
-              f:restartPolicy: {}
-              f:schedulerName: {}
-              f:securityContext: {}
-              f:serviceAccount: {}
-              f:serviceAccountName: {}
-              f:terminationGracePeriodSeconds: {}
-              f:tolerations: {}
-              f:volumes:
-                .: {}
-                k:{"name":"tmp-dir"}:
-                  .: {}
-                  f:emptyDir: {}
-                  f:name: {}
-        f:status:
-          f:availableReplicas: {}
-          f:fullyLabeledReplicas: {}
-          f:observedGeneration: {}
-          f:readyReplicas: {}
-          f:replicas: {}
-      manager: k3s
-      operation: Update
-      time: "2021-05-10T21:48:32Z"
-    name: metrics-server-86cbb8457f
-    namespace: kube-system
-    ownerReferences:
-    - apiVersion: batch/v1
-      blockOwnerDeletion: true
-      controller: true
-      kind: Deployment
-      name: metrics-server
-      uid: 21428a41-6ca3-44d7-b4c1-e2f4e242fabe
-    resourceVersion: "461"
-    uid: cfbc3b1f-4f5b-4651-b030-d949313b25f8
-  spec:
-    replicas: 1
-    selector:
-      matchLabels:
-        k8s-app: metrics-server
-        pod-template-hash: 86cbb8457f
-    template:
-      metadata:
-        creationTimestamp: null
-        labels:
-          k8s-app: metrics-server
-          pod-template-hash: 86cbb8457f
-        name: metrics-server
-      spec:
-        containers:
-        - image: rancher/metrics-server:v0.3.6
-          imagePullPolicy: IfNotPresent
-          name: metrics-server
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-          volumeMounts:
-          - mountPath: /tmp
-            name: tmp-dir
-        dnsPolicy: ClusterFirst
-        priorityClassName: system-node-critical
-        restartPolicy: Always
-        schedulerName: default-scheduler
-        securityContext: {}
-        serviceAccount: metrics-server
-        serviceAccountName: metrics-server
-        terminationGracePeriodSeconds: 30
-        tolerations:
-        - key: CriticalAddonsOnly
-          operator: Exists
-        - effect: NoSchedule
-          key: node-role.kubernetes.io/control-plane
-          operator: Exists
-        - effect: NoSchedule
-          key: node-role.kubernetes.io/master
-          operator: Exists
-        volumes:
-        - emptyDir: {}
-          name: tmp-dir
-  status:
-    availableReplicas: 1
-    fullyLabeledReplicas: 1
-    observedGeneration: 1
-    readyReplicas: 1
-    replicas: 1
-- apiVersion: batch/v1
-  kind: Job
-  metadata:
-    annotations:
-      deployment.kubernetes.io/desired-replicas: "1"
-      deployment.kubernetes.io/max-replicas: "2"
-      deployment.kubernetes.io/revision: "1"
-      objectset.rio.cattle.io/applied: H4sIAAAAAAAA/6xTzW7bTAx8lQ88S7L9OTFcAT0YSQoUbRyjAXoJjIJeUfHG+4ddWq1h6N0LWnKSonGSQ0/aFcnZIWe4Bwz6O8WkvYMSMIQ0aEaQwUa7Ckq4pGD8zpJjyMASY4WMUO4BnfOMrL1LcvWrB1KciIuofaGQ2VCh/UALCGQn4/6no5jfNxsoYTNOzyLNKPvvi3bVx1lVefcmhENLUILxCk2e2Ee8p3cVpYBKKjfbFeVpl5gstBkYXJF5tbU1pjWUMJqO6/G5mpzX9UqNh5OzyXBcn43r0fl0WE3VZIr/V7iqzgT0D5IBeZ2H6Bstw6cIXfwEnxRICZtIwWiFCcpRBokMKfZRAhZZrb8+ssYQTr/Uthkw2WCQ6VD7TFjzfogjJ+Udo3YUE5R3crUWxT13pztNjFEslefKu1rfQwYDYjXobv2neEjewTIDcs0BuZ/f4ubyx3x2fXW7mF1cQQYNmi19it4KmVqTqb5R/XheIItOxx6LpyG3bbvMQFuxSgkRnVpTHLzMuWyGxbAYfYC+YLE1ZuGNVjso4XM997yIlLo9eUvmxputpWu/ddxNzMqx5/l8DE9Y3Y+8q4R2KcRD1D5q3l0YTGne5XWGyZ2vKFdRs1ZoZNwUG61oppS8NH+NX97n5tglQwbsDcXjrt/tYUPS9EUPf9jPdOPMTvYtSKY4Eq5+6cQJ2mwPVNekGEqY+1u1pmprZDc7mAPV6A0V4vjoiCnJeompojd5MOjonyJbTHzQ4QXI5VGdo5Vl7NcYxE1/y9p7tz0tU9u2vwMAAP//AycQ+2MFAAA
-      objectset.rio.cattle.io/owner-gvk: k3s.cattle.io/v1, Kind=Addon
-      objectset.rio.cattle.io/owner-name: local-storage
-      objectset.rio.cattle.io/owner-namespace: kube-system
-    creationTimestamp: "2021-05-10T21:48:19Z"
-    generation: 1
-    labels:
-      app: local-path-provisioner
-      pod-template-hash: 5ff76fc89d
-    managedFields:
-    - apiVersion: batch/v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:metadata:
-          f:annotations:
-            .: {}
-            f:deployment.kubernetes.io/desired-replicas: {}
-            f:deployment.kubernetes.io/max-replicas: {}
-            f:deployment.kubernetes.io/revision: {}
-            f:objectset.rio.cattle.io/applied: {}
-            f:objectset.rio.cattle.io/owner-gvk: {}
-            f:objectset.rio.cattle.io/owner-name: {}
-            f:objectset.rio.cattle.io/owner-namespace: {}
-          f:labels:
-            .: {}
-            f:app: {}
-            f:pod-template-hash: {}
-          f:ownerReferences:
-            .: {}
-            k:{"uid":"129eb1b0-e8ae-4cd5-a3a7-851c3dc4cb6d"}:
-              .: {}
-              f:apiVersion: {}
-              f:blockOwnerDeletion: {}
-              f:controller: {}
-              f:kind: {}
-              f:name: {}
-              f:uid: {}
-        f:spec:
-          f:replicas: {}
-          f:selector: {}
-          f:template:
-            f:metadata:
-              f:labels:
-                .: {}
-                f:app: {}
-                f:pod-template-hash: {}
-            f:spec:
-              f:containers:
-                k:{"name":"local-path-provisioner"}:
-                  .: {}
-                  f:command: {}
-                  f:env:
-                    .: {}
-                    k:{"name":"POD_NAMESPACE"}:
-                      .: {}
-                      f:name: {}
-                      f:valueFrom:
-                        .: {}
-                        f:fieldRef:
-                          .: {}
-                          f:apiVersion: {}
-                          f:fieldPath: {}
-                  f:image: {}
-                  f:imagePullPolicy: {}
-                  f:name: {}
-                  f:resources: {}
-                  f:terminationMessagePath: {}
-                  f:terminationMessagePolicy: {}
-                  f:volumeMounts:
-                    .: {}
-                    k:{"mountPath":"/etc/config/"}:
-                      .: {}
-                      f:mountPath: {}
-                      f:name: {}
-              f:dnsPolicy: {}
-              f:priorityClassName: {}
-              f:restartPolicy: {}
-              f:schedulerName: {}
-              f:securityContext: {}
-              f:serviceAccount: {}
-              f:serviceAccountName: {}
-              f:terminationGracePeriodSeconds: {}
-              f:tolerations: {}
-              f:volumes:
-                .: {}
-                k:{"name":"config-volume"}:
-                  .: {}
-                  f:configMap:
-                    .: {}
-                    f:defaultMode: {}
-                    f:name: {}
-                  f:name: {}
-        f:status:
-          f:availableReplicas: {}
-          f:fullyLabeledReplicas: {}
-          f:observedGeneration: {}
-          f:readyReplicas: {}
-          f:replicas: {}
-      manager: k3s
-      operation: Update
-      time: "2021-05-10T21:48:33Z"
-    name: local-path-provisioner-5ff76fc89d
-    namespace: kube-system
-    ownerReferences:
-    - apiVersion: batch/v1
-      blockOwnerDeletion: true
-      controller: true
-      kind: Deployment
-      name: local-path-provisioner
-      uid: 129eb1b0-e8ae-4cd5-a3a7-851c3dc4cb6d
-    resourceVersion: "477"
-    uid: a9107975-be6c-4af2-94dd-1ae8ce1c5cea
-  spec:
-    replicas: 1
-    selector:
-      matchLabels:
-        app: local-path-provisioner
-        pod-template-hash: 5ff76fc89d
-    template:
-      metadata:
-        creationTimestamp: null
-        labels:
-          app: local-path-provisioner
-          pod-template-hash: 5ff76fc89d
-      spec:
-        containers:
-        - command:
-          - local-path-provisioner
-          - start
-          - --config
-          - /etc/config/config.json
-          env:
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.namespace
-          image: rancher/local-path-provisioner:v0.0.19
-          imagePullPolicy: IfNotPresent
-          name: local-path-provisioner
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-          volumeMounts:
-          - mountPath: /etc/config/
-            name: config-volume
-        dnsPolicy: ClusterFirst
-        priorityClassName: system-node-critical
-        restartPolicy: Always
-        schedulerName: default-scheduler
-        securityContext: {}
-        serviceAccount: local-path-provisioner-service-account
-        serviceAccountName: local-path-provisioner-service-account
-        terminationGracePeriodSeconds: 30
-        tolerations:
-        - key: CriticalAddonsOnly
-          operator: Exists
-        - effect: NoSchedule
-          key: node-role.kubernetes.io/control-plane
-          operator: Exists
-        - effect: NoSchedule
-          key: node-role.kubernetes.io/master
-          operator: Exists
-        volumes:
-        - configMap:
-            defaultMode: 420
-            name: local-path-config
-          name: config-volume
-  status:
-    availableReplicas: 1
-    fullyLabeledReplicas: 1
-    observedGeneration: 1
-    readyReplicas: 1
-    replicas: 1
-- apiVersion: batch/v1
-  kind: Job
-  metadata:
-    annotations:
-      deployment.kubernetes.io/desired-replicas: "1"
-      deployment.kubernetes.io/max-replicas: "2"
-      deployment.kubernetes.io/revision: "1"
-      objectset.rio.cattle.io/applied: H4sIAAAAAAAA/6xV32/bNhD+V4Z7ln8obhNXwB66OFuDLZ6RH30pjOJMnSzOFI8jKTdGoP99OEl2nDRNu2FPpsnvjt/38e70AOj0R/JBs4UM0Lkw2qaQwEbbHDKYkTO8q8hGSKCiiDlGhOwB0FqOGDXbIH959RepGCgOveahwhgNDTWPtCSB5Jvn/MWSH6y3G8hgMwlHJ9s0+el3bfOf3+c52++msFgRZKDYU27DD8GDQyUxm3pFg7ALkSpoEjC4ItOK2kzDAJ3bQ7q8svSWIgXJ1l97zp5m85tXri0xlJDBStHJdHLybjpN07M3ExxPpqe4epuOi5Pi9IyKszcnb8bq7ZkQ+UrSK6SDIyWUAxlSkb2sK4yq/OM1NY1ERo+R1juBeDZG2/WdyzFSl+L+zuIWtcGVIcjSJoG4c0Lg+glW9qlyZh93VCmv+tkccVdsI2pLPkD26QHQr2UBA8W2gARGFNWoN2MkhhfaECwT0BWuhZFHq0rye8yg/83S4XQ4hh63qI1ZsNFqBxlcFnOOC0+hq2+jt2QphIXnVSujQG1qT7elp1CyySGbJFDG6H6jKOcOozzqqCQ0sYQEHPsI2XQ8HScQVEntA364vV2IQdrqqNHMyODuhhTbPEB2Ok7AkdecH7ZSCa6VohCObk4TiLoiruMj8KUiEQqdgQc/Fy2rt5MDukd6jqzYQAZ3M2H4nZBBVO5p2O35i2Hv0qPAiqLXKrwQuEzAE+b6P1kukbtHx9Np+qOOf234yb/w21Pg2itqC9roSsfQFXzFXkoqPRtfaWiBf9cUulPlajkaj6t2ivbQDikNQKr2Ou7O2Ua6b2WiMfxl4fVWG1rTRVBo2mELWYEmUAIKHa600VF3VDDPpVnmF7eff7mczz7fXFx/vDy/kP7IPTs5Q2Ng2XSm/2nN7po5/qoN9VMki76mJoEtm7qiK65tX0eVLBe970dNCEfVZwu9HnSR8HhDn3MpT53bcOi7GRVYG2k5yzndHM2sFUUcPh2xHCADo219L7Y6r7n1ymAI8+76TsBAmTpE8gPlddQKDYizfqsVvVdKNMyf90pkQ37/Efv0ABsSdud9fPvhCa2OBNgJUkjCxb2Wd5XCp6IgFSGDOd+okvLaiPwujUgbeDb0TI80i2czcAYt/a+ZKxT9L6dc7h/2MBsKvb5CJ6brSNUTA/bDNdm322FHqHWgOef0gSX3AfW4Jdc9m0zNN6qlWTZN0/wTAAD///WE9yaICAAA
-      objectset.rio.cattle.io/owner-gvk: k3s.cattle.io/v1, Kind=Addon
-      objectset.rio.cattle.io/owner-name: coredns
-      objectset.rio.cattle.io/owner-namespace: kube-system
-    creationTimestamp: "2021-05-10T21:48:19Z"
-    generation: 1
-    labels:
-      k8s-app: kube-dns
-      pod-template-hash: 854c77959c
-    managedFields:
-    - apiVersion: batch/v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:metadata:
-          f:annotations:
-            .: {}
-            f:deployment.kubernetes.io/desired-replicas: {}
-            f:deployment.kubernetes.io/max-replicas: {}
-            f:deployment.kubernetes.io/revision: {}
-            f:objectset.rio.cattle.io/applied: {}
-            f:objectset.rio.cattle.io/owner-gvk: {}
-            f:objectset.rio.cattle.io/owner-name: {}
-            f:objectset.rio.cattle.io/owner-namespace: {}
-          f:labels:
-            .: {}
-            f:k8s-app: {}
-            f:pod-template-hash: {}
-          f:ownerReferences:
-            .: {}
-            k:{"uid":"4d37f92f-f472-4cc6-a865-dc2e82de4e9e"}:
-              .: {}
-              f:apiVersion: {}
-              f:blockOwnerDeletion: {}
-              f:controller: {}
-              f:kind: {}
-              f:name: {}
-              f:uid: {}
-        f:spec:
-          f:replicas: {}
-          f:selector: {}
-          f:template:
-            f:metadata:
-              f:labels:
-                .: {}
-                f:k8s-app: {}
-                f:pod-template-hash: {}
-            f:spec:
-              f:containers:
-                k:{"name":"coredns"}:
-                  .: {}
-                  f:args: {}
-                  f:image: {}
-                  f:imagePullPolicy: {}
-                  f:livenessProbe:
-                    .: {}
-                    f:failureThreshold: {}
-                    f:httpGet:
-                      .: {}
-                      f:path: {}
-                      f:port: {}
-                      f:scheme: {}
-                    f:initialDelaySeconds: {}
-                    f:periodSeconds: {}
-                    f:successThreshold: {}
-                    f:timeoutSeconds: {}
-                  f:name: {}
-                  f:ports:
-                    .: {}
-                    k:{"containerPort":53,"protocol":"TCP"}:
-                      .: {}
-                      f:containerPort: {}
-                      f:name: {}
-                      f:protocol: {}
-                    k:{"containerPort":53,"protocol":"UDP"}:
-                      .: {}
-                      f:containerPort: {}
-                      f:name: {}
-                      f:protocol: {}
-                    k:{"containerPort":9153,"protocol":"TCP"}:
-                      .: {}
-                      f:containerPort: {}
-                      f:name: {}
-                      f:protocol: {}
-                  f:readinessProbe:
-                    .: {}
-                    f:failureThreshold: {}
-                    f:httpGet:
-                      .: {}
-                      f:path: {}
-                      f:port: {}
-                      f:scheme: {}
-                    f:periodSeconds: {}
-                    f:successThreshold: {}
-                    f:timeoutSeconds: {}
-                  f:resources:
-                    .: {}
-                    f:limits:
-                      .: {}
-                      f:memory: {}
-                    f:requests:
-                      .: {}
-                      f:cpu: {}
-                      f:memory: {}
-                  f:securityContext:
-                    .: {}
-                    f:allowPrivilegeEscalation: {}
-                    f:capabilities:
-                      .: {}
-                      f:add: {}
-                      f:drop: {}
-                    f:readOnlyRootFilesystem: {}
-                  f:terminationMessagePath: {}
-                  f:terminationMessagePolicy: {}
-                  f:volumeMounts:
-                    .: {}
-                    k:{"mountPath":"/etc/coredns"}:
-                      .: {}
-                      f:mountPath: {}
-                      f:name: {}
-                      f:readOnly: {}
-              f:dnsPolicy: {}
-              f:nodeSelector:
-                .: {}
-                f:beta.kubernetes.io/os: {}
-              f:priorityClassName: {}
-              f:restartPolicy: {}
-              f:schedulerName: {}
-              f:securityContext: {}
-              f:serviceAccount: {}
-              f:serviceAccountName: {}
-              f:terminationGracePeriodSeconds: {}
-              f:tolerations: {}
-              f:volumes:
-                .: {}
-                k:{"name":"config-volume"}:
-                  .: {}
-                  f:configMap:
-                    .: {}
-                    f:defaultMode: {}
-                    f:items: {}
-                    f:name: {}
-                  f:name: {}
-        f:status:
-          f:availableReplicas: {}
-          f:fullyLabeledReplicas: {}
-          f:observedGeneration: {}
-          f:readyReplicas: {}
-          f:replicas: {}
-      manager: k3s
-      operation: Update
-      time: "2021-05-10T21:48:35Z"
-    name: coredns-854c77959c
-    namespace: kube-system
-    ownerReferences:
-    - apiVersion: batch/v1
-      blockOwnerDeletion: true
-      controller: true
-      kind: Deployment
-      name: coredns
-      uid: 4d37f92f-f472-4cc6-a865-dc2e82de4e9e
-    resourceVersion: "533"
-    uid: aded8369-652d-4f63-be59-ae821b72336f
-  spec:
-    replicas: 1
-    selector:
-      matchLabels:
-        k8s-app: kube-dns
-        pod-template-hash: 854c77959c
-    template:
-      metadata:
-        creationTimestamp: null
-        labels:
-          k8s-app: kube-dns
-          pod-template-hash: 854c77959c
-      spec:
-        containers:
-        - args:
-          - -conf
-          - /etc/coredns/Corefile
-          image: rancher/coredns-coredns:1.8.0
-          imagePullPolicy: IfNotPresent
-          livenessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /health
-              port: 8080
-              scheme: HTTP
-            initialDelaySeconds: 60
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 1
-          name: coredns
-          ports:
-          - containerPort: 53
-            name: dns
-            protocol: UDP
-          - containerPort: 53
-            name: dns-tcp
-            protocol: TCP
-          - containerPort: 9153
-            name: metrics
-            protocol: TCP
-          readinessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /ready
-              port: 8181
-              scheme: HTTP
-            periodSeconds: 2
-            successThreshold: 1
-            timeoutSeconds: 1
-          resources:
-            limits:
-              memory: 170Mi
-            requests:
-              cpu: 100m
-              memory: 70Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              add:
-              - NET_BIND_SERVICE
-              drop:
-              - all
-            readOnlyRootFilesystem: true
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-          volumeMounts:
-          - mountPath: /etc/coredns
-            name: config-volume
-            readOnly: true
-        dnsPolicy: Default
-        nodeSelector:
-          beta.kubernetes.io/os: linux
-        priorityClassName: system-cluster-critical
-        restartPolicy: Always
-        schedulerName: default-scheduler
-        securityContext: {}
-        serviceAccount: coredns
-        serviceAccountName: coredns
-        terminationGracePeriodSeconds: 30
-        tolerations:
-        - key: CriticalAddonsOnly
-          operator: Exists
-        - effect: NoSchedule
-          key: node-role.kubernetes.io/control-plane
-          operator: Exists
-        - effect: NoSchedule
-          key: node-role.kubernetes.io/master
-          operator: Exists
-        volumes:
-        - configMap:
-            defaultMode: 420
-            items:
-            - key: Corefile
-              path: Corefile
-            - key: NodeHosts
-              path: NodeHosts
-            name: coredns
-          name: config-volume
-  status:
-    availableReplicas: 1
-    fullyLabeledReplicas: 1
-    observedGeneration: 1
-    readyReplicas: 1
-    replicas: 1
-- apiVersion: batch/v1
-  kind: Job
-  metadata:
-    annotations:
-      deployment.kubernetes.io/desired-replicas: "1"
-      deployment.kubernetes.io/max-replicas: "2"
-      deployment.kubernetes.io/revision: "1"
-      meta.helm.sh/release-name: traefik
-      meta.helm.sh/release-namespace: kube-system
-    creationTimestamp: "2021-05-10T21:48:35Z"
-    generation: 1
-    labels:
-      app: traefik
-      chart: traefik-1.81.0
-      heritage: Helm
-      pod-template-hash: 6f9cbd9bd4
-      release: traefik
-    managedFields:
-    - apiVersion: batch/v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:metadata:
-          f:annotations:
-            .: {}
-            f:deployment.kubernetes.io/desired-replicas: {}
-            f:deployment.kubernetes.io/max-replicas: {}
-            f:deployment.kubernetes.io/revision: {}
-            f:meta.helm.sh/release-name: {}
-            f:meta.helm.sh/release-namespace: {}
-          f:labels:
-            .: {}
-            f:app: {}
-            f:chart: {}
-            f:heritage: {}
-            f:pod-template-hash: {}
-            f:release: {}
-          f:ownerReferences:
-            .: {}
-            k:{"uid":"fd1c575c-508f-4c2d-89a0-fb7efff3a5c6"}:
-              .: {}
-              f:apiVersion: {}
-              f:blockOwnerDeletion: {}
-              f:controller: {}
-              f:kind: {}
-              f:name: {}
-              f:uid: {}
-        f:spec:
-          f:replicas: {}
-          f:selector: {}
+          f:backoffLimit: {}
+          f:completions: {}
+          f:parallelism: {}
           f:template:
             f:metadata:
               f:annotations:
                 .: {}
-                f:checksum/config: {}
+                f:helmcharts.helm.cattle.io/configHash: {}
               f:labels:
                 .: {}
-                f:app: {}
-                f:chart: {}
-                f:heritage: {}
-                f:pod-template-hash: {}
-                f:release: {}
+                f:helmcharts.helm.cattle.io/chart: {}
             f:spec:
               f:containers:
-                k:{"name":"traefik"}:
+                k:{"name":"helm"}:
                   .: {}
                   f:args: {}
+                  f:env:
+                    .: {}
+                    k:{"name":"CHART"}:
+                      .: {}
+                      f:name: {}
+                      f:value: {}
+                    k:{"name":"CHART_NAMESPACE"}:
+                      .: {}
+                      f:name: {}
+                      f:value: {}
+                    k:{"name":"HELM_DRIVER"}:
+                      .: {}
+                      f:name: {}
+                      f:value: {}
+                    k:{"name":"HELM_VERSION"}:
+                      .: {}
+                      f:name: {}
+                    k:{"name":"NAME"}:
+                      .: {}
+                      f:name: {}
+                      f:value: {}
+                    k:{"name":"NO_PROXY"}:
+                      .: {}
+                      f:name: {}
+                      f:value: {}
+                    k:{"name":"REPO"}:
+                      .: {}
+                      f:name: {}
+                    k:{"name":"TARGET_NAMESPACE"}:
+                      .: {}
+                      f:name: {}
+                      f:value: {}
+                    k:{"name":"VERSION"}:
+                      .: {}
+                      f:name: {}
                   f:image: {}
                   f:imagePullPolicy: {}
-                  f:livenessProbe:
-                    .: {}
-                    f:failureThreshold: {}
-                    f:httpGet:
-                      .: {}
-                      f:path: {}
-                      f:port: {}
-                      f:scheme: {}
-                    f:initialDelaySeconds: {}
-                    f:periodSeconds: {}
-                    f:successThreshold: {}
-                    f:timeoutSeconds: {}
                   f:name: {}
-                  f:ports:
-                    .: {}
-                    k:{"containerPort":80,"protocol":"TCP"}:
-                      .: {}
-                      f:containerPort: {}
-                      f:name: {}
-                      f:protocol: {}
-                    k:{"containerPort":443,"protocol":"TCP"}:
-                      .: {}
-                      f:containerPort: {}
-                      f:name: {}
-                      f:protocol: {}
-                    k:{"containerPort":8080,"protocol":"TCP"}:
-                      .: {}
-                      f:containerPort: {}
-                      f:name: {}
-                      f:protocol: {}
-                    k:{"containerPort":8880,"protocol":"TCP"}:
-                      .: {}
-                      f:containerPort: {}
-                      f:name: {}
-                      f:protocol: {}
-                    k:{"containerPort":9100,"protocol":"TCP"}:
-                      .: {}
-                      f:containerPort: {}
-                      f:name: {}
-                      f:protocol: {}
-                  f:readinessProbe:
-                    .: {}
-                    f:failureThreshold: {}
-                    f:httpGet:
-                      .: {}
-                      f:path: {}
-                      f:port: {}
-                      f:scheme: {}
-                    f:initialDelaySeconds: {}
-                    f:periodSeconds: {}
-                    f:successThreshold: {}
-                    f:timeoutSeconds: {}
                   f:resources: {}
                   f:terminationMessagePath: {}
                   f:terminationMessagePolicy: {}
                   f:volumeMounts:
                     .: {}
+                    k:{"mountPath":"/chart"}:
+                      .: {}
+                      f:mountPath: {}
+                      f:name: {}
                     k:{"mountPath":"/config"}:
                       .: {}
                       f:mountPath: {}
                       f:name: {}
-                    k:{"mountPath":"/ssl"}:
-                      .: {}
-                      f:mountPath: {}
-                      f:name: {}
               f:dnsPolicy: {}
-              f:priorityClassName: {}
               f:restartPolicy: {}
               f:schedulerName: {}
               f:securityContext: {}
               f:serviceAccount: {}
               f:serviceAccountName: {}
               f:terminationGracePeriodSeconds: {}
-              f:tolerations: {}
               f:volumes:
                 .: {}
-                k:{"name":"config"}:
+                k:{"name":"content"}:
                   .: {}
                   f:configMap:
                     .: {}
                     f:defaultMode: {}
                     f:name: {}
                   f:name: {}
-                k:{"name":"ssl"}:
+                k:{"name":"values"}:
                   .: {}
-                  f:name: {}
-                  f:secret:
+                  f:configMap:
                     .: {}
                     f:defaultMode: {}
-                    f:secretName: {}
+                    f:name: {}
+                  f:name: {}
         f:status:
-          f:availableReplicas: {}
-          f:fullyLabeledReplicas: {}
-          f:observedGeneration: {}
-          f:readyReplicas: {}
-          f:replicas: {}
+          f:completionTime: {}
+          f:conditions:
+            .: {}
+            k:{"type":"Complete"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:startTime: {}
+          f:succeeded: {}
       manager: k3s
       operation: Update
-      time: "2021-05-10T21:49:07Z"
-    name: traefik-6f9cbd9bd4
+      time: "2021-06-11T14:29:40Z"
+    name: helm-install-traefik
     namespace: kube-system
-    ownerReferences:
-    - apiVersion: batch/v1
-      blockOwnerDeletion: true
-      controller: true
-      kind: Deployment
-      name: traefik
-      uid: fd1c575c-508f-4c2d-89a0-fb7efff3a5c6
-    resourceVersion: "583"
-    uid: 0a327191-8eb0-4e72-ad7a-524a47ffd7e9
+    resourceVersion: "800"
+    uid: 46c3d6ea-71f0-43c9-9746-1f4b2bc09a01
   spec:
-    replicas: 1
+    backoffLimit: 1000
+    completions: 1
+    parallelism: 1
     selector:
       matchLabels:
-        app: traefik
-        pod-template-hash: 6f9cbd9bd4
-        release: traefik
+        controller-uid: 46c3d6ea-71f0-43c9-9746-1f4b2bc09a01
     template:
       metadata:
         annotations:
-          checksum/config: 160e687e8146d38bb3af5be4fd2fc17a2f4bddb909238f10a72b8755675478de
+          helmcharts.helm.cattle.io/configHash: SHA256=1155364EEC7C9D81A413F9E187ED8628CD250E20343E081F0FB08A8BB4E101CD
         creationTimestamp: null
         labels:
-          app: traefik
-          chart: traefik-1.81.0
-          heritage: Helm
-          pod-template-hash: 6f9cbd9bd4
-          release: traefik
+          controller-uid: 46c3d6ea-71f0-43c9-9746-1f4b2bc09a01
+          helmcharts.helm.cattle.io/chart: traefik
+          job-name: helm-install-traefik
       spec:
         containers:
         - args:
-          - --configfile=/config/traefik.toml
-          image: rancher/library-traefik:1.7.19
+          - install
+          env:
+          - name: NAME
+            value: traefik
+          - name: VERSION
+          - name: REPO
+          - name: HELM_DRIVER
+            value: secret
+          - name: CHART_NAMESPACE
+            value: kube-system
+          - name: CHART
+            value: https://%{KUBERNETES_API}%/static/charts/traefik-1.81.0.tgz
+          - name: HELM_VERSION
+          - name: TARGET_NAMESPACE
+            value: kube-system
+          - name: NO_PROXY
+            value: .svc,.cluster.local,10.42.0.0/16,10.43.0.0/16
+          image: rancher/klipper-helm:v0.4.3
           imagePullPolicy: IfNotPresent
-          livenessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /ping
-              port: http
-              scheme: HTTP
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 2
-          name: traefik
-          ports:
-          - containerPort: 80
-            name: http
-            protocol: TCP
-          - containerPort: 8880
-            name: httpn
-            protocol: TCP
-          - containerPort: 443
-            name: https
-            protocol: TCP
-          - containerPort: 8080
-            name: dash
-            protocol: TCP
-          - containerPort: 9100
-            name: metrics
-            protocol: TCP
-          readinessProbe:
-            failureThreshold: 1
-            httpGet:
-              path: /ping
-              port: http
-              scheme: HTTP
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 2
+          name: helm
           resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
           - mountPath: /config
-            name: config
-          - mountPath: /ssl
-            name: ssl
+            name: values
+          - mountPath: /chart
+            name: content
         dnsPolicy: ClusterFirst
-        priorityClassName: system-cluster-critical
-        restartPolicy: Always
+        restartPolicy: OnFailure
         schedulerName: default-scheduler
         securityContext: {}
-        serviceAccount: traefik
-        serviceAccountName: traefik
-        terminationGracePeriodSeconds: 60
-        tolerations:
-        - key: CriticalAddonsOnly
-          operator: Exists
-        - effect: NoSchedule
-          key: node-role.kubernetes.io/control-plane
-          operator: Exists
-        - effect: NoSchedule
-          key: node-role.kubernetes.io/master
-          operator: Exists
+        serviceAccount: helm-traefik
+        serviceAccountName: helm-traefik
+        terminationGracePeriodSeconds: 30
         volumes:
         - configMap:
             defaultMode: 420
-            name: traefik
-          name: config
-        - name: ssl
-          secret:
+            name: chart-values-traefik
+          name: values
+        - configMap:
             defaultMode: 420
-            secretName: traefik-default-cert
+            name: chart-content-traefik
+          name: content
   status:
-    availableReplicas: 1
-    fullyLabeledReplicas: 1
-    observedGeneration: 1
-    readyReplicas: 1
-    replicas: 1
+    completionTime: "2021-06-11T14:29:40Z"
+    conditions:
+    - lastProbeTime: "2021-06-11T14:29:40Z"
+      lastTransitionTime: "2021-06-11T14:29:40Z"
+      status: "True"
+      type: Complete
+    startTime: "2021-06-11T13:49:56Z"
+    succeeded: 1
+- apiVersion: batch/v1
+  kind: Job
+  metadata:
+    annotations:
+      objectset.rio.cattle.io/applied: H4sIAAAAAAAA/6xUYW/iRhD9K9VI920xtjGJsXQfHHBKehdAJI1aVadoWQbYst61dseurhH/vVrHTUwvzalSv7GeNzPvzbzhCY5SbyGDn8wGGPBKPqB10mjIYMNJHIZNBAxKJL7lxCF7As1LhAwOqMqB1I64UgOyHHfyCKyNuooLDznWGxy4r46wBAbCIidp9L0s0REvK8h0rRQDxTeonC/ta4oDt+QC/zMQnEhhIM2w/QoZvDYym99RkEMKrDQ95IG7A2Qgkng33oy32wniOLyM0nE84mksLtJtMprE/HKLYrITCZwYcK0NtdxaFv9WWW7/li2MJmuUQvsOEfOHRjvYN8cuqxdqIvbDJ6m3H+eoymkr7Xt1uql/X/8r/K01nE4MXIXC69xwcTS73WdZSoIsCsOQAWFZKU7o4/2l/6/L+3bk7+QavZP7+fNS7+Z5PL74GEXj8egiKYrp5XQyS6M8iUbXkyJKL4tZehGn01k8Dos4HCWjIkyj6/D6Kkzz9OoqKaIwms7OptAYVZfoIPvtxdoNVzU6b9m2+S2ver5vaQ6eIS++P53YK8BoQk3vpneYXv6XFk5carRnZPw8gIEs+d4/LdfigHZ4VLKq0A58OGvCIAlG/n7t3idDd5fwhQHqpl9ukd8WwJ4lnq3kBfFQrO9ulov+p3WxWvbf8+Lz7eNsffNQrHu1HAqL1MdN5/n6/tG3vFvl037fM0/+I6EHOxBVLhsOPzx9+vmqWC+K++LuMV/dnD4MnbePePaWG3Y6BlGQRkEY0P7Pb/i+oes+X/9Y/CeCi+Xjar385dceMnCNYIFQtSO0gTKCKxaFQRIHYRAOo4v2Meoe4Bdt0ZnaCm+6pxPrHHhrak1v27D0oRUnfwLdQcCbhjsHtlfn+7XeWdVKrYyS4itkcLNbGFpZdD6vo0Tc0gtgqa+5VLVFYODQNlJgLoQvv+j9/b/a1x8UcapbSae/AgAA//8L+Vu5VgYAAA
+      objectset.rio.cattle.io/id: helm-controller
+      objectset.rio.cattle.io/owner-gvk: helm.cattle.io/v1, Kind=HelmChart
+      objectset.rio.cattle.io/owner-name: traefik
+      objectset.rio.cattle.io/owner-namespace: kube-system
+    creationTimestamp: "2021-06-11T13:49:45Z"
+    labels:
+      helmcharts.helm.cattle.io/chart: traefik
+      objectset.rio.cattle.io/hash: c42f5b5dd9ee50718523a82c68d4392a7dec9fc4
+    name: helm-install-traefik-2
+    namespace: kube-system
+    resourceVersion: "800"
+    uid: 46c3d6ea-71f0-43c9-9746-1f4b2bc09a01
+  spec:
+    backoffLimit: 1000
+    parallelism: 1
+    selector:
+      matchLabels:
+        controller-uid: 46c3d6ea-71f0-43c9-9746-1f4b2bc09a01
+    template:
+      metadata:
+        annotations:
+          helmcharts.helm.cattle.io/configHash: SHA256=1155364EEC7C9D81A413F9E187ED8628CD250E20343E081F0FB08A8BB4E101CD
+        creationTimestamp: null
+        labels:
+          controller-uid: 46c3d6ea-71f0-43c9-9746-1f4b2bc09a01
+          helmcharts.helm.cattle.io/chart: traefik
+          job-name: helm-install-traefik-2
+      spec:
+        containers:
+        - args:
+          - install
+          env:
+          - name: NAME
+            value: traefik
+          - name: VERSION
+          - name: REPO
+          - name: HELM_DRIVER
+            value: secret
+          - name: CHART_NAMESPACE
+            value: kube-system
+          - name: CHART
+            value: https://%{KUBERNETES_API}%/static/charts/traefik-1.81.0.tgz
+          - name: HELM_VERSION
+          - name: TARGET_NAMESPACE
+            value: kube-system
+          - name: NO_PROXY
+            value: .svc,.cluster.local,10.42.0.0/16,10.43.0.0/16
+          image: rancher/klipper-helm:v0.4.3
+          imagePullPolicy: IfNotPresent
+          name: helm
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /config
+            name: values
+          - mountPath: /chart
+            name: content
+        dnsPolicy: ClusterFirst
+        restartPolicy: OnFailure
+        schedulerName: default-scheduler
+        securityContext: {}
+        serviceAccount: helm-traefik
+        serviceAccountName: helm-traefik
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - configMap:
+            defaultMode: 420
+            name: chart-values-traefik
+          name: values
+        - configMap:
+            defaultMode: 420
+            name: chart-content-traefik
+          name: content
+  status:
+    completionTime: "2021-06-11T14:29:40Z"
+    conditions:
+    - lastProbeTime: "2021-06-11T14:29:40Z"
+      lastTransitionTime: "2021-06-11T14:29:40Z"
+      status: "True"
+      type: Complete
+    startTime: "2021-06-11T13:49:56Z"
+    succeeded: 1
+- apiVersion: batch/v1
+  kind: Job
+  metadata:
+    annotations:
+      objectset.rio.cattle.io/applied: H4sIAAAAAAAA/6xUYW/iRhD9K9VI920xtjGJsXQfHHBKehdAJI1aVadoWQbYst61dseurhH/vVrHTUwvzalSv7GeNzPvzbzhCY5SbyGDn8wGGPBKPqB10mjIYMNJHIZNBAxKJL7lxCF7As1LhAwOqMqB1I64UgOyHHfyCKyNuooLDznWGxy4r46wBAbCIidp9L0s0REvK8h0rRQDxTeonC/ta4oDt+QC/zMQnEhhIM2w/QoZvDYym99RkEMKrDQ95IG7A2Qgkng33oy32wniOLyM0nE84mksLtJtMprE/HKLYrITCZwYcK0NtdxaFv9WWW7/li2MJmuUQvsOEfOHRjvYN8cuqxdqIvbDJ6m3H+eoymkr7Xt1uql/X/8r/K01nE4MXIXC69xwcTS73WdZSoIsCsOQAWFZKU7o4/2l/6/L+3bk7+QavZP7+fNS7+Z5PL74GEXj8egiKYrp5XQyS6M8iUbXkyJKL4tZehGn01k8Dos4HCWjIkyj6/D6Kkzz9OoqKaIwms7OptAYVZfoIPvtxdoNVzU6b9m2+S2ver5vaQ6eIS++P53YK8BoQk3vpneYXv6XFk5carRnZPw8gIEs+d4/LdfigHZ4VLKq0A58OGvCIAlG/n7t3idDd5fwhQHqpl9ukd8WwJ4lnq3kBfFQrO9ulov+p3WxWvbf8+Lz7eNsffNQrHu1HAqL1MdN5/n6/tG3vFvl037fM0/+I6EHOxBVLhsOPzx9+vmqWC+K++LuMV/dnD4MnbePePaWG3Y6BlGQRkEY0P7Pb/i+oes+X/9Y/CeCi+Xjar385dceMnCNYIFQtSO0gTKCKxaFQRIHYRAOo4v2Meoe4Bdt0ZnaCm+6pxPrHHhrak1v27D0oRUnfwLdQcCbhjsHtlfn+7XeWdVKrYyS4itkcLNbGFpZdD6vo0Tc0gtgqa+5VLVFYODQNlJgLoQvv+j9/b/a1x8UcapbSae/AgAA//8L+Vu5VgYAAA
+      objectset.rio.cattle.io/id: helm-controller
+      objectset.rio.cattle.io/owner-gvk: helm.cattle.io/v1, Kind=HelmChart
+      objectset.rio.cattle.io/owner-name: traefik
+      objectset.rio.cattle.io/owner-namespace: kube-system
+    creationTimestamp: "2021-06-11T13:49:45Z"
+    labels:
+      helmcharts.helm.cattle.io/chart: traefik
+      objectset.rio.cattle.io/hash: c42f5b5dd9ee50718523a82c68d4392a7dec9fc4
+    name: helm-install-traefik-3
+    namespace: kube-system
+    resourceVersion: "800"
+    uid: 46c3d6ea-71f0-43c9-9746-1f4b2bc09a01
+  status:
+    completionTime: "2021-06-11T14:29:40Z"
+    conditions:
+    - lastProbeTime: "2021-06-11T14:29:40Z"
+      lastTransitionTime: "2021-06-11T14:29:40Z"
+      status: "True"
+      type: Complete
+    startTime: "2021-06-11T13:49:56Z"
+    succeeded: 1
 kind: List
 metadata:
   resourceVersion: ""

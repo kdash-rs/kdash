@@ -303,8 +303,22 @@ async fn handle_route_events(key: Key, app: &mut App) {
             .await;
           }
         }
+        ActiveBlock::Jobs => {
+          if let Some(res) = handle_table_action(key, &mut app.data.jobs) {
+            let _ok = handle_describe_or_yaml_action(
+              key,
+              app,
+              &res,
+              IoCmdEvent::GetDescribe {
+                kind: "job".to_owned(),
+                value: res.name.to_owned(),
+                ns: Some(res.namespace.to_owned()),
+              },
+            )
+            .await;
+          }
+        }
         ActiveBlock::Contexts | ActiveBlock::Utilization | ActiveBlock::Help => { /* Do nothing */ }
-        ActiveBlock::Jobs => { /* Do nothing */ }
       }
     }
     RouteId::Contexts => {
@@ -377,9 +391,9 @@ async fn handle_scroll(app: &mut App, down: bool, is_mouse: bool) {
     ActiveBlock::StatefulSets => handle_table_scroll(&mut app.data.stateful_sets, down),
     ActiveBlock::ReplicaSets => handle_table_scroll(&mut app.data.replica_sets, down),
     ActiveBlock::Deployments => handle_table_scroll(&mut app.data.deployments, down),
+    ActiveBlock::Jobs => handle_table_scroll(&mut app.help_docs, down),
     ActiveBlock::Contexts => handle_table_scroll(&mut app.data.contexts, down),
     ActiveBlock::Utilization => handle_table_scroll(&mut app.data.metrics, down),
-    ActiveBlock::Jobs => handle_table_scroll(&mut app.help_docs, down),
     ActiveBlock::Logs => {
       app.log_auto_scroll = false;
       if inverse_dir(down, is_mouse) {

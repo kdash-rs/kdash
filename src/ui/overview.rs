@@ -18,7 +18,6 @@ use tui::{
   widgets::{Block, Borders, Cell, LineGauge, Paragraph, Row, Table, Tabs, Wrap},
   Frame,
 };
-//use std::ptr::null;
 
 static DESCRIBE_AND_YAML_HINT: &str = "| describe <d> | yaml <y>";
 static COPY_HINT: &str = "| copy <c>";
@@ -29,9 +28,9 @@ static CONFIG_MAPS_TITLE: &str = "ConfigMaps";
 static STFS_TITLE: &str = "StatefulSets";
 static REPLICA_SETS_TITLE: &str = "ReplicaSets";
 static DEPLOYMENTS_TITLE: &str = "Deployments";
+static JOBS_TITLE: &str = "Jobs";
 static DESCRIBE_ACTIVE: &str = "-> Describe ";
 static YAML_ACTIVE: &str = "-> YAML ";
-static JOBS_TITLE: &str = "Jobs";
 
 pub fn draw_overview<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   if app.show_info_bar {
@@ -324,6 +323,7 @@ fn draw_deployments_tab<B: Backend>(
     _ => draw_deployments_block(f, app, area),
   };
 }
+
 fn draw_jobs_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
   match block {
     ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
@@ -810,21 +810,13 @@ fn draw_jobs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     ResourceTableProps {
       title,
       inline_help: DESCRIBE_AND_YAML_HINT.into(),
-      resource: &mut app.data.deployments,
-      table_headers: vec![
-        "Namespace",
-        "Name",
-        "Ready",
-        "Up-to-date",
-        "Available",
-        "Age",
-      ],
+      resource: &mut app.data.jobs,
+      table_headers: vec!["Namespace", "Name", "Completions", "Duration", "Age"],
       column_widths: vec![
         Constraint::Percentage(25),
         // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
-        Constraint::Percentage(34),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
+        Constraint::Percentage(39),
+        Constraint::Percentage(15),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
       ],
@@ -833,9 +825,8 @@ fn draw_jobs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
       Row::new(vec![
         Cell::from(c.namespace.to_owned()),
         Cell::from(c.name.to_owned()),
-        Cell::from(c.ready.to_owned()),
-        Cell::from(c.updated.to_string()),
-        Cell::from(c.available.to_string()),
+        Cell::from(c.completions.to_owned()),
+        Cell::from(c.duration.to_string()),
         Cell::from(c.age.to_owned()),
       ])
       .style(style_primary())

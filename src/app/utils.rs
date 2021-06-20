@@ -1,6 +1,6 @@
 use k8s_openapi::{
   apimachinery::pkg::apis::meta::v1::Time,
-  chrono::{DateTime, Utc},
+  chrono::{DateTime, Duration, Utc},
 };
 
 pub static UNKNOWN: &str = "Unknown";
@@ -11,29 +11,33 @@ pub fn to_age(timestamp: Option<&Time>, against: DateTime<Utc>) -> String {
       let time = time.0;
       let duration = against.signed_duration_since(time);
 
-      let mut out = String::new();
-      if duration.num_weeks() != 0 {
-        out.push_str(format!("{}w", duration.num_weeks()).as_str());
-      }
-      let days = duration.num_days() - (duration.num_weeks() * 7);
-      if days != 0 {
-        out.push_str(format!("{}d", days).as_str());
-      }
-      let hrs = duration.num_hours() - (duration.num_days() * 24);
-      if hrs != 0 {
-        out.push_str(format!("{}h", hrs).as_str());
-      }
-      let mins = duration.num_minutes() - (duration.num_hours() * 60);
-      if mins != 0 && days == 0 && duration.num_weeks() == 0 {
-        out.push_str(format!("{}m", mins).as_str());
-      }
-      if out.is_empty() {
-        "0m".into()
-      } else {
-        out
-      }
+      duration_to_age(duration)
     }
     None => String::default(),
+  }
+}
+
+pub fn duration_to_age(duration: Duration) -> String {
+  let mut out = String::new();
+  if duration.num_weeks() != 0 {
+    out.push_str(format!("{}w", duration.num_weeks()).as_str());
+  }
+  let days = duration.num_days() - (duration.num_weeks() * 7);
+  if days != 0 {
+    out.push_str(format!("{}d", days).as_str());
+  }
+  let hrs = duration.num_hours() - (duration.num_days() * 24);
+  if hrs != 0 {
+    out.push_str(format!("{}h", hrs).as_str());
+  }
+  let mins = duration.num_minutes() - (duration.num_hours() * 60);
+  if mins != 0 && days == 0 && duration.num_weeks() == 0 {
+    out.push_str(format!("{}m", mins).as_str());
+  }
+  if out.is_empty() {
+    "0m".into()
+  } else {
+    out
   }
 }
 

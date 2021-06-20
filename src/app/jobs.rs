@@ -6,31 +6,47 @@ use super::{models::KubeResource, utils};
 pub struct KubeJob {
   pub name: String,
   pub namespace: String,
-  pub desired: i32,
-  pub current: i32,
-  pub ready: i32,
+  pub completions: String,
+  pub duration: String,
   pub age: String,
   k8s_obj: Job,
 }
 
 impl KubeResource<Job> for KubeJob {
-  fn from_api(rps: &Job) -> Self {
-    let (_current, ready) = match rps.status.as_ref() {
-      Some(s) => (s.active, s.active.unwrap_or_default()),
-      _ => (std::option::Option::None, 0),
+  fn from_api(job: &Job) -> Self {
+    let completions = match (job.spec.as_ref(), job.status.as_ref()) {
+      (Some(spc), Some(stat)) => match spc.completions {
+        Some(c) => format!("{:?}/{:?}", stat.succeeded.unwrap_or_default(), c),
+        None => match spc.parallelism {
+          Some(p) => format!("{:?}/1 of {}", stat.succeeded.unwrap_or_default(), p),
+          None => format!("{:?}/1", stat.succeeded),
+        },
+      },
+      (None, Some(stat)) => format!("{:?}/1", stat.succeeded.unwrap_or_default()),
+      _ => "".into(),
+    };
+
+    let duration = match job.status.as_ref() {
+      Some(stat) => match stat.start_time.as_ref() {
+        Some(st) => match stat.completion_time.as_ref() {
+          Some(ct) => {
+            let duration = ct.0.signed_duration_since(st.0);
+            utils::duration_to_age(duration)
+          }
+          None => utils::to_age(stat.start_time.as_ref(), Utc::now()),
+        },
+        None => "<none>".to_string(),
+      },
+      None => "<none>".to_string(),
     };
 
     KubeJob {
-      name: rps.metadata.name.clone().unwrap_or_default(),
-      namespace: rps.metadata.namespace.clone().unwrap_or_default(),
-      age: utils::to_age(rps.metadata.creation_timestamp.as_ref(), Utc::now()),
-      desired: rps
-        .spec
-        .as_ref()
-        .map_or(0, |s| s.completions.unwrap_or_default()),
-      ready,
-      k8s_obj: rps.to_owned(),
-      current: 0,
+      name: job.metadata.name.clone().unwrap_or_default(),
+      namespace: job.metadata.namespace.clone().unwrap_or_default(),
+      completions,
+      duration,
+      age: utils::to_age(job.metadata.creation_timestamp.as_ref(), Utc::now()),
+      k8s_obj: job.to_owned(),
     }
   }
 
@@ -48,17 +64,38 @@ mod tests {
   fn test_jobs_from_api() {
     let (jobs, jobs_list): (Vec<KubeJob>, Vec<_>) = convert_resource_from_file("jobs");
 
-    assert_eq!(jobs.len(), 4);
+    assert_eq!(jobs.len(), 3);
     assert_eq!(
       jobs[0],
       KubeJob {
-        name: "metrics-server-86cbb8457f".into(),
+        name: "helm-install-traefik".into(),
         namespace: "kube-system".into(),
-        age: utils::to_age(Some(&get_time("2021-05-10T21:48:19Z")), Utc::now()),
+        age: utils::to_age(Some(&get_time("2021-06-11T13:49:45Z")), Utc::now()),
         k8s_obj: jobs_list[0].clone(),
-        desired: 0,
-        current: 0,
-        ready: 0,
+        completions: "1/1".into(),
+        duration: "39m".into()
+      }
+    );
+    assert_eq!(
+      jobs[1],
+      KubeJob {
+        name: "helm-install-traefik-2".into(),
+        namespace: "kube-system".into(),
+        age: utils::to_age(Some(&get_time("2021-06-11T13:49:45Z")), Utc::now()),
+        k8s_obj: jobs_list[1].clone(),
+        completions: "1/1 of 1".into(),
+        duration: "39m".into()
+      }
+    );
+    assert_eq!(
+      jobs[2],
+      KubeJob {
+        name: "helm-install-traefik-3".into(),
+        namespace: "kube-system".into(),
+        age: utils::to_age(Some(&get_time("2021-06-11T13:49:45Z")), Utc::now()),
+        k8s_obj: jobs_list[2].clone(),
+        completions: "1/1".into(),
+        duration: "39m".into()
       }
     );
   }
