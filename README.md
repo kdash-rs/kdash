@@ -131,36 +131,18 @@ Press `?` while running the app to see keybindings
 ## Features
 
 - CLI Info
+- Node metrics
 - Resource Watch (configurable polling interval with `-p` flag)
-  - [x] Pods
-  - [x] Nodes
-  - [x] Namespace
-  - [x] Services
-  - [x] Containers
-  - [x] ConfigMaps
-  - [x] StatefulSets
-  - [x] ReplicaSets
-  - [x] Deployments
-- Describe resources
-  - [x] copy output
-- Get YAML for resources
-  - [x] copy output
-- Stream logs/events
-  - [x] select/copy output
-  - [x] Containers
-  - [ ] Services
-  - [ ] Deployments
-  - [ ] StatefulSets
+- Describe resources & copy output
+- Get YAML for resources & copy output
+- Stream container logs
 - Context
-  - [x] Context info
-  - [x] Node metrics
-  - [x] Context watch
-  - [x] Change namespace?
-  - [x] Context switch
-- [x] Resources utilizations for nodes, pods and namespaces based on metrics server. Requires [metrics-server](https://kubernetes.io/docs/tasks/debug-application-cluster/resource-metrics-pipeline/#metrics-server) to be deployed on the cluster.
-- [x] Dark/Light themes
-- [ ] Custom keymap
-- [ ] Custom theme
+  - Context info
+  - Context watch
+  - Change namespace
+  - Context switch
+- Resources utilizations for nodes, pods and namespaces based on metrics server. Requires [metrics-server](https://kubernetes.io/docs/tasks/debug-application-cluster/resource-metrics-pipeline/#metrics-server) to be deployed on the cluster.
+- Dark/Light themes
 
 ## Screenshots
 
