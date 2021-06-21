@@ -1,13 +1,14 @@
-use super::{
-  models::KubeResource,
-  utils::{self, UNKNOWN},
-};
 use k8s_openapi::{
   api::core::v1::{
     Container, ContainerPort, ContainerState, ContainerStateWaiting, ContainerStatus, Pod, PodSpec,
     PodStatus,
   },
   chrono::Utc,
+};
+
+use super::{
+  models::KubeResource,
+  utils::{self, UNKNOWN},
 };
 
 #[derive(Clone, Default, Debug, PartialEq)]
@@ -310,8 +311,10 @@ fn get_container_ports(ports: &[ContainerPort]) -> String {
 
 #[cfg(test)]
 mod tests {
-  use super::super::test_utils::{convert_resource_from_file, get_time};
-  use super::*;
+  use super::{
+    super::test_utils::{convert_resource_from_file, get_time},
+    *,
+  };
 
   #[test]
   fn test_pod_from_api() {

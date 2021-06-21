@@ -130,11 +130,14 @@ mod tests {
   }
   #[test]
   fn test_to_age() {
-    use super::to_age;
-    use k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
-    use k8s_openapi::chrono::TimeZone;
-    use k8s_openapi::chrono::{DateTime, Utc};
     use std::time::SystemTime;
+
+    use k8s_openapi::{
+      apimachinery::pkg::apis::meta::v1::Time,
+      chrono::{DateTime, TimeZone, Utc},
+    };
+
+    use super::to_age;
 
     fn get_time(s: &str) -> Time {
       Time(to_utc(s))

@@ -69,9 +69,8 @@ impl KubeNodeMetrics {
 mod tests {
   use tokio::sync::Mutex;
 
-  use crate::app::test_utils::load_resource_from_file;
-
   use super::*;
+  use crate::app::test_utils::load_resource_from_file;
 
   #[tokio::test]
   async fn test_kube_node_metrics_from_api() {

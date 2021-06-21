@@ -1,16 +1,3 @@
-use super::super::app::{
-  key_binding::DEFAULT_KEYBINDING, metrics::KubeNodeMetrics, models::StatefulTable, ActiveBlock,
-  App,
-};
-use super::super::banner::BANNER;
-use super::utils::{
-  get_gauge_style, horizontal_chunks, layout_block_default, layout_block_top_border, loading,
-  style_default, style_failure, style_highlight, style_logo, style_primary, style_secondary,
-  style_success, table_header_style, title_with_dual_style, vertical_chunks,
-  vertical_chunks_with_margin,
-};
-use super::HIGHLIGHT;
-
 use tui::{
   backend::Backend,
   layout::{Constraint, Rect},
@@ -18,6 +5,23 @@ use tui::{
   text::{Span, Spans, Text},
   widgets::{Block, Borders, Cell, LineGauge, Paragraph, Row, Table, Tabs, Wrap},
   Frame,
+};
+
+use super::{
+  super::{
+    app::{
+      key_binding::DEFAULT_KEYBINDING, metrics::KubeNodeMetrics, models::StatefulTable,
+      ActiveBlock, App,
+    },
+    banner::BANNER,
+  },
+  utils::{
+    get_gauge_style, horizontal_chunks, layout_block_default, layout_block_top_border, loading,
+    style_default, style_failure, style_highlight, style_logo, style_primary, style_secondary,
+    style_success, table_header_style, title_with_dual_style, vertical_chunks,
+    vertical_chunks_with_margin,
+  },
+  HIGHLIGHT,
 };
 
 static DESCRIBE_AND_YAML_HINT: &str = "| describe <d> | yaml <y>";
@@ -1026,9 +1030,8 @@ mod tests {
     Terminal,
   };
 
-  use crate::app::pods::KubePod;
-
   use super::*;
+  use crate::app::pods::KubePod;
 
   #[test]
   fn test_draw_resource_tabs_block() {

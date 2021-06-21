@@ -1,18 +1,4 @@
-use super::super::app::{
-  configmaps::KubeConfigMap,
-  contexts,
-  deployments::KubeDeployment,
-  jobs::KubeJob,
-  metrics::{self, KubeNodeMetrics},
-  models::KubeResource,
-  nodes::KubeNode,
-  ns::KubeNs,
-  pods::KubePod,
-  replicasets::KubeReplicaSet,
-  statefulsets::KubeStatefulSet,
-  svcs::KubeSvc,
-};
-use super::Network;
+use std::fmt;
 
 use anyhow::anyhow;
 use k8s_openapi::api::core::v1::{Namespace, Node, Pod};
@@ -26,7 +12,24 @@ use kubectl_view_allocations::{
   extract_utilizations_from_pod_metrics, make_qualifiers, metrics::PodMetrics, Resource,
 };
 use serde::de::DeserializeOwned;
-use std::fmt;
+
+use super::{
+  super::app::{
+    configmaps::KubeConfigMap,
+    contexts,
+    deployments::KubeDeployment,
+    jobs::KubeJob,
+    metrics::{self, KubeNodeMetrics},
+    models::KubeResource,
+    nodes::KubeNode,
+    ns::KubeNs,
+    pods::KubePod,
+    replicasets::KubeReplicaSet,
+    statefulsets::KubeStatefulSet,
+    svcs::KubeSvc,
+  },
+  Network,
+};
 
 impl<'a> Network<'a> {
   pub async fn get_kube_config(&self) {

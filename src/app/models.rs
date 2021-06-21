@@ -1,6 +1,5 @@
 use std::collections::VecDeque;
 
-use super::Route;
 use serde::Serialize;
 use tui::{
   backend::Backend,
@@ -10,6 +9,8 @@ use tui::{
   widgets::{Block, List, ListItem, ListState, TableState},
   Frame,
 };
+
+use super::Route;
 
 pub trait KubeResource<T: Serialize> {
   /// convert a kube API object
@@ -328,12 +329,12 @@ impl Scrollable for LogsState {
 
 #[cfg(test)]
 mod tests {
-  use crate::app::{ns::KubeNs, ActiveBlock, RouteId};
-
-  use super::*;
   use k8s_openapi::api::core::v1::Namespace;
   use kube::api::ObjectMeta;
   use tui::{backend::TestBackend, buffer::Buffer, Terminal};
+
+  use super::*;
+  use crate::app::{ns::KubeNs, ActiveBlock, RouteId};
 
   #[test]
   fn test_kube_resource() {

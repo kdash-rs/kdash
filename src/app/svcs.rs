@@ -1,10 +1,11 @@
-use super::{
-  models::KubeResource,
-  utils::{self, UNKNOWN},
-};
 use k8s_openapi::{
   api::core::v1::{Service, ServicePort},
   chrono::Utc,
+};
+
+use super::{
+  models::KubeResource,
+  utils::{self, UNKNOWN},
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -121,8 +122,10 @@ fn get_lb_ext_ips(service: &Service, external_ips: Vec<String>) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-  use super::super::test_utils::{convert_resource_from_file, get_time};
-  use super::*;
+  use super::{
+    super::test_utils::{convert_resource_from_file, get_time},
+    *,
+  };
 
   #[test]
   fn test_stateful_sets_from_api() {

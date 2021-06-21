@@ -39,8 +39,10 @@ impl KubeResource<StatefulSet> for KubeStatefulSet {
 
 #[cfg(test)]
 mod tests {
-  use super::super::test_utils::{convert_resource_from_file, get_time};
-  use super::*;
+  use super::{
+    super::test_utils::{convert_resource_from_file, get_time},
+    *,
+  };
 
   #[test]
   fn test_stateful_sets_from_api() {

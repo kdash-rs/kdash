@@ -1,8 +1,8 @@
 tab_spaces=2
 edition = "2018"
 reorder_imports = true
-#imports_granularity = "Crate"
-#group_imports = "StdExternalCrate"
+imports_granularity = "Crate"
+group_imports = "StdExternalCrate"
 reorder_modules = true
 merge_derives = true
 use_field_init_shorthand = true

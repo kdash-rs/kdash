@@ -13,6 +13,12 @@ pub(crate) mod statefulsets;
 pub(crate) mod svcs;
 mod utils;
 
+use anyhow::anyhow;
+use kube::config::Kubeconfig;
+use kubectl_view_allocations::{GroupBy, QtyByQualifier};
+use tokio::sync::mpsc::Sender;
+use tui::layout::Rect;
+
 use self::{
   configmaps::KubeConfigMap,
   contexts::KubeContext,
@@ -28,14 +34,10 @@ use self::{
   statefulsets::KubeStatefulSet,
   svcs::KubeSvc,
 };
-use super::cmd::IoCmdEvent;
-use super::network::{stream::IoStreamEvent, IoEvent};
-
-use anyhow::anyhow;
-use kube::config::Kubeconfig;
-use kubectl_view_allocations::{GroupBy, QtyByQualifier};
-use tokio::sync::mpsc::Sender;
-use tui::layout::Rect;
+use super::{
+  cmd::IoCmdEvent,
+  network::{stream::IoStreamEvent, IoEvent},
+};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum ActiveBlock {

@@ -1,12 +1,12 @@
-use super::app::{self, models::ScrollableTxt, App, Cli};
+use std::sync::Arc;
 
+use anyhow::anyhow;
 use duct::cmd;
 use regex::Regex;
 use serde_json::Value as JValue;
-
-use anyhow::anyhow;
-use std::sync::Arc;
 use tokio::sync::Mutex;
+
+use super::app::{self, models::ScrollableTxt, App, Cli};
 
 #[derive(Debug, PartialEq)]
 pub enum IoCmdEvent {

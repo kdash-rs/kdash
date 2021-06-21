@@ -1,12 +1,13 @@
 //  adapted from tui-rs/examples/crossterm_demo.rs
-use super::Key;
-
-use crossterm::event::{self, Event as CEvent, MouseEvent};
 use std::{
   sync::mpsc,
   thread,
   time::{Duration, Instant},
 };
+
+use crossterm::event::{self, Event as CEvent, MouseEvent};
+
+use super::Key;
 
 #[derive(Debug, Clone, Copy)]
 /// Configuration for event handling.

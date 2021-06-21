@@ -33,9 +33,8 @@ impl KubeResource<Namespace> for KubeNs {
 
 #[cfg(test)]
 mod tests {
-  use crate::app::test_utils::convert_resource_from_file;
-
   use super::*;
+  use crate::app::test_utils::convert_resource_from_file;
 
   #[test]
   fn test_namespace_from_api() {

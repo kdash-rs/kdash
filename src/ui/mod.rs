@@ -4,16 +4,6 @@ mod overview;
 mod utilization;
 mod utils;
 
-use self::contexts::draw_contexts;
-use self::help::draw_help;
-use self::overview::draw_overview;
-use self::utilization::draw_utilization;
-use self::utils::{
-  horizontal_chunks_with_margin, layout_block, style_default, style_failure, style_help,
-  style_main_background, style_primary, style_secondary, title_style_logo, vertical_chunks,
-};
-use super::app::{App, RouteId};
-
 use tui::{
   backend::Backend,
   layout::{Alignment, Constraint, Rect},
@@ -21,6 +11,18 @@ use tui::{
   widgets::{Block, Borders, Paragraph, Tabs, Wrap},
   Frame,
 };
+
+use self::{
+  contexts::draw_contexts,
+  help::draw_help,
+  overview::draw_overview,
+  utilization::draw_utilization,
+  utils::{
+    horizontal_chunks_with_margin, layout_block, style_default, style_failure, style_help,
+    style_main_background, style_primary, style_secondary, title_style_logo, vertical_chunks,
+  },
+};
+use super::app::{App, RouteId};
 
 static HIGHLIGHT: &str = "=> ";
 

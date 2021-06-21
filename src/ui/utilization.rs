@@ -1,15 +1,17 @@
-use super::super::app::App;
-use super::utils::{
-  layout_block_active, loading, style_highlight, style_primary, style_success, style_warning,
-  table_header_style,
-};
-
 use kubectl_view_allocations::{qty::Qty, tree::provide_prefix};
 use tui::{
   backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row, Table},
   Frame,
+};
+
+use super::{
+  super::app::App,
+  utils::{
+    layout_block_active, loading, style_highlight, style_primary, style_success, style_warning,
+    table_header_style,
+  },
 };
 
 pub fn draw_utilization<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {

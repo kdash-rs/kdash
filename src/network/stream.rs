@@ -1,15 +1,15 @@
+use std::{sync::Arc, time::Duration};
+
+use anyhow::anyhow;
+use k8s_openapi::api::core::v1::Pod;
+use kube::{api::LogParams, Api, Client};
+use tokio::sync::Mutex;
+use tokio_stream::StreamExt;
+
 use super::{
   app::{ActiveBlock, App},
   refresh_kube_config,
 };
-
-use anyhow::anyhow;
-use k8s_openapi::api::core::v1::Pod;
-use kube::Client;
-use kube::{api::LogParams, Api};
-use std::{sync::Arc, time::Duration};
-use tokio::sync::Mutex;
-use tokio_stream::StreamExt;
 
 #[derive(Debug, PartialEq)]
 pub enum IoStreamEvent {

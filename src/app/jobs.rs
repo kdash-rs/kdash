@@ -57,8 +57,10 @@ impl KubeResource<Job> for KubeJob {
 
 #[cfg(test)]
 mod tests {
-  use super::super::test_utils::{convert_resource_from_file, get_time};
-  use super::*;
+  use super::{
+    super::test_utils::{convert_resource_from_file, get_time},
+    *,
+  };
 
   #[test]
   fn test_jobs_from_api() {

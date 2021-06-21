@@ -46,8 +46,10 @@ impl KubeResource<Deployment> for KubeDeployment {
 
 #[cfg(test)]
 mod tests {
-  use super::super::test_utils::{convert_resource_from_file, get_time};
-  use super::*;
+  use super::{
+    super::test_utils::{convert_resource_from_file, get_time},
+    *,
+  };
 
   #[test]
   fn test_deployments_from_api() {

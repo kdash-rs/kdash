@@ -2,13 +2,14 @@
 mod kube_api;
 pub(crate) mod stream;
 
-use super::app::{self, App};
+use core::convert::TryFrom;
+use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
-use core::convert::TryFrom;
 use kube::Client;
-use std::sync::Arc;
 use tokio::sync::Mutex;
+
+use super::app::{self, App};
 
 #[derive(Debug, PartialEq)]
 pub enum IoEvent {

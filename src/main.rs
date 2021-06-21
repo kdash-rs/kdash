@@ -8,25 +8,25 @@ mod handlers;
 mod network;
 mod ui;
 
+use std::{
+  io::{self, stdout, Stdout},
+  panic::{self, PanicInfo},
+  sync::Arc,
+};
+
+use anyhow::Result;
 use app::App;
 use cli::Cli;
 use cmd::{CmdRunner, IoCmdEvent};
+use crossterm::{
+  execute,
+  terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
 use event::Key;
 use network::{
   get_client,
   stream::{IoStreamEvent, NetworkStream},
   IoEvent, Network,
-};
-
-use anyhow::Result;
-use crossterm::{
-  execute,
-  terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-};
-use std::{
-  io::{self, stdout, Stdout},
-  panic::{self, PanicInfo},
-  sync::Arc,
 };
 use tokio::sync::{mpsc, Mutex};
 use tui::{

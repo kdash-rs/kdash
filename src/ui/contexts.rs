@@ -1,14 +1,17 @@
-use super::super::app::App;
-use super::utils::{
-  layout_block_active, loading, style_highlight, style_primary, style_secondary, table_header_style,
-};
-use super::HIGHLIGHT;
-
 use tui::{
   backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row, Table},
   Frame,
+};
+
+use super::{
+  super::app::App,
+  utils::{
+    layout_block_active, loading, style_highlight, style_primary, style_secondary,
+    table_header_style,
+  },
+  HIGHLIGHT,
 };
 
 pub fn draw_contexts<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {

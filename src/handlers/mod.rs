@@ -2,15 +2,16 @@ use crossterm::event::{MouseEvent, MouseEventKind};
 use kubectl_view_allocations::GroupBy;
 use serde::Serialize;
 
-use crate::app::models::KubeResource;
-
-use super::app::{
-  key_binding::DEFAULT_KEYBINDING,
-  models::{Scrollable, ScrollableTxt, StatefulTable},
-  ActiveBlock, App, RouteId,
+use super::{
+  app::{
+    key_binding::DEFAULT_KEYBINDING,
+    models::{Scrollable, ScrollableTxt, StatefulTable},
+    ActiveBlock, App, RouteId,
+  },
+  cmd::IoCmdEvent,
+  event::Key,
 };
-use super::cmd::IoCmdEvent;
-use super::event::Key;
+use crate::app::models::KubeResource;
 
 pub async fn handle_key_events(key: Key, app: &mut App) {
   // First handle any global event and then move to route event
@@ -414,8 +415,7 @@ async fn handle_scroll(app: &mut App, down: bool, is_mouse: bool) {
 }
 
 fn copy_to_clipboard(content: String) {
-  use clipboard::ClipboardContext;
-  use clipboard::ClipboardProvider;
+  use clipboard::{ClipboardContext, ClipboardProvider};
 
   let mut ctx: ClipboardContext = ClipboardProvider::new().expect("Unable to obtain clipboard");
   ctx
@@ -425,9 +425,8 @@ fn copy_to_clipboard(content: String) {
 
 #[cfg(test)]
 mod tests {
-  use crate::app::{contexts::KubeContext, pods::KubePod};
-
   use super::*;
+  use crate::app::{contexts::KubeContext, pods::KubePod};
 
   #[test]
   fn test_inverse_dir() {

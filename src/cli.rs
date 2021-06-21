@@ -1,5 +1,6 @@
-use super::banner::BANNER;
 use clap::{App as ClapApp, Arg};
+
+use super::banner::BANNER;
 
 /// kdash CLI
 pub struct Cli {

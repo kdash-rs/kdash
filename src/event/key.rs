@@ -1,6 +1,7 @@
 // from https://github.com/Rigellute/spotify-tui
-use crossterm::event;
 use std::fmt;
+
+use crossterm::event;
 
 /// Represents an key.
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Debug)]

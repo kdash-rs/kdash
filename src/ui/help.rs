@@ -1,15 +1,17 @@
-use super::super::app::App;
-use super::utils::{
-  layout_block_active_span, style_highlight, style_primary, style_secondary, title_with_dual_style,
-  vertical_chunks,
-};
-use super::HIGHLIGHT;
-
 use tui::{
   backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Row, Table},
   Frame,
+};
+
+use super::{
+  super::app::App,
+  utils::{
+    layout_block_active_span, style_highlight, style_primary, style_secondary,
+    title_with_dual_style, vertical_chunks,
+  },
+  HIGHLIGHT,
 };
 
 pub fn draw_help<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
