@@ -17,6 +17,7 @@ use super::{
   super::app::{
     configmaps::KubeConfigMap,
     contexts,
+    cronjobs::KubeCronJob,
     deployments::KubeDeployment,
     jobs::KubeJob,
     metrics::{self, KubeNodeMetrics},
@@ -254,6 +255,15 @@ impl<'a> Network<'a> {
 
     let mut app = self.app.lock().await;
     app.data.jobs.set_items(items);
+  }
+
+  pub async fn get_cron_jobs(&self) {
+    let items: Vec<KubeCronJob> = self
+      .get_namespaced_resources(|it| KubeCronJob::from_api(it))
+      .await;
+
+    let mut app = self.app.lock().await;
+    app.data.cronjobs.set_items(items);
   }
 
   pub async fn get_deployments(&self) {
