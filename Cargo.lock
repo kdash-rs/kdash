@@ -795,8 +795,9 @@ dependencies = [
 
 [[package]]
 name = "kubectl-view-allocations"
-version = "0.14.2-dev"
-source = "git+https://github.com/deepu105/kubectl-view-allocations?branch=k8s-openapi-update#1fe2fa5f2e62324963800daa52129e98666f4716"
+version = "0.14.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d00d8afc5175b32440693958d3734ffcd6a610ee4277531433074b4514ea786"
 dependencies = [
  "chrono",
  "itertools",

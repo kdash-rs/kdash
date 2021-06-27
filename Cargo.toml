@@ -39,7 +39,7 @@ kube-runtime = "0.57"
 k8s-openapi = { version = "0.12", default-features = false, features = ["v1_20"] }
 openssl = { version = "0.10", features = ["vendored"] }
 human-panic = "1.0"
-kubectl-view-allocations = { git="https://github.com/deepu105/kubectl-view-allocations", branch="k8s-openapi-update", default-features = false }
+kubectl-view-allocations = { version="0.14", default-features = false }
 
 [dev-dependencies.cargo-husky]
 version = "1"
