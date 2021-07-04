@@ -1,50 +1,25 @@
-use k8s_openapi::{api::batch::v2alpha1::CronJob, chrono::Utc};
+use k8s_openapi::api::batch::v2alpha1::CronJob;
 
-use super::{models::KubeResource, utils};
+use super::models::KubeResource;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct KubeCronJob {
   pub name: String,
   pub namespace: String,
-  pub metadata: String,
-  pub completions: String,
-  pub duration: String,
-  pub age: String,
+  pub schedule: String,
+  pub suspend: Option<bool>,
+  pub active: Option<bool>,
   k8s_obj: CronJob,
 }
 
 impl KubeResource<CronJob> for KubeCronJob {
   fn from_api(job: &CronJob) -> Self {
-    let completions = match (job.spec.as_ref(), job.status.as_ref()) {
-      (Some(spc), Some(stat)) => match spc.successful_jobs_history_limit {
-        Some(c) => format!("{:?}/{:?}", stat.active.as_ref(), c),
-        None => "".to_string(),
-      },
-      (None, Some(stat)) => format!("{:?}/1", stat.active.as_ref()),
-      _ => "".into(),
-    };
-
-    let duration = match job.status.as_ref() {
-      Some(stat) => match stat.last_schedule_time.as_ref() {
-        Some(st) => match stat.last_schedule_time.as_ref() {
-          Some(ct) => {
-            let duration = ct.0.signed_duration_since(st.0);
-            utils::duration_to_age(duration)
-          }
-          None => utils::to_age(stat.last_schedule_time.as_ref(), Utc::now()),
-        },
-        None => "<none>".to_string(),
-      },
-      None => "<none>".to_string(),
-    };
-
     KubeCronJob {
       name: job.metadata.name.clone().unwrap_or_default(),
       namespace: job.metadata.namespace.clone().unwrap_or_default(),
-      metadata: job.metadata.clone().generate_name.unwrap(),
-      completions,
-      duration,
-      age: utils::to_age(job.metadata.creation_timestamp.as_ref(), Utc::now()),
+      schedule: "".to_string(),     //job.spec.schedule.to_string(),
+      suspend: Option::from(false), //job.spec.suspend,
+      active: Option::from(false),  //job.status.active.clone().unwrap_or_default(),
       k8s_obj: job.to_owned(),
     }
   }
@@ -56,4 +31,24 @@ impl KubeResource<CronJob> for KubeCronJob {
 
 #[cfg(test)]
 mod tests {
+  use super::super::test_utils::convert_resource_from_file;
+  use super::*;
+
+  #[test]
+  fn test_jobs_from_api() {
+    let (jobs, jobs_list): (Vec<KubeCronJob>, Vec<_>) = convert_resource_from_file("cronjobs");
+
+    assert_eq!(jobs.len(), 3);
+    assert_eq!(
+      jobs[0],
+      KubeCronJob {
+        name: "cronjob-1".into(),
+        namespace: "default".into(),
+        schedule: "*/1 * * * *".into(),
+        suspend: None,
+        active: Option::None,
+        k8s_obj: jobs_list[0].clone(),
+      }
+    );
+  }
 }
