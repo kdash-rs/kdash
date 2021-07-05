@@ -1,5 +1,5 @@
 # -----------------------------
-# Buil Kdash base image
+# Build Kdash base image
 # -----------------------------
 
 FROM rust as builder
@@ -22,7 +22,6 @@ RUN rm -r src
 
 # Copy actual source files and Build the app binary
 COPY src ./src
-RUN ls -a src/app/
 # due to cargo bug https://github.com/rust-lang/rust/issues/25289
 RUN apt-get update && \
     apt-get install -y pkg-config libssl-dev libxcb-composite0-dev
