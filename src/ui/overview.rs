@@ -892,7 +892,7 @@ fn draw_cronjobs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) 
       column_widths: vec![
         Constraint::Percentage(25),
         // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
-        Constraint::Percentage(39),
+        Constraint::Percentage(19),
         Constraint::Percentage(15),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
