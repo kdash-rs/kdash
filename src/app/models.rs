@@ -32,6 +32,51 @@ pub trait Scrollable {
   fn scroll_up(&mut self);
 }
 
+pub struct StatefulList<T> {
+  pub state: ListState,
+  pub items: Vec<T>,
+}
+
+impl<T> StatefulList<T> {
+  pub fn with_items(items: Vec<T>) -> StatefulList<T> {
+    let mut state = ListState::default();
+    if !items.is_empty() {
+      state.select(Some(0));
+    }
+    StatefulList { state, items }
+  }
+}
+
+impl<T> Scrollable for StatefulList<T> {
+  fn scroll_down(&mut self) {
+    let i = match self.state.selected() {
+      Some(i) => {
+        if i >= self.items.len() - 1 {
+          0
+        } else {
+          i + 1
+        }
+      }
+      None => 0,
+    };
+    self.state.select(Some(i));
+  }
+
+  fn scroll_up(&mut self) {
+    let i = match self.state.selected() {
+      Some(i) => {
+        if i == 0 {
+          self.items.len() - 1
+        } else {
+          i - 1
+        }
+      }
+      None => 0,
+    };
+    self.state.select(Some(i));
+  }
+}
+
 #[derive(Clone)]
 pub struct StatefulTable<T> {
   pub state: TableState,
@@ -70,10 +115,6 @@ impl<T> StatefulTable<T> {
       });
       self.state.select(Some(i));
     }
-  }
-
-  pub fn _unselect(&mut self) {
-    self.state.select(None);
   }
 }
 

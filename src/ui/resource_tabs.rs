@@ -3,21 +3,22 @@ use tui::{
   layout::{Constraint, Rect},
   style::Style,
   text::{Span, Spans, Text},
-  widgets::{Cell, Paragraph, Row, Table, Tabs, Wrap},
+  widgets::{Cell, List, ListItem, Paragraph, Row, Table, Tabs, Wrap},
   Frame,
 };
 
 use super::{
   utils::{
-    layout_block_default, layout_block_top_border, loading, style_default, style_failure,
-    style_highlight, style_primary, style_secondary, style_success, table_header_style,
-    title_with_dual_style, vertical_chunks_with_margin,
+    centered_rect, layout_block_default, layout_block_top_border, loading, style_default,
+    style_failure, style_highlight, style_primary, style_secondary, style_success,
+    table_header_style, title_with_dual_style, vertical_chunks_with_margin,
   },
   HIGHLIGHT,
 };
 use crate::app::{models::StatefulTable, ActiveBlock, App};
 
 static DESCRIBE_AND_YAML_HINT: &str = "| describe <d> | yaml <y>";
+static DESCRIBE_YAML_AND_ESC_HINT: &str = "| describe <d> | yaml <y> | back to menu <esc>";
 static COPY_HINT: &str = "| copy <c>";
 static NODES_TITLE: &str = "Nodes";
 static PODS_TITLE: &str = "Pods";
@@ -65,9 +66,43 @@ pub fn draw_resource_tabs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, are
     6 => draw_deployments_tab(app.get_current_route().active_block, f, app, chunks[1]),
     7 => draw_jobs_tab(app.get_current_route().active_block, f, app, chunks[1]),
     8 => draw_daemon_sets_tab(app.get_current_route().active_block, f, app, chunks[1]),
-    9 => draw_cronjobs_tab(app.get_current_route().active_block, f, app, chunks[1]),
+    9 => draw_more(app.get_current_route().active_block, f, app, chunks[1]),
     _ => {}
   };
+}
+
+fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
+  match block {
+    ActiveBlock::More => draw_menu(f, app, area),
+    ActiveBlock::CronJobs => draw_cronjobs_tab(block, f, app, area),
+    ActiveBlock::Describe | ActiveBlock::Yaml => {
+      match app.get_prev_route().active_block {
+        ActiveBlock::CronJobs => draw_cronjobs_tab(block, f, app, area),
+        ActiveBlock::Secrets => todo!(),
+        _ => { /* do nothing */ }
+      }
+    }
+    _ => { /* do nothing */ }
+  }
+}
+
+fn draw_menu<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let area = centered_rect(50, 15, area);
+
+  let items: Vec<ListItem> = app
+    .more_resources_menu
+    .items
+    .iter()
+    .map(|it| ListItem::new(it.0.clone()))
+    .collect();
+  f.render_stateful_widget(
+    List::new(items)
+      .block(layout_block_default("Select Resource"))
+      .highlight_style(style_highlight())
+      .highlight_symbol(HIGHLIGHT),
+    area,
+    &mut app.more_resources_menu.state,
+  );
 }
 
 fn draw_pods_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
@@ -781,7 +816,7 @@ fn draw_cronjobs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) 
     area,
     ResourceTableProps {
       title,
-      inline_help: DESCRIBE_AND_YAML_HINT.into(),
+      inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
       resource: &mut app.data.cronjobs,
       table_headers: vec![
         "Namespace",

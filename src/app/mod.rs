@@ -30,7 +30,7 @@ use self::{
   jobs::KubeJob,
   key_binding::DEFAULT_KEYBINDING,
   metrics::KubeNodeMetrics,
-  models::{LogsState, ScrollableTxt, StatefulTable, TabRoute, TabsState},
+  models::{LogsState, ScrollableTxt, StatefulList, StatefulTable, TabRoute, TabsState},
   nodes::KubeNode,
   ns::KubeNs,
   pods::{KubeContainer, KubePod},
@@ -62,6 +62,8 @@ pub enum ActiveBlock {
   Utilization,
   Jobs,
   DaemonSets,
+  CronJobs,
+  Secrets,
   More,
 }
 
@@ -134,6 +136,7 @@ pub struct App {
   pub should_quit: bool,
   pub main_tabs: TabsState,
   pub context_tabs: TabsState,
+  pub more_resources_menu: StatefulList<(String, ActiveBlock)>,
   pub show_info_bar: bool,
   pub is_loading: bool,
   pub is_streaming: bool,
@@ -299,6 +302,21 @@ impl Default for App {
             id: RouteId::Home,
           },
         },
+      ]),
+      more_resources_menu: StatefulList::with_items(vec![
+        ("CronJobs".into(), ActiveBlock::CronJobs),
+        ("Secrets".into(), ActiveBlock::Secrets),
+        // ("Replication Controllers".into(), ActiveBlock::RplCtrl),
+        // ("Persistent Volume Claims".into(), ActiveBlock::RplCtrl),
+        // ("Persistent Volumes".into(), ActiveBlock::RplCtrl),
+        // ("Storage Classes".into(), ActiveBlock::RplCtrl),
+        // ("Roles".into(), ActiveBlock::RplCtrl),
+        // ("Role Bindings".into(), ActiveBlock::RplCtrl),
+        // ("Cluster Roles".into(), ActiveBlock::RplCtrl),
+        // ("Cluster Role Bindings".into(), ActiveBlock::RplCtrl),
+        // ("Service Accounts".into(), ActiveBlock::RplCtrl),
+        // ("Ingresses".into(), ActiveBlock::RplCtrl),
+        // ("Network Policies".into(), ActiveBlock::RplCtrl),
       ]),
       show_info_bar: true,
       is_loading: false,
@@ -482,6 +500,7 @@ impl App {
       self.dispatch(IoEvent::GetDeployments).await;
       self.dispatch(IoEvent::GetJobs).await;
       self.dispatch(IoEvent::GetDaemonSets).await;
+      self.dispatch(IoEvent::GetCronJobs).await;
       self.refresh = false;
     }
     // make network requests only in intervals to avoid hogging up the network
@@ -519,7 +538,7 @@ impl App {
             ActiveBlock::DaemonSets => {
               self.dispatch(IoEvent::GetDaemonSets).await;
             }
-            ActiveBlock::More => {
+            ActiveBlock::CronJobs => {
               self.dispatch(IoEvent::GetCronJobs).await;
             }
             ActiveBlock::Logs => {

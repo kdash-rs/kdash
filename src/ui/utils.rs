@@ -148,26 +148,37 @@ pub fn title_with_dual_style<'a>(part_1: String, part_2: String, light: bool) ->
 
 /// helper function to create a centered rect using up
 /// certain percentage of the available rect `r`
-pub fn _centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+pub fn centered_rect(width: u16, height: u16, r: Rect) -> Rect {
+  let Rect {
+    width: grid_width,
+    height: grid_height,
+    ..
+  } = r;
+  let outer_height = (grid_height / 2)
+    .checked_sub(height / 2)
+    .unwrap_or_default();
+
   let popup_layout = Layout::default()
     .direction(Direction::Vertical)
     .constraints(
       [
-        Constraint::Percentage((100 - percent_y) / 2),
-        Constraint::Percentage(percent_y),
-        Constraint::Percentage((100 - percent_y) / 2),
+        Constraint::Length(outer_height),
+        Constraint::Length(height),
+        Constraint::Length(outer_height),
       ]
       .as_ref(),
     )
     .split(r);
 
+  let outer_width = (grid_width / 2).checked_sub(width / 2).unwrap_or_default();
+
   Layout::default()
     .direction(Direction::Horizontal)
     .constraints(
       [
-        Constraint::Percentage((100 - percent_x) / 2),
-        Constraint::Percentage(percent_x),
-        Constraint::Percentage((100 - percent_x) / 2),
+        Constraint::Length(outer_width),
+        Constraint::Length(width),
+        Constraint::Length(outer_width),
       ]
       .as_ref(),
     )

@@ -6,7 +6,7 @@ use crate::{
   app::{
     key_binding::DEFAULT_KEYBINDING,
     models::{KubeResource, Scrollable, ScrollableTxt, StatefulTable},
-    ActiveBlock, App, RouteId,
+    ActiveBlock, App, Route, RouteId,
   },
   cmd::IoCmdEvent,
   event::Key,
@@ -22,10 +22,10 @@ pub async fn handle_key_events(key: Key, app: &mut App) {
       app.should_quit = true;
     }
     _ if key == DEFAULT_KEYBINDING.down.key || key == DEFAULT_KEYBINDING.down.alt.unwrap() => {
-      handle_scroll(app, true, false).await;
+      handle_block_scroll(app, true, false).await;
     }
     _ if key == DEFAULT_KEYBINDING.up.key || key == DEFAULT_KEYBINDING.up.alt.unwrap() => {
-      handle_scroll(app, false, false).await;
+      handle_block_scroll(app, false, false).await;
     }
     _ if key == DEFAULT_KEYBINDING.toggle_theme.key => {
       app.light_theme = !app.light_theme;
@@ -54,8 +54,8 @@ pub async fn handle_key_events(key: Key, app: &mut App) {
 
 pub async fn handle_mouse_events(mouse: MouseEvent, app: &mut App) {
   match mouse.kind {
-    MouseEventKind::ScrollDown => handle_scroll(app, true, true).await,
-    MouseEventKind::ScrollUp => handle_scroll(app, false, true).await,
+    MouseEventKind::ScrollDown => handle_block_scroll(app, true, true).await,
+    MouseEventKind::ScrollUp => handle_block_scroll(app, false, true).await,
     _ => {}
   }
 }
@@ -77,7 +77,11 @@ fn handle_escape(app: &mut App) {
       | ActiveBlock::Describe => {
         app.pop_navigation_stack();
       }
-      _ => {}
+      _ => {
+        if let ActiveBlock::More = app.get_prev_route().active_block {
+          app.pop_navigation_stack();
+        }
+      }
     },
   }
 }
@@ -178,13 +182,13 @@ async fn handle_route_events(key: Key, app: &mut App) {
       // handle block specific stuff
       match app.get_current_route().active_block {
         ActiveBlock::Namespaces => {
-          if let Some(ns) = handle_table_action(key, &mut app.data.namespaces) {
+          if let Some(ns) = handle_block_action(key, &mut app.data.namespaces) {
             app.data.selected.ns = Some(ns.name);
             app.pop_navigation_stack();
           }
         }
         ActiveBlock::Nodes => {
-          if let Some(node) = handle_table_action(key, &mut app.data.nodes) {
+          if let Some(node) = handle_block_action(key, &mut app.data.nodes) {
             let _ok = handle_describe_or_yaml_action(
               key,
               app,
@@ -199,7 +203,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Pods => {
-          if let Some(pod) = handle_table_action(key, &mut app.data.pods) {
+          if let Some(pod) = handle_block_action(key, &mut app.data.pods) {
             let ok = handle_describe_or_yaml_action(
               key,
               app,
@@ -219,7 +223,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Containers => {
-          if let Some(c) = handle_table_action(key, &mut app.data.containers) {
+          if let Some(c) = handle_block_action(key, &mut app.data.containers) {
             app.data.selected.container = Some(c.name.clone());
             app.dispatch_container_logs(c.name).await;
           }
@@ -237,7 +241,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Services => {
-          if let Some(res) = handle_table_action(key, &mut app.data.services) {
+          if let Some(res) = handle_block_action(key, &mut app.data.services) {
             let _ok = handle_describe_or_yaml_action(
               key,
               app,
@@ -252,7 +256,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Deployments => {
-          if let Some(res) = handle_table_action(key, &mut app.data.deployments) {
+          if let Some(res) = handle_block_action(key, &mut app.data.deployments) {
             let _ok = handle_describe_or_yaml_action(
               key,
               app,
@@ -267,7 +271,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::ConfigMaps => {
-          if let Some(res) = handle_table_action(key, &mut app.data.config_maps) {
+          if let Some(res) = handle_block_action(key, &mut app.data.config_maps) {
             let _ok = handle_describe_or_yaml_action(
               key,
               app,
@@ -282,7 +286,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::StatefulSets => {
-          if let Some(res) = handle_table_action(key, &mut app.data.stateful_sets) {
+          if let Some(res) = handle_block_action(key, &mut app.data.stateful_sets) {
             let _ok = handle_describe_or_yaml_action(
               key,
               app,
@@ -297,7 +301,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::ReplicaSets => {
-          if let Some(res) = handle_table_action(key, &mut app.data.replica_sets) {
+          if let Some(res) = handle_block_action(key, &mut app.data.replica_sets) {
             let _ok = handle_describe_or_yaml_action(
               key,
               app,
@@ -312,7 +316,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Jobs => {
-          if let Some(res) = handle_table_action(key, &mut app.data.jobs) {
+          if let Some(res) = handle_block_action(key, &mut app.data.jobs) {
             let _ok = handle_describe_or_yaml_action(
               key,
               app,
@@ -327,7 +331,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::DaemonSets => {
-          if let Some(res) = handle_table_action(key, &mut app.data.daemon_sets) {
+          if let Some(res) = handle_block_action(key, &mut app.data.daemon_sets) {
             let _ok = handle_describe_or_yaml_action(
               key,
               app,
@@ -342,7 +346,22 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::More => {
-          if let Some(res) = handle_table_action(key, &mut app.data.cronjobs) {
+          if key == DEFAULT_KEYBINDING.submit.key {
+            if let Some((_title, active_block)) = app
+              .more_resources_menu
+              .state
+              .selected()
+              .map(|i| app.more_resources_menu.items[i].clone())
+            {
+              app.push_navigation_route(Route {
+                id: RouteId::Home,
+                active_block,
+              });
+            }
+          }
+        }
+        ActiveBlock::CronJobs => {
+          if let Some(res) = handle_block_action(key, &mut app.data.cronjobs) {
             let _ok = handle_describe_or_yaml_action(
               key,
               app,
@@ -356,11 +375,14 @@ async fn handle_route_events(key: Key, app: &mut App) {
             .await;
           }
         }
+        ActiveBlock::Secrets => {
+          todo!()
+        }
         ActiveBlock::Contexts | ActiveBlock::Utilization | ActiveBlock::Help => { /* Do nothing */ }
       }
     }
     RouteId::Contexts => {
-      if let Some(ctx) = handle_table_action(key, &mut app.data.contexts) {
+      if let Some(ctx) = handle_block_action(key, &mut app.data.contexts) {
         app.data.selected.context = Some(ctx.name);
         app.refresh();
       }
@@ -389,7 +411,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
   }
 }
 
-fn handle_table_action<T: Clone>(key: Key, item: &mut StatefulTable<T>) -> Option<T> {
+fn handle_block_action<T: Clone>(key: Key, item: &mut StatefulTable<T>) -> Option<T> {
   match key {
     _ if key == DEFAULT_KEYBINDING.submit.key
       || key == DEFAULT_KEYBINDING.describe_resource.key
@@ -401,7 +423,7 @@ fn handle_table_action<T: Clone>(key: Key, item: &mut StatefulTable<T>) -> Optio
   }
 }
 
-fn handle_table_scroll<T: Clone>(item: &mut StatefulTable<T>, down: bool) {
+fn handle_scroll(item: &mut dyn Scrollable, down: bool) {
   if down {
     item.scroll_up();
   } else {
@@ -418,22 +440,25 @@ fn inverse_dir(down: bool, is_mouse: bool) -> bool {
   }
 }
 
-async fn handle_scroll(app: &mut App, down: bool, is_mouse: bool) {
+async fn handle_block_scroll(app: &mut App, down: bool, is_mouse: bool) {
   match app.get_current_route().active_block {
-    ActiveBlock::Namespaces => handle_table_scroll(&mut app.data.namespaces, down),
-    ActiveBlock::Pods => handle_table_scroll(&mut app.data.pods, down),
-    ActiveBlock::Containers => handle_table_scroll(&mut app.data.containers, down),
-    ActiveBlock::Services => handle_table_scroll(&mut app.data.services, down),
-    ActiveBlock::Nodes => handle_table_scroll(&mut app.data.nodes, down),
-    ActiveBlock::ConfigMaps => handle_table_scroll(&mut app.data.config_maps, down),
-    ActiveBlock::StatefulSets => handle_table_scroll(&mut app.data.stateful_sets, down),
-    ActiveBlock::ReplicaSets => handle_table_scroll(&mut app.data.replica_sets, down),
-    ActiveBlock::Deployments => handle_table_scroll(&mut app.data.deployments, down),
-    ActiveBlock::Jobs => handle_table_scroll(&mut app.data.jobs, down),
-    ActiveBlock::DaemonSets => handle_table_scroll(&mut app.data.daemon_sets, down),
-    ActiveBlock::More => handle_table_scroll(&mut app.data.cronjobs, down), //TODO
-    ActiveBlock::Contexts => handle_table_scroll(&mut app.data.contexts, down),
-    ActiveBlock::Utilization => handle_table_scroll(&mut app.data.metrics, down),
+    ActiveBlock::Namespaces => handle_scroll(&mut app.data.namespaces, down),
+    ActiveBlock::Pods => handle_scroll(&mut app.data.pods, down),
+    ActiveBlock::Containers => handle_scroll(&mut app.data.containers, down),
+    ActiveBlock::Services => handle_scroll(&mut app.data.services, down),
+    ActiveBlock::Nodes => handle_scroll(&mut app.data.nodes, down),
+    ActiveBlock::ConfigMaps => handle_scroll(&mut app.data.config_maps, down),
+    ActiveBlock::StatefulSets => handle_scroll(&mut app.data.stateful_sets, down),
+    ActiveBlock::ReplicaSets => handle_scroll(&mut app.data.replica_sets, down),
+    ActiveBlock::Deployments => handle_scroll(&mut app.data.deployments, down),
+    ActiveBlock::Jobs => handle_scroll(&mut app.data.jobs, down),
+    ActiveBlock::DaemonSets => handle_scroll(&mut app.data.daemon_sets, down),
+    ActiveBlock::CronJobs => handle_scroll(&mut app.data.cronjobs, down),
+    ActiveBlock::Secrets => {
+      todo!()
+    }
+    ActiveBlock::Contexts => handle_scroll(&mut app.data.contexts, down),
+    ActiveBlock::Utilization => handle_scroll(&mut app.data.metrics, down),
     ActiveBlock::Logs => {
       app.log_auto_scroll = false;
       if inverse_dir(down, is_mouse) {
@@ -449,7 +474,8 @@ async fn handle_scroll(app: &mut App, down: bool, is_mouse: bool) {
         app.data.describe_out.scroll_up();
       }
     }
-    ActiveBlock::Help => handle_table_scroll(&mut app.help_docs, down),
+    ActiveBlock::Help => handle_scroll(&mut app.help_docs, down),
+    ActiveBlock::More => handle_scroll(&mut app.more_resources_menu, down),
   }
 }
 
@@ -480,17 +506,17 @@ mod tests {
 
     assert_eq!(item.state.selected(), Some(0));
 
-    handle_table_scroll(&mut item, false);
+    handle_scroll(&mut item, false);
     assert_eq!(item.state.selected(), Some(1));
 
-    handle_table_scroll(&mut item, false);
+    handle_scroll(&mut item, false);
     assert_eq!(item.state.selected(), Some(2));
 
     // circle back after last index
-    handle_table_scroll(&mut item, false);
+    handle_scroll(&mut item, false);
     assert_eq!(item.state.selected(), Some(2));
     // previous
-    handle_table_scroll(&mut item, true);
+    handle_scroll(&mut item, true);
     assert_eq!(item.state.selected(), Some(1));
   }
 
@@ -569,9 +595,9 @@ mod tests {
 
     // mouse scroll
     assert_eq!(app.data.pods.state.selected(), Some(0));
-    handle_scroll(&mut app, false, true).await;
+    handle_block_scroll(&mut app, false, true).await;
     assert_eq!(app.data.pods.state.selected(), Some(1));
-    handle_scroll(&mut app, true, true).await;
+    handle_block_scroll(&mut app, true, true).await;
     assert_eq!(app.data.pods.state.selected(), Some(0));
 
     // check logs keyboard scroll
@@ -582,7 +608,7 @@ mod tests {
     app.data.logs.add_record("record 2".to_string());
     app.data.logs.add_record("record 3".to_string());
 
-    handle_scroll(&mut app, true, false).await;
+    handle_block_scroll(&mut app, true, false).await;
     assert_eq!(app.data.logs.state.selected(), Some(0));
   }
 
