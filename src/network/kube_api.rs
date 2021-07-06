@@ -31,6 +31,7 @@ use super::{
   },
   Network,
 };
+use crate::app::daemonsets::KubeDaemonSet;
 
 impl<'a> Network<'a> {
   pub async fn get_kube_config(&self) {
@@ -271,6 +272,15 @@ impl<'a> Network<'a> {
 
     let mut app = self.app.lock().await;
     app.data.deployments.set_items(items);
+  }
+
+  pub async fn get_daemon_sets_jobs(&self) {
+    let items: Vec<KubeDaemonSet> = self
+      .get_namespaced_resources(|it| KubeDaemonSet::from_api(it))
+      .await;
+
+    let mut app = self.app.lock().await;
+    app.data.daemon_sets.set_items(items);
   }
 
   /// calls the kubernetes API to list the given resource for either selected namespace or all namespaces

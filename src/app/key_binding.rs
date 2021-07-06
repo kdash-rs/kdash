@@ -47,7 +47,8 @@ generate_keybindings! {
   jump_to_replicasets,
   jump_to_deployments,
   jump_to_jobs,
-  jump_to_cron_jobs,
+  jump_to_daemonsets,
+  jump_to_more_resources,
   cycle_group_by
 }
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Debug)]
@@ -246,13 +247,18 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
     desc: "Select jobs tab",
     context: HContext::Overview,
   },
-  jump_to_cron_jobs: KeyBinding {
+  jump_to_daemonsets: KeyBinding {
     key: Key::Char('9'),
     alt: None,
-    desc: "Select cron jobs tab",
+    desc: "Select daemon sets tab",
     context: HContext::Overview,
   },
-
+  jump_to_more_resources: KeyBinding {
+    key: Key::Char('0'),
+    alt: None,
+    desc: "Select more resources",
+    context: HContext::Overview,
+  },
   cycle_group_by: KeyBinding {
     key: Key::Char('g'),
     alt: None,

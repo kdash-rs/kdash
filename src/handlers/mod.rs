@@ -165,8 +165,12 @@ async fn handle_route_events(key: Key, app: &mut App) {
           let route = app.context_tabs.set_index(7).route.clone();
           app.push_navigation_route(route);
         }
-        _ if key == DEFAULT_KEYBINDING.jump_to_cron_jobs.key => {
+        _ if key == DEFAULT_KEYBINDING.jump_to_daemonsets.key => {
           let route = app.context_tabs.set_index(8).route.clone();
+          app.push_navigation_route(route);
+        }
+        _ if key == DEFAULT_KEYBINDING.jump_to_more_resources.key => {
+          let route = app.context_tabs.set_index(9).route.clone();
           app.push_navigation_route(route);
         }
         _ => {}
@@ -323,7 +327,22 @@ async fn handle_route_events(key: Key, app: &mut App) {
             .await;
           }
         }
-        ActiveBlock::CronJobs => {
+        ActiveBlock::DaemonSets => {
+          if let Some(res) = handle_table_action(key, &mut app.data.daemon_sets) {
+            let _ok = handle_describe_or_yaml_action(
+              key,
+              app,
+              &res,
+              IoCmdEvent::GetDescribe {
+                kind: "daemonset".to_owned(),
+                value: res.name.to_owned(),
+                ns: Some(res.namespace.to_owned()),
+              },
+            )
+            .await;
+          }
+        }
+        ActiveBlock::More => {
           if let Some(res) = handle_table_action(key, &mut app.data.cronjobs) {
             let _ok = handle_describe_or_yaml_action(
               key,
@@ -411,8 +430,9 @@ async fn handle_scroll(app: &mut App, down: bool, is_mouse: bool) {
     ActiveBlock::StatefulSets => handle_table_scroll(&mut app.data.stateful_sets, down),
     ActiveBlock::ReplicaSets => handle_table_scroll(&mut app.data.replica_sets, down),
     ActiveBlock::Deployments => handle_table_scroll(&mut app.data.deployments, down),
-    ActiveBlock::Jobs => handle_table_scroll(&mut app.help_docs, down),
-    ActiveBlock::CronJobs => handle_table_scroll(&mut app.help_docs, down),
+    ActiveBlock::Jobs => handle_table_scroll(&mut app.data.jobs, down),
+    ActiveBlock::DaemonSets => handle_table_scroll(&mut app.data.daemon_sets, down),
+    ActiveBlock::More => handle_table_scroll(&mut app.data.cronjobs, down), //TODO
     ActiveBlock::Contexts => handle_table_scroll(&mut app.data.contexts, down),
     ActiveBlock::Utilization => handle_table_scroll(&mut app.data.metrics, down),
     ActiveBlock::Logs => {

@@ -1,6 +1,7 @@
 pub(crate) mod configmaps;
 pub(crate) mod contexts;
 pub(crate) mod cronjobs;
+pub(crate) mod daemonsets;
 pub(crate) mod deployments;
 pub(crate) mod jobs;
 pub(crate) mod key_binding;
@@ -24,6 +25,7 @@ use self::{
   configmaps::KubeConfigMap,
   contexts::KubeContext,
   cronjobs::KubeCronJob,
+  daemonsets::KubeDaemonSet,
   deployments::KubeDeployment,
   jobs::KubeJob,
   key_binding::DEFAULT_KEYBINDING,
@@ -59,7 +61,8 @@ pub enum ActiveBlock {
   Contexts,
   Utilization,
   Jobs,
-  CronJobs,
+  DaemonSets,
+  More,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -106,6 +109,7 @@ pub struct Data {
   pub replica_sets: StatefulTable<KubeReplicaSet>,
   pub deployments: StatefulTable<KubeDeployment>,
   pub jobs: StatefulTable<KubeJob>,
+  pub daemon_sets: StatefulTable<KubeDaemonSet>,
   pub cronjobs: StatefulTable<KubeCronJob>,
   pub logs: LogsState,
   pub describe_out: ScrollableTxt,
@@ -168,6 +172,7 @@ impl Default for Data {
       replica_sets: StatefulTable::new(),
       deployments: StatefulTable::new(),
       jobs: StatefulTable::new(),
+      daemon_sets: StatefulTable::new(),
       cronjobs: StatefulTable::new(),
       selected: Selected {
         ns: None,
@@ -281,9 +286,16 @@ impl Default for App {
           },
         },
         TabRoute {
-          title: format!("Cron Jobs {}", DEFAULT_KEYBINDING.jump_to_cron_jobs.key),
+          title: format!("DaemonSets {}", DEFAULT_KEYBINDING.jump_to_daemonsets.key),
           route: Route {
-            active_block: ActiveBlock::CronJobs,
+            active_block: ActiveBlock::DaemonSets,
+            id: RouteId::Home,
+          },
+        },
+        TabRoute {
+          title: format!("More {}", DEFAULT_KEYBINDING.jump_to_more_resources.key),
+          route: Route {
+            active_block: ActiveBlock::More,
             id: RouteId::Home,
           },
         },
@@ -469,7 +481,7 @@ impl App {
       self.dispatch(IoEvent::GetReplicaSets).await;
       self.dispatch(IoEvent::GetDeployments).await;
       self.dispatch(IoEvent::GetJobs).await;
-      self.dispatch(IoEvent::GetCronJobs).await;
+      self.dispatch(IoEvent::GetDaemonSets).await;
       self.refresh = false;
     }
     // make network requests only in intervals to avoid hogging up the network
@@ -504,7 +516,10 @@ impl App {
             ActiveBlock::Jobs => {
               self.dispatch(IoEvent::GetJobs).await;
             }
-            ActiveBlock::CronJobs => {
+            ActiveBlock::DaemonSets => {
+              self.dispatch(IoEvent::GetDaemonSets).await;
+            }
+            ActiveBlock::More => {
               self.dispatch(IoEvent::GetCronJobs).await;
             }
             ActiveBlock::Logs => {
@@ -622,7 +637,7 @@ mod tests {
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetReplicaSets);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetDeployments);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetJobs);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetCronJobs);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetDaemonSets);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
