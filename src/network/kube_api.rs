@@ -3,7 +3,7 @@ use std::fmt;
 use anyhow::anyhow;
 use k8s_openapi::api::core::v1::{Namespace, Node, Pod};
 use kube::{
-  api::{ListMeta, ListParams, ObjectList, Request},
+  api::{ListMeta, ListParams, ObjectList},
   config::Kubeconfig,
   Api, Resource as ApiResource,
 };
@@ -113,13 +113,11 @@ impl<'a> Network<'a> {
       }
     }
 
-    // custom request since metrics API doesnt exist on kube-rs
-    let request = Request::new("/apis/metrics.k8s.io/v1beta1/pods");
-    match self
-      .client
-      .clone()
-      .request::<ObjectList<PodMetrics>>(request.list(&ListParams::default()).unwrap())
-      .await
+    let api_pod_metrics: Api<PodMetrics> = Api::all(self.client.clone());
+
+    match api_pod_metrics
+    .list(&ListParams::default())
+    .await
     {
       Ok(pod_metrics) => {
         if let Err(e) = extract_utilizations_from_pod_metrics(pod_metrics, &mut resources).await {
@@ -288,7 +286,11 @@ impl<'a> Network<'a> {
       Ok(list) => list.iter().map(map_fn).collect::<Vec<_>>(),
       Err(e) => {
         self
-          .handle_error(anyhow!("Failed to get resource. {:?}", e))
+          .handle_error(anyhow!(
+            "Failed to get resource {}. {:?}",
+            std::any::type_name::<T>(),
+            e
+          ))
           .await;
         vec![]
       }

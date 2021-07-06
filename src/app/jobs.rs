@@ -31,7 +31,7 @@ impl KubeResource<Job> for KubeJob {
         Some(st) => match stat.completion_time.as_ref() {
           Some(ct) => {
             let duration = ct.0.signed_duration_since(st.0);
-            utils::duration_to_age(duration)
+            utils::duration_to_age(duration, true)
           }
           None => utils::to_age(stat.start_time.as_ref(), Utc::now()),
         },
@@ -73,7 +73,7 @@ mod tests {
         age: utils::to_age(Some(&get_time("2021-06-11T13:49:45Z")), Utc::now()),
         k8s_obj: jobs_list[0].clone(),
         completions: "1/1".into(),
-        duration: "39m".into()
+        duration: "39m44s".into()
       }
     );
     assert_eq!(
@@ -84,7 +84,7 @@ mod tests {
         age: utils::to_age(Some(&get_time("2021-06-11T13:49:45Z")), Utc::now()),
         k8s_obj: jobs_list[1].clone(),
         completions: "1/1 of 1".into(),
-        duration: "39m".into()
+        duration: "39m44s".into()
       }
     );
     assert_eq!(
@@ -95,7 +95,7 @@ mod tests {
         age: utils::to_age(Some(&get_time("2021-06-11T13:49:45Z")), Utc::now()),
         k8s_obj: jobs_list[2].clone(),
         completions: "1/1".into(),
-        duration: "39m".into()
+        duration: "39m44s".into()
       }
     );
   }

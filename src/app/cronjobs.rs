@@ -1,4 +1,4 @@
-use k8s_openapi::{api::batch::v2alpha1::CronJob, chrono::Utc};
+use k8s_openapi::{api::batch::v1beta1::CronJob, chrono::Utc};
 
 use super::{models::KubeResource, utils};
 
@@ -18,7 +18,7 @@ impl KubeResource<CronJob> for KubeCronJob {
   fn from_api(cronjob: &CronJob) -> Self {
     let (last_schedule, active) = match &cronjob.status {
       Some(cjs) => (
-        utils::to_age(cjs.last_schedule_time.as_ref(), Utc::now()),
+        utils::to_age_secs(cjs.last_schedule_time.as_ref(), Utc::now()),
         cjs.active.len(),
       ),
       None => ("<none>".to_string(), 0),
@@ -64,7 +64,7 @@ mod tests {
         schedule: "*/1 * * * *".into(),
         suspend: false,
         active: 0,
-        last_schedule: utils::to_age(Some(&get_time("2021-07-05T09:39:00Z")), Utc::now()),
+        last_schedule: utils::to_age_secs(Some(&get_time("2021-07-05T09:39:00Z")), Utc::now()),
         age: utils::to_age(Some(&get_time("2021-07-05T09:37:21Z")), Utc::now()),
         k8s_obj: jobs_list[0].clone(),
       }

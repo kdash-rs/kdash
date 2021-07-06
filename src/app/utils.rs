@@ -11,13 +11,25 @@ pub fn to_age(timestamp: Option<&Time>, against: DateTime<Utc>) -> String {
       let time = time.0;
       let duration = against.signed_duration_since(time);
 
-      duration_to_age(duration)
+      duration_to_age(duration, false)
     }
     None => String::default(),
   }
 }
 
-pub fn duration_to_age(duration: Duration) -> String {
+pub fn to_age_secs(timestamp: Option<&Time>, against: DateTime<Utc>) -> String {
+  match timestamp {
+    Some(time) => {
+      let time = time.0;
+      let duration = against.signed_duration_since(time);
+
+      duration_to_age(duration, true)
+    }
+    None => String::default(),
+  }
+}
+
+pub fn duration_to_age(duration: Duration, with_secs: bool) -> String {
   let mut out = String::new();
   if duration.num_weeks() != 0 {
     out.push_str(format!("{}w", duration.num_weeks()).as_str());
@@ -34,7 +46,15 @@ pub fn duration_to_age(duration: Duration) -> String {
   if mins != 0 && days == 0 && duration.num_weeks() == 0 {
     out.push_str(format!("{}m", mins).as_str());
   }
-  if out.is_empty() {
+  if with_secs {
+    let secs = duration.num_seconds() - (duration.num_minutes() * 60);
+    if secs != 0 && hrs == 0 && days == 0 && duration.num_weeks() == 0 {
+      out.push_str(format!("{}s", secs).as_str());
+    }
+  }
+  if out.is_empty() && with_secs {
+    "0s".into()
+  } else if out.is_empty() {
     "0m".into()
   } else {
     out
@@ -92,6 +112,10 @@ pub fn convert_to_f64(s: &str) -> f64 {
 #[cfg(test)]
 #[allow(clippy::float_cmp)]
 mod tests {
+  use k8s_openapi::{
+    apimachinery::pkg::apis::meta::v1::Time,
+    chrono::{DateTime, TimeZone, Utc},
+  };
   #[test]
   fn test_mem_to_mi() {
     use super::mem_to_mi;
@@ -128,24 +152,143 @@ mod tests {
     assert_eq!(cpu_to_milli(String::from("8")), String::from("8000m"));
     assert_eq!(cpu_to_milli(String::from("0")), String::from("0m"));
   }
+
+  fn get_time(s: &str) -> Time {
+    Time(to_utc(s))
+  }
+
+  fn to_utc(s: &str) -> DateTime<Utc> {
+    Utc.datetime_from_str(s, "%d-%m-%Y %H:%M:%S").unwrap()
+  }
+
+  #[test]
+  fn test_to_age_secs() {
+    use std::time::SystemTime;
+
+    use super::to_age_secs;
+
+    assert_eq!(
+      to_age_secs(Some(&Time(Utc::now())), Utc::now()),
+      String::from("0s")
+    );
+    assert_eq!(
+      to_age_secs(
+        Some(&get_time("15-4-2021 14:09:10")),
+        to_utc("15-4-2021 14:10:00")
+      ),
+      String::from("50s")
+    );
+    assert_eq!(
+      to_age_secs(
+        Some(&get_time("15-4-2021 14:08:10")),
+        to_utc("15-4-2021 14:10:00")
+      ),
+      String::from("1m50s")
+    );
+    assert_eq!(
+      to_age_secs(
+        Some(&get_time("15-4-2021 14:09:00")),
+        to_utc("15-4-2021 14:10:00")
+      ),
+      String::from("1m")
+    );
+    assert_eq!(
+      to_age_secs(
+        Some(&get_time("15-4-2021 13:50:00")),
+        to_utc("15-4-2021 14:10:00")
+      ),
+      String::from("20m")
+    );
+    assert_eq!(
+      to_age_secs(
+        Some(&get_time("15-4-2021 13:50:10")),
+        to_utc("15-4-2021 14:10:0")
+      ),
+      String::from("19m50s")
+    );
+    assert_eq!(
+      to_age_secs(
+        Some(&get_time("15-4-2021 10:50:10")),
+        to_utc("15-4-2021 14:10:0")
+      ),
+      String::from("3h19m")
+    );
+    assert_eq!(
+      to_age_secs(
+        Some(&get_time("14-4-2021 15:10:10")),
+        to_utc("15-4-2021 14:10:10")
+      ),
+      String::from("23h")
+    );
+    assert_eq!(
+      to_age_secs(
+        Some(&get_time("14-4-2021 14:11:10")),
+        to_utc("15-4-2021 14:10:10")
+      ),
+      String::from("23h59m")
+    );
+    assert_eq!(
+      to_age_secs(
+        Some(&get_time("14-4-2021 14:10:10")),
+        to_utc("15-4-2021 14:10:10")
+      ),
+      String::from("1d")
+    );
+    assert_eq!(
+      to_age_secs(
+        Some(&get_time("12-4-2021 14:10:10")),
+        to_utc("15-4-2021 14:10:10")
+      ),
+      String::from("3d")
+    );
+    assert_eq!(
+      to_age_secs(
+        Some(&get_time("12-4-2021 13:50:10")),
+        to_utc("15-4-2021 14:10:10")
+      ),
+      String::from("3d")
+    );
+    assert_eq!(
+      to_age_secs(
+        Some(&get_time("12-4-2021 11:10:10")),
+        to_utc("15-4-2021 14:10:10")
+      ),
+      String::from("3d3h")
+    );
+    assert_eq!(
+      to_age_secs(
+        Some(&get_time("12-4-2021 10:50:10")),
+        to_utc("15-4-2021 14:10:0")
+      ),
+      String::from("3d3h")
+    );
+    assert_eq!(
+      to_age_secs(
+        Some(&get_time("08-4-2021 14:10:10")),
+        to_utc("15-4-2021 14:10:10")
+      ),
+      String::from("1w")
+    );
+    assert_eq!(
+      to_age_secs(
+        Some(&get_time("05-4-2021 12:30:10")),
+        to_utc("15-4-2021 14:10:10")
+      ),
+      String::from("1w3d1h")
+    );
+    assert_eq!(
+      to_age_secs(
+        Some(&Time(DateTime::from(SystemTime::UNIX_EPOCH))),
+        to_utc("15-4-2021 14:10:0")
+      ),
+      String::from("2676w14h")
+    );
+  }
   #[test]
   fn test_to_age() {
     use std::time::SystemTime;
 
-    use k8s_openapi::{
-      apimachinery::pkg::apis::meta::v1::Time,
-      chrono::{DateTime, TimeZone, Utc},
-    };
-
     use super::to_age;
-
-    fn get_time(s: &str) -> Time {
-      Time(to_utc(s))
-    }
-
-    fn to_utc(s: &str) -> DateTime<Utc> {
-      Utc.datetime_from_str(s, "%d-%m-%Y %H:%M:%S").unwrap()
-    }
 
     assert_eq!(
       to_age(Some(&Time(Utc::now())), Utc::now()),

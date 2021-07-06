@@ -504,6 +504,9 @@ impl App {
             ActiveBlock::Jobs => {
               self.dispatch(IoEvent::GetJobs).await;
             }
+            ActiveBlock::CronJobs => {
+              self.dispatch(IoEvent::GetCronJobs).await;
+            }
             ActiveBlock::Logs => {
               if !self.is_streaming {
                 // do not tail to avoid duplicates
