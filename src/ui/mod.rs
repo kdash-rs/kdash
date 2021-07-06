@@ -22,7 +22,7 @@ use self::{
     style_main_background, style_primary, style_secondary, title_style_logo, vertical_chunks,
   },
 };
-use super::app::{App, RouteId};
+use crate::app::{App, RouteId};
 
 static HIGHLIGHT: &str = "=> ";
 

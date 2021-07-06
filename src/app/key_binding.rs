@@ -1,6 +1,6 @@
 use std::fmt;
 
-use super::super::event::Key;
+use crate::event::Key;
 
 // using a macro so that we can automatically generate an iterable vector for bindings. This beats reflection :)
 macro_rules! generate_keybindings {

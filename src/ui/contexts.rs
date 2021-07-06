@@ -6,13 +6,13 @@ use tui::{
 };
 
 use super::{
-  super::app::App,
   utils::{
     layout_block_active, loading, style_highlight, style_primary, style_secondary,
     table_header_style,
   },
   HIGHLIGHT,
 };
+use crate::app::App;
 
 pub fn draw_contexts<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = format!("Contexts [{}]", app.data.contexts.items.len());

@@ -31,11 +31,10 @@ impl KubeResource<ConfigMap> for KubeConfigMap {
 
 #[cfg(test)]
 mod tests {
-  use super::{
-    super::test_utils::{convert_resource_from_file, get_time},
-    *,
-  };
-  use crate::map;
+  use k8s_openapi::chrono::Utc;
+
+  use super::*;
+  use crate::{app::test_utils::*, map};
 
   #[test]
   fn test_config_map_from_api() {

@@ -6,13 +6,11 @@ use tui::{
   Frame,
 };
 
-use super::{
-  super::app::App,
-  utils::{
-    layout_block_active, loading, style_highlight, style_primary, style_success, style_warning,
-    table_header_style,
-  },
+use super::utils::{
+  layout_block_active, loading, style_highlight, style_primary, style_success, style_warning,
+  table_header_style,
 };
+use crate::app::App;
 
 pub fn draw_utilization<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let title = format!(

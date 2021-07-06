@@ -48,10 +48,8 @@ impl KubeResource<DaemonSet> for KubeDaemonSet {
 
 #[cfg(test)]
 mod tests {
-  use super::{
-    super::test_utils::{convert_resource_from_file, get_time},
-    *,
-  };
+  use super::*;
+  use crate::app::test_utils::*;
 
   #[test]
   fn test_replica_sets_from_api() {

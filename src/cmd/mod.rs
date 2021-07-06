@@ -6,7 +6,7 @@ use regex::Regex;
 use serde_json::Value as JValue;
 use tokio::sync::Mutex;
 
-use super::app::{self, models::ScrollableTxt, App, Cli};
+use crate::app::{self, models::ScrollableTxt, App, Cli};
 
 #[derive(Debug, PartialEq)]
 pub enum IoCmdEvent {
@@ -179,6 +179,7 @@ mod tests {
   #[test]
   fn test_get_info_by_regex() {
     use super::get_info_by_regex;
+
     assert_eq!(
       get_info_by_regex(
         "echo",

@@ -13,25 +13,23 @@ use kubectl_view_allocations::{
 };
 use serde::de::DeserializeOwned;
 
-use super::{
-  super::app::{
-    configmaps::KubeConfigMap,
-    contexts,
-    cronjobs::KubeCronJob,
-    deployments::KubeDeployment,
-    jobs::KubeJob,
-    metrics::{self, KubeNodeMetrics},
-    models::KubeResource,
-    nodes::KubeNode,
-    ns::KubeNs,
-    pods::KubePod,
-    replicasets::KubeReplicaSet,
-    statefulsets::KubeStatefulSet,
-    svcs::KubeSvc,
-  },
-  Network,
+use super::Network;
+use crate::app::{
+  configmaps::KubeConfigMap,
+  contexts,
+  cronjobs::KubeCronJob,
+  daemonsets::KubeDaemonSet,
+  deployments::KubeDeployment,
+  jobs::KubeJob,
+  metrics::{self, KubeNodeMetrics},
+  models::KubeResource,
+  nodes::KubeNode,
+  ns::KubeNs,
+  pods::KubePod,
+  replicasets::KubeReplicaSet,
+  statefulsets::KubeStatefulSet,
+  svcs::KubeSvc,
 };
-use crate::app::daemonsets::KubeDaemonSet;
 
 impl<'a> Network<'a> {
   pub async fn get_kube_config(&self) {

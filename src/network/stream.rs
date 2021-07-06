@@ -6,10 +6,8 @@ use kube::{api::LogParams, Api, Client};
 use tokio::sync::Mutex;
 use tokio_stream::StreamExt;
 
-use super::{
-  app::{ActiveBlock, App},
-  refresh_kube_config,
-};
+use super::refresh_kube_config;
+use crate::app::{ActiveBlock, App};
 
 #[derive(Debug, PartialEq)]
 pub enum IoStreamEvent {

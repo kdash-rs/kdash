@@ -9,7 +9,7 @@ use anyhow::{anyhow, Result};
 use kube::Client;
 use tokio::sync::Mutex;
 
-use super::app::{self, App};
+use crate::app::App;
 
 #[derive(Debug, PartialEq)]
 pub enum IoEvent {

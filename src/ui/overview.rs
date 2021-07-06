@@ -8,13 +8,6 @@ use tui::{
 };
 
 use super::{
-  super::{
-    app::{
-      key_binding::DEFAULT_KEYBINDING, metrics::KubeNodeMetrics, models::StatefulTable,
-      ActiveBlock, App,
-    },
-    banner::BANNER,
-  },
   utils::{
     get_gauge_style, horizontal_chunks, layout_block_default, layout_block_top_border, loading,
     style_default, style_failure, style_highlight, style_logo, style_primary, style_secondary,
@@ -22,6 +15,13 @@ use super::{
     vertical_chunks_with_margin,
   },
   HIGHLIGHT,
+};
+use crate::{
+  app::{
+    key_binding::DEFAULT_KEYBINDING, metrics::KubeNodeMetrics, models::StatefulTable, ActiveBlock,
+    App,
+  },
+  banner::BANNER,
 };
 
 static DESCRIBE_AND_YAML_HINT: &str = "| describe <d> | yaml <y>";

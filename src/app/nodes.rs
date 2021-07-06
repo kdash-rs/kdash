@@ -162,13 +162,8 @@ impl KubeResource<Node> for KubeNode {
 mod tests {
   use tokio::sync::Mutex;
 
-  use super::{
-    super::{
-      metrics::KubeNodeMetrics,
-      test_utils::{get_time, load_resource_from_file},
-    },
-    *,
-  };
+  use super::*;
+  use crate::app::{metrics::KubeNodeMetrics, test_utils::*};
 
   #[tokio::test]
   async fn test_stateful_sets_from_api() {

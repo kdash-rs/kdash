@@ -6,13 +6,13 @@ use tui::{
 };
 
 use super::{
-  super::app::App,
   utils::{
     layout_block_active_span, style_highlight, style_primary, style_secondary,
     title_with_dual_style, vertical_chunks,
   },
   HIGHLIGHT,
 };
+use crate::app::App;
 
 pub fn draw_help<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   let chunks = vertical_chunks(vec![Constraint::Percentage(100)], area);

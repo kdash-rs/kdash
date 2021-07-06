@@ -311,10 +311,8 @@ fn get_container_ports(ports: &[ContainerPort]) -> String {
 
 #[cfg(test)]
 mod tests {
-  use super::{
-    super::test_utils::{convert_resource_from_file, get_time},
-    *,
-  };
+  use super::*;
+  use crate::app::test_utils::*;
 
   #[test]
   fn test_pod_from_api() {

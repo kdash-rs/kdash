@@ -2,16 +2,15 @@ use crossterm::event::{MouseEvent, MouseEventKind};
 use kubectl_view_allocations::GroupBy;
 use serde::Serialize;
 
-use super::{
+use crate::{
   app::{
     key_binding::DEFAULT_KEYBINDING,
-    models::{Scrollable, ScrollableTxt, StatefulTable},
+    models::{KubeResource, Scrollable, ScrollableTxt, StatefulTable},
     ActiveBlock, App, RouteId,
   },
   cmd::IoCmdEvent,
   event::Key,
 };
-use crate::app::models::KubeResource;
 
 pub async fn handle_key_events(key: Key, app: &mut App) {
   // First handle any global event and then move to route event

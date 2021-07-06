@@ -193,6 +193,7 @@ impl From<event::KeyEvent> for Key {
 #[cfg(test)]
 mod tests {
   use super::*;
+
   #[test]
   fn test_key_fmt() {
     assert_eq!(format!("{}", Key::Left), "<Left Arrow Key>");
