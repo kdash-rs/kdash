@@ -166,7 +166,7 @@ mod tests {
   use crate::app::{metrics::KubeNodeMetrics, test_utils::*};
 
   #[tokio::test]
-  async fn test_stateful_sets_from_api() {
+  async fn test_nodes_from_api() {
     let nodes = load_resource_from_file("nodes");
     let node_list = nodes.items.clone();
     let pods_list = load_resource_from_file("pods");

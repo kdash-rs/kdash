@@ -126,7 +126,7 @@ mod tests {
   use crate::app::test_utils::*;
 
   #[test]
-  fn test_stateful_sets_from_api() {
+  fn test_services_from_api() {
     let (svcs, svc_list): (Vec<KubeSvc>, Vec<_>) = convert_resource_from_file("svcs");
 
     assert_eq!(svcs.len(), 5);

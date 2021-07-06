@@ -52,7 +52,7 @@ mod tests {
   use crate::app::test_utils::*;
 
   #[test]
-  fn test_replica_sets_from_api() {
+  fn test_daemon_sets_from_api() {
     let (dss, dss_list): (Vec<KubeDaemonSet>, Vec<_>) = convert_resource_from_file("daemonsets");
 
     assert_eq!(dss.len(), 1);
