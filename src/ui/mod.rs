@@ -1,6 +1,7 @@
 mod contexts;
 mod help;
 mod overview;
+mod resource_tabs;
 mod utilization;
 mod utils;
 
