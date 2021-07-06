@@ -1,5 +1,6 @@
 pub(crate) mod configmaps;
 pub(crate) mod contexts;
+pub(crate) mod cronjobs;
 pub(crate) mod deployments;
 pub(crate) mod jobs;
 pub(crate) mod key_binding;
@@ -22,6 +23,7 @@ use tui::layout::Rect;
 use self::{
   configmaps::KubeConfigMap,
   contexts::KubeContext,
+  cronjobs::KubeCronJob,
   deployments::KubeDeployment,
   jobs::KubeJob,
   key_binding::DEFAULT_KEYBINDING,
@@ -57,6 +59,7 @@ pub enum ActiveBlock {
   Contexts,
   Utilization,
   Jobs,
+  CronJobs,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -103,6 +106,7 @@ pub struct Data {
   pub replica_sets: StatefulTable<KubeReplicaSet>,
   pub deployments: StatefulTable<KubeDeployment>,
   pub jobs: StatefulTable<KubeJob>,
+  pub cronjobs: StatefulTable<KubeCronJob>,
   pub logs: LogsState,
   pub describe_out: ScrollableTxt,
   pub metrics: StatefulTable<(Vec<String>, Option<QtyByQualifier>)>,
@@ -164,6 +168,7 @@ impl Default for Data {
       replica_sets: StatefulTable::new(),
       deployments: StatefulTable::new(),
       jobs: StatefulTable::new(),
+      cronjobs: StatefulTable::new(),
       selected: Selected {
         ns: None,
         pod: None,
@@ -272,6 +277,13 @@ impl Default for App {
           title: format!("Jobs {}", DEFAULT_KEYBINDING.jump_to_jobs.key),
           route: Route {
             active_block: ActiveBlock::Jobs,
+            id: RouteId::Home,
+          },
+        },
+        TabRoute {
+          title: format!("Cron Jobs {}", DEFAULT_KEYBINDING.jump_to_cron_jobs.key),
+          route: Route {
+            active_block: ActiveBlock::CronJobs,
             id: RouteId::Home,
           },
         },
@@ -457,6 +469,7 @@ impl App {
       self.dispatch(IoEvent::GetReplicaSets).await;
       self.dispatch(IoEvent::GetDeployments).await;
       self.dispatch(IoEvent::GetJobs).await;
+      self.dispatch(IoEvent::GetCronJobs).await;
       self.refresh = false;
     }
     // make network requests only in intervals to avoid hogging up the network
@@ -556,8 +569,7 @@ mod test_utils {
     assert_ne!(yaml, "".to_string());
 
     let res_list: serde_yaml::Result<ObjectList<K>> = serde_yaml::from_str(&*yaml);
-    assert!(res_list.is_ok());
-
+    assert!(res_list.is_ok(), "{:?}", res_list.err());
     res_list.unwrap()
   }
 
@@ -607,6 +619,7 @@ mod tests {
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetReplicaSets);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetDeployments);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetJobs);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetCronJobs);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
