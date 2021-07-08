@@ -82,7 +82,7 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
   esc: KeyBinding {
     key: Key::Esc,
     alt: None,
-    desc: "Close popup page",
+    desc: "Close child page/Go back",
     context: HContext::General,
   },
   help: KeyBinding {

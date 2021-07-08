@@ -458,7 +458,12 @@ impl App {
 
   pub fn get_nth_route_from_last(&self, index: usize) -> &Route {
     // get the previous route by index
-    &self.navigation_stack[self.navigation_stack.len() - (index + 1)]
+    let index = self.navigation_stack.len() - (index + 1);
+    if index > 0 {
+      &self.navigation_stack[index]
+    } else {
+      &self.navigation_stack[0]
+    }
   }
 
   pub fn cycle_main_routes(&mut self) {
