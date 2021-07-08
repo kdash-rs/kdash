@@ -30,6 +30,7 @@ static DEPLOYMENTS_TITLE: &str = "Deployments";
 static JOBS_TITLE: &str = "Jobs";
 static DAEMON_SETS_TITLE: &str = "DaemonSets";
 static CRON_JOBS_TITLE: &str = "Cron Jobs";
+static SECRETS_TITLE: &str = "Secrets";
 static DESCRIBE_ACTIVE: &str = "-> Describe ";
 static YAML_ACTIVE: &str = "-> YAML ";
 
@@ -75,10 +76,11 @@ fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, ar
   match block {
     ActiveBlock::More => draw_menu(f, app, area),
     ActiveBlock::CronJobs => draw_cronjobs_tab(block, f, app, area),
+    ActiveBlock::Secrets => draw_secrets_tab(block, f, app, area),
     ActiveBlock::Describe | ActiveBlock::Yaml => {
       match app.get_prev_route().active_block {
         ActiveBlock::CronJobs => draw_cronjobs_tab(block, f, app, area),
-        ActiveBlock::Secrets => todo!(),
+        ActiveBlock::Secrets => draw_secrets_tab(block, f, app, area),
         _ => { /* do nothing */ }
       }
     }
@@ -366,6 +368,30 @@ fn draw_cronjobs_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut
       draw_cronjobs_tab(app.get_prev_route().active_block, f, app, area);
     }
     _ => draw_cronjobs_block(f, app, area),
+  };
+}
+
+fn draw_secrets_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
+  match block {
+    ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
+      f,
+      app,
+      area,
+      title_with_dual_style(
+        get_resource_title(
+          app,
+          SECRETS_TITLE,
+          get_describe_active(block),
+          app.data.secrets.items.len(),
+        ),
+        format!("{} | {} <esc>", COPY_HINT, SECRETS_TITLE),
+        app.light_theme,
+      ),
+    ),
+    ActiveBlock::Namespaces => {
+      draw_secrets_tab(app.get_prev_route().active_block, f, app, area);
+    }
+    _ => draw_secrets_block(f, app, area),
   };
 }
 
@@ -846,6 +872,41 @@ fn draw_cronjobs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) 
         Cell::from(c.last_schedule.to_string()),
         Cell::from(c.suspend.to_string()),
         Cell::from(c.active.to_string()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary())
+    },
+    app.light_theme,
+    app.is_loading,
+  );
+}
+
+fn draw_secrets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let title = get_resource_title(app, SECRETS_TITLE, "", app.data.secrets.items.len());
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
+      resource: &mut app.data.secrets,
+      table_headers: vec!["Namespace", "Name", "Type", "Data", "Age"],
+      column_widths: vec![
+        Constraint::Percentage(25),
+        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
+        Constraint::Percentage(29),
+        Constraint::Percentage(25),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+      ],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.namespace.to_owned()),
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.type_.to_owned()),
+        Cell::from(c.data.len().to_string()),
         Cell::from(c.age.to_owned()),
       ])
       .style(style_primary())

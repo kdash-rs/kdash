@@ -376,7 +376,19 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Secrets => {
-          todo!()
+          if let Some(res) = handle_block_action(key, &mut app.data.secrets) {
+            let _ok = handle_describe_or_yaml_action(
+              key,
+              app,
+              &res,
+              IoCmdEvent::GetDescribe {
+                kind: "secret".to_owned(),
+                value: res.name.to_owned(),
+                ns: Some(res.namespace.to_owned()),
+              },
+            )
+            .await;
+          }
         }
         ActiveBlock::Contexts | ActiveBlock::Utilization | ActiveBlock::Help => { /* Do nothing */ }
       }
@@ -454,9 +466,7 @@ async fn handle_block_scroll(app: &mut App, down: bool, is_mouse: bool) {
     ActiveBlock::Jobs => handle_scroll(&mut app.data.jobs, down),
     ActiveBlock::DaemonSets => handle_scroll(&mut app.data.daemon_sets, down),
     ActiveBlock::CronJobs => handle_scroll(&mut app.data.cronjobs, down),
-    ActiveBlock::Secrets => {
-      todo!()
-    }
+    ActiveBlock::Secrets => handle_scroll(&mut app.data.secrets, down),
     ActiveBlock::Contexts => handle_scroll(&mut app.data.contexts, down),
     ActiveBlock::Utilization => handle_scroll(&mut app.data.metrics, down),
     ActiveBlock::Logs => {

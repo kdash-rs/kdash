@@ -11,6 +11,7 @@ pub(crate) mod nodes;
 pub(crate) mod ns;
 pub(crate) mod pods;
 pub(crate) mod replicasets;
+pub(crate) mod secrets;
 pub(crate) mod statefulsets;
 pub(crate) mod svcs;
 mod utils;
@@ -35,6 +36,7 @@ use self::{
   ns::KubeNs,
   pods::{KubeContainer, KubePod},
   replicasets::KubeReplicaSet,
+  secrets::KubeSecret,
   statefulsets::KubeStatefulSet,
   svcs::KubeSvc,
 };
@@ -113,6 +115,7 @@ pub struct Data {
   pub jobs: StatefulTable<KubeJob>,
   pub daemon_sets: StatefulTable<KubeDaemonSet>,
   pub cronjobs: StatefulTable<KubeCronJob>,
+  pub secrets: StatefulTable<KubeSecret>,
   pub logs: LogsState,
   pub describe_out: ScrollableTxt,
   pub metrics: StatefulTable<(Vec<String>, Option<QtyByQualifier>)>,
@@ -177,6 +180,7 @@ impl Default for Data {
       jobs: StatefulTable::new(),
       daemon_sets: StatefulTable::new(),
       cronjobs: StatefulTable::new(),
+      secrets: StatefulTable::new(),
       selected: Selected {
         ns: None,
         pod: None,
@@ -501,6 +505,7 @@ impl App {
       self.dispatch(IoEvent::GetJobs).await;
       self.dispatch(IoEvent::GetDaemonSets).await;
       self.dispatch(IoEvent::GetCronJobs).await;
+      self.dispatch(IoEvent::GetSecrets).await;
       self.refresh = false;
     }
     // make network requests only in intervals to avoid hogging up the network
@@ -540,6 +545,9 @@ impl App {
             }
             ActiveBlock::CronJobs => {
               self.dispatch(IoEvent::GetCronJobs).await;
+            }
+            ActiveBlock::Secrets => {
+              self.dispatch(IoEvent::GetSecrets).await;
             }
             ActiveBlock::Logs => {
               if !self.is_streaming {
@@ -619,10 +627,10 @@ mod test_utils {
   }
 
   #[macro_export]
-  macro_rules! map {
+  macro_rules! map_string_object {
     // map-like
     ($($k:expr => $v:expr),* $(,)?) => {
-        std::iter::Iterator::collect(std::array::IntoIter::new([$(($k.to_string(), $v.to_string()),)*]))
+        std::iter::Iterator::collect(std::array::IntoIter::new([$(($k.to_string(), $v),)*]))
     };
   }
 }
@@ -658,6 +666,7 @@ mod tests {
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetJobs);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetDaemonSets);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetCronJobs);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetSecrets);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);

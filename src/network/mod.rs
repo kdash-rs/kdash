@@ -25,6 +25,7 @@ pub enum IoEvent {
   GetJobs,
   GetDaemonSets,
   GetCronJobs,
+  GetSecrets,
   GetMetrics,
   RefreshClient,
 }
@@ -139,6 +140,9 @@ impl<'a> Network<'a> {
       }
       IoEvent::GetCronJobs => {
         self.get_cron_jobs().await;
+      }
+      IoEvent::GetSecrets => {
+        self.get_secrets().await;
       }
       IoEvent::GetDeployments => {
         self.get_deployments().await;

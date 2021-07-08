@@ -27,6 +27,7 @@ use crate::app::{
   ns::KubeNs,
   pods::KubePod,
   replicasets::KubeReplicaSet,
+  secrets::KubeSecret,
   statefulsets::KubeStatefulSet,
   svcs::KubeSvc,
 };
@@ -261,6 +262,15 @@ impl<'a> Network<'a> {
 
     let mut app = self.app.lock().await;
     app.data.cronjobs.set_items(items);
+  }
+
+  pub async fn get_secrets(&self) {
+    let items: Vec<KubeSecret> = self
+      .get_namespaced_resources(|it| KubeSecret::from_api(it))
+      .await;
+
+    let mut app = self.app.lock().await;
+    app.data.secrets.set_items(items);
   }
 
   pub async fn get_deployments(&self) {
