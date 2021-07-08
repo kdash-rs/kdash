@@ -453,7 +453,12 @@ impl App {
 
   pub fn get_prev_route(&self) -> &Route {
     // get the previous route
-    &self.navigation_stack[self.navigation_stack.len() - 2]
+    self.get_nth_route_from_last(1)
+  }
+
+  pub fn get_nth_route_from_last(&self, index: usize) -> &Route {
+    // get the previous route by index
+    &self.navigation_stack[self.navigation_stack.len() - (index + 1)]
   }
 
   pub fn cycle_main_routes(&mut self) {
@@ -487,6 +492,61 @@ impl App {
     self.refresh = true;
   }
 
+  pub async fn cache_all_resource_data(&mut self) {
+    self.dispatch(IoEvent::GetPods).await;
+    self.dispatch(IoEvent::GetServices).await;
+    self.dispatch(IoEvent::GetConfigMaps).await;
+    self.dispatch(IoEvent::GetStatefulSets).await;
+    self.dispatch(IoEvent::GetReplicaSets).await;
+    self.dispatch(IoEvent::GetDeployments).await;
+    self.dispatch(IoEvent::GetJobs).await;
+    self.dispatch(IoEvent::GetDaemonSets).await;
+    self.dispatch(IoEvent::GetCronJobs).await;
+    self.dispatch(IoEvent::GetSecrets).await;
+  }
+
+  pub async fn dispatch_by_active_block(&mut self, active_block: ActiveBlock) {
+    match active_block {
+      ActiveBlock::Pods | ActiveBlock::Containers => {
+        self.dispatch(IoEvent::GetPods).await;
+      }
+      ActiveBlock::Services => {
+        self.dispatch(IoEvent::GetServices).await;
+      }
+      ActiveBlock::ConfigMaps => {
+        self.dispatch(IoEvent::GetConfigMaps).await;
+      }
+      ActiveBlock::StatefulSets => {
+        self.dispatch(IoEvent::GetStatefulSets).await;
+      }
+      ActiveBlock::ReplicaSets => {
+        self.dispatch(IoEvent::GetReplicaSets).await;
+      }
+      ActiveBlock::Deployments => {
+        self.dispatch(IoEvent::GetDeployments).await;
+      }
+      ActiveBlock::Jobs => {
+        self.dispatch(IoEvent::GetJobs).await;
+      }
+      ActiveBlock::DaemonSets => {
+        self.dispatch(IoEvent::GetDaemonSets).await;
+      }
+      ActiveBlock::CronJobs => {
+        self.dispatch(IoEvent::GetCronJobs).await;
+      }
+      ActiveBlock::Secrets => {
+        self.dispatch(IoEvent::GetSecrets).await;
+      }
+      ActiveBlock::Logs => {
+        if !self.is_streaming {
+          // do not tail to avoid duplicates
+          self.dispatch_stream(IoStreamEvent::GetPodLogs(false)).await;
+        }
+      }
+      _ => {}
+    }
+  }
+
   pub async fn on_tick(&mut self, first_render: bool) {
     // Make one time requests on first render or refresh
     if self.refresh {
@@ -496,16 +556,7 @@ impl App {
       }
       self.dispatch(IoEvent::GetKubeConfig).await;
       // call these once to pre-load data
-      self.dispatch(IoEvent::GetPods).await;
-      self.dispatch(IoEvent::GetServices).await;
-      self.dispatch(IoEvent::GetConfigMaps).await;
-      self.dispatch(IoEvent::GetStatefulSets).await;
-      self.dispatch(IoEvent::GetReplicaSets).await;
-      self.dispatch(IoEvent::GetDeployments).await;
-      self.dispatch(IoEvent::GetJobs).await;
-      self.dispatch(IoEvent::GetDaemonSets).await;
-      self.dispatch(IoEvent::GetCronJobs).await;
-      self.dispatch(IoEvent::GetSecrets).await;
+      self.cache_all_resource_data().await;
       self.refresh = false;
     }
     // make network requests only in intervals to avoid hogging up the network
@@ -518,44 +569,14 @@ impl App {
           }
           self.dispatch(IoEvent::GetNamespaces).await;
           self.dispatch(IoEvent::GetNodes).await;
-          match self.get_current_route().active_block {
-            ActiveBlock::Pods | ActiveBlock::Containers => {
-              self.dispatch(IoEvent::GetPods).await;
-            }
-            ActiveBlock::Services => {
-              self.dispatch(IoEvent::GetServices).await;
-            }
-            ActiveBlock::ConfigMaps => {
-              self.dispatch(IoEvent::GetConfigMaps).await;
-            }
-            ActiveBlock::StatefulSets => {
-              self.dispatch(IoEvent::GetStatefulSets).await;
-            }
-            ActiveBlock::ReplicaSets => {
-              self.dispatch(IoEvent::GetReplicaSets).await;
-            }
-            ActiveBlock::Deployments => {
-              self.dispatch(IoEvent::GetDeployments).await;
-            }
-            ActiveBlock::Jobs => {
-              self.dispatch(IoEvent::GetJobs).await;
-            }
-            ActiveBlock::DaemonSets => {
-              self.dispatch(IoEvent::GetDaemonSets).await;
-            }
-            ActiveBlock::CronJobs => {
-              self.dispatch(IoEvent::GetCronJobs).await;
-            }
-            ActiveBlock::Secrets => {
-              self.dispatch(IoEvent::GetSecrets).await;
-            }
-            ActiveBlock::Logs => {
-              if !self.is_streaming {
-                // do not tail to avoid duplicates
-                self.dispatch_stream(IoStreamEvent::GetPodLogs(false)).await;
-              }
-            }
-            _ => {}
+
+          let active_block = self.get_current_route().active_block;
+          if active_block == ActiveBlock::Namespaces {
+            self
+              .dispatch_by_active_block(self.get_prev_route().active_block)
+              .await;
+          } else {
+            self.dispatch_by_active_block(active_block).await;
           }
         }
         RouteId::Utilization => {
