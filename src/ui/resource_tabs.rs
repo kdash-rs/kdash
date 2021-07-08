@@ -114,6 +114,25 @@ fn draw_menu<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   );
 }
 
+macro_rules! draw_resource_tab {
+  ($title:expr, $block:expr, $f:expr, $app:expr, $area:expr, $fn1:expr, $fn2:expr, $res:expr) => {
+    match $block {
+      ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
+        $f,
+        $app,
+        $area,
+        title_with_dual_style(
+          get_resource_title($app, $title, get_describe_active($block), $res.items.len()),
+          format!("{} | {} <esc>", COPY_HINT, $title),
+          $app.light_theme,
+        ),
+      ),
+      ActiveBlock::Namespaces => $fn1($app.get_prev_route().active_block, $f, $app, $area),
+      _ => $fn2($f, $app, $area),
+    };
+  };
+}
+
 fn draw_pods_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
   match block {
     ActiveBlock::Containers => draw_containers_block(f, app, area),
@@ -335,26 +354,16 @@ fn draw_nodes_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_services_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
-  match block {
-    ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
-      f,
-      app,
-      area,
-      title_with_dual_style(
-        get_resource_title(
-          app,
-          SERVICES_TITLE,
-          get_describe_active(block),
-          app.data.services.items.len(),
-        ),
-        format!("{} | {} <esc>", COPY_HINT, SERVICES_TITLE),
-        app.light_theme,
-      ),
-    ),
-
-    ActiveBlock::Namespaces => draw_services_tab(app.get_prev_route().active_block, f, app, area),
-    _ => draw_services_block(f, app, area),
-  };
+  draw_resource_tab!(
+    SERVICES_TITLE,
+    block,
+    f,
+    app,
+    area,
+    draw_services_tab,
+    draw_services_block,
+    app.data.services
+  );
 }
 
 fn draw_services_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
@@ -410,28 +419,16 @@ fn draw_config_maps_tab<B: Backend>(
   app: &mut App,
   area: Rect,
 ) {
-  match block {
-    ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
-      f,
-      app,
-      area,
-      title_with_dual_style(
-        get_resource_title(
-          app,
-          CONFIG_MAPS_TITLE,
-          get_describe_active(block),
-          app.data.config_maps.items.len(),
-        ),
-        format!("{} | {} <esc>", COPY_HINT, CONFIG_MAPS_TITLE),
-        app.light_theme,
-      ),
-    ),
-
-    ActiveBlock::Namespaces => {
-      draw_config_maps_tab(app.get_prev_route().active_block, f, app, area)
-    }
-    _ => draw_config_maps_block(f, app, area),
-  };
+  draw_resource_tab!(
+    CONFIG_MAPS_TITLE,
+    block,
+    f,
+    app,
+    area,
+    draw_config_maps_tab,
+    draw_config_maps_block,
+    app.data.config_maps
+  );
 }
 
 fn draw_config_maps_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
@@ -473,27 +470,16 @@ fn draw_stateful_sets_tab<B: Backend>(
   app: &mut App,
   area: Rect,
 ) {
-  match block {
-    ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
-      f,
-      app,
-      area,
-      title_with_dual_style(
-        get_resource_title(
-          app,
-          STFS_TITLE,
-          get_describe_active(block),
-          app.data.stateful_sets.items.len(),
-        ),
-        format!("{} | {} <esc>", COPY_HINT, STFS_TITLE),
-        app.light_theme,
-      ),
-    ),
-    ActiveBlock::Namespaces => {
-      draw_stateful_sets_tab(app.get_prev_route().active_block, f, app, area)
-    }
-    _ => draw_stateful_sets_block(f, app, area),
-  };
+  draw_resource_tab!(
+    STFS_TITLE,
+    block,
+    f,
+    app,
+    area,
+    draw_stateful_sets_tab,
+    draw_stateful_sets_block,
+    app.data.stateful_sets
+  );
 }
 
 fn draw_stateful_sets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
@@ -537,27 +523,16 @@ fn draw_replica_sets_tab<B: Backend>(
   app: &mut App,
   area: Rect,
 ) {
-  match block {
-    ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
-      f,
-      app,
-      area,
-      title_with_dual_style(
-        get_resource_title(
-          app,
-          REPLICA_SETS_TITLE,
-          get_describe_active(block),
-          app.data.replica_sets.items.len(),
-        ),
-        format!("{} | {} <esc>", COPY_HINT, REPLICA_SETS_TITLE),
-        app.light_theme,
-      ),
-    ),
-    ActiveBlock::Namespaces => {
-      draw_replica_sets_tab(app.get_prev_route().active_block, f, app, area)
-    }
-    _ => draw_replica_sets_block(f, app, area),
-  };
+  draw_resource_tab!(
+    REPLICA_SETS_TITLE,
+    block,
+    f,
+    app,
+    area,
+    draw_replica_sets_tab,
+    draw_replica_sets_block,
+    app.data.replica_sets
+  );
 }
 
 fn draw_replica_sets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
@@ -608,27 +583,16 @@ fn draw_deployments_tab<B: Backend>(
   app: &mut App,
   area: Rect,
 ) {
-  match block {
-    ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
-      f,
-      app,
-      area,
-      title_with_dual_style(
-        get_resource_title(
-          app,
-          DEPLOYMENTS_TITLE,
-          get_describe_active(block),
-          app.data.deployments.items.len(),
-        ),
-        format!("{} | {} <esc>", COPY_HINT, DEPLOYMENTS_TITLE),
-        app.light_theme,
-      ),
-    ),
-    ActiveBlock::Namespaces => {
-      draw_config_maps_tab(app.get_prev_route().active_block, f, app, area)
-    }
-    _ => draw_deployments_block(f, app, area),
-  };
+  draw_resource_tab!(
+    DEPLOYMENTS_TITLE,
+    block,
+    f,
+    app,
+    area,
+    draw_deployments_tab,
+    draw_deployments_block,
+    app.data.deployments
+  );
 }
 
 fn draw_deployments_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
@@ -676,25 +640,16 @@ fn draw_deployments_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rec
 }
 
 fn draw_jobs_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
-  match block {
-    ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
-      f,
-      app,
-      area,
-      title_with_dual_style(
-        get_resource_title(
-          app,
-          JOBS_TITLE,
-          get_describe_active(block),
-          app.data.jobs.items.len(),
-        ),
-        format!("{} | {} <esc>", COPY_HINT, JOBS_TITLE),
-        app.light_theme,
-      ),
-    ),
-    ActiveBlock::Namespaces => draw_jobs_tab(app.get_prev_route().active_block, f, app, area),
-    _ => draw_jobs_block(f, app, area),
-  };
+  draw_resource_tab!(
+    JOBS_TITLE,
+    block,
+    f,
+    app,
+    area,
+    draw_jobs_tab,
+    draw_jobs_block,
+    app.data.jobs
+  );
 }
 
 fn draw_jobs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
@@ -738,27 +693,16 @@ fn draw_daemon_sets_tab<B: Backend>(
   app: &mut App,
   area: Rect,
 ) {
-  match block {
-    ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
-      f,
-      app,
-      area,
-      title_with_dual_style(
-        get_resource_title(
-          app,
-          DAEMON_SETS_TITLE,
-          get_describe_active(block),
-          app.data.daemon_sets.items.len(),
-        ),
-        format!("{} | {} <esc>", COPY_HINT, DAEMON_SETS_TITLE),
-        app.light_theme,
-      ),
-    ),
-    ActiveBlock::Namespaces => {
-      draw_daemon_sets_tab(app.get_prev_route().active_block, f, app, area);
-    }
-    _ => draw_daemon_sets_block(f, app, area),
-  };
+  draw_resource_tab!(
+    DAEMON_SETS_TITLE,
+    block,
+    f,
+    app,
+    area,
+    draw_daemon_sets_tab,
+    draw_daemon_sets_block,
+    app.data.daemon_sets
+  );
 }
 
 fn draw_daemon_sets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
@@ -812,25 +756,16 @@ fn draw_daemon_sets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rec
 }
 
 fn draw_cronjobs_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
-  match block {
-    ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
-      f,
-      app,
-      area,
-      title_with_dual_style(
-        get_resource_title(
-          app,
-          CRON_JOBS_TITLE,
-          get_describe_active(block),
-          app.data.cronjobs.items.len(),
-        ),
-        format!("{} | {} <esc>", COPY_HINT, CRON_JOBS_TITLE),
-        app.light_theme,
-      ),
-    ),
-    ActiveBlock::Namespaces => draw_cronjobs_tab(app.get_prev_route().active_block, f, app, area),
-    _ => draw_cronjobs_block(f, app, area),
-  };
+  draw_resource_tab!(
+    CRON_JOBS_TITLE,
+    block,
+    f,
+    app,
+    area,
+    draw_cronjobs_tab,
+    draw_cronjobs_block,
+    app.data.cronjobs
+  );
 }
 
 fn draw_cronjobs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
@@ -881,25 +816,16 @@ fn draw_cronjobs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) 
 }
 
 fn draw_secrets_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
-  match block {
-    ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
-      f,
-      app,
-      area,
-      title_with_dual_style(
-        get_resource_title(
-          app,
-          SECRETS_TITLE,
-          get_describe_active(block),
-          app.data.secrets.items.len(),
-        ),
-        format!("{} | {} <esc>", COPY_HINT, SECRETS_TITLE),
-        app.light_theme,
-      ),
-    ),
-    ActiveBlock::Namespaces => draw_secrets_tab(app.get_prev_route().active_block, f, app, area),
-    _ => draw_secrets_block(f, app, area),
-  };
+  draw_resource_tab!(
+    SECRETS_TITLE,
+    block,
+    f,
+    app,
+    area,
+    draw_secrets_tab,
+    draw_secrets_block,
+    app.data.secrets
+  );
 }
 
 fn draw_secrets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
