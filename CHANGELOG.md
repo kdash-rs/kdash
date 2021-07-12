@@ -1,6 +1,8 @@
 # Changelog
 
-## [0.2.0 - Unreleased] - 21-June-2021
+## [0.3.0 - Unreleased]
+
+## [0.2.0] - 12-July-2021
 
 - Add support for Job resource - [#42](https://github.com/kdash-rs/kdash/pull/42), Thanks to [somayaj](https://github.com/somayaj)
 - Add support for CronJob resource - [#69](https://github.com/kdash-rs/kdash/pull/69), Thanks to [somayaj](https://github.com/somayaj)
