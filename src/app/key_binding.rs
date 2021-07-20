@@ -33,6 +33,8 @@ generate_keybindings! {
   up,
   left,
   right,
+  pg_up,
+  pg_down,
   toggle_info,
   log_auto_scroll,
   select_all_namespace,
@@ -51,6 +53,7 @@ generate_keybindings! {
   jump_to_more_resources,
   cycle_group_by
 }
+
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Debug)]
 pub enum HContext {
   General,
@@ -63,6 +66,7 @@ impl fmt::Display for HContext {
     write!(f, "{:?}", self)
   }
 }
+
 #[derive(Clone)]
 pub struct KeyBinding {
   pub key: Key,
@@ -78,7 +82,6 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
     desc: "Quit",
     context: HContext::General,
   },
-
   esc: KeyBinding {
     key: Key::Esc,
     alt: None,
@@ -139,16 +142,28 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
     desc: "Copy log/output to clipboard",
     context: HContext::General,
   },
-  up: KeyBinding {
+  down: KeyBinding {
     key: Key::Down,
     alt: Some(Key::Char('j')),
-    desc: "Next table row",
+    desc: "Next row/Scroll down",
     context: HContext::General,
   },
-  down: KeyBinding {
+  up: KeyBinding {
     key: Key::Up,
     alt: Some(Key::Char('k')),
-    desc: "Previous table row",
+    desc: "Previous row/Scroll up",
+    context: HContext::General,
+  },
+  pg_up: KeyBinding {
+    key: Key::PageUp,
+    alt: None,
+    desc: "Scroll page up",
+    context: HContext::General,
+  },
+  pg_down: KeyBinding {
+    key: Key::PageDown,
+    alt: None,
+    desc: "Scroll page down",
     context: HContext::General,
   },
   left: KeyBinding {

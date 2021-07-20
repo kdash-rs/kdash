@@ -21,11 +21,17 @@ pub async fn handle_key_events(key: Key, app: &mut App) {
     _ if key == DEFAULT_KEYBINDING.quit.key || key == DEFAULT_KEYBINDING.quit.alt.unwrap() => {
       app.should_quit = true;
     }
-    _ if key == DEFAULT_KEYBINDING.down.key || key == DEFAULT_KEYBINDING.down.alt.unwrap() => {
-      handle_block_scroll(app, true, false).await;
-    }
     _ if key == DEFAULT_KEYBINDING.up.key || key == DEFAULT_KEYBINDING.up.alt.unwrap() => {
-      handle_block_scroll(app, false, false).await;
+      handle_block_scroll(app, true, false, false).await;
+    }
+    _ if key == DEFAULT_KEYBINDING.down.key || key == DEFAULT_KEYBINDING.down.alt.unwrap() => {
+      handle_block_scroll(app, false, false, false).await;
+    }
+    _ if key == DEFAULT_KEYBINDING.pg_up.key => {
+      handle_block_scroll(app, true, false, true).await;
+    }
+    _ if key == DEFAULT_KEYBINDING.pg_down.key => {
+      handle_block_scroll(app, false, false, true).await;
     }
     _ if key == DEFAULT_KEYBINDING.toggle_theme.key => {
       app.light_theme = !app.light_theme;
@@ -54,8 +60,9 @@ pub async fn handle_key_events(key: Key, app: &mut App) {
 
 pub async fn handle_mouse_events(mouse: MouseEvent, app: &mut App) {
   match mouse.kind {
-    MouseEventKind::ScrollDown => handle_block_scroll(app, true, true).await,
-    MouseEventKind::ScrollUp => handle_block_scroll(app, false, true).await,
+    // mouse scrolling is inverted
+    MouseEventKind::ScrollDown => handle_block_scroll(app, true, true, false).await,
+    MouseEventKind::ScrollUp => handle_block_scroll(app, false, true, false).await,
     _ => {}
   }
 }
@@ -435,57 +442,33 @@ fn handle_block_action<T: Clone>(key: Key, item: &mut StatefulTable<T>) -> Optio
   }
 }
 
-fn handle_scroll(item: &mut dyn Scrollable, down: bool) {
-  if down {
-    item.scroll_up();
-  } else {
-    item.scroll_down();
-  }
-}
-
-// inverse direction for natural scrolling on mouse and keyboard
-fn inverse_dir(down: bool, is_mouse: bool) -> bool {
-  if is_mouse {
-    down
-  } else {
-    !down
-  }
-}
-
-async fn handle_block_scroll(app: &mut App, down: bool, is_mouse: bool) {
+async fn handle_block_scroll(app: &mut App, up: bool, is_mouse: bool, page: bool) {
   match app.get_current_route().active_block {
-    ActiveBlock::Namespaces => handle_scroll(&mut app.data.namespaces, down),
-    ActiveBlock::Pods => handle_scroll(&mut app.data.pods, down),
-    ActiveBlock::Containers => handle_scroll(&mut app.data.containers, down),
-    ActiveBlock::Services => handle_scroll(&mut app.data.services, down),
-    ActiveBlock::Nodes => handle_scroll(&mut app.data.nodes, down),
-    ActiveBlock::ConfigMaps => handle_scroll(&mut app.data.config_maps, down),
-    ActiveBlock::StatefulSets => handle_scroll(&mut app.data.stateful_sets, down),
-    ActiveBlock::ReplicaSets => handle_scroll(&mut app.data.replica_sets, down),
-    ActiveBlock::Deployments => handle_scroll(&mut app.data.deployments, down),
-    ActiveBlock::Jobs => handle_scroll(&mut app.data.jobs, down),
-    ActiveBlock::DaemonSets => handle_scroll(&mut app.data.daemon_sets, down),
-    ActiveBlock::CronJobs => handle_scroll(&mut app.data.cronjobs, down),
-    ActiveBlock::Secrets => handle_scroll(&mut app.data.secrets, down),
-    ActiveBlock::Contexts => handle_scroll(&mut app.data.contexts, down),
-    ActiveBlock::Utilization => handle_scroll(&mut app.data.metrics, down),
+    ActiveBlock::Namespaces => app.data.namespaces.handle_scroll(up, page),
+    ActiveBlock::Pods => app.data.pods.handle_scroll(up, page),
+    ActiveBlock::Containers => app.data.containers.handle_scroll(up, page),
+    ActiveBlock::Services => app.data.services.handle_scroll(up, page),
+    ActiveBlock::Nodes => app.data.nodes.handle_scroll(up, page),
+    ActiveBlock::ConfigMaps => app.data.config_maps.handle_scroll(up, page),
+    ActiveBlock::StatefulSets => app.data.stateful_sets.handle_scroll(up, page),
+    ActiveBlock::ReplicaSets => app.data.replica_sets.handle_scroll(up, page),
+    ActiveBlock::Deployments => app.data.deployments.handle_scroll(up, page),
+    ActiveBlock::Jobs => app.data.jobs.handle_scroll(up, page),
+    ActiveBlock::DaemonSets => app.data.daemon_sets.handle_scroll(up, page),
+    ActiveBlock::CronJobs => app.data.cronjobs.handle_scroll(up, page),
+    ActiveBlock::Secrets => app.data.secrets.handle_scroll(up, page),
+    ActiveBlock::Contexts => app.data.contexts.handle_scroll(up, page),
+    ActiveBlock::Utilization => app.data.metrics.handle_scroll(up, page),
+    ActiveBlock::Help => app.help_docs.handle_scroll(up, page),
+    ActiveBlock::More => app.more_resources_menu.handle_scroll(up, page),
     ActiveBlock::Logs => {
       app.log_auto_scroll = false;
-      if inverse_dir(down, is_mouse) {
-        app.data.logs.scroll_down();
-      } else {
-        app.data.logs.scroll_up();
-      }
+      app.data.logs.handle_scroll(inverse_dir(up, is_mouse), page);
     }
-    ActiveBlock::Describe | ActiveBlock::Yaml => {
-      if inverse_dir(down, is_mouse) {
-        app.data.describe_out.scroll_down();
-      } else {
-        app.data.describe_out.scroll_up();
-      }
-    }
-    ActiveBlock::Help => handle_scroll(&mut app.help_docs, down),
-    ActiveBlock::More => handle_scroll(&mut app.more_resources_menu, down),
+    ActiveBlock::Describe | ActiveBlock::Yaml => app
+      .data
+      .describe_out
+      .handle_scroll(inverse_dir(up, is_mouse), page),
   }
 }
 
@@ -498,6 +481,15 @@ fn copy_to_clipboard(content: String) {
     .expect("Unable to set content to clipboard");
 }
 
+/// inverse direction for natural scrolling on mouse and keyboard
+fn inverse_dir(up: bool, is_mouse: bool) -> bool {
+  if is_mouse {
+    !up
+  } else {
+    up
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -507,27 +499,6 @@ mod tests {
   fn test_inverse_dir() {
     assert!(!inverse_dir(true, false));
     assert!(inverse_dir(true, true));
-  }
-
-  #[test]
-  fn test_handle_table_scroll() {
-    let mut item: StatefulTable<&str> = StatefulTable::new();
-    item.set_items(vec!["A", "B", "C"]);
-
-    assert_eq!(item.state.selected(), Some(0));
-
-    handle_scroll(&mut item, false);
-    assert_eq!(item.state.selected(), Some(1));
-
-    handle_scroll(&mut item, false);
-    assert_eq!(item.state.selected(), Some(2));
-
-    // circle back after last index
-    handle_scroll(&mut item, false);
-    assert_eq!(item.state.selected(), Some(2));
-    // previous
-    handle_scroll(&mut item, true);
-    assert_eq!(item.state.selected(), Some(1));
   }
 
   #[tokio::test]
@@ -605,9 +576,9 @@ mod tests {
 
     // mouse scroll
     assert_eq!(app.data.pods.state.selected(), Some(0));
-    handle_block_scroll(&mut app, false, true).await;
+    handle_block_scroll(&mut app, false, true, false).await;
     assert_eq!(app.data.pods.state.selected(), Some(1));
-    handle_block_scroll(&mut app, true, true).await;
+    handle_block_scroll(&mut app, true, true, false).await;
     assert_eq!(app.data.pods.state.selected(), Some(0));
 
     // check logs keyboard scroll
@@ -618,7 +589,7 @@ mod tests {
     app.data.logs.add_record("record 2".to_string());
     app.data.logs.add_record("record 3".to_string());
 
-    handle_block_scroll(&mut app, true, false).await;
+    handle_block_scroll(&mut app, true, false, false).await;
     assert_eq!(app.data.logs.state.selected(), Some(0));
   }
 

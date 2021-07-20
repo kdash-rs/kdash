@@ -19,7 +19,12 @@ pub fn title_style(txt: &str) -> Span {
 }
 
 pub fn title_style_logo(txt: &str) -> Span {
-  Span::styled(txt, style_logo().add_modifier(Modifier::BOLD))
+  Span::styled(
+    txt,
+    style_logo()
+      .add_modifier(Modifier::BOLD)
+      .add_modifier(Modifier::ITALIC),
+  )
 }
 
 pub fn style_bold() -> Style {
@@ -154,9 +159,7 @@ pub fn centered_rect(width: u16, height: u16, r: Rect) -> Rect {
     height: grid_height,
     ..
   } = r;
-  let outer_height = (grid_height / 2)
-    .checked_sub(height / 2)
-    .unwrap_or_default();
+  let outer_height = (grid_height / 2).saturating_sub(height / 2);
 
   let popup_layout = Layout::default()
     .direction(Direction::Vertical)
@@ -170,7 +173,7 @@ pub fn centered_rect(width: u16, height: u16, r: Rect) -> Rect {
     )
     .split(r);
 
-  let outer_width = (grid_width / 2).checked_sub(width / 2).unwrap_or_default();
+  let outer_width = (grid_width / 2).saturating_sub(width / 2);
 
   Layout::default()
     .direction(Direction::Horizontal)

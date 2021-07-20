@@ -458,11 +458,7 @@ impl App {
 
   pub fn get_nth_route_from_last(&self, index: usize) -> &Route {
     // get the previous route by index
-    let index = self
-      .navigation_stack
-      .len()
-      .checked_sub(index + 1)
-      .unwrap_or_default();
+    let index = self.navigation_stack.len().saturating_sub(index + 1);
     if index > 0 {
       &self.navigation_stack[index]
     } else {

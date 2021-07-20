@@ -4,7 +4,7 @@ use serde::Serialize;
 use tui::{
   backend::Backend,
   layout::Rect,
-  style::Style,
+  style::{Modifier, Style},
   text::Span,
   widgets::{Block, List, ListItem, ListState, TableState},
   Frame,
@@ -28,8 +28,17 @@ pub trait KubeResource<T: Serialize> {
 }
 
 pub trait Scrollable {
-  fn scroll_down(&mut self);
-  fn scroll_up(&mut self);
+  fn handle_scroll(&mut self, up: bool, page: bool) {
+    // support page up/down
+    let inc_or_dec = if page { 10 } else { 1 };
+    if up {
+      self.scroll_up(inc_or_dec);
+    } else {
+      self.scroll_down(inc_or_dec);
+    }
+  }
+  fn scroll_down(&mut self, inc_or_dec: usize);
+  fn scroll_up(&mut self, inc_or_dec: usize);
 }
 
 pub struct StatefulList<T> {
@@ -48,27 +57,28 @@ impl<T> StatefulList<T> {
 }
 
 impl<T> Scrollable for StatefulList<T> {
-  fn scroll_down(&mut self) {
+  // for lists we cycle back to the beginning when we reach the end
+  fn scroll_down(&mut self, increment: usize) {
     let i = match self.state.selected() {
       Some(i) => {
-        if i >= self.items.len() - 1 {
+        if i >= self.items.len().saturating_sub(increment) {
           0
         } else {
-          i + 1
+          i + increment
         }
       }
       None => 0,
     };
     self.state.select(Some(i));
   }
-
-  fn scroll_up(&mut self) {
+  // for lists we cycle back to the end when we reach the beginning
+  fn scroll_up(&mut self, decrement: usize) {
     let i = match self.state.selected() {
       Some(i) => {
         if i == 0 {
-          self.items.len() - 1
+          self.items.len().saturating_sub(decrement)
         } else {
-          i - 1
+          i.saturating_sub(decrement)
         }
       }
       None => 0,
@@ -119,18 +129,20 @@ impl<T> StatefulTable<T> {
 }
 
 impl<T> Scrollable for StatefulTable<T> {
-  fn scroll_down(&mut self) {
+  fn scroll_down(&mut self, increment: usize) {
     if let Some(i) = self.state.selected() {
-      if i < self.items.len().wrapping_sub(1) {
-        self.state.select(Some(i + 1));
+      if (i + increment) < self.items.len() {
+        self.state.select(Some(i + increment));
+      } else {
+        self.state.select(Some(self.items.len().saturating_sub(1)));
       }
     }
   }
 
-  fn scroll_up(&mut self) {
+  fn scroll_up(&mut self, decrement: usize) {
     if let Some(i) = self.state.selected() {
       if i != 0 {
-        self.state.select(Some(i - 1));
+        self.state.select(Some(i.saturating_sub(decrement)));
       }
     }
   }
@@ -209,17 +221,17 @@ impl ScrollableTxt {
 }
 
 impl Scrollable for ScrollableTxt {
-  fn scroll_down(&mut self) {
+  fn scroll_down(&mut self, increment: usize) {
     // scroll only if offset is less than total lines in text
-    // we subtract 8 to keep the text in view. Its just an arbitrary number that works
-    if self.offset < self.items.len().saturating_sub(8) as u16 {
-      self.offset += 1;
+    // we subtract increment + 2 to keep the text in view. Its just an arbitrary number that works
+    if self.offset < self.items.len().saturating_sub(increment + 2) as u16 {
+      self.offset += increment as u16;
     }
   }
-  fn scroll_up(&mut self) {
+  fn scroll_up(&mut self, decrement: usize) {
     // scroll up and avoid going negative
     if self.offset > 0 {
-      self.offset -= 1;
+      self.offset = self.offset.saturating_sub(decrement as u16);
     }
   }
 }
@@ -333,7 +345,9 @@ impl LogsState {
     // doesn't support wrapping and staying scrolled to the bottom
     //
     // see https://github.com/fdehau/tui-rs/issues/89
-    let list = List::new(items).block(block);
+    let list = List::new(items)
+      .block(block)
+      .highlight_style(Style::default().add_modifier(Modifier::BOLD));
 
     f.render_stateful_widget(list, logs_area, &mut self.state);
   }
@@ -348,22 +362,25 @@ impl LogsState {
 }
 
 impl Scrollable for LogsState {
-  fn scroll_down(&mut self) {
+  fn scroll_down(&mut self, increment: usize) {
     let i = self.state.selected().map_or(0, |i| {
-      if i >= self.wrapped_length.wrapping_sub(1) {
+      if i >= self.wrapped_length.saturating_sub(increment) {
         i
       } else {
-        i + 1
+        i + increment
       }
     });
     self.state.select(Some(i));
   }
 
-  fn scroll_up(&mut self) {
-    let i = self
-      .state
-      .selected()
-      .map_or(0, |i| if i != 0 { i - 1 } else { 0 });
+  fn scroll_up(&mut self, decrement: usize) {
+    let i = self.state.selected().map_or(0, |i| {
+      if i != 0 {
+        i.saturating_sub(decrement)
+      } else {
+        0
+      }
+    });
     self.state.select(Some(i));
   }
 }
@@ -434,19 +451,48 @@ mod tests {
     // check scroll down
     sft.state.select(Some(0));
     assert_eq!(sft.state.selected(), Some(0));
-    sft.scroll_down();
+    sft.scroll_down(1);
     assert_eq!(sft.state.selected(), Some(1));
     // check scroll overflow
-    sft.scroll_down();
+    sft.scroll_down(1);
     assert_eq!(sft.state.selected(), Some(1));
-    sft.scroll_up();
+    sft.scroll_up(1);
     assert_eq!(sft.state.selected(), Some(0));
     // check scroll overflow
-    sft.scroll_up();
+    sft.scroll_up(1);
     assert_eq!(sft.state.selected(), Some(0));
+    // check increment
+    sft.scroll_down(10);
+    assert_eq!(sft.state.selected(), Some(1));
 
     let sft = StatefulTable::with_items(vec![KubeNs::default(), KubeNs::default()]);
     assert_eq!(sft.state.selected(), Some(0));
+  }
+
+  #[test]
+  fn test_handle_table_scroll() {
+    let mut item: StatefulTable<&str> = StatefulTable::new();
+    item.set_items(vec!["A", "B", "C"]);
+
+    assert_eq!(item.state.selected(), Some(0));
+
+    item.handle_scroll(false, false);
+    assert_eq!(item.state.selected(), Some(1));
+
+    item.handle_scroll(false, false);
+    assert_eq!(item.state.selected(), Some(2));
+
+    item.handle_scroll(false, false);
+    assert_eq!(item.state.selected(), Some(2));
+    // previous
+    item.handle_scroll(true, false);
+    assert_eq!(item.state.selected(), Some(1));
+    // page down
+    item.handle_scroll(false, true);
+    assert_eq!(item.state.selected(), Some(2));
+    // page up
+    item.handle_scroll(true, true);
+    assert_eq!(item.state.selected(), Some(0));
   }
 
   #[test]
@@ -493,23 +539,23 @@ mod tests {
 
     assert_eq!(stxt.get_txt(), "test\n multiline\n string");
 
-    stxt.scroll_down();
+    stxt.scroll_down(1);
     assert_eq!(stxt.offset, 0);
 
     let mut stxt = ScrollableTxt::with_string("te\nst\nmul\ntil\ni\nne\nstr\ni\nn\ng".into());
     assert_eq!(stxt.items.len(), 10);
-    stxt.scroll_down();
+    stxt.scroll_down(1);
     assert_eq!(stxt.offset, 1);
-    stxt.scroll_down();
+    stxt.scroll_down(1);
     assert_eq!(stxt.offset, 2);
-    stxt.scroll_down();
+    stxt.scroll_down(1);
     // no overflow past (len - 8)
     assert_eq!(stxt.offset, 2);
-    stxt.scroll_up();
+    stxt.scroll_up(1);
     assert_eq!(stxt.offset, 1);
-    stxt.scroll_up();
+    stxt.scroll_up(1);
     assert_eq!(stxt.offset, 0);
-    stxt.scroll_up();
+    stxt.scroll_up(1);
     // no overflow past (0)
     assert_eq!(stxt.offset, 0);
   }
@@ -599,18 +645,18 @@ mod tests {
 
     terminal.backend().assert_buffer(&expected);
 
-    log.scroll_up(); // to reset select state
-    log.scroll_down();
-    log.scroll_down();
-    log.scroll_down();
-    log.scroll_down();
-    log.scroll_down();
-    log.scroll_down();
-    log.scroll_down();
-    log.scroll_down();
-    log.scroll_down();
-    log.scroll_down();
-    log.scroll_down();
+    log.scroll_up(1); // to reset select state
+    log.scroll_down(1);
+    log.scroll_down(1);
+    log.scroll_down(1);
+    log.scroll_down(1);
+    log.scroll_down(1);
+    log.scroll_down(1);
+    log.scroll_down(1);
+    log.scroll_down(1);
+    log.scroll_down(1);
+    log.scroll_down(1);
+    log.scroll_down(1);
 
     terminal
       .draw(|f| log.render_list(f, f.size(), Block::default(), Style::default(), false))
