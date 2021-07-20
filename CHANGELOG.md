@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.1 - Unreleased]
+## [0.2.1] - 20-July-2021
 
 - Add support for page up and page down on tables and text views
 - Fix crash on escape
