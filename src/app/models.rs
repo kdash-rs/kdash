@@ -548,12 +548,14 @@ mod tests {
     assert_eq!(stxt.offset, 1);
     stxt.scroll_down(1);
     assert_eq!(stxt.offset, 2);
+    stxt.scroll_down(5);
+    assert_eq!(stxt.offset, 7);
     stxt.scroll_down(1);
-    // no overflow past (len - 8)
-    assert_eq!(stxt.offset, 2);
+    // no overflow past (len - 2)
+    assert_eq!(stxt.offset, 7);
     stxt.scroll_up(1);
-    assert_eq!(stxt.offset, 1);
-    stxt.scroll_up(1);
+    assert_eq!(stxt.offset, 6);
+    stxt.scroll_up(6);
     assert_eq!(stxt.offset, 0);
     stxt.scroll_up(1);
     // no overflow past (0)
@@ -646,23 +648,13 @@ mod tests {
     terminal.backend().assert_buffer(&expected);
 
     log.scroll_up(1); // to reset select state
-    log.scroll_down(1);
-    log.scroll_down(1);
-    log.scroll_down(1);
-    log.scroll_down(1);
-    log.scroll_down(1);
-    log.scroll_down(1);
-    log.scroll_down(1);
-    log.scroll_down(1);
-    log.scroll_down(1);
-    log.scroll_down(1);
-    log.scroll_down(1);
+    log.scroll_down(11);
 
     terminal
       .draw(|f| log.render_list(f, f.size(), Block::default(), Style::default(), false))
       .unwrap();
 
-    let expected = Buffer::with_lines(vec![
+    let mut expected = Buffer::with_lines(vec![
       "record 5            ",
       "record 6            ",
       "record 7            ",
@@ -671,6 +663,13 @@ mod tests {
       "record 10           ",
       "which is again      ",
     ]);
+
+    // Second row table header style
+    for col in 0..=19 {
+      expected
+        .get_mut(col, 6)
+        .set_style(Style::default().add_modifier(Modifier::BOLD));
+    }
 
     terminal.backend().assert_buffer(&expected);
   }

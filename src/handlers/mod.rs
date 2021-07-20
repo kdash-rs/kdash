@@ -497,8 +497,8 @@ mod tests {
 
   #[test]
   fn test_inverse_dir() {
-    assert!(!inverse_dir(true, false));
-    assert!(inverse_dir(true, true));
+    assert!(inverse_dir(true, false));
+    assert!(!inverse_dir(true, true));
   }
 
   #[tokio::test]
