@@ -74,7 +74,7 @@ pub fn draw_utilization<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect)
       ))
       .block(block)
       .widths(&[
-        Constraint::Percentage(40),
+        Constraint::Percentage(50),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
