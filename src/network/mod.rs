@@ -26,6 +26,7 @@ pub enum IoEvent {
   GetDaemonSets,
   GetCronJobs,
   GetSecrets,
+  GetReplicationControllers,
   GetMetrics,
   RefreshClient,
 }
@@ -146,6 +147,9 @@ impl<'a> Network<'a> {
       }
       IoEvent::GetDeployments => {
         self.get_deployments().await;
+      }
+      IoEvent::GetReplicationControllers => {
+        self.get_replication_controllers().await;
       }
       IoEvent::GetMetrics => {
         self.get_utilizations().await;

@@ -31,6 +31,7 @@ static JOBS_TITLE: &str = "Jobs";
 static DAEMON_SETS_TITLE: &str = "DaemonSets";
 static CRON_JOBS_TITLE: &str = "Cron Jobs";
 static SECRETS_TITLE: &str = "Secrets";
+static RPL_CTRL_TITLE: &str = "ReplicationControllers";
 static DESCRIBE_ACTIVE: &str = "-> Describe ";
 static YAML_ACTIVE: &str = "-> YAML ";
 
@@ -78,6 +79,7 @@ fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, ar
     // ActiveBlock::More => draw_menu(f, app, area),
     ActiveBlock::CronJobs => draw_cronjobs_tab(block, f, app, area),
     ActiveBlock::Secrets => draw_secrets_tab(block, f, app, area),
+    ActiveBlock::RplCtrl => draw_replication_controllers_tab(block, f, app, area),
     ActiveBlock::Describe | ActiveBlock::Yaml => {
       let mut prev_route = app.get_prev_route();
       if prev_route.active_block == block {
@@ -86,6 +88,7 @@ fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, ar
       match prev_route.active_block {
         ActiveBlock::CronJobs => draw_cronjobs_tab(block, f, app, area),
         ActiveBlock::Secrets => draw_secrets_tab(block, f, app, area),
+        ActiveBlock::RplCtrl => draw_replication_controllers_tab(block, f, app, area),
         _ => { /* do nothing */ }
       }
     }
@@ -855,6 +858,77 @@ fn draw_secrets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         Cell::from(c.name.to_owned()),
         Cell::from(c.type_.to_owned()),
         Cell::from(c.data.len().to_string()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary())
+    },
+    app.light_theme,
+    app.is_loading,
+  );
+}
+
+fn draw_replication_controllers_tab<B: Backend>(
+  block: ActiveBlock,
+  f: &mut Frame<B>,
+  app: &mut App,
+  area: Rect,
+) {
+  draw_resource_tab!(
+    RPL_CTRL_TITLE,
+    block,
+    f,
+    app,
+    area,
+    draw_replication_controllers_tab,
+    draw_replication_controllers_block,
+    app.data.rpl_ctrls
+  );
+}
+
+fn draw_replication_controllers_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+  let title = get_resource_title(app, RPL_CTRL_TITLE, "", app.data.rpl_ctrls.items.len());
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
+      resource: &mut app.data.rpl_ctrls,
+      table_headers: vec![
+        "Namespace",
+        "Name",
+        "Desired",
+        "Current",
+        "Ready",
+        "Containers",
+        "Images",
+        "Selector",
+        "Age",
+      ],
+      column_widths: vec![
+        Constraint::Percentage(15),
+        Constraint::Percentage(15),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
+        Constraint::Percentage(9),
+      ],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.namespace.to_owned()),
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.desired.to_string()),
+        Cell::from(c.current.to_string()),
+        Cell::from(c.ready.to_string()),
+        Cell::from(c.containers.to_owned()),
+        Cell::from(c.images.to_owned()),
+        Cell::from(c.selector.to_owned()),
         Cell::from(c.age.to_owned()),
       ])
       .style(style_primary())

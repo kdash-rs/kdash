@@ -11,6 +11,7 @@ pub(crate) mod nodes;
 pub(crate) mod ns;
 pub(crate) mod pods;
 pub(crate) mod replicasets;
+pub(crate) mod replication_controllers;
 pub(crate) mod secrets;
 pub(crate) mod statefulsets;
 pub(crate) mod svcs;
@@ -36,6 +37,7 @@ use self::{
   ns::KubeNs,
   pods::{KubeContainer, KubePod},
   replicasets::KubeReplicaSet,
+  replication_controllers::KubeReplicationController,
   secrets::KubeSecret,
   statefulsets::KubeStatefulSet,
   svcs::KubeSvc,
@@ -66,6 +68,7 @@ pub enum ActiveBlock {
   DaemonSets,
   CronJobs,
   Secrets,
+  RplCtrl,
   More,
 }
 
@@ -116,6 +119,7 @@ pub struct Data {
   pub daemon_sets: StatefulTable<KubeDaemonSet>,
   pub cronjobs: StatefulTable<KubeCronJob>,
   pub secrets: StatefulTable<KubeSecret>,
+  pub rpl_ctrls: StatefulTable<KubeReplicationController>,
   pub logs: LogsState,
   pub describe_out: ScrollableTxt,
   pub metrics: StatefulTable<(Vec<String>, Option<QtyByQualifier>)>,
@@ -181,6 +185,7 @@ impl Default for Data {
       daemon_sets: StatefulTable::new(),
       cronjobs: StatefulTable::new(),
       secrets: StatefulTable::new(),
+      rpl_ctrls: StatefulTable::new(),
       selected: Selected {
         ns: None,
         pod: None,
@@ -310,7 +315,7 @@ impl Default for App {
       more_resources_menu: StatefulList::with_items(vec![
         ("CronJobs".into(), ActiveBlock::CronJobs),
         ("Secrets".into(), ActiveBlock::Secrets),
-        // ("Replication Controllers".into(), ActiveBlock::RplCtrl),
+        ("Replication Controllers".into(), ActiveBlock::RplCtrl),
         // ("Persistent Volume Claims".into(), ActiveBlock::RplCtrl),
         // ("Persistent Volumes".into(), ActiveBlock::RplCtrl),
         // ("Storage Classes".into(), ActiveBlock::RplCtrl),
@@ -508,6 +513,7 @@ impl App {
     self.dispatch(IoEvent::GetDaemonSets).await;
     self.dispatch(IoEvent::GetCronJobs).await;
     self.dispatch(IoEvent::GetSecrets).await;
+    self.dispatch(IoEvent::GetReplicationControllers).await;
   }
 
   pub async fn dispatch_by_active_block(&mut self, active_block: ActiveBlock) {
@@ -541,6 +547,9 @@ impl App {
       }
       ActiveBlock::Secrets => {
         self.dispatch(IoEvent::GetSecrets).await;
+      }
+      ActiveBlock::RplCtrl => {
+        self.dispatch(IoEvent::GetReplicationControllers).await;
       }
       ActiveBlock::Logs => {
         if !self.is_streaming {
