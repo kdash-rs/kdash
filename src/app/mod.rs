@@ -702,6 +702,7 @@ mod tests {
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetDaemonSets);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetCronJobs);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetSecrets);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetReplicationControllers);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
