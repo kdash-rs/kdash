@@ -331,7 +331,7 @@ impl<'a> Network<'a> {
   {
     let app = self.app.lock().await;
     match &app.data.selected.ns {
-      Some(ns) => Api::namespaced(self.client.clone(), &ns),
+      Some(ns) => Api::namespaced(self.client.clone(), ns),
       None => Api::all(self.client.clone()),
     }
   }

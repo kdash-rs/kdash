@@ -183,7 +183,7 @@ fn draw_pods_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
       ],
     },
     |c| {
-      let style = get_resource_row_style(&c.status.as_str());
+      let style = get_resource_row_style(c.status.as_str());
       Row::new(vec![
         Cell::from(c.namespace.to_owned()),
         Cell::from(c.name.to_owned()),
@@ -234,7 +234,7 @@ fn draw_containers_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect
       ],
     },
     |c| {
-      let style = get_resource_row_style(&c.status.as_str());
+      let style = get_resource_row_style(c.status.as_str());
       Row::new(vec![
         Cell::from(c.name.to_owned()),
         Cell::from(c.image.to_owned()),

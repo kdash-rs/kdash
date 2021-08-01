@@ -28,7 +28,7 @@ pub fn draw_utilization<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect)
   if !app.data.metrics.items.is_empty() {
     let data = &app.data.metrics.items;
 
-    let prefixes = provide_prefix(&data, |parent, item| parent.0.len() + 1 == item.0.len());
+    let prefixes = provide_prefix(data, |parent, item| parent.0.len() + 1 == item.0.len());
 
     // Create the table
     let mut rows: Vec<Row> = vec![];
