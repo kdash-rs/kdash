@@ -178,8 +178,7 @@ fn draw_pods_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         Constraint::Percentage(10),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
-        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
-        Constraint::Percentage(9),
+        Constraint::Percentage(10),
       ],
     },
     |c| {
@@ -229,8 +228,7 @@ fn draw_containers_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect
         Constraint::Percentage(5),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
-        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
-        Constraint::Percentage(9),
+        Constraint::Percentage(10),
       ],
     },
     |c| {
@@ -326,8 +324,7 @@ fn draw_nodes_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         Constraint::Percentage(5),
         Constraint::Percentage(5),
         Constraint::Percentage(5),
-        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
-        Constraint::Percentage(9),
+        Constraint::Percentage(10),
       ],
     },
     |c| {
@@ -396,8 +393,7 @@ fn draw_services_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) 
         Constraint::Percentage(10),
         Constraint::Percentage(15),
         Constraint::Percentage(20),
-        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
-        Constraint::Percentage(9),
+        Constraint::Percentage(10),
       ],
     },
     |c| {
@@ -450,8 +446,7 @@ fn draw_config_maps_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rec
         Constraint::Percentage(30),
         Constraint::Percentage(40),
         Constraint::Percentage(15),
-        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
-        Constraint::Percentage(14),
+        Constraint::Percentage(15),
       ],
     },
     |c| {
@@ -502,8 +497,7 @@ fn draw_stateful_sets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: R
         Constraint::Percentage(30),
         Constraint::Percentage(10),
         Constraint::Percentage(25),
-        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
-        Constraint::Percentage(9),
+        Constraint::Percentage(10),
       ],
     },
     |c| {
@@ -561,8 +555,7 @@ fn draw_replica_sets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Re
         Constraint::Percentage(10),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
-        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
-        Constraint::Percentage(9),
+        Constraint::Percentage(10),
       ],
     },
     |c| {
@@ -623,8 +616,7 @@ fn draw_deployments_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rec
         Constraint::Percentage(10),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
-        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
-        Constraint::Percentage(9),
+        Constraint::Percentage(10),
       ],
     },
     |c| {
@@ -672,8 +664,7 @@ fn draw_jobs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         Constraint::Percentage(40),
         Constraint::Percentage(15),
         Constraint::Percentage(10),
-        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
-        Constraint::Percentage(9),
+        Constraint::Percentage(10),
       ],
     },
     |c| {
@@ -737,8 +728,7 @@ fn draw_daemon_sets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rec
         Constraint::Percentage(10),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
-        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
-        Constraint::Percentage(9),
+        Constraint::Percentage(10),
       ],
     },
     |c| {
@@ -798,8 +788,7 @@ fn draw_cronjobs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) 
         Constraint::Percentage(10),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
-        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
-        Constraint::Percentage(9),
+        Constraint::Percentage(10),
       ],
     },
     |c| {
@@ -848,8 +837,7 @@ fn draw_secrets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         Constraint::Percentage(30),
         Constraint::Percentage(25),
         Constraint::Percentage(10),
-        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
-        Constraint::Percentage(9),
+        Constraint::Percentage(10),
       ],
     },
     |c| {
@@ -915,8 +903,7 @@ fn draw_replication_controllers_block<B: Backend>(f: &mut Frame<B>, app: &mut Ap
         Constraint::Percentage(10),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
-        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
-        Constraint::Percentage(9),
+        Constraint::Percentage(10),
       ],
     },
     |c| {

@@ -42,8 +42,7 @@ pub fn draw_contexts<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
       .widths(&[
         Constraint::Percentage(34),
         Constraint::Percentage(33),
-        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
-        Constraint::Percentage(32),
+        Constraint::Percentage(33),
       ])
       .highlight_style(style_highlight())
       .highlight_symbol(HIGHLIGHT);

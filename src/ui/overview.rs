@@ -81,8 +81,7 @@ fn draw_cli_version_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rec
 
     let table = Table::new(rows)
       .block(block)
-      // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
-      .widths(&[Constraint::Percentage(50), Constraint::Percentage(49)]);
+      .widths(&[Constraint::Percentage(50), Constraint::Percentage(50)]);
     f.render_widget(table, area);
   } else {
     loading(f, block, area, app.is_loading);
@@ -182,8 +181,7 @@ fn draw_namespaces_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect
       .block(block)
       .highlight_style(style_highlight())
       .highlight_symbol(HIGHLIGHT)
-      // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
-      .widths(&[Constraint::Percentage(80), Constraint::Percentage(19)]);
+      .widths(&[Constraint::Percentage(80), Constraint::Percentage(20)]);
 
     f.render_stateful_widget(table, area, &mut app.data.namespaces.state);
   } else {

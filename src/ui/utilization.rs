@@ -79,8 +79,7 @@ pub fn draw_utilization<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect)
         Constraint::Percentage(10),
         Constraint::Percentage(10),
         Constraint::Percentage(10),
-        // workaround for TUI-RS issue : https://github.com/fdehau/tui-rs/issues/470#issuecomment-852562848
-        Constraint::Percentage(9),
+        Constraint::Percentage(10),
       ])
       .highlight_style(style_highlight());
 
