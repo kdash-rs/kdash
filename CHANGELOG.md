@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.3 Unreleased] - 20-July-2021
+## [0.2.3] - 02-Aug-2021
 
 - Add support for ReplicationControllers
 - Fix issue with table overflow crash
