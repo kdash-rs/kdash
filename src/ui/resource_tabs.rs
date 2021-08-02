@@ -1093,8 +1093,8 @@ mod tests {
         "│ Pods <1> │ Services <2> │ Nodes <3> │ ConfigMaps <4> │ StatefulSets <5> │ ReplicaSets <6> │ Deplo│",
         "│                                                                                                  │",
         "│Pods (ns: all) [1] | Containers <enter> | describe <d> | yaml <y>─────────────────────────────────│",
-        "│   Namespace               Name                             Ready     Status    Restarts  Age     │",
-        "│=> pod namespace test      pod name test                    0/2       Failed    0         6h52m   │",
+        "│   Namespace                Name                               Ready     Status    Restarts  A    │",
+        "│=> pod namespace test       pod name test                      0/2       Failed    0         6    │",
         "└──────────────────────────────────────────────────────────────────────────────────────────────────┘",
       ]);
     // set row styles
@@ -1271,10 +1271,10 @@ mod tests {
 
     let mut expected = Buffer::with_lines(vec![
         "Test-> yaml <y>─────────────────────────────────────────────────────────────────────────────────────",
-        "   Namespace                    Name                                   Data           Age           ",
-        "=> Test ns                      Test 1                                 5              65h3m         ",
-        "   Test ns                      Test long name that should be truncate 3              65h3m         ",
-        "   Test ns long value check tha test_long_name_that_should_be_truncate 6              65h3m         ",
+        "   Namespace                      Name                                     Data            Age      ",
+        "=> Test ns                        Test 1                                   5               65h3m    ",
+        "   Test ns                        Test long name that should be truncated  3               65h3m    ",
+        "   Test ns long value check that  test_long_name_that_should_be_truncated_ 6               65h3m    ",
         "                                                                                                    ",
       ]);
     // set row styles
