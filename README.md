@@ -49,7 +49,7 @@ scoop install kdash
 ### Chocolatey (Windows)
 
 Choco package located [here](https://chocolatey.org/packages/kdash).
-Since validation of the package takes time, it may take a while to become available after a release.
+Since validation of the package takes forever, it may take a long while to become available after a release. I would recommend using Scoop instead for Windows.
 
 ```bash
 choco install kdash
