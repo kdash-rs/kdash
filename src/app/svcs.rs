@@ -32,15 +32,15 @@ impl KubeResource<Service> for KubeSvc {
         let external_ips = match type_.as_str() {
           "ClusterIP" | "NodePort" => spec.external_ips.clone(),
           "LoadBalancer" => get_lb_ext_ips(service, spec.external_ips.clone()),
-          "ExternalName" => vec![spec.external_name.clone().unwrap_or_default()],
-          _ => vec![String::default()],
+          "ExternalName" => Some(vec![spec.external_name.clone().unwrap_or_default()]),
+          _ => None,
         };
 
         (
           type_,
           spec.cluster_ip.as_ref().unwrap_or(&"None".into()).clone(),
-          external_ips.join(","),
-          get_ports(&spec.ports),
+          external_ips.unwrap_or_default().join(","),
+          get_ports(&spec.ports).unwrap_or_default(),
         )
       }
       _ => (
@@ -68,32 +68,36 @@ impl KubeResource<Service> for KubeSvc {
   }
 }
 
-fn get_ports(s_ports: &[ServicePort]) -> String {
-  s_ports
-    .iter()
-    .map(|s_port| {
-      let mut port = String::new();
-      if let Some(name) = s_port.name.clone() {
-        port = format!("{}:", name);
-      }
-      port = format!("{}{}►{}", port, s_port.port, s_port.node_port.unwrap_or(0));
-      if let Some(protocol) = s_port.protocol.clone() {
-        if protocol != "TCP" {
-          port = format!("{}/{}", port, s_port.protocol.clone().unwrap());
+fn get_ports(s_ports: &Option<Vec<ServicePort>>) -> Option<String> {
+  s_ports.as_ref().map(|ports| {
+    ports
+      .iter()
+      .map(|s_port| {
+        let mut port = String::new();
+        if let Some(name) = s_port.name.clone() {
+          port = format!("{}:", name);
         }
-      }
-      port
-    })
-    .collect::<Vec<_>>()
-    .join(" ")
+        port = format!("{}{}►{}", port, s_port.port, s_port.node_port.unwrap_or(0));
+        if let Some(protocol) = s_port.protocol.clone() {
+          if protocol != "TCP" {
+            port = format!("{}/{}", port, s_port.protocol.clone().unwrap());
+          }
+        }
+        port
+      })
+      .collect::<Vec<_>>()
+      .join(" ")
+  })
 }
 
-fn get_lb_ext_ips(service: &Service, external_ips: Vec<String>) -> Vec<String> {
+fn get_lb_ext_ips(service: &Service, external_ips: Option<Vec<String>>) -> Option<Vec<String>> {
   let mut lb_ips = match &service.status {
     Some(ss) => match &ss.load_balancer {
       Some(lb) => {
         let ing = &lb.ingress;
         ing
+          .clone()
+          .unwrap_or_default()
           .iter()
           .map(|lb_ing| {
             if lb_ing.ip.is_some() {
@@ -110,13 +114,13 @@ fn get_lb_ext_ips(service: &Service, external_ips: Vec<String>) -> Vec<String> {
     },
     None => vec![],
   };
-  if !external_ips.is_empty() && !lb_ips.is_empty() {
-    lb_ips.extend(external_ips);
-    lb_ips
+  if external_ips.is_none() && !lb_ips.is_empty() {
+    lb_ips.extend(external_ips.unwrap_or_default());
+    Some(lb_ips)
   } else if !lb_ips.is_empty() {
-    lb_ips
+    Some(lb_ips)
   } else {
-    vec!["<pending>".into()]
+    Some(vec!["<pending>".into()])
   }
 }
 

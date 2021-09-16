@@ -193,4 +193,7 @@ MIT
 ## Authors
 
 - [Deepu K Sasidharan](https://deepu.tech/)
+
+## Contributors
+
 - [Asha Somayajula](https://github.com/somayaj)

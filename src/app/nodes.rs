@@ -49,13 +49,15 @@ impl KubeNode {
         let status = if *unschedulable {
           Some("Unschedulable".into())
         } else {
-          match &node_status
-            .conditions
-            .iter()
-            .find(|c| c.type_ == "Ready" && c.status == "True")
-          {
-            Some(cond) => Some(cond.type_.clone()),
-            _ => Some("Not Ready".into()),
+          match &node_status.conditions {
+            Some(conds) => match conds
+              .iter()
+              .find(|c| c.type_ == "Ready" && c.status == "True")
+            {
+              Some(cond) => Some(cond.type_.clone()),
+              _ => Some("Not Ready".into()),
+            },
+            _ => None,
           }
         };
         let version = node_status
@@ -63,10 +65,12 @@ impl KubeNode {
           .as_ref()
           .map(|i| i.kubelet_version.clone());
 
-        let (cpu, mem) = (
-          node_status.allocatable.get("cpu").map(|q| q.0.clone()),
-          node_status.allocatable.get("memory").map(|q| q.0.clone()),
-        );
+        let (cpu, mem) = node_status.allocatable.as_ref().map_or((None, None), |a| {
+          (
+            a.get("cpu").map(|q| q.0.clone()),
+            a.get("memory").map(|q| q.0.clone()),
+          )
+        });
 
         (status, version, cpu, mem)
       }
@@ -78,22 +82,22 @@ impl KubeNode {
       p_node_name.map_or(acc, |v| if v == node_name { acc + 1 } else { acc })
     });
 
-    let role = &node
-      .metadata
-      .labels
-      .iter()
-      .filter_map(|(k, v)| {
-        return if k.starts_with(NODE_LABEL_PREFIX) {
-          Some(k.trim_start_matches(NODE_LABEL_PREFIX))
-        } else if k == NODE_LABEL_ROLE && !v.is_empty() {
-          Some(v)
-        } else {
-          None
-        };
-      })
-      .collect::<Vec<_>>()
-      .join(",");
-
+    let role = match &node.metadata.labels {
+      Some(labels) => labels
+        .iter()
+        .filter_map(|(k, v)| {
+          return if k.starts_with(NODE_LABEL_PREFIX) {
+            Some(k.trim_start_matches(NODE_LABEL_PREFIX))
+          } else if k == NODE_LABEL_ROLE && !v.is_empty() {
+            Some(v)
+          } else {
+            None
+          };
+        })
+        .collect::<Vec<_>>()
+        .join(","),
+      None => NONE_ROLE.into(),
+    };
     let (cpu, cpu_percent, mem, mem_percent) = match app
       .data
       .node_metrics
@@ -132,7 +136,7 @@ impl KubeNode {
       role: if role.is_empty() {
         NONE_ROLE.into()
       } else {
-        role.into()
+        role
       },
       version: version.unwrap_or_default(),
       pods: pod_count,

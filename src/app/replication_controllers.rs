@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use k8s_openapi::{api::core::v1::ReplicationController, chrono::Utc};
 
 use super::{models::KubeResource, utils};
@@ -28,6 +30,8 @@ impl KubeResource<ReplicationController> for KubeReplicationController {
         spec.replicas.unwrap_or_default(),
         spec
           .selector
+          .as_ref()
+          .unwrap_or(&BTreeMap::new())
           .iter()
           .map(|(key, val)| format!("{}={}", key, val))
           .collect::<Vec<String>>()

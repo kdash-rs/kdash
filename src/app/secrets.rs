@@ -21,7 +21,7 @@ impl KubeResource<Secret> for KubeSecret {
       namespace: secret.metadata.namespace.clone().unwrap_or_default(),
       type_: secret.type_.clone().unwrap_or_default(),
       age: utils::to_age(secret.metadata.creation_timestamp.as_ref(), Utc::now()),
-      data: secret.data.to_owned(),
+      data: secret.data.clone().unwrap_or_default(),
       k8s_obj: secret.to_owned(),
     }
   }

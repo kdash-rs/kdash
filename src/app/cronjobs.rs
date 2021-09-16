@@ -19,7 +19,7 @@ impl KubeResource<CronJob> for KubeCronJob {
     let (last_schedule, active) = match &cronjob.status {
       Some(cjs) => (
         utils::to_age_secs(cjs.last_schedule_time.as_ref(), Utc::now()),
-        cjs.active.len(),
+        cjs.active.clone().unwrap_or_default().len(),
       ),
       None => ("<none>".to_string(), 0),
     };
