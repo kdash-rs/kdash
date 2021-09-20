@@ -689,9 +689,9 @@ dependencies = [
 
 [[package]]
 name = "kube"
-version = "0.59.0"
+version = "0.60.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2bfa22c305a6d817b57a7afcd2e6ee23c80c6c93933edb02f210fdf73f837cc"
+checksum = "a0ae4dcb1a65182551922303a2d292b463513a6727db5ad980afbd32df7f3c16"
 dependencies = [
  "base64",
  "bytes",
@@ -725,9 +725,9 @@ dependencies = [
 
 [[package]]
 name = "kube-core"
-version = "0.59.0"
+version = "0.60.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c33d2272d8e530938bafc6cf4ac76f2a6f6c9ca684defcfab6c357913a43bcc"
+checksum = "04ccd59635e9b21353da8d4a394bb5d3473b5965ed44496c8f857281b0625ffe"
 dependencies = [
  "form_urlencoded",
  "http",
@@ -740,9 +740,9 @@ dependencies = [
 
 [[package]]
 name = "kubectl-view-allocations"
-version = "0.14.5"
+version = "0.14.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6c22f28c2e7337d7a3bf4e99658930d8bfa97a98ab51ea7bf2a7276dc9999b6"
+checksum = "d8d9de47549c8dbbbdcf952c4affe2f546008a338eb9590f57d169c53ada26c5"
 dependencies = [
  "chrono",
  "itertools",
