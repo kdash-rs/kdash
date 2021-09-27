@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.4] - 27-Sep-2021
+
+- Update dependencies
+- Fix crash on cargo install
+
 ## [0.2.3] - 02-Aug-2021
 
 - Add support for ReplicationControllers
