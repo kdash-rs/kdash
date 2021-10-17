@@ -100,6 +100,8 @@ You can also clone this repo and run `make docker` to build a docker image local
 
 If you have Cargo installed then you install KDash from crates.io
 
+>Note: On Debian/Ubuntu you also need to install `libxcb-xfixes0-dev` and `libxcb-shape0-dev`
+
 ```bash
 cargo install kdash
 ```
