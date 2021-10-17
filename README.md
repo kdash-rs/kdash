@@ -108,7 +108,7 @@ cargo install kdash
 
 You can also clone the repo and run `cargo run` or `make` to build and run the app
 
-**Note:**: On Linux you might need to have package `xorg-dev` (Debian/Ubuntu) or `xorg-x11-server-devel` (Fedora) or equivalent installed for the copy to clipboard features to work
+>Note: On Linux you might need to have package `xorg-dev` (Debian/Ubuntu) or `xorg-x11-server-devel` (Fedora) or equivalent installed for the copy to clipboard features to work
 
 ## USAGE:
 
