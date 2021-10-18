@@ -100,13 +100,15 @@ You can also clone this repo and run `make docker` to build a docker image local
 
 If you have Cargo installed then you install KDash from crates.io
 
+>Note: On Debian/Ubuntu you also need to install `libxcb-xfixes0-dev` and `libxcb-shape0-dev`
+
 ```bash
 cargo install kdash
 ```
 
 You can also clone the repo and run `cargo run` or `make` to build and run the app
 
-**Note:**: On Linux you might need to have package `xorg-dev` (Debian/Ubuntu) or `xorg-x11-server-devel` (Fedora) or equivalent installed for the copy to clipboard features to work
+>Note: On Linux you might need to have package `xorg-dev` (Debian/Ubuntu) or `xorg-x11-server-devel` (Fedora) or equivalent installed for the copy to clipboard features to work
 
 ## USAGE:
 
