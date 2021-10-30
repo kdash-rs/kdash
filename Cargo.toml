@@ -19,7 +19,7 @@ edition = "2018"
 [badges]
 
 [dependencies]
-crossterm = "0.21.0"
+crossterm = "0.22.1"
 tui = { version = "0.16.0", default-features = false, features = ['crossterm'] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -35,8 +35,8 @@ textwrap = "0.14"
 regex = "1"
 clipboard = "0.5"
 kube = "0.60.0"
-k8s-openapi = { version = "0.13.0", default-features = false, features = ["v1_20"] }
-openssl = { version = "0.10.36", features = ["vendored"] }
+k8s-openapi = { version = "0.13.1", default-features = false, features = ["v1_20"] }
+openssl = { version = "0.10.37", features = ["vendored"] }
 human-panic = "1.0"
 kubectl-view-allocations = { version="0.14.6", default-features = false }
 
