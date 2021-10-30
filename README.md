@@ -104,9 +104,11 @@ If you have Cargo installed then you install KDash from crates.io
 cargo install kdash
 ```
 
->Note: On Debian/Ubuntu you might need to install `libxcb-xfixes0-dev` and `libxcb-shape0-dev`.
+> Note: On Debian/Ubuntu you might need to install `libxcb-xfixes0-dev` and `libxcb-shape0-dev`. On Fedora `libxcb` and `libxcb-devel` would be needed.
 
->Note: On Linux you might need to have package `xorg-dev` (Debian/Ubuntu) or `xorg-x11-server-devel` (Fedora) or equivalent installed for the copy to clipboard features to work
+> Note: On Linux you might need to have package `xorg-dev` (Debian/Ubuntu) or `xorg-x11-server-devel` (Fedora) or equivalent installed for the copy to clipboard features to work
+
+> Note: If you are getting compilation error from openSSL. Make sure perl and perl-core are installed for your OS.
 
 You can also clone the repo and run `cargo run` or `make` to build and run the app
 
