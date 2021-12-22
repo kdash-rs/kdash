@@ -194,10 +194,11 @@ At least for now there are no plans to add full CRUD for resources but we will a
 
 MIT
 
-## Authors
+## Creator
 
 - [Deepu K Sasidharan](https://deepu.tech/)
 
 ## Contributors
 
 - [Asha Somayajula](https://github.com/somayaj)
+- [Tobias de Bruijn](https://github.com/TheDutchMC)
