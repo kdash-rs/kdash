@@ -129,13 +129,12 @@ impl KubeContainer {
     container: &Container,
     pod_name: String,
     age: String,
-    c_stats: &Option<Vec<ContainerStatus>>,
+    c_stats_ref: &Option<Vec<ContainerStatus>>,
     init: bool,
   ) -> Self {
     let (mut ready, mut status, mut restarts) = ("false".to_string(), "<none>".to_string(), 0);
-    if let Some(c_stats) = c_stats {
-      let c_stat = c_stats.iter().find(|cs| cs.name == container.name);
-      if let Some(c_stat) = c_stat {
+    if let Some(c_stats) = c_stats_ref {
+      if let Some(c_stat) = c_stats.iter().find(|cs| cs.name == container.name) {
         ready = c_stat.ready.to_string();
         status = get_container_state(c_stat.state.clone());
         restarts = c_stat.restart_count;
@@ -195,7 +194,7 @@ fn get_status(stat: &PodStatus, pod: &Pod) -> String {
   let status = match &stat.init_container_statuses {
     Some(ics) => {
       for (i, cs) in ics.iter().enumerate() {
-        let status = match &cs.state {
+        let c_status = match &cs.state {
           Some(s) => {
             if let Some(st) = &s.terminated {
               if st.exit_code == 0 {
@@ -231,8 +230,8 @@ fn get_status(stat: &PodStatus, pod: &Pod) -> String {
           }
           None => "".into(),
         };
-        if !status.is_empty() {
-          return status;
+        if !c_status.is_empty() {
+          return c_status;
         }
       }
       status
@@ -298,8 +297,8 @@ fn is_pod_init(sw: Option<ContainerStateWaiting>) -> bool {
     .unwrap_or_default()
 }
 
-fn get_container_ports(ports: &Option<Vec<ContainerPort>>) -> Option<String> {
-  ports.as_ref().map(|ports| {
+fn get_container_ports(ports_ref: &Option<Vec<ContainerPort>>) -> Option<String> {
+  ports_ref.as_ref().map(|ports| {
     ports
       .iter()
       .map(|c_port| {

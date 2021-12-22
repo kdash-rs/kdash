@@ -175,10 +175,7 @@ impl<'a> Network<'a> {
     let lp = ListParams::default();
     match api.list(&lp).await {
       Ok(ns_list) => {
-        let items = ns_list
-          .iter()
-          .map(|ns| KubeNs::from_api(ns))
-          .collect::<Vec<_>>();
+        let items = ns_list.iter().map(KubeNs::from_api).collect::<Vec<_>>();
         let mut app = self.app.lock().await;
         app.data.namespaces.set_items(items);
       }

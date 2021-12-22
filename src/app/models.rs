@@ -465,8 +465,8 @@ mod tests {
     sft.scroll_down(10);
     assert_eq!(sft.state.selected(), Some(1));
 
-    let sft = StatefulTable::with_items(vec![KubeNs::default(), KubeNs::default()]);
-    assert_eq!(sft.state.selected(), Some(0));
+    let sft2 = StatefulTable::with_items(vec![KubeNs::default(), KubeNs::default()]);
+    assert_eq!(sft2.state.selected(), Some(0));
   }
 
   #[test]
@@ -542,24 +542,24 @@ mod tests {
     stxt.scroll_down(1);
     assert_eq!(stxt.offset, 0);
 
-    let mut stxt = ScrollableTxt::with_string("te\nst\nmul\ntil\ni\nne\nstr\ni\nn\ng".into());
-    assert_eq!(stxt.items.len(), 10);
-    stxt.scroll_down(1);
-    assert_eq!(stxt.offset, 1);
-    stxt.scroll_down(1);
-    assert_eq!(stxt.offset, 2);
-    stxt.scroll_down(5);
-    assert_eq!(stxt.offset, 7);
-    stxt.scroll_down(1);
+    let mut stxt2 = ScrollableTxt::with_string("te\nst\nmul\ntil\ni\nne\nstr\ni\nn\ng".into());
+    assert_eq!(stxt2.items.len(), 10);
+    stxt2.scroll_down(1);
+    assert_eq!(stxt2.offset, 1);
+    stxt2.scroll_down(1);
+    assert_eq!(stxt2.offset, 2);
+    stxt2.scroll_down(5);
+    assert_eq!(stxt2.offset, 7);
+    stxt2.scroll_down(1);
     // no overflow past (len - 2)
-    assert_eq!(stxt.offset, 7);
-    stxt.scroll_up(1);
-    assert_eq!(stxt.offset, 6);
-    stxt.scroll_up(6);
-    assert_eq!(stxt.offset, 0);
-    stxt.scroll_up(1);
+    assert_eq!(stxt2.offset, 7);
+    stxt2.scroll_up(1);
+    assert_eq!(stxt2.offset, 6);
+    stxt2.scroll_up(6);
+    assert_eq!(stxt2.offset, 0);
+    stxt2.scroll_up(1);
     // no overflow past (0)
-    assert_eq!(stxt.offset, 0);
+    assert_eq!(stxt2.offset, 0);
   }
 
   #[test]
@@ -599,7 +599,7 @@ mod tests {
       .draw(|f| log.render_list(f, f.size(), Block::default(), Style::default(), false))
       .unwrap();
 
-    let expected = Buffer::with_lines(vec![
+    let expected2 = Buffer::with_lines(vec![
       "record 1            ",
       "record 2            ",
       "record 4 should be  ",
@@ -609,7 +609,7 @@ mod tests {
       "record 6            ",
     ]);
 
-    terminal.backend().assert_buffer(&expected);
+    terminal.backend().assert_buffer(&expected2);
 
     log.add_record("record 9".into());
     log.add_record("record 10 which is again looooooooooooooooooooooooooooooonnnng".into());
@@ -619,7 +619,7 @@ mod tests {
       .draw(|f| log.render_list(f, f.size(), Block::default(), Style::default(), true))
       .unwrap();
 
-    let expected = Buffer::with_lines(vec![
+    let expected3 = Buffer::with_lines(vec![
       "record 8            ",
       "record 9            ",
       "record 10           ",
@@ -629,13 +629,13 @@ mod tests {
       "record 11           ",
     ]);
 
-    terminal.backend().assert_buffer(&expected);
+    terminal.backend().assert_buffer(&expected3);
 
     terminal
       .draw(|f| log.render_list(f, f.size(), Block::default(), Style::default(), false))
       .unwrap();
 
-    let expected = Buffer::with_lines(vec![
+    let expected4 = Buffer::with_lines(vec![
       "record 1            ",
       "record 2            ",
       "record 4 should be  ",
@@ -645,7 +645,7 @@ mod tests {
       "record 6            ",
     ]);
 
-    terminal.backend().assert_buffer(&expected);
+    terminal.backend().assert_buffer(&expected4);
 
     log.scroll_up(1); // to reset select state
     log.scroll_down(11);
@@ -654,7 +654,7 @@ mod tests {
       .draw(|f| log.render_list(f, f.size(), Block::default(), Style::default(), false))
       .unwrap();
 
-    let mut expected = Buffer::with_lines(vec![
+    let mut expected5 = Buffer::with_lines(vec![
       "record 5            ",
       "record 6            ",
       "record 7            ",
@@ -666,11 +666,11 @@ mod tests {
 
     // Second row table header style
     for col in 0..=19 {
-      expected
+      expected5
         .get_mut(col, 6)
         .set_style(Style::default().add_modifier(Modifier::BOLD));
     }
 
-    terminal.backend().assert_buffer(&expected);
+    terminal.backend().assert_buffer(&expected5);
   }
 }
