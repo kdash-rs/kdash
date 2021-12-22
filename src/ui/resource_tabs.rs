@@ -182,11 +182,11 @@ fn draw_pods_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
       ],
     },
     |c| {
-      let style = get_resource_row_style(c.status.as_str());
+      let style = get_resource_row_style(c.status.as_str(), c.ready);
       Row::new(vec![
         Cell::from(c.namespace.to_owned()),
         Cell::from(c.name.to_owned()),
-        Cell::from(c.ready.to_owned()),
+        Cell::from(format!("{}/{}", c.ready.0, c.ready.1)),
         Cell::from(c.status.to_owned()),
         Cell::from(c.restarts.to_string()),
         Cell::from(c.age.to_owned()),
@@ -232,7 +232,7 @@ fn draw_containers_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect
       ],
     },
     |c| {
-      let style = get_resource_row_style(c.status.as_str());
+      let style = get_resource_row_style(c.status.as_str(), (0, 0));
       Row::new(vec![
         Cell::from(c.name.to_owned()),
         Cell::from(c.image.to_owned()),
@@ -990,10 +990,10 @@ fn draw_resource_block<'a, B, T, F>(
   }
 }
 
-fn get_resource_row_style(status: &str) -> Style {
-  if status == "Running" {
+fn get_resource_row_style(status: &str, ready: (i32, i32)) -> Style {
+  if status == "Running" && ready.0 == ready.1 {
     style_primary()
-  } else if status == "Completed" {
+  } else if status == "Completed" && ready.0 == ready.1 {
     style_success()
   } else if [
     "ContainerCreating",
@@ -1080,7 +1080,7 @@ mod tests {
         let mut pod = KubePod::default();
         pod.name = "pod name test".into();
         pod.namespace = "pod namespace test".into();
-        pod.ready = "0/2".into();
+        pod.ready = (0, 2);
         pod.status = "Failed".into();
         pod.age = "6h52m".into();
         app.data.pods.set_items(vec![pod]);

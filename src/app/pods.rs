@@ -15,7 +15,7 @@ use super::{
 pub struct KubePod {
   pub namespace: String,
   pub name: String,
-  pub ready: String,
+  pub ready: (i32, i32),
   pub status: String,
   pub restarts: i32,
   pub cpu: String,
@@ -107,7 +107,7 @@ impl KubeResource<Pod> for KubePod {
     KubePod {
       name: pod_name,
       namespace: pod.metadata.namespace.clone().unwrap_or_default(),
-      ready: format!("{}/{}", cr, c_stats_len),
+      ready: (cr, c_stats_len as i32),
       restarts,
       // TODO implement pod metrics
       cpu: String::default(),
@@ -335,7 +335,7 @@ mod tests {
       KubePod {
         namespace: "default".into(),
         name: "adservice-f787c8dcd-tb6x2".into(),
-        ready: "0/0".into(),
+        ready: (0, 0),
         status: "Pending".into(),
         restarts: 0,
         cpu: "".into(),
@@ -362,7 +362,7 @@ mod tests {
       KubePod {
         namespace: "default".into(),
         name: "cartservice-67b89ffc69-s5qp8".into(),
-        ready: "0/1".into(),
+        ready: (0, 1),
         status: "CrashLoopBackOff".into(),
         restarts: 896,
         cpu: "".into(),
@@ -389,7 +389,7 @@ mod tests {
       KubePod {
         namespace: "default".into(),
         name: "emailservice-5f8fc7dbb4-5lqdb".into(),
-        ready: "1/1".into(),
+        ready: (1, 1),
         status: "Running".into(),
         restarts: 3,
         cpu: "".into(),
@@ -416,7 +416,7 @@ mod tests {
       KubePod {
         namespace: "default".into(),
         name: "frontend-5c4745dfdb-6k8wf".into(),
-        ready: "0/0".into(),
+        ready: (0, 0),
         status: "OutOfcpu".into(),
         restarts: 0,
         cpu: "".into(),
@@ -443,7 +443,7 @@ mod tests {
       KubePod {
         namespace: "default".into(),
         name: "frontend-5c4745dfdb-qz7fg".into(),
-        ready: "0/0".into(),
+        ready: (0, 0),
         status: "Preempting".into(),
         restarts: 0,
         cpu: "".into(),
@@ -470,7 +470,7 @@ mod tests {
       KubePod {
         namespace: "default".into(),
         name: "frontend-5c4745dfdb-6k8wf".into(),
-        ready: "0/0".into(),
+        ready: (0, 0),
         status: "Failed".into(),
         restarts: 0,
         cpu: "".into(),
@@ -497,7 +497,7 @@ mod tests {
       KubePod {
         namespace: "default".into(),
         name: "pod-init-container".into(),
-        ready: "0/1".into(),
+        ready: (0, 1),
         status: "Init:1/2".into(),
         restarts: 0,
         cpu: "".into(),
@@ -552,7 +552,7 @@ mod tests {
       KubePod {
         namespace: "default".into(),
         name: "pod-init-container-2".into(),
-        ready: "0/1".into(),
+        ready: (0, 1),
         status: "Completed".into(),
         restarts: 0,
         cpu: "".into(),
