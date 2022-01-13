@@ -993,7 +993,7 @@ fn draw_resource_block<'a, B, T, F>(
 fn get_resource_row_style(status: &str, ready: (i32, i32)) -> Style {
   if status == "Running" && ready.0 == ready.1 {
     style_primary()
-  } else if status == "Completed" && ready.0 == ready.1 {
+  } else if status == "Completed" {
     style_success()
   } else if [
     "ContainerCreating",

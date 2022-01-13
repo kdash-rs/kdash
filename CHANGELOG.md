@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.6]
+
+- Fix status color of pods not ready
+- 
+
 ## [0.2.5] - 21-Dec-2021
 
 - Fix help screen which was not rendered
