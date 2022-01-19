@@ -240,11 +240,7 @@ fn draw_containers_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect
         Cell::from(c.ready.to_owned()),
         Cell::from(c.status.to_owned()),
         Cell::from(c.restarts.to_string()),
-        Cell::from(format!(
-          "{}/{}",
-          c.liveliness_probe.to_string(),
-          c.readiness_probe.to_string()
-        )),
+        Cell::from(format!("{}/{}", c.liveliness_probe, c.readiness_probe,)),
         Cell::from(c.ports.to_owned()),
         Cell::from(c.age.to_owned()),
       ])
@@ -954,7 +950,7 @@ struct ResourceTableProps<'a, T> {
   column_widths: Vec<Constraint>,
 }
 
-/// Draw a kubernetes resource i overview tab
+/// Draw a kubernetes resource overview tab
 fn draw_resource_block<'a, B, T, F>(
   f: &mut Frame<B>,
   area: Rect,
