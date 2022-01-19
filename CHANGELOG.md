@@ -1,9 +1,8 @@
 # Changelog
 
-## [0.2.6]
+## [0.2.6] - 19-Jan-2022
 
 - Fix status color of pods not ready
-- 
 
 ## [0.2.5] - 21-Dec-2021
 
