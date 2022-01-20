@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased - XX-YYY-2022
+
+- Fix crashes when memory and/or cpu usages are higher than 100%
+
 ## [0.2.6] - 19-Jan-2022
 
 - Fix status color of pods not ready
