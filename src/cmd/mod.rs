@@ -87,7 +87,7 @@ impl<'a> CmdRunner<'a> {
         if out.is_empty() {
           None
         } else {
-          Some(format!("v{}", out.replace("'", "")))
+          Some(format!("v{}", out.replace('\'', "")))
         }
       });
 
@@ -100,7 +100,7 @@ impl<'a> CmdRunner<'a> {
         if out.is_empty() {
           None
         } else {
-          Some(format!("v{}", out.replace("'", "")))
+          Some(format!("v{}", out.replace('\'', "")))
         }
       });
 
