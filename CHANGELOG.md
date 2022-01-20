@@ -3,6 +3,7 @@
 ## Unreleased - 2022-XX-YY
 
 - Fix crashes when memory and/or cpu usages are higher than 100%
+- Improve cache
 
 ## [0.2.6] - 2022-01-19
 

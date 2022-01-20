@@ -503,6 +503,7 @@ impl App {
   }
 
   pub async fn cache_all_resource_data(&mut self) {
+    self.dispatch(IoEvent::GetNamespaces).await;
     self.dispatch(IoEvent::GetPods).await;
     self.dispatch(IoEvent::GetServices).await;
     self.dispatch(IoEvent::GetConfigMaps).await;
@@ -514,6 +515,7 @@ impl App {
     self.dispatch(IoEvent::GetCronJobs).await;
     self.dispatch(IoEvent::GetSecrets).await;
     self.dispatch(IoEvent::GetReplicationControllers).await;
+    self.dispatch(IoEvent::GetMetrics).await;
   }
 
   pub async fn dispatch_by_active_block(&mut self, active_block: ActiveBlock) {
