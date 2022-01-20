@@ -1,35 +1,35 @@
 # Changelog
 
-## Unreleased - XX-YYY-2022
+## Unreleased - 2022-XX-YY
 
 - Fix crashes when memory and/or cpu usages are higher than 100%
 
-## [0.2.6] - 19-Jan-2022
+## [0.2.6] - 2022-01-19
 
 - Fix status color of pods not ready
 
-## [0.2.5] - 21-Dec-2021
+## [0.2.5] - 2021-12-21
 
 - Fix help screen which was not rendered
 - Fix status color of pods not ready
 - Update dependencies
 
-## [0.2.4] - 27-Sep-2021
+## [0.2.4] - 2021-09-27
 
 - Update dependencies
 - Fix crash on cargo install
 
-## [0.2.3] - 02-Aug-2021
+## [0.2.3] - 2021-08-02
 
 - Add support for ReplicationControllers
 - Fix issue with table overflow crash
 
-## [0.2.2] - 20-July-2021
+## [0.2.2] - 2021-07-20
 
 - Add support for page up and page down on tables and text views
 - Fix crash on escape
 
-## [0.2.0] - 12-July-2021
+## [0.2.0] - 2021-07-12
 
 - Add support for Job resource - [#42](https://github.com/kdash-rs/kdash/pull/42), Thanks to [somayaj](https://github.com/somayaj)
 - Add support for CronJob resource - [#69](https://github.com/kdash-rs/kdash/pull/69), Thanks to [somayaj](https://github.com/somayaj)
@@ -39,29 +39,29 @@
 - Show init containers in container view
 - Internal optimizations
 
-## [0.1.2] - 12-June-2021
+## [0.1.2] - 2021-06-12
 
 - Add human friendly crash messages
 - Add Tab keybinding to cycle through views
 - Migrate to kubectl-view-allocations library
 
-## [0.1.1] - 04-June-2021
+## [0.1.1] - 2021-06-04
 
 - Fix a small bug that crashes the app in certain terminal size
 
-## [0.1.0] - 17-May-2021
+## [0.1.0] - 2021-05-17
 
 - Stable release
 - Minor bug fixes
 - Add vim key bindings for arrow keys
 - Chocolatey deployment for Windows 10
 
-## [0.0.9] - 10-May-2021
+## [0.0.9] - 2021-05-10
 
 - Improved error handling and error display
 - Minor bug fixes and improvements
 
-## [0.0.8] - 04-May-2021
+## [0.0.8] - 2021-05-04
 
 ### Added
 
@@ -76,7 +76,7 @@
 
 - Describe view spacing
 
-## [0.0.7] - 03-May-2021
+## [0.0.7] - 2021-05-03
 
 ### Added
 
@@ -89,13 +89,13 @@
 - More tests
 - Show containers for failing pods
 
-## [0.0.6] - 27-Apr-2021
+## [0.0.6] - 2021-04-27
 
 ### Added
 
 - Switch k8s contexts from the all contexts view
 
-## [0.0.5] - 27-Apr-2021
+## [0.0.5] - 2021-04-27
 
 ### Fixed
 
@@ -103,14 +103,14 @@
 - Log streaming discrepancy
 - CLI versions UI glitch
 
-## [0.0.4] - 26-Apr-2021
+## [0.0.4] - 2021-04-26
 
 ### Added
 
 - Homebrew installation
 - Docker installation
 
-## [0.0.3] - 25-Apr-2021
+## [0.0.3] - 2021-04-25
 
 ### Fixed
 
@@ -126,7 +126,7 @@
 - Replicasets tab
 - Deployments tab
 
-## [0.0.2] - 22-Apr-2021
+## [0.0.2] - 2021-04-22
 
 ### Fixed
 
@@ -143,7 +143,7 @@
 - Pod describe
 - Node describe
 
-## [0.0.1] - 18-Apr-2021
+## [0.0.1] - 2021-04-18
 
 - Initial beta release
 
