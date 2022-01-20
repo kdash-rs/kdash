@@ -694,6 +694,7 @@ mod tests {
     // test first render
     app.on_tick(true).await;
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetKubeConfig);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetServices);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetConfigMaps);
@@ -708,6 +709,7 @@ mod tests {
       sync_io_rx.recv().await.unwrap(),
       IoEvent::GetReplicationControllers
     );
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetMetrics);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
@@ -739,6 +741,7 @@ mod tests {
     app.on_tick(false).await;
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::RefreshClient);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetKubeConfig);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetServices);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetConfigMaps);
