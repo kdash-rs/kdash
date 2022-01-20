@@ -103,10 +103,9 @@ fn draw_context_info_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Re
 
   f.render_widget(block, area);
 
-  let text;
-  match &app.data.active_context {
+  let text = match &app.data.active_context {
     Some(active_context) => {
-      text = vec![
+      vec![
         Spans::from(vec![
           Span::styled("Context: ", style_default(app.light_theme)),
           Span::styled(&active_context.name, style_primary()),
@@ -119,35 +118,39 @@ fn draw_context_info_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Re
           Span::styled("User: ", style_default(app.light_theme)),
           Span::styled(&active_context.user, style_primary()),
         ]),
-      ];
+      ]
     }
     None => {
-      text = vec![Spans::from(Span::styled(
+      vec![Spans::from(Span::styled(
         "Context information not found",
         style_failure(),
       ))]
     }
-  }
+  };
 
   let paragraph = Paragraph::new(text).block(Block::default());
   f.render_widget(paragraph, chunks[0]);
+
+  let ratio = get_nm_ratio(app.data.node_metrics.as_ref(), |nm| nm.cpu_percent);
+  let limited_ratio = if ratio > 1f64 { 1f64 } else { ratio };
 
   let cpu_gauge = LineGauge::default()
     .block(Block::default().title("CPU:"))
     .gauge_style(style_primary())
     .line_set(get_gauge_style(app.enhanced_graphics))
-    .ratio(get_nm_ratio(app.data.node_metrics.as_ref(), |acc, nm| {
-      acc + nm.cpu_percent
-    }));
+    .ratio(limited_ratio)
+    .label(Spans::from(format!("{:.0}%", ratio * 100.0)));
   f.render_widget(cpu_gauge, chunks[1]);
+
+  let ratio = get_nm_ratio(app.data.node_metrics.as_ref(), |nm| nm.mem_percent);
+  let limited_ratio = if ratio > 1f64 { 1f64 } else { ratio };
 
   let mem_gauge = LineGauge::default()
     .block(Block::default().title("Memory:"))
     .gauge_style(style_primary())
     .line_set(get_gauge_style(app.enhanced_graphics))
-    .ratio(get_nm_ratio(app.data.node_metrics.as_ref(), |acc, nm| {
-      acc + nm.mem_percent
-    }));
+    .ratio(limited_ratio)
+    .label(Spans::from(format!("{:.0}%", ratio * 100.0)));
   f.render_widget(mem_gauge, chunks[2]);
 }
 
@@ -192,12 +195,9 @@ fn draw_namespaces_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect
 // Utility methods
 
 /// covert percent value from metrics to ratio that gauge can understand
-fn get_nm_ratio(
-  node_metrics: &[KubeNodeMetrics],
-  f: fn(a: f64, b: &KubeNodeMetrics) -> f64,
-) -> f64 {
+fn get_nm_ratio(node_metrics: &[KubeNodeMetrics], f: fn(b: &KubeNodeMetrics) -> f64) -> f64 {
   if !node_metrics.is_empty() {
-    let sum = node_metrics.iter().fold(0f64, f);
+    let sum = node_metrics.iter().map(f).sum::<f64>();
     (sum / node_metrics.len() as f64) / 100f64
   } else {
     0f64
@@ -221,9 +221,7 @@ mod tests {
   fn test_get_nm_ratio() {
     let mut app = App::default();
     assert_eq!(
-      get_nm_ratio(app.data.node_metrics.as_ref(), |acc, nm| {
-        acc + nm.cpu_percent
-      }),
+      get_nm_ratio(app.data.node_metrics.as_ref(), |nm| nm.cpu_percent),
       0.0f64
     );
     app.data.node_metrics = vec![
@@ -237,9 +235,7 @@ mod tests {
       },
     ];
     assert_eq!(
-      get_nm_ratio(app.data.node_metrics.as_ref(), |acc, nm| {
-        acc + nm.cpu_percent
-      }),
+      get_nm_ratio(app.data.node_metrics.as_ref(), |nm| nm.cpu_percent),
       0.7f64
     );
   }
