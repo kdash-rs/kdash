@@ -40,7 +40,9 @@ pub async fn handle_key_events(key: Key, app: &mut App) {
       app.refresh();
     }
     _ if key == DEFAULT_KEYBINDING.help.key => {
-      app.push_navigation_stack(RouteId::HelpMenu, ActiveBlock::Help)
+      if app.get_current_route().active_block != ActiveBlock::Help {
+        app.push_navigation_stack(RouteId::HelpMenu, ActiveBlock::Help);
+      }
     }
     _ if key == DEFAULT_KEYBINDING.jump_to_all_context.key => {
       app.route_contexts();

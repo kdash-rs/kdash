@@ -127,7 +127,7 @@ macro_rules! draw_resource_tab {
         $area,
         title_with_dual_style(
           get_resource_title($app, $title, get_describe_active($block), $res.items.len()),
-          format!("{} | {} <esc>", COPY_HINT, $title),
+          format!("{} | {} <esc> ", COPY_HINT, $title),
           $app.light_theme,
         ),
       ),
@@ -151,7 +151,7 @@ fn draw_pods_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut
           get_describe_active(block),
           app.data.pods.items.len(),
         ),
-        format!("{} | {} <esc>", COPY_HINT, PODS_TITLE),
+        format!("{} | {} <esc> ", COPY_HINT, PODS_TITLE),
         app.light_theme,
       ),
     ),
@@ -206,7 +206,7 @@ fn draw_containers_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: 
     area,
     ResourceTableProps {
       title,
-      inline_help: format!("| Logs <enter> | {} <esc>", PODS_TITLE),
+      inline_help: format!("| Logs <enter> | {} <esc> ", PODS_TITLE),
       resource: &mut app.data.containers,
       table_headers: vec![
         "Name",
@@ -261,7 +261,7 @@ fn draw_logs_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) 
       app.data.containers.items.len(),
       format!("-> Logs ({}) ", container_name),
     ),
-    "| copy <c> | Containers <esc>".into(),
+    "| copy <c> | Containers <esc> ".into(),
     app.light_theme,
   );
 
@@ -285,7 +285,7 @@ fn draw_nodes_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mu
       area,
       title_with_dual_style(
         get_node_title(app, get_describe_active(block)),
-        format!("{} | {} <esc>", COPY_HINT, NODES_TITLE),
+        format!("{} | {} <esc> ", COPY_HINT, NODES_TITLE),
         app.light_theme,
       ),
     ),
@@ -1027,7 +1027,7 @@ fn get_resource_row_style(status: &str, ready: (i32, i32)) -> Style {
 
 fn get_node_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
   format!(
-    "{} [{}] {}",
+    " {} [{}] {}",
     NODES_TITLE,
     app.data.nodes.items.len(),
     suffix.as_ref()
@@ -1344,7 +1344,7 @@ mod tests {
   #[test]
   fn test_get_node_title() {
     let app = App::default();
-    assert_eq!(get_node_title(&app, "-> hello"), "Nodes [0] -> hello");
+    assert_eq!(get_node_title(&app, "-> hello"), " Nodes [0] -> hello");
   }
 
   #[test]

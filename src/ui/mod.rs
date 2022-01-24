@@ -12,6 +12,7 @@ use tui::{
   widgets::{Block, Borders, Paragraph, Tabs, Wrap},
   Frame,
 };
+use tui::widgets::BorderType;
 
 use self::{
   contexts::draw_contexts,
@@ -94,9 +95,9 @@ fn draw_header_text<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect)
       "<left|right>: switch resource tabs | <char> select block | <up|down>: scroll | <enter>: select | <?> more help",
     )],
     RouteId::Utilization => vec![Spans::from(
-      " <up|down>: scroll | <g>: cycle through grouping | <?> more help ",
+      " <up|down>: scroll | <g>: cycle through grouping | <?> more help",
     )],
-    _ => vec![Spans::from("<?> more help")],
+    _ => vec![Spans::default()],
   };
   let paragraph = Paragraph::new(text)
     .style(style_help())
@@ -108,9 +109,10 @@ fn draw_header_text<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect)
 
 fn draw_app_error<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, size: Rect) {
   let block = Block::default()
-    .title("Error | close <esc>")
+    .title(" Error | close <esc> ")
     .style(style_failure())
-    .borders(Borders::ALL);
+    .borders(Borders::ALL)
+    .border_type(BorderType::Rounded);
 
   let mut text = Text::from(app.api_error.clone());
   text.patch_style(style_failure());

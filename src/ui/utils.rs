@@ -139,6 +139,7 @@ pub fn layout_block_active(title: &str) -> Block<'_> {
 pub fn layout_block_active_span(title: Spans<'_>) -> Block<'_> {
   Block::default()
     .borders(Borders::ALL)
+      .border_type(BorderType::Rounded)
     .title(title)
     .style(style_secondary())
 }
