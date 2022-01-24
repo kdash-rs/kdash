@@ -96,7 +96,7 @@ fn draw_header_text<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect)
     RouteId::Utilization => vec![Spans::from(
       " <up|down>: scroll | <g>: cycle through grouping | <?> more help",
     )],
-    _ => vec![Spans::default()],
+    RouteId::HelpMenu => vec![Spans::default()],
   };
   let paragraph = Paragraph::new(text)
     .style(style_help())
