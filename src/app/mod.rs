@@ -667,7 +667,7 @@ mod test_utils {
   macro_rules! map_string_object {
     // map-like
     ($($k:expr => $v:expr),* $(,)?) => {
-        std::iter::Iterator::collect(std::array::IntoIter::new([$(($k.to_string(), $v),)*]))
+        std::iter::Iterator::collect(IntoIterator::into_iter([$(($k.to_string(), $v),)*]))
     };
   }
 }
