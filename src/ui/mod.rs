@@ -88,21 +88,20 @@ fn draw_app_header<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) 
 fn draw_header_text<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let text = match app.get_current_route().id {
     RouteId::Contexts => vec![Spans::from(
-      "<up|down>: scroll context | <enter>: select context | <?> more help",
+      " <up|down>: scroll context | <enter>: select context | <?> more help ",
     )],
     RouteId::Home => vec![Spans::from(
-      "<left|right>: switch resource tabs | <char> select block | <up|down>: scroll | <enter>: select | <?> more help",
+      " <left|right>: switch resource tabs | <char> select block | <up|down>: scroll | <enter>: select | <?> more help ",
     )],
     RouteId::Utilization => vec![Spans::from(
-      " <up|down>: scroll | <g>: cycle through grouping | <?> more help",
+      " <up|down>: scroll | <g>: cycle through grouping | <?> more help ",
     )],
     RouteId::HelpMenu => vec![Spans::default()],
   };
   let paragraph = Paragraph::new(text)
     .style(style_help())
     .block(Block::default())
-    .alignment(Alignment::Right)
-    .wrap(Wrap { trim: true });
+    .alignment(Alignment::Right);
   f.render_widget(paragraph, area);
 }
 
