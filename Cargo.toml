@@ -27,7 +27,6 @@ serde_yaml = "0.8"
 clap = "3.0.10"
 tokio = { version = "1.15.0", features = ["macros", "rt-multi-thread"] }
 tokio-stream = { version = "0.1.8", features = ["time"] }
-rand = "0.8"
 duct = "0.13"
 anyhow = "1.0"
 backtrace = "0.3"

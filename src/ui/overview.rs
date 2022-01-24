@@ -2,7 +2,7 @@ use tui::{
   backend::Backend,
   layout::{Constraint, Rect},
   text::{Span, Spans, Text},
-  widgets::{Block, BorderType, Borders, Cell, LineGauge, Paragraph, Row, Table},
+  widgets::{Block, Borders, Cell, LineGauge, Paragraph, Row, Table},
   Frame,
 };
 
@@ -59,11 +59,7 @@ fn draw_logo_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) 
   text.patch_style(style_logo());
 
   // Contains the banner
-  let paragraph = Paragraph::new(text).block(
-    Block::default()
-      .borders(Borders::ALL)
-      .border_type(BorderType::Rounded),
-  );
+  let paragraph = Paragraph::new(text).block(Block::default().borders(Borders::ALL));
   f.render_widget(paragraph, area);
 }
 
@@ -85,7 +81,7 @@ fn draw_cli_version_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area:
 
     let table = Table::new(rows)
       .block(block)
-      .widths(&[Constraint::Length(15), Constraint::Length(15)]);
+      .widths(&[Constraint::Percentage(50), Constraint::Percentage(50)]);
     f.render_widget(table, area);
   } else {
     loading(f, block, area, app.is_loading);

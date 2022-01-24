@@ -1105,13 +1105,13 @@ mod tests {
       .unwrap();
 
     let mut expected = Buffer::with_lines(vec![
-        "╭ Resources ───────────────────────────────────────────────────────────────────────────────────────╮",
+        "┌ Resources ───────────────────────────────────────────────────────────────────────────────────────┐",
         "│ Pods <1> │ Services <2> │ Nodes <3> │ ConfigMaps <4> │ StatefulSets <5> │ ReplicaSets <6> │ Deplo│",
         "│                                                                                                  │",
         "│ Pods (ns: all) [1] | Containers <enter> | describe <d> | yaml <y> ───────────────────────────────│",
         "│   Namespace                Name                               Ready     Status    Restarts  A    │",
         "│=> pod namespace test       pod name test                      0/2       Failed    0         6    │",
-        "╰──────────────────────────────────────────────────────────────────────────────────────────────────╯",
+        "└──────────────────────────────────────────────────────────────────────────────────────────────────┘",
       ]);
     // set row styles
     // First row heading style

@@ -4,7 +4,7 @@ use tui::{
   style::{Color, Modifier, Style},
   symbols,
   text::{Span, Spans, Text},
-  widgets::{Block, BorderType, Borders, Paragraph, Row},
+  widgets::{Block, Borders, Paragraph, Row},
   Frame,
 };
 // Utils
@@ -122,10 +122,7 @@ pub fn vertical_chunks_with_margin(
 }
 
 pub fn layout_block(title: Span<'_>) -> Block<'_> {
-  Block::default()
-    .borders(Borders::ALL)
-    .border_type(BorderType::Rounded)
-    .title(title)
+  Block::default().borders(Borders::ALL).title(title)
 }
 
 pub fn layout_block_default(title: &str) -> Block<'_> {
@@ -139,7 +136,6 @@ pub fn layout_block_active(title: &str) -> Block<'_> {
 pub fn layout_block_active_span(title: Spans<'_>) -> Block<'_> {
   Block::default()
     .borders(Borders::ALL)
-    .border_type(BorderType::Rounded)
     .title(title)
     .style(style_secondary())
 }

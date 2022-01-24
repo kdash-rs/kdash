@@ -9,7 +9,7 @@ use tui::{
   backend::Backend,
   layout::{Alignment, Constraint, Rect},
   text::{Span, Spans, Text},
-  widgets::{Block, BorderType, Borders, Paragraph, Tabs, Wrap},
+  widgets::{Block, Borders, Paragraph, Tabs, Wrap},
   Frame,
 };
 
@@ -87,16 +87,14 @@ fn draw_app_header<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) 
 
 fn draw_header_text<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let text = match app.get_current_route().id {
-    RouteId::Contexts => vec![Spans::from(
-      " <up|down>: scroll context | <enter>: select context | <?> more help ",
-    )],
+    RouteId::Contexts => vec![Spans::from("<↑↓> scroll | <enter> select | <?> help ")],
     RouteId::Home => vec![Spans::from(
-      " <left|right>: switch resource tabs | <char> select block | <up|down>: scroll | <enter>: select | <?> more help ",
+      "<←→> switch tabs | <char> select block | <↑↓> scroll | <enter> select | <?> help ",
     )],
     RouteId::Utilization => vec![Spans::from(
-      " <up|down>: scroll | <g>: cycle through grouping | <?> more help ",
+      "<↑↓> scroll | <g> cycle through grouping | <?> help ",
     )],
-    RouteId::HelpMenu => vec![Spans::default()],
+    RouteId::HelpMenu => vec![],
   };
   let paragraph = Paragraph::new(text)
     .style(style_help())
@@ -109,8 +107,7 @@ fn draw_app_error<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, size: Rect) {
   let block = Block::default()
     .title(" Error | close <esc> ")
     .style(style_failure())
-    .borders(Borders::ALL)
-    .border_type(BorderType::Rounded);
+    .borders(Borders::ALL);
 
   let mut text = Text::from(app.api_error.clone());
   text.patch_style(style_failure());
