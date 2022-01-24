@@ -9,10 +9,9 @@ use tui::{
   backend::Backend,
   layout::{Alignment, Constraint, Rect},
   text::{Span, Spans, Text},
-  widgets::{Block, Borders, Paragraph, Tabs, Wrap},
+  widgets::{Block, BorderType, Borders, Paragraph, Tabs, Wrap},
   Frame,
 };
-use tui::widgets::BorderType;
 
 use self::{
   contexts::draw_contexts,
