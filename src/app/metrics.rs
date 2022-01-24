@@ -47,7 +47,7 @@ pub struct KubeNodeMetrics {
 }
 
 impl KubeNodeMetrics {
-  pub fn from_api(metric: &NodeMetrics, app: &MutexGuard<App>) -> Self {
+  pub fn from_api(metric: &NodeMetrics, app: &MutexGuard<'_, App>) -> Self {
     let name = metric.metadata.name.clone().unwrap_or_default();
 
     let (cpu_percent, mem_percent) = match app.data.node_metrics.iter().find(|it| it.name == name) {

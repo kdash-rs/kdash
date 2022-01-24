@@ -22,23 +22,23 @@ impl Cli {
   }
 
   /// create a new clapapp instance
-  pub fn get_clap_app<'a, 'b>(&mut self) -> ClapApp<'a, 'b> {
+  pub fn get_clap_app<'a>(&mut self) -> ClapApp<'a> {
     ClapApp::new(env!("CARGO_PKG_NAME"))
       .version(env!("CARGO_PKG_VERSION"))
       .author(env!("CARGO_PKG_AUTHORS"))
       .about(env!("CARGO_PKG_DESCRIPTION"))
-      .usage("Press `?` while running the app to see keybindings")
+      .override_usage("Press `?` while running the app to see keybindings")
       .before_help(BANNER)
       .arg(
-        Arg::with_name("tick-rate")
-          .short("t")
+        Arg::new("tick-rate")
+          .short('t')
           .long("tick-rate")
           .help("Set the tick rate (milliseconds): the lower the number the higher the FPS.")
           .takes_value(true),
       )
       .arg(
-        Arg::with_name("poll-rate")
-          .short("p")
+        Arg::new("poll-rate")
+          .short('p')
           .long("poll-rate")
           .help("Set the network call polling rate (milliseconds, should be multiples of tick-rate): the lower the number the higher the network calls.")
           .takes_value(true),

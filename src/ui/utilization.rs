@@ -12,9 +12,9 @@ use super::utils::{
 };
 use crate::app::App;
 
-pub fn draw_utilization<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+pub fn draw_utilization<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = format!(
-    "Resource Utilization (ns: [{}], group by <g>: {:?})",
+    " Resource Utilization (ns: [{}], group by <g>: {:?}) ",
     app
       .data
       .selected
@@ -31,7 +31,7 @@ pub fn draw_utilization<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect)
     let prefixes = provide_prefix(data, |parent, item| parent.0.len() + 1 == item.0.len());
 
     // Create the table
-    let mut rows: Vec<Row> = vec![];
+    let mut rows: Vec<Row<'_>> = vec![];
     for ((k, oqtys), prefix) in data.iter().zip(prefixes.iter()) {
       let column0 = format!(
         "{} {}",

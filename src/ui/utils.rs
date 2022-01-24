@@ -4,7 +4,7 @@ use tui::{
   style::{Color, Modifier, Style},
   symbols,
   text::{Span, Spans, Text},
-  widgets::{Block, Borders, Paragraph, Row},
+  widgets::{Block, BorderType, Borders, Paragraph, Row},
   Frame,
 };
 // Utils
@@ -14,11 +14,11 @@ const DARK_BG_COLOR: Color = Color::Rgb(35, 50, 55);
 const LIGHT_FG_COLOR: Color = Color::Magenta;
 const LIGHT_BG_COLOR: Color = Color::White;
 
-pub fn title_style(txt: &str) -> Span {
+pub fn title_style(txt: &str) -> Span<'_> {
   Span::styled(txt, style_bold())
 }
 
-pub fn title_style_logo(txt: &str) -> Span {
+pub fn title_style_logo(txt: &str) -> Span<'_> {
   Span::styled(
     txt,
     style_logo()
@@ -39,7 +39,7 @@ pub fn style_default(light: bool) -> Style {
   }
 }
 pub fn style_logo() -> Style {
-  Style::default().fg(Color::Blue)
+  Style::default().fg(Color::Green)
 }
 pub fn style_failure() -> Style {
   Style::default().fg(Color::Red)
@@ -57,7 +57,7 @@ pub fn style_primary() -> Style {
   Style::default().fg(Color::Cyan)
 }
 pub fn style_help() -> Style {
-  Style::default().fg(Color::Blue)
+  Style::default().fg(Color::LightBlue)
 }
 
 pub fn style_secondary() -> Style {
@@ -79,7 +79,7 @@ pub fn get_gauge_style(enhanced_graphics: bool) -> symbols::line::Set {
   }
 }
 
-pub fn table_header_style(cells: Vec<&str>, light: bool) -> Row {
+pub fn table_header_style(cells: Vec<&str>, light: bool) -> Row<'_> {
   Row::new(cells).style(style_default(light)).bottom_margin(0)
 }
 
@@ -121,26 +121,29 @@ pub fn vertical_chunks_with_margin(
     .split(size)
 }
 
-pub fn layout_block(title: Span) -> Block {
-  Block::default().borders(Borders::ALL).title(title)
+pub fn layout_block(title: Span<'_>) -> Block<'_> {
+  Block::default()
+    .borders(Borders::ALL)
+    .border_type(BorderType::Rounded)
+    .title(title)
 }
 
-pub fn layout_block_default(title: &str) -> Block {
+pub fn layout_block_default(title: &str) -> Block<'_> {
   layout_block(title_style(title))
 }
 
-pub fn layout_block_active(title: &str) -> Block {
+pub fn layout_block_active(title: &str) -> Block<'_> {
   layout_block(title_style(title)).style(style_secondary())
 }
 
-pub fn layout_block_active_span(title: Spans) -> Block {
+pub fn layout_block_active_span(title: Spans<'_>) -> Block<'_> {
   Block::default()
     .borders(Borders::ALL)
     .title(title)
     .style(style_secondary())
 }
 
-pub fn layout_block_top_border(title: Spans) -> Block {
+pub fn layout_block_top_border(title: Spans<'_>) -> Block<'_> {
   Block::default().borders(Borders::TOP).title(title)
 }
 
@@ -188,7 +191,7 @@ pub fn centered_rect(width: u16, height: u16, r: Rect) -> Rect {
     .split(popup_layout[1])[1]
 }
 
-pub fn loading<B: Backend>(f: &mut Frame<B>, block: Block, area: Rect, is_loading: bool) {
+pub fn loading<B: Backend>(f: &mut Frame<'_, B>, block: Block<'_>, area: Rect, is_loading: bool) {
   if is_loading {
     let text = "\n\n Loading ...\n\n".to_owned();
     let mut text = Text::from(text);

@@ -14,7 +14,7 @@ use super::{
 };
 use crate::app::App;
 
-pub fn draw_help<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+pub fn draw_help<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let chunks = vertical_chunks(vec![Constraint::Percentage(100)], area);
 
   // Create a one-column table to avoid flickering due to non-determinism when

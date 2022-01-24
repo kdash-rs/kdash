@@ -62,7 +62,7 @@ pub enum HContext {
 }
 
 impl fmt::Display for HContext {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     write!(f, "{:?}", self)
   }
 }
