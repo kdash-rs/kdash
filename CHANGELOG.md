@@ -2,6 +2,8 @@
 
 ## Unreleased - 2022-XX-YY
 
+- Some UI updates (https://github.com/kdash-rs/kdash/pull/157)
+
 ## [0.2.7] - 2022-01-20
 
 - Fix crashes when memory and/or cpu usages are higher than 100%
