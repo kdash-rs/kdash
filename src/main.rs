@@ -1,3 +1,4 @@
+#![warn(rust_2018_idioms)]
 #[deny(clippy::shadow_unrelated)]
 mod app;
 mod banner;

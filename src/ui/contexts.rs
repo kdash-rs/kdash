@@ -14,8 +14,8 @@ use super::{
 };
 use crate::app::App;
 
-pub fn draw_contexts<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let title = format!("Contexts [{}]", app.data.contexts.items.len());
+pub fn draw_contexts<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let title = format!(" Contexts [{}] ", app.data.contexts.items.len());
   let block = layout_block_active(title.as_str());
 
   if !app.data.contexts.items.is_empty() {

@@ -36,7 +36,7 @@ impl KubeNode {
   pub fn from_api_with_pods(
     node: &Node,
     pods_list: &ObjectList<Pod>,
-    app: &mut MutexGuard<App>,
+    app: &mut MutexGuard<'_, App>,
   ) -> Self {
     let node_name = node.metadata.name.clone().unwrap_or_default();
     let unschedulable = &node

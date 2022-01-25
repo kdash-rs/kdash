@@ -17,8 +17,8 @@ use super::{
 };
 use crate::app::{models::StatefulTable, ActiveBlock, App};
 
-static DESCRIBE_AND_YAML_HINT: &str = "| describe <d> | yaml <y>";
-static DESCRIBE_YAML_AND_ESC_HINT: &str = "| describe <d> | yaml <y> | back to menu <esc>";
+static DESCRIBE_AND_YAML_HINT: &str = "| describe <d> | yaml <y> ";
+static DESCRIBE_YAML_AND_ESC_HINT: &str = "| describe <d> | yaml <y> | back to menu <esc> ";
 static COPY_HINT: &str = "| copy <c>";
 static NODES_TITLE: &str = "Nodes";
 static PODS_TITLE: &str = "Pods";
@@ -35,11 +35,11 @@ static RPL_CTRL_TITLE: &str = "ReplicationControllers";
 static DESCRIBE_ACTIVE: &str = "-> Describe ";
 static YAML_ACTIVE: &str = "-> YAML ";
 
-pub fn draw_resource_tabs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+pub fn draw_resource_tabs_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let chunks =
     vertical_chunks_with_margin(vec![Constraint::Length(2), Constraint::Min(0)], area, 1);
 
-  let mut block = layout_block_default("Resources");
+  let mut block = layout_block_default(" Resources ");
   if app.get_current_route().active_block != ActiveBlock::Namespaces {
     block = block.style(style_secondary())
   }
@@ -74,7 +74,7 @@ pub fn draw_resource_tabs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, are
 }
 
 /// more resources tab
-fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   match block {
     // ActiveBlock::More => draw_menu(f, app, area),
     ActiveBlock::CronJobs => draw_cronjobs_tab(block, f, app, area),
@@ -98,10 +98,10 @@ fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, ar
 }
 
 /// more resources menu
-fn draw_menu<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_menu<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let area = centered_rect(50, 15, area);
 
-  let items: Vec<ListItem> = app
+  let items: Vec<ListItem<'_>> = app
     .more_resources_menu
     .items
     .iter()
@@ -109,7 +109,7 @@ fn draw_menu<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     .collect();
   f.render_stateful_widget(
     List::new(items)
-      .block(layout_block_default("Select Resource"))
+      .block(layout_block_default(" Select Resource "))
       .highlight_style(style_highlight())
       .highlight_symbol(HIGHLIGHT),
     area,
@@ -127,7 +127,7 @@ macro_rules! draw_resource_tab {
         $area,
         title_with_dual_style(
           get_resource_title($app, $title, get_describe_active($block), $res.items.len()),
-          format!("{} | {} <esc>", COPY_HINT, $title),
+          format!("{} | {} <esc> ", COPY_HINT, $title),
           $app.light_theme,
         ),
       ),
@@ -137,7 +137,7 @@ macro_rules! draw_resource_tab {
   };
 }
 
-fn draw_pods_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_pods_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   match block {
     ActiveBlock::Containers => draw_containers_block(f, app, area),
     ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
@@ -151,7 +151,7 @@ fn draw_pods_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App
           get_describe_active(block),
           app.data.pods.items.len(),
         ),
-        format!("{} | {} <esc>", COPY_HINT, PODS_TITLE),
+        format!("{} | {} <esc> ", COPY_HINT, PODS_TITLE),
         app.light_theme,
       ),
     ),
@@ -161,7 +161,7 @@ fn draw_pods_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App
   };
 }
 
-fn draw_pods_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_pods_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, PODS_TITLE, "", app.data.pods.items.len());
 
   draw_resource_block(
@@ -198,7 +198,7 @@ fn draw_pods_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   );
 }
 
-fn draw_containers_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_containers_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_container_title(app, app.data.containers.items.len(), "");
 
   draw_resource_block(
@@ -206,7 +206,7 @@ fn draw_containers_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect
     area,
     ResourceTableProps {
       title,
-      inline_help: format!("| Logs <enter> | {} <esc>", PODS_TITLE),
+      inline_help: format!("| Logs <enter> | {} <esc> ", PODS_TITLE),
       resource: &mut app.data.containers,
       table_headers: vec![
         "Name",
@@ -251,7 +251,7 @@ fn draw_containers_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect
   );
 }
 
-fn draw_logs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_logs_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let selected_container = app.data.selected.container.clone();
   let container_name = selected_container.unwrap_or_default();
 
@@ -261,7 +261,7 @@ fn draw_logs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
       app.data.containers.items.len(),
       format!("-> Logs ({}) ", container_name),
     ),
-    "| copy <c> | Containers <esc>".into(),
+    "| copy <c> | Containers <esc> ".into(),
     app.light_theme,
   );
 
@@ -277,7 +277,7 @@ fn draw_logs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   }
 }
 
-fn draw_nodes_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_nodes_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   match block {
     ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
       f,
@@ -285,7 +285,7 @@ fn draw_nodes_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut Ap
       area,
       title_with_dual_style(
         get_node_title(app, get_describe_active(block)),
-        format!("{} | {} <esc>", COPY_HINT, NODES_TITLE),
+        format!("{} | {} <esc> ", COPY_HINT, NODES_TITLE),
         app.light_theme,
       ),
     ),
@@ -294,7 +294,7 @@ fn draw_nodes_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut Ap
   };
 }
 
-fn draw_nodes_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_nodes_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_node_title(app, "");
 
   draw_resource_block(
@@ -350,7 +350,12 @@ fn draw_nodes_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   );
 }
 
-fn draw_services_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_services_tab<B: Backend>(
+  block: ActiveBlock,
+  f: &mut Frame<'_, B>,
+  app: &mut App,
+  area: Rect,
+) {
   draw_resource_tab!(
     SERVICES_TITLE,
     block,
@@ -363,7 +368,7 @@ fn draw_services_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut
   );
 }
 
-fn draw_services_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_services_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, SERVICES_TITLE, "", app.data.services.items.len());
 
   draw_resource_block(
@@ -411,7 +416,7 @@ fn draw_services_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) 
 
 fn draw_config_maps_tab<B: Backend>(
   block: ActiveBlock,
-  f: &mut Frame<B>,
+  f: &mut Frame<'_, B>,
   app: &mut App,
   area: Rect,
 ) {
@@ -427,7 +432,7 @@ fn draw_config_maps_tab<B: Backend>(
   );
 }
 
-fn draw_config_maps_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_config_maps_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, CONFIG_MAPS_TITLE, "", app.data.config_maps.items.len());
 
   draw_resource_block(
@@ -461,7 +466,7 @@ fn draw_config_maps_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rec
 
 fn draw_stateful_sets_tab<B: Backend>(
   block: ActiveBlock,
-  f: &mut Frame<B>,
+  f: &mut Frame<'_, B>,
   app: &mut App,
   area: Rect,
 ) {
@@ -477,7 +482,7 @@ fn draw_stateful_sets_tab<B: Backend>(
   );
 }
 
-fn draw_stateful_sets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_stateful_sets_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, STFS_TITLE, "", app.data.stateful_sets.items.len());
 
   draw_resource_block(
@@ -513,7 +518,7 @@ fn draw_stateful_sets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: R
 
 fn draw_replica_sets_tab<B: Backend>(
   block: ActiveBlock,
-  f: &mut Frame<B>,
+  f: &mut Frame<'_, B>,
   app: &mut App,
   area: Rect,
 ) {
@@ -529,7 +534,7 @@ fn draw_replica_sets_tab<B: Backend>(
   );
 }
 
-fn draw_replica_sets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_replica_sets_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(
     app,
     REPLICA_SETS_TITLE,
@@ -572,7 +577,7 @@ fn draw_replica_sets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Re
 
 fn draw_deployments_tab<B: Backend>(
   block: ActiveBlock,
-  f: &mut Frame<B>,
+  f: &mut Frame<'_, B>,
   app: &mut App,
   area: Rect,
 ) {
@@ -588,7 +593,7 @@ fn draw_deployments_tab<B: Backend>(
   );
 }
 
-fn draw_deployments_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_deployments_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, DEPLOYMENTS_TITLE, "", app.data.deployments.items.len());
 
   draw_resource_block(
@@ -631,7 +636,7 @@ fn draw_deployments_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rec
   );
 }
 
-fn draw_jobs_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_jobs_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   draw_resource_tab!(
     JOBS_TITLE,
     block,
@@ -644,7 +649,7 @@ fn draw_jobs_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App
   );
 }
 
-fn draw_jobs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_jobs_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, JOBS_TITLE, "", app.data.jobs.items.len());
 
   draw_resource_block(
@@ -680,7 +685,7 @@ fn draw_jobs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 
 fn draw_daemon_sets_tab<B: Backend>(
   block: ActiveBlock,
-  f: &mut Frame<B>,
+  f: &mut Frame<'_, B>,
   app: &mut App,
   area: Rect,
 ) {
@@ -696,7 +701,7 @@ fn draw_daemon_sets_tab<B: Backend>(
   );
 }
 
-fn draw_daemon_sets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_daemon_sets_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, DAEMON_SETS_TITLE, "", app.data.daemon_sets.items.len());
 
   draw_resource_block(
@@ -745,7 +750,12 @@ fn draw_daemon_sets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rec
   );
 }
 
-fn draw_cronjobs_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_cronjobs_tab<B: Backend>(
+  block: ActiveBlock,
+  f: &mut Frame<'_, B>,
+  app: &mut App,
+  area: Rect,
+) {
   draw_resource_tab!(
     CRON_JOBS_TITLE,
     block,
@@ -758,7 +768,7 @@ fn draw_cronjobs_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut
   );
 }
 
-fn draw_cronjobs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_cronjobs_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, CRON_JOBS_TITLE, "", app.data.cronjobs.items.len());
 
   draw_resource_block(
@@ -804,7 +814,12 @@ fn draw_cronjobs_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) 
   );
 }
 
-fn draw_secrets_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_secrets_tab<B: Backend>(
+  block: ActiveBlock,
+  f: &mut Frame<'_, B>,
+  app: &mut App,
+  area: Rect,
+) {
   draw_resource_tab!(
     SECRETS_TITLE,
     block,
@@ -817,7 +832,7 @@ fn draw_secrets_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<B>, app: &mut 
   );
 }
 
-fn draw_secrets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_secrets_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, SECRETS_TITLE, "", app.data.secrets.items.len());
 
   draw_resource_block(
@@ -853,7 +868,7 @@ fn draw_secrets_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 
 fn draw_replication_controllers_tab<B: Backend>(
   block: ActiveBlock,
-  f: &mut Frame<B>,
+  f: &mut Frame<'_, B>,
   app: &mut App,
   area: Rect,
 ) {
@@ -869,7 +884,7 @@ fn draw_replication_controllers_tab<B: Backend>(
   );
 }
 
-fn draw_replication_controllers_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_replication_controllers_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, RPL_CTRL_TITLE, "", app.data.rpl_ctrls.items.len());
 
   draw_resource_block(
@@ -922,7 +937,12 @@ fn draw_replication_controllers_block<B: Backend>(f: &mut Frame<B>, app: &mut Ap
 }
 
 /// common for all resources
-fn draw_describe_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect, title: Spans) {
+fn draw_describe_block<B: Backend>(
+  f: &mut Frame<'_, B>,
+  app: &mut App,
+  area: Rect,
+  title: Spans<'_>,
+) {
   let block = layout_block_top_border(title);
 
   let txt = &app.data.describe_out.get_txt();
@@ -952,7 +972,7 @@ struct ResourceTableProps<'a, T> {
 
 /// Draw a kubernetes resource overview tab
 fn draw_resource_block<'a, B, T, F>(
-  f: &mut Frame<B>,
+  f: &mut Frame<'_, B>,
   area: Rect,
   table_props: ResourceTableProps<'a, T>,
   row_cell_mapper: F,
@@ -1007,7 +1027,7 @@ fn get_resource_row_style(status: &str, ready: (i32, i32)) -> Style {
 
 fn get_node_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
   format!(
-    "{} [{}] {}",
+    " {} [{}] {}",
     NODES_TITLE,
     app.data.nodes.items.len(),
     suffix.as_ref()
@@ -1016,7 +1036,7 @@ fn get_node_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
 
 fn get_resource_title<S: AsRef<str>>(app: &App, title: S, suffix: S, items_len: usize) -> String {
   format!(
-    "{} {}",
+    " {} {}",
     title_with_ns(
       title.as_ref(),
       app
@@ -1085,10 +1105,10 @@ mod tests {
       .unwrap();
 
     let mut expected = Buffer::with_lines(vec![
-        "┌Resources─────────────────────────────────────────────────────────────────────────────────────────┐",
+        "┌ Resources ───────────────────────────────────────────────────────────────────────────────────────┐",
         "│ Pods <1> │ Services <2> │ Nodes <3> │ ConfigMaps <4> │ StatefulSets <5> │ ReplicaSets <6> │ Deplo│",
         "│                                                                                                  │",
-        "│Pods (ns: all) [1] | Containers <enter> | describe <d> | yaml <y>─────────────────────────────────│",
+        "│ Pods (ns: all) [1] | Containers <enter> | describe <d> | yaml <y> ───────────────────────────────│",
         "│   Namespace                Name                               Ready     Status    Restarts  A    │",
         "│=> pod namespace test       pod name test                      0/2       Failed    0         6    │",
         "└──────────────────────────────────────────────────────────────────────────────────────────────────┘",
@@ -1097,7 +1117,7 @@ mod tests {
     // First row heading style
     for col in 0..=99 {
       match col {
-        0 | 10..=99 => {
+        0 | 12..=99 => {
           expected
             .get_mut(col, 0)
             .set_style(Style::default().fg(Color::Yellow));
@@ -1136,12 +1156,12 @@ mod tests {
     // fourth row tab header style
     for col in 0..=99 {
       match col {
-        0 | 66..=99 => {
+        0 | 68..=99 => {
           expected
             .get_mut(col, 3)
             .set_style(Style::default().fg(Color::Yellow));
         }
-        1..=19 => {
+        1..=20 => {
           expected.get_mut(col, 3).set_style(
             Style::default()
               .fg(Color::Yellow)
@@ -1324,7 +1344,7 @@ mod tests {
   #[test]
   fn test_get_node_title() {
     let app = App::default();
-    assert_eq!(get_node_title(&app, "-> hello"), "Nodes [0] -> hello");
+    assert_eq!(get_node_title(&app, "-> hello"), " Nodes [0] -> hello");
   }
 
   #[test]
@@ -1332,7 +1352,7 @@ mod tests {
     let app = App::default();
     assert_eq!(
       get_resource_title(&app, "Title", "-> hello", 5),
-      "Title (ns: all) [5] -> hello"
+      " Title (ns: all) [5] -> hello"
     );
   }
 
@@ -1341,7 +1361,7 @@ mod tests {
     let app = App::default();
     assert_eq!(
       get_container_title(&app, 3, "hello"),
-      "Pods (ns: all) [0] -> Containers [3] hello"
+      " Pods (ns: all) [0] -> Containers [3] hello"
     );
   }
 

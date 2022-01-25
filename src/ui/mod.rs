@@ -27,7 +27,7 @@ use crate::app::{App, RouteId};
 
 static HIGHLIGHT: &str = "=> ";
 
-pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
+pub fn draw<B: Backend>(f: &mut Frame<'_, B>, app: &mut App) {
   let block = Block::default().style(style_main_background(app.light_theme));
   f.render_widget(block, f.size());
 
@@ -66,7 +66,7 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
   }
 }
 
-fn draw_app_header<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_app_header<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let chunks =
     horizontal_chunks_with_margin(vec![Constraint::Length(75), Constraint::Min(0)], area, 1);
 
@@ -85,30 +85,27 @@ fn draw_app_header<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   draw_header_text(f, app, chunks[1]);
 }
 
-fn draw_header_text<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_header_text<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let text = match app.get_current_route().id {
-    RouteId::Contexts => vec![Spans::from(
-      "<up|down>: scroll context | <enter>: select context | <?> more help",
-    )],
+    RouteId::Contexts => vec![Spans::from("<↑↓> scroll | <enter> select | <?> help ")],
     RouteId::Home => vec![Spans::from(
-      "<left|right>: switch resource tabs | <char> select block | <up|down>: scroll | <enter>: select | <?> more help",
+      "<←→> switch tabs | <char> select block | <↑↓> scroll | <enter> select | <?> help ",
     )],
     RouteId::Utilization => vec![Spans::from(
-      "<up|down>: scroll | <g>: cycle through grouping | <?> more help",
+      "<↑↓> scroll | <g> cycle through grouping | <?> help ",
     )],
-    _ => vec![Spans::from("<?> more help")],
+    RouteId::HelpMenu => vec![],
   };
   let paragraph = Paragraph::new(text)
     .style(style_help())
     .block(Block::default())
-    .alignment(Alignment::Right)
-    .wrap(Wrap { trim: true });
+    .alignment(Alignment::Right);
   f.render_widget(paragraph, area);
 }
 
-fn draw_app_error<B: Backend>(f: &mut Frame<B>, app: &mut App, size: Rect) {
+fn draw_app_error<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, size: Rect) {
   let block = Block::default()
-    .title("Error | close <esc>")
+    .title(" Error | close <esc> ")
     .style(style_failure())
     .borders(Borders::ALL);
 

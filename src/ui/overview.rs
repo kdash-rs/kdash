@@ -20,7 +20,7 @@ use crate::{
   banner::BANNER,
 };
 
-pub fn draw_overview<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+pub fn draw_overview<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   if app.show_info_bar {
     let chunks = vertical_chunks(vec![Constraint::Length(9), Constraint::Min(10)], area);
     draw_status_block(f, app, chunks[0]);
@@ -30,27 +30,27 @@ pub fn draw_overview<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   }
 }
 
-fn draw_status_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_status_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let chunks = horizontal_chunks(
     vec![
-      Constraint::Length(30),
+      Constraint::Length(35),
       Constraint::Min(10),
-      Constraint::Length(40),
       Constraint::Length(30),
+      Constraint::Length(32),
     ],
     area,
   );
 
-  draw_cli_version_block(f, app, chunks[0]);
+  draw_namespaces_block(f, app, chunks[0]);
   draw_context_info_block(f, app, chunks[1]);
-  draw_namespaces_block(f, app, chunks[2]);
+  draw_cli_version_block(f, app, chunks[2]);
   draw_logo_block(f, app, chunks[3])
 }
 
-fn draw_logo_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_logo_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   // Banner text with correct styling
   let text = format!(
-    "{}\nv{} with ♥ in Rust {}",
+    "{}\n v{} with ♥ in Rust {}",
     BANNER,
     env!("CARGO_PKG_VERSION"),
     nw_loading_indicator(app.is_loading)
@@ -63,8 +63,8 @@ fn draw_logo_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
   f.render_widget(paragraph, area);
 }
 
-fn draw_cli_version_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-  let block = layout_block_default("CLI Info");
+fn draw_cli_version_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let block = layout_block_default(" CLI Info ");
   if !app.data.clis.is_empty() {
     let rows = app.data.clis.iter().map(|s| {
       let style = if s.status {
@@ -88,7 +88,7 @@ fn draw_cli_version_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rec
   }
 }
 
-fn draw_context_info_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_context_info_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let chunks = vertical_chunks_with_margin(
     vec![
       Constraint::Length(3),
@@ -99,7 +99,7 @@ fn draw_context_info_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Re
     1,
   );
 
-  let block = layout_block_default("Context Info (toggle <i>)");
+  let block = layout_block_default(" Context Info (toggle <i>) ");
 
   f.render_widget(block, area);
 
@@ -154,9 +154,9 @@ fn draw_context_info_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Re
   f.render_widget(mem_gauge, chunks[2]);
 }
 
-fn draw_namespaces_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_namespaces_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = format!(
-    "Namespaces {} (all: {})",
+    " Namespaces {} (all: {}) ",
     DEFAULT_KEYBINDING.jump_to_namespace.key, DEFAULT_KEYBINDING.select_all_namespace.key
   );
   let mut block = layout_block_default(title.as_str());
@@ -184,7 +184,7 @@ fn draw_namespaces_block<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect
       .block(block)
       .highlight_style(style_highlight())
       .highlight_symbol(HIGHLIGHT)
-      .widths(&[Constraint::Percentage(80), Constraint::Percentage(20)]);
+      .widths(&[Constraint::Length(22), Constraint::Length(6)]);
 
     f.render_stateful_widget(table, area, &mut app.data.namespaces.state);
   } else {

@@ -271,9 +271,9 @@ impl LogsState {
   /// Render the current state as a list widget
   pub fn render_list<B: Backend>(
     &mut self,
-    f: &mut Frame<B>,
+    f: &mut Frame<'_, B>,
     logs_area: Rect,
-    block: Block,
+    block: Block<'_>,
     style: Style,
     follow: bool,
   ) {
@@ -316,7 +316,7 @@ impl LogsState {
               .map(|s| s.to_string())
               .map(|c| Span::styled(c, style))
               .map(ListItem::new)
-              .collect::<Vec<ListItem>>(),
+              .collect::<Vec<ListItem<'_>>>(),
             logs_area.width,
           ));
 

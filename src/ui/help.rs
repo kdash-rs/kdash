@@ -14,7 +14,7 @@ use super::{
 };
 use crate::app::App;
 
-pub fn draw_help<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+pub fn draw_help<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let chunks = vertical_chunks(vec![Constraint::Percentage(100)], area);
 
   // Create a one-column table to avoid flickering due to non-determinism when
@@ -37,7 +37,7 @@ pub fn draw_help<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     .iter()
     .map(|item| Row::new(item.clone()).style(style_primary()));
 
-  let title = title_with_dual_style("Help ".into(), "| close <esc>".into(), app.light_theme);
+  let title = title_with_dual_style(" Help ".into(), "| close <esc> ".into(), app.light_theme);
 
   let help_menu = Table::new(rows)
     .header(Row::new(header).style(style_secondary()).bottom_margin(0))
@@ -73,7 +73,7 @@ mod tests {
       .unwrap();
 
     let mut expected = Buffer::with_lines(vec![
-        "┌Help | close <esc>────────────────────────────────────────────────────────────────────────────────┐",
+        "┌ Help | close <esc> ──────────────────────────────────────────────────────────────────────────────┐",
         "│   Key                                               Action                                  Conte│",
         "│=> <Ctrl+c> | <q>                                    Quit                                    Gener│",
         "│   <Esc>                                             Close child page/Go back                Gener│",
@@ -85,12 +85,12 @@ mod tests {
     // First row heading style
     for col in 0..=99 {
       match col {
-        0 | 19..=99 => {
+        0 | 21..=99 => {
           expected
             .get_mut(col, 0)
             .set_style(Style::default().fg(Color::Yellow));
         }
-        1..=5 => {
+        1..=6 => {
           expected.get_mut(col, 0).set_style(
             Style::default()
               .fg(Color::Yellow)
