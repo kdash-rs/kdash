@@ -23,7 +23,7 @@ pub fn draw_utilization<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: R
       .unwrap_or(&String::from("all")),
     app.utilization_group_by
   );
-  let block = layout_block_active(title.as_str());
+  let block = layout_block_active(title.as_str(), app.light_theme);
 
   if !app.data.metrics.items.is_empty() {
     let data = &app.data.metrics.items;
@@ -40,11 +40,11 @@ pub fn draw_utilization<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: R
       );
       if let Some(qtys) = oqtys {
         let style = if qtys.requested > qtys.limit || qtys.utilization > qtys.limit {
-          style_warning()
+          style_warning(app.light_theme)
         } else if is_empty(&qtys.requested) || is_empty(&qtys.limit) {
-          style_primary()
+          style_primary(app.light_theme)
         } else {
-          style_success()
+          style_success(app.light_theme)
         };
 
         let row = Row::new(vec![
@@ -85,7 +85,7 @@ pub fn draw_utilization<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: R
 
     f.render_stateful_widget(table, area, &mut app.data.metrics.state);
   } else {
-    loading(f, block, area, app.is_loading);
+    loading(f, block, area, app.is_loading, app.light_theme);
   }
 }
 

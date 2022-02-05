@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use tui::{
   backend::Backend,
   layout::{Constraint, Direction, Layout, Rect},
@@ -9,19 +11,78 @@ use tui::{
 };
 // Utils
 
-const DARK_FG_COLOR: Color = Color::White;
-const DARK_BG_COLOR: Color = Color::Rgb(35, 50, 55);
-const LIGHT_FG_COLOR: Color = Color::Magenta;
-const LIGHT_BG_COLOR: Color = Color::White;
+// default colors
+pub const COLOR_TEAL: Color = Color::Rgb(35, 50, 55);
+pub const COLOR_CYAN: Color = Color::Rgb(0, 230, 230);
+pub const COLOR_LIGHT_BLUE: Color = Color::Rgb(138, 196, 255);
+pub const COLOR_YELLOW: Color = Color::Rgb(249, 229, 113);
+pub const COLOR_GREEN: Color = Color::Rgb(72, 213, 150);
+pub const COLOR_RED: Color = Color::Rgb(249, 167, 164);
+pub const COLOR_ORANGE: Color = Color::Rgb(255, 170, 66);
+pub const COLOR_WHITE: Color = Color::Rgb(255, 255, 255);
+// light theme colors
+pub const COLOR_MAGENTA: Color = Color::Rgb(139, 0, 139);
+pub const COLOR_GRAY: Color = Color::Rgb(91, 87, 87);
+pub const COLOR_BLUE: Color = Color::Rgb(0, 82, 163);
+pub const COLOR_GREEN_DARK: Color = Color::Rgb(20, 97, 73);
+pub const COLOR_RED_DARK: Color = Color::Rgb(173, 25, 20);
+pub const COLOR_ORANGE_DARK: Color = Color::Rgb(184, 49, 15);
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub enum Styles {
+  Default,
+  Logo,
+  Failure,
+  Warning,
+  Success,
+  Primary,
+  Secondary,
+  Help,
+  Background,
+}
+
+pub fn theme_styles(light: bool) -> HashMap<Styles, Style> {
+  if light {
+    HashMap::from([
+      (Styles::Default, Style::default().fg(COLOR_GRAY)),
+      (Styles::Logo, Style::default().fg(COLOR_GREEN_DARK)),
+      (Styles::Failure, Style::default().fg(COLOR_RED_DARK)),
+      (Styles::Warning, Style::default().fg(COLOR_ORANGE_DARK)),
+      (Styles::Success, Style::default().fg(COLOR_GREEN_DARK)),
+      (Styles::Primary, Style::default().fg(COLOR_BLUE)),
+      (Styles::Secondary, Style::default().fg(COLOR_MAGENTA)),
+      (Styles::Help, Style::default().fg(COLOR_BLUE)),
+      (
+        Styles::Background,
+        Style::default().bg(COLOR_WHITE).fg(COLOR_GRAY),
+      ),
+    ])
+  } else {
+    HashMap::from([
+      (Styles::Default, Style::default().fg(COLOR_WHITE)),
+      (Styles::Logo, Style::default().fg(COLOR_GREEN)),
+      (Styles::Failure, Style::default().fg(COLOR_RED)),
+      (Styles::Warning, Style::default().fg(COLOR_ORANGE)),
+      (Styles::Success, Style::default().fg(COLOR_GREEN)),
+      (Styles::Primary, Style::default().fg(COLOR_CYAN)),
+      (Styles::Secondary, Style::default().fg(COLOR_YELLOW)),
+      (Styles::Help, Style::default().fg(COLOR_LIGHT_BLUE)),
+      (
+        Styles::Background,
+        Style::default().bg(COLOR_TEAL).fg(COLOR_WHITE),
+      ),
+    ])
+  }
+}
 
 pub fn title_style(txt: &str) -> Span<'_> {
   Span::styled(txt, style_bold())
 }
 
-pub fn title_style_logo(txt: &str) -> Span<'_> {
+pub fn title_style_logo(txt: &str, light: bool) -> Span<'_> {
   Span::styled(
     txt,
-    style_logo()
+    style_logo(light)
       .add_modifier(Modifier::BOLD)
       .add_modifier(Modifier::ITALIC),
   )
@@ -32,43 +93,37 @@ pub fn style_bold() -> Style {
 }
 
 pub fn style_default(light: bool) -> Style {
-  if light {
-    Style::default().fg(LIGHT_FG_COLOR)
-  } else {
-    Style::default().fg(DARK_FG_COLOR)
-  }
+  *theme_styles(light).get(&Styles::Default).unwrap()
 }
-pub fn style_logo() -> Style {
-  Style::default().fg(Color::Green)
+pub fn style_logo(light: bool) -> Style {
+  *theme_styles(light).get(&Styles::Logo).unwrap()
 }
-pub fn style_failure() -> Style {
-  Style::default().fg(Color::Red)
+pub fn style_failure(light: bool) -> Style {
+  *theme_styles(light).get(&Styles::Failure).unwrap()
 }
-pub fn style_warning() -> Style {
-  Style::default().fg(Color::LightYellow)
+pub fn style_warning(light: bool) -> Style {
+  *theme_styles(light).get(&Styles::Warning).unwrap()
 }
-pub fn style_success() -> Style {
-  Style::default().fg(Color::Green)
+pub fn style_success(light: bool) -> Style {
+  *theme_styles(light).get(&Styles::Success).unwrap()
 }
-pub fn style_highlight() -> Style {
-  Style::default().add_modifier(Modifier::REVERSED)
+pub fn style_primary(light: bool) -> Style {
+  *theme_styles(light).get(&Styles::Primary).unwrap()
 }
-pub fn style_primary() -> Style {
-  Style::default().fg(Color::Cyan)
-}
-pub fn style_help() -> Style {
-  Style::default().fg(Color::LightBlue)
+pub fn style_help(light: bool) -> Style {
+  *theme_styles(light).get(&Styles::Help).unwrap()
 }
 
-pub fn style_secondary() -> Style {
-  Style::default().fg(Color::Yellow)
+pub fn style_secondary(light: bool) -> Style {
+  *theme_styles(light).get(&Styles::Secondary).unwrap()
 }
 
 pub fn style_main_background(light: bool) -> Style {
-  match light {
-    true => Style::default().bg(LIGHT_BG_COLOR).fg(LIGHT_FG_COLOR),
-    false => Style::default().bg(DARK_BG_COLOR).fg(DARK_FG_COLOR),
-  }
+  *theme_styles(light).get(&Styles::Background).unwrap()
+}
+
+pub fn style_highlight() -> Style {
+  Style::default().add_modifier(Modifier::REVERSED)
 }
 
 pub fn get_gauge_style(enhanced_graphics: bool) -> symbols::line::Set {
@@ -129,15 +184,15 @@ pub fn layout_block_default(title: &str) -> Block<'_> {
   layout_block(title_style(title))
 }
 
-pub fn layout_block_active(title: &str) -> Block<'_> {
-  layout_block(title_style(title)).style(style_secondary())
+pub fn layout_block_active(title: &str, light: bool) -> Block<'_> {
+  layout_block(title_style(title)).style(style_secondary(light))
 }
 
-pub fn layout_block_active_span(title: Spans<'_>) -> Block<'_> {
+pub fn layout_block_active_span(title: Spans<'_>, light: bool) -> Block<'_> {
   Block::default()
     .borders(Borders::ALL)
     .title(title)
-    .style(style_secondary())
+    .style(style_secondary(light))
 }
 
 pub fn layout_block_top_border(title: Spans<'_>) -> Block<'_> {
@@ -146,7 +201,7 @@ pub fn layout_block_top_border(title: Spans<'_>) -> Block<'_> {
 
 pub fn title_with_dual_style<'a>(part_1: String, part_2: String, light: bool) -> Spans<'a> {
   Spans::from(vec![
-    Span::styled(part_1, style_secondary().add_modifier(Modifier::BOLD)),
+    Span::styled(part_1, style_secondary(light).add_modifier(Modifier::BOLD)),
     Span::styled(part_2, style_default(light).add_modifier(Modifier::BOLD)),
   ])
 }
@@ -188,14 +243,22 @@ pub fn centered_rect(width: u16, height: u16, r: Rect) -> Rect {
     .split(popup_layout[1])[1]
 }
 
-pub fn loading<B: Backend>(f: &mut Frame<'_, B>, block: Block<'_>, area: Rect, is_loading: bool) {
+pub fn loading<B: Backend>(
+  f: &mut Frame<'_, B>,
+  block: Block<'_>,
+  area: Rect,
+  is_loading: bool,
+  light: bool,
+) {
   if is_loading {
     let text = "\n\n Loading ...\n\n".to_owned();
     let mut text = Text::from(text);
-    text.patch_style(style_secondary());
+    text.patch_style(style_secondary(light));
 
     // Contains the text
-    let paragraph = Paragraph::new(text).style(style_secondary()).block(block);
+    let paragraph = Paragraph::new(text)
+      .style(style_secondary(light))
+      .block(block);
     f.render_widget(paragraph, area);
   } else {
     f.render_widget(block, area)

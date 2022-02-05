@@ -41,7 +41,7 @@ pub fn draw_resource_tabs_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App,
 
   let mut block = layout_block_default(" Resources ");
   if app.get_current_route().active_block != ActiveBlock::Namespaces {
-    block = block.style(style_secondary())
+    block = block.style(style_secondary(app.light_theme))
   }
 
   let titles = app
@@ -52,7 +52,7 @@ pub fn draw_resource_tabs_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App,
     .collect();
   let tabs = Tabs::new(titles)
     .block(block)
-    .highlight_style(style_secondary())
+    .highlight_style(style_secondary(app.light_theme))
     .select(app.context_tabs.index);
 
   f.render_widget(tabs, area);
@@ -182,7 +182,7 @@ fn draw_pods_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) 
       ],
     },
     |c| {
-      let style = get_resource_row_style(c.status.as_str(), c.ready);
+      let style = get_resource_row_style(c.status.as_str(), c.ready, app.light_theme);
       Row::new(vec![
         Cell::from(c.namespace.to_owned()),
         Cell::from(c.name.to_owned()),
@@ -232,7 +232,7 @@ fn draw_containers_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: 
       ],
     },
     |c| {
-      let style = get_resource_row_style(c.status.as_str(), (0, 0));
+      let style = get_resource_row_style(c.status.as_str(), (0, 0), app.light_theme);
       Row::new(vec![
         Cell::from(c.name.to_owned()),
         Cell::from(c.image.to_owned()),
@@ -268,12 +268,15 @@ fn draw_logs_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) 
   let block = layout_block_top_border(title);
 
   if container_name == app.data.logs.id {
-    app
-      .data
-      .logs
-      .render_list(f, area, block, style_primary(), app.log_auto_scroll);
+    app.data.logs.render_list(
+      f,
+      area,
+      block,
+      style_primary(app.light_theme),
+      app.log_auto_scroll,
+    );
   } else {
-    loading(f, block, area, app.is_loading);
+    loading(f, block, area, app.is_loading, app.light_theme);
   }
 }
 
@@ -325,9 +328,9 @@ fn draw_nodes_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect)
     },
     |c| {
       let style = if c.status != "Ready" {
-        style_failure()
+        style_failure(app.light_theme)
       } else {
-        style_primary()
+        style_primary(app.light_theme)
       };
       Row::new(vec![
         Cell::from(c.name.to_owned()),
@@ -407,7 +410,7 @@ fn draw_services_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Re
         Cell::from(c.ports.to_owned()),
         Cell::from(c.age.to_owned()),
       ])
-      .style(style_primary())
+      .style(style_primary(app.light_theme))
     },
     app.light_theme,
     app.is_loading,
@@ -457,7 +460,7 @@ fn draw_config_maps_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area:
         Cell::from(c.data.len().to_string()),
         Cell::from(c.age.to_owned()),
       ])
-      .style(style_primary())
+      .style(style_primary(app.light_theme))
     },
     app.light_theme,
     app.is_loading,
@@ -509,7 +512,7 @@ fn draw_stateful_sets_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, are
         Cell::from(c.service.to_owned()),
         Cell::from(c.age.to_owned()),
       ])
-      .style(style_primary())
+      .style(style_primary(app.light_theme))
     },
     app.light_theme,
     app.is_loading,
@@ -568,7 +571,7 @@ fn draw_replica_sets_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area
         Cell::from(c.ready.to_string()),
         Cell::from(c.age.to_owned()),
       ])
-      .style(style_primary())
+      .style(style_primary(app.light_theme))
     },
     app.light_theme,
     app.is_loading,
@@ -629,7 +632,7 @@ fn draw_deployments_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area:
         Cell::from(c.available.to_string()),
         Cell::from(c.age.to_owned()),
       ])
-      .style(style_primary())
+      .style(style_primary(app.light_theme))
     },
     app.light_theme,
     app.is_loading,
@@ -676,7 +679,7 @@ fn draw_jobs_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) 
         Cell::from(c.duration.to_string()),
         Cell::from(c.age.to_owned()),
       ])
-      .style(style_primary())
+      .style(style_primary(app.light_theme))
     },
     app.light_theme,
     app.is_loading,
@@ -743,7 +746,7 @@ fn draw_daemon_sets_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area:
         Cell::from(c.available.to_string()),
         Cell::from(c.age.to_owned()),
       ])
-      .style(style_primary())
+      .style(style_primary(app.light_theme))
     },
     app.light_theme,
     app.is_loading,
@@ -807,7 +810,7 @@ fn draw_cronjobs_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Re
         Cell::from(c.active.to_string()),
         Cell::from(c.age.to_owned()),
       ])
-      .style(style_primary())
+      .style(style_primary(app.light_theme))
     },
     app.light_theme,
     app.is_loading,
@@ -859,7 +862,7 @@ fn draw_secrets_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rec
         Cell::from(c.data.len().to_string()),
         Cell::from(c.age.to_owned()),
       ])
-      .style(style_primary())
+      .style(style_primary(app.light_theme))
     },
     app.light_theme,
     app.is_loading,
@@ -929,7 +932,7 @@ fn draw_replication_controllers_block<B: Backend>(f: &mut Frame<'_, B>, app: &mu
         Cell::from(c.selector.to_owned()),
         Cell::from(c.age.to_owned()),
       ])
-      .style(style_primary())
+      .style(style_primary(app.light_theme))
     },
     app.light_theme,
     app.is_loading,
@@ -948,7 +951,7 @@ fn draw_describe_block<B: Backend>(
   let txt = &app.data.describe_out.get_txt();
   if !txt.is_empty() {
     let mut txt = Text::from(txt.clone());
-    txt.patch_style(style_primary());
+    txt.patch_style(style_primary(app.light_theme));
 
     let paragraph = Paragraph::new(txt)
       .block(block)
@@ -956,7 +959,7 @@ fn draw_describe_block<B: Backend>(
       .scroll((app.data.describe_out.offset, 0));
     f.render_widget(paragraph, area);
   } else {
-    loading(f, block, area, app.is_loading);
+    loading(f, block, area, app.is_loading, app.light_theme);
   }
 }
 
@@ -1002,15 +1005,15 @@ fn draw_resource_block<'a, B, T, F>(
 
     f.render_stateful_widget(table, area, &mut table_props.resource.state);
   } else {
-    loading(f, block, area, is_loading);
+    loading(f, block, area, is_loading, light_theme);
   }
 }
 
-fn get_resource_row_style(status: &str, ready: (i32, i32)) -> Style {
+fn get_resource_row_style(status: &str, ready: (i32, i32), light: bool) -> Style {
   if status == "Running" && ready.0 == ready.1 {
-    style_primary()
+    style_primary(light)
   } else if status == "Completed" {
-    style_success()
+    style_success(light)
   } else if [
     "ContainerCreating",
     "PodInitializing",
@@ -1019,9 +1022,9 @@ fn get_resource_row_style(status: &str, ready: (i32, i32)) -> Style {
   ]
   .contains(&status)
   {
-    style_secondary()
+    style_secondary(light)
   } else {
-    style_failure()
+    style_failure(light)
   }
 }
 
@@ -1074,15 +1077,13 @@ fn get_describe_active<'a>(block: ActiveBlock) -> &'a str {
 
 #[cfg(test)]
 mod tests {
-  use tui::{
-    backend::TestBackend,
-    buffer::Buffer,
-    style::{Color, Modifier},
-    Terminal,
-  };
+  use tui::{backend::TestBackend, buffer::Buffer, style::Modifier, Terminal};
 
   use super::*;
-  use crate::app::pods::KubePod;
+  use crate::{
+    app::pods::KubePod,
+    ui::utils::{COLOR_CYAN, COLOR_RED, COLOR_WHITE, COLOR_YELLOW},
+  };
 
   #[test]
   fn test_draw_resource_tabs_block() {
@@ -1120,12 +1121,12 @@ mod tests {
         0 | 12..=99 => {
           expected
             .get_mut(col, 0)
-            .set_style(Style::default().fg(Color::Yellow));
+            .set_style(Style::default().fg(COLOR_YELLOW));
         }
         _ => {
           expected.get_mut(col, 0).set_style(
             Style::default()
-              .fg(Color::Yellow)
+              .fg(COLOR_YELLOW)
               .add_modifier(Modifier::BOLD),
           );
         }
@@ -1137,12 +1138,12 @@ mod tests {
         0..=12 | 25..=27 | 37..=39 | 54..=56 | 73..=75 | 91..=93 | 99 => {
           expected
             .get_mut(col, 1)
-            .set_style(Style::default().fg(Color::Yellow));
+            .set_style(Style::default().fg(COLOR_YELLOW));
         }
         _ => {
           expected
             .get_mut(col, 1)
-            .set_style(Style::default().fg(Color::White));
+            .set_style(Style::default().fg(COLOR_WHITE));
         }
       }
     }
@@ -1150,7 +1151,7 @@ mod tests {
     for col in 0..=99 {
       expected
         .get_mut(col, 2)
-        .set_style(Style::default().fg(Color::Yellow));
+        .set_style(Style::default().fg(COLOR_YELLOW));
     }
 
     // fourth row tab header style
@@ -1159,19 +1160,19 @@ mod tests {
         0 | 68..=99 => {
           expected
             .get_mut(col, 3)
-            .set_style(Style::default().fg(Color::Yellow));
+            .set_style(Style::default().fg(COLOR_YELLOW));
         }
         1..=20 => {
           expected.get_mut(col, 3).set_style(
             Style::default()
-              .fg(Color::Yellow)
+              .fg(COLOR_YELLOW)
               .add_modifier(Modifier::BOLD),
           );
         }
         _ => {
           expected.get_mut(col, 3).set_style(
             Style::default()
-              .fg(Color::White)
+              .fg(COLOR_WHITE)
               .add_modifier(Modifier::BOLD),
           );
         }
@@ -1183,12 +1184,12 @@ mod tests {
         1..=98 => {
           expected
             .get_mut(col, 4)
-            .set_style(Style::default().fg(Color::White));
+            .set_style(Style::default().fg(COLOR_WHITE));
         }
         _ => {
           expected
             .get_mut(col, 4)
-            .set_style(Style::default().fg(Color::Yellow));
+            .set_style(Style::default().fg(COLOR_YELLOW));
         }
       }
     }
@@ -1198,14 +1199,14 @@ mod tests {
         1..=98 => {
           expected.get_mut(col, 5).set_style(
             Style::default()
-              .fg(Color::Red)
+              .fg(COLOR_RED)
               .add_modifier(Modifier::REVERSED),
           );
         }
         _ => {
           expected
             .get_mut(col, 5)
-            .set_style(Style::default().fg(Color::Yellow));
+            .set_style(Style::default().fg(COLOR_YELLOW));
         }
       }
     }
@@ -1214,7 +1215,7 @@ mod tests {
     for col in 0..=99 {
       expected
         .get_mut(col, 6)
-        .set_style(Style::default().fg(Color::Yellow));
+        .set_style(Style::default().fg(COLOR_YELLOW));
     }
 
     terminal.backend().assert_buffer(&expected);
@@ -1277,7 +1278,7 @@ mod tests {
               Cell::from(c.data.to_string()),
               Cell::from(c.age.to_owned()),
             ])
-            .style(style_primary())
+            .style(style_primary(false))
           },
           false,
           false,
@@ -1300,14 +1301,14 @@ mod tests {
         0..=3 => {
           expected.get_mut(col, 0).set_style(
             Style::default()
-              .fg(Color::Yellow)
+              .fg(COLOR_YELLOW)
               .add_modifier(Modifier::BOLD),
           );
         }
         4..=14 => {
           expected.get_mut(col, 0).set_style(
             Style::default()
-              .fg(Color::White)
+              .fg(COLOR_WHITE)
               .add_modifier(Modifier::BOLD),
           );
         }
@@ -1319,13 +1320,13 @@ mod tests {
     for col in 0..=99 {
       expected
         .get_mut(col, 1)
-        .set_style(Style::default().fg(Color::White));
+        .set_style(Style::default().fg(COLOR_WHITE));
     }
     // first table data row style
     for col in 0..=99 {
       expected.get_mut(col, 2).set_style(
         Style::default()
-          .fg(Color::Cyan)
+          .fg(COLOR_CYAN)
           .add_modifier(Modifier::REVERSED),
       );
     }
@@ -1334,7 +1335,7 @@ mod tests {
       for col in 0..=99 {
         expected
           .get_mut(col, row)
-          .set_style(Style::default().fg(Color::Cyan));
+          .set_style(Style::default().fg(COLOR_CYAN));
       }
     }
 

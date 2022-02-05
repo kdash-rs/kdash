@@ -16,14 +16,14 @@ use crate::app::App;
 
 pub fn draw_contexts<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = format!(" Contexts [{}] ", app.data.contexts.items.len());
-  let block = layout_block_active(title.as_str());
+  let block = layout_block_active(title.as_str(), app.light_theme);
 
   if !app.data.contexts.items.is_empty() {
     let rows = app.data.contexts.items.iter().map(|c| {
       let style = if c.is_active {
-        style_secondary()
+        style_secondary(app.light_theme)
       } else {
-        style_primary()
+        style_primary(app.light_theme)
       };
       Row::new(vec![
         Cell::from(c.name.as_ref()),
@@ -49,6 +49,6 @@ pub fn draw_contexts<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect
 
     f.render_stateful_widget(table, area, &mut app.data.contexts.state);
   } else {
-    loading(f, block, area, app.is_loading);
+    loading(f, block, area, app.is_loading, app.light_theme);
   }
 }

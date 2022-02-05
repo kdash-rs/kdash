@@ -35,13 +35,17 @@ pub fn draw_help<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
 
   let rows = help_docs
     .iter()
-    .map(|item| Row::new(item.clone()).style(style_primary()));
+    .map(|item| Row::new(item.clone()).style(style_primary(app.light_theme)));
 
   let title = title_with_dual_style(" Help ".into(), "| close <esc> ".into(), app.light_theme);
 
   let help_menu = Table::new(rows)
-    .header(Row::new(header).style(style_secondary()).bottom_margin(0))
-    .block(layout_block_active_span(title))
+    .header(
+      Row::new(header)
+        .style(style_secondary(app.light_theme))
+        .bottom_margin(0),
+    )
+    .block(layout_block_active_span(title, app.light_theme))
     .highlight_style(style_highlight())
     .highlight_symbol(HIGHLIGHT)
     .widths(&[Constraint::Percentage(100)]);
@@ -53,11 +57,12 @@ mod tests {
   use tui::{
     backend::TestBackend,
     buffer::Buffer,
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     Terminal,
   };
 
   use super::*;
+  use crate::ui::utils::{COLOR_CYAN, COLOR_WHITE, COLOR_YELLOW};
 
   #[test]
   fn test_draw_help() {
@@ -88,19 +93,19 @@ mod tests {
         0 | 21..=99 => {
           expected
             .get_mut(col, 0)
-            .set_style(Style::default().fg(Color::Yellow));
+            .set_style(Style::default().fg(COLOR_YELLOW));
         }
         1..=6 => {
           expected.get_mut(col, 0).set_style(
             Style::default()
-              .fg(Color::Yellow)
+              .fg(COLOR_YELLOW)
               .add_modifier(Modifier::BOLD),
           );
         }
         _ => {
           expected.get_mut(col, 0).set_style(
             Style::default()
-              .fg(Color::White)
+              .fg(COLOR_WHITE)
               .add_modifier(Modifier::BOLD),
           );
         }
@@ -111,7 +116,7 @@ mod tests {
     for col in 0..=99 {
       expected
         .get_mut(col, 1)
-        .set_style(Style::default().fg(Color::Yellow));
+        .set_style(Style::default().fg(COLOR_YELLOW));
     }
 
     // first table data row style
@@ -120,14 +125,14 @@ mod tests {
         1..=98 => {
           expected.get_mut(col, 2).set_style(
             Style::default()
-              .fg(Color::Cyan)
+              .fg(COLOR_CYAN)
               .add_modifier(Modifier::REVERSED),
           );
         }
         _ => {
           expected
             .get_mut(col, 2)
-            .set_style(Style::default().fg(Color::Yellow));
+            .set_style(Style::default().fg(COLOR_YELLOW));
         }
       }
     }
@@ -139,12 +144,12 @@ mod tests {
           1..=98 => {
             expected
               .get_mut(col, row)
-              .set_style(Style::default().fg(Color::Cyan));
+              .set_style(Style::default().fg(COLOR_CYAN));
           }
           _ => {
             expected
               .get_mut(col, row)
-              .set_style(Style::default().fg(Color::Yellow));
+              .set_style(Style::default().fg(COLOR_YELLOW));
           }
         }
       }
@@ -154,7 +159,7 @@ mod tests {
     for col in 0..=99 {
       expected
         .get_mut(col, 6)
-        .set_style(Style::default().fg(Color::Yellow));
+        .set_style(Style::default().fg(COLOR_YELLOW));
     }
 
     terminal.backend().assert_buffer(&expected);

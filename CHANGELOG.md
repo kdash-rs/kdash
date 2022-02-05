@@ -5,6 +5,8 @@
 ## [0.2.8] - 2022-02-05
 
 - UI updates (https://github.com/kdash-rs/kdash/pull/157)
+- Fix stack overflow error (https://github.com/kdash-rs/kdash/issues/160)
+- Color contrast improvements (fix https://github.com/kdash-rs/kdash/issues/162)
 
 ## [0.2.7] - 2022-01-20
 

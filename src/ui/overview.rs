@@ -56,7 +56,7 @@ fn draw_logo_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) 
     nw_loading_indicator(app.is_loading)
   );
   let mut text = Text::from(text);
-  text.patch_style(style_logo());
+  text.patch_style(style_logo(app.light_theme));
 
   // Contains the banner
   let paragraph = Paragraph::new(text).block(Block::default().borders(Borders::ALL));
@@ -68,9 +68,9 @@ fn draw_cli_version_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area:
   if !app.data.clis.is_empty() {
     let rows = app.data.clis.iter().map(|s| {
       let style = if s.status {
-        style_primary()
+        style_primary(app.light_theme)
       } else {
-        style_failure()
+        style_failure(app.light_theme)
       };
       Row::new(vec![
         Cell::from(s.name.as_ref()),
@@ -84,7 +84,7 @@ fn draw_cli_version_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area:
       .widths(&[Constraint::Percentage(50), Constraint::Percentage(50)]);
     f.render_widget(table, area);
   } else {
-    loading(f, block, area, app.is_loading);
+    loading(f, block, area, app.is_loading, app.light_theme);
   }
 }
 
@@ -108,22 +108,22 @@ fn draw_context_info_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area
       vec![
         Spans::from(vec![
           Span::styled("Context: ", style_default(app.light_theme)),
-          Span::styled(&active_context.name, style_primary()),
+          Span::styled(&active_context.name, style_primary(app.light_theme)),
         ]),
         Spans::from(vec![
           Span::styled("Cluster: ", style_default(app.light_theme)),
-          Span::styled(&active_context.cluster, style_primary()),
+          Span::styled(&active_context.cluster, style_primary(app.light_theme)),
         ]),
         Spans::from(vec![
           Span::styled("User: ", style_default(app.light_theme)),
-          Span::styled(&active_context.user, style_primary()),
+          Span::styled(&active_context.user, style_primary(app.light_theme)),
         ]),
       ]
     }
     None => {
       vec![Spans::from(Span::styled(
         "Context information not found",
-        style_failure(),
+        style_failure(app.light_theme),
       ))]
     }
   };
@@ -136,7 +136,7 @@ fn draw_context_info_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area
 
   let cpu_gauge = LineGauge::default()
     .block(Block::default().title("CPU:"))
-    .gauge_style(style_primary())
+    .gauge_style(style_primary(app.light_theme))
     .line_set(get_gauge_style(app.enhanced_graphics))
     .ratio(limited_ratio)
     .label(Spans::from(format!("{:.0}%", ratio * 100.0)));
@@ -147,7 +147,7 @@ fn draw_context_info_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area
 
   let mem_gauge = LineGauge::default()
     .block(Block::default().title("Memory:"))
-    .gauge_style(style_primary())
+    .gauge_style(style_primary(app.light_theme))
     .line_set(get_gauge_style(app.enhanced_graphics))
     .ratio(limited_ratio)
     .label(Spans::from(format!("{:.0}%", ratio * 100.0)));
@@ -162,15 +162,15 @@ fn draw_namespaces_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: 
   let mut block = layout_block_default(title.as_str());
 
   if app.get_current_route().active_block == ActiveBlock::Namespaces {
-    block = block.style(style_secondary())
+    block = block.style(style_secondary(app.light_theme))
   }
 
   if !app.data.namespaces.items.is_empty() {
     let rows = app.data.namespaces.items.iter().map(|s| {
       let style = if Some(s.name.clone()) == app.data.selected.ns {
-        style_secondary()
+        style_secondary(app.light_theme)
       } else {
-        style_primary()
+        style_primary(app.light_theme)
       };
       Row::new(vec![
         Cell::from(s.name.as_ref()),
@@ -188,7 +188,7 @@ fn draw_namespaces_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: 
 
     f.render_stateful_widget(table, area, &mut app.data.namespaces.state);
   } else {
-    loading(f, block, area, app.is_loading);
+    loading(f, block, area, app.is_loading, app.light_theme);
   }
 }
 

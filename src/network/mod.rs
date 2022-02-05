@@ -48,7 +48,7 @@ async fn refresh_kube_config(context: &Option<String>) -> Result<kube::Client> {
   if out.is_err() {
     return Err(anyhow!("Running `kubectl cluster-info` failed",));
   }
-  Ok(get_client(context.to_owned()).await?)
+  get_client(context.to_owned()).await
 }
 
 pub async fn get_client(context: Option<String>) -> Result<kube::Client> {

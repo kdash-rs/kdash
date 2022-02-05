@@ -77,8 +77,8 @@ fn draw_app_header<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) 
     .map(|t| Spans::from(Span::styled(&t.title, style_default(app.light_theme))))
     .collect();
   let tabs = Tabs::new(titles)
-    .block(layout_block(title_style_logo(app.title)))
-    .highlight_style(style_secondary())
+    .block(layout_block(title_style_logo(app.title, app.light_theme)))
+    .highlight_style(style_secondary(app.light_theme))
     .select(app.main_tabs.index);
 
   f.render_widget(tabs, area);
@@ -97,7 +97,7 @@ fn draw_header_text<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect)
     RouteId::HelpMenu => vec![],
   };
   let paragraph = Paragraph::new(text)
-    .style(style_help())
+    .style(style_help(app.light_theme))
     .block(Block::default())
     .alignment(Alignment::Right);
   f.render_widget(paragraph, area);
@@ -106,14 +106,14 @@ fn draw_header_text<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect)
 fn draw_app_error<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, size: Rect) {
   let block = Block::default()
     .title(" Error | close <esc> ")
-    .style(style_failure())
+    .style(style_failure(app.light_theme))
     .borders(Borders::ALL);
 
   let mut text = Text::from(app.api_error.clone());
-  text.patch_style(style_failure());
+  text.patch_style(style_failure(app.light_theme));
 
   let paragraph = Paragraph::new(text)
-    .style(style_primary())
+    .style(style_primary(app.light_theme))
     .block(block)
     .wrap(Wrap { trim: true });
   f.render_widget(paragraph, size);
