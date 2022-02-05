@@ -202,3 +202,4 @@ MIT
 
 - [Asha Somayajula](https://github.com/somayaj)
 - [Tobias de Bruijn](https://github.com/TheDutchMC)
+- [Omid Rad](https://github.com/omid)
