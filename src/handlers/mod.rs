@@ -142,7 +142,9 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         _ if key == DEFAULT_KEYBINDING.select_all_namespace.key => app.data.selected.ns = None,
         _ if key == DEFAULT_KEYBINDING.jump_to_namespace.key => {
-          app.push_navigation_stack(RouteId::Home, ActiveBlock::Namespaces);
+          if app.get_current_route().active_block != ActiveBlock::Namespaces {
+            app.push_navigation_stack(RouteId::Home, ActiveBlock::Namespaces);
+          }
         }
         // as these are tabs with index the order here matters, atleast for readability
         _ if key == DEFAULT_KEYBINDING.jump_to_pods.key => {

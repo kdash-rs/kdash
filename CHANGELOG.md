@@ -2,7 +2,9 @@
 
 ## Unreleased - 2022-XX-YY
 
-- Some UI updates (https://github.com/kdash-rs/kdash/pull/157)
+## [0.2.8] - 2022-02-05
+
+- UI updates (https://github.com/kdash-rs/kdash/pull/157)
 
 ## [0.2.7] - 2022-01-20
 
