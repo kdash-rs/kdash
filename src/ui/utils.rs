@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use tui::{
   backend::Backend,
@@ -28,7 +28,7 @@ pub const COLOR_GREEN_DARK: Color = Color::Rgb(20, 97, 73);
 pub const COLOR_RED_DARK: Color = Color::Rgb(173, 25, 20);
 pub const COLOR_ORANGE_DARK: Color = Color::Rgb(184, 49, 15);
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Styles {
   Default,
   Logo,
@@ -41,9 +41,9 @@ pub enum Styles {
   Background,
 }
 
-pub fn theme_styles(light: bool) -> HashMap<Styles, Style> {
+pub fn theme_styles(light: bool) -> BTreeMap<Styles, Style> {
   if light {
-    HashMap::from([
+    BTreeMap::from([
       (Styles::Default, Style::default().fg(COLOR_GRAY)),
       (Styles::Logo, Style::default().fg(COLOR_GREEN_DARK)),
       (Styles::Failure, Style::default().fg(COLOR_RED_DARK)),
@@ -58,7 +58,7 @@ pub fn theme_styles(light: bool) -> HashMap<Styles, Style> {
       ),
     ])
   } else {
-    HashMap::from([
+    BTreeMap::from([
       (Styles::Default, Style::default().fg(COLOR_WHITE)),
       (Styles::Logo, Style::default().fg(COLOR_GREEN)),
       (Styles::Failure, Style::default().fg(COLOR_RED)),
