@@ -18,7 +18,7 @@
 
 A simple terminal dashboard for Kubernetes built with Rust
 
-![UI](./screenshots/ui.gif)
+![UI](screenshots/ui.gif)
 
 ## Installation
 
@@ -55,18 +55,18 @@ Since validation of the package takes forever, it may take a long while to becom
 choco install kdash
 
 # Version number may be required for newer releases, if available:
-choco install kdash --version=0.1.0
+choco install kdash --version=0.2.7
 ```
 
 To upgrade
 
 ```bash
-choco upgrade kdash --version=0.1.0
+choco upgrade kdash --version=0.2.7
 ```
 
 ### Install script
 
-Run the below command to install the latest binary. Run with sudo if you dont have write access to /usr/local/bin. Else the script will install to current directory
+Run the below command to install the latest binary. Run with sudo if you don't have write access to /usr/local/bin. Else the script will install to current directory
 
 ```sh
 curl https://raw.githubusercontent.com/kdash-rs/kdash/main/deployment/getLatest.sh | bash
@@ -152,23 +152,23 @@ Press `?` while running the app to see keybindings
 
 ### Overview screen
 
-![UI](./screenshots/overview.png)
+![UI](screenshots/overview.png)
 
 ### Container logs screen (light theme)
 
-![UI](./screenshots/logs.png)
+![UI](screenshots/logs.png)
 
 ### Pod describe screen (light theme)
 
-![UI](./screenshots/describe.png)
+![UI](screenshots/describe.png)
 
 ### Contexts screen
 
-![UI](./screenshots/contexts.png)
+![UI](screenshots/contexts.png)
 
 ### Utilization screen
 
-![UI](./screenshots/utilization.png)
+![UI](screenshots/utilization.png)
 
 ## Libraries used
 
