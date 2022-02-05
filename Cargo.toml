@@ -33,7 +33,7 @@ backtrace = "0.3"
 textwrap = "0.14"
 regex = "1"
 clipboard = "0.5"
-kube = "0.60.0"
+kube = "0.68.0"
 k8s-openapi = { version = "0.13.1", default-features = false, features = ["v1_20"] }
 openssl = { version = "0.10.38", features = ["vendored"] }
 human-panic = "1.0"
