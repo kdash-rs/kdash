@@ -2,6 +2,10 @@
 
 ## Unreleased - 2022-XX-YY
 
+## [0.3.1] - 2022-04-06
+
+- Upgrade libraries trying to fix cargo install issue
+
 ## [0.3.0] - 2022-02-05
 
 - UI updates (https://github.com/kdash-rs/kdash/pull/157)

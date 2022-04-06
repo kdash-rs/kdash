@@ -102,6 +102,9 @@ If you have Cargo installed then you install KDash from crates.io
 
 ```bash
 cargo install kdash
+
+# if you face issues with k8s-openapi crate try the below
+cargo install --locked kdash
 ```
 
 > Note: On Debian/Ubuntu you might need to install `libxcb-xfixes0-dev` and `libxcb-shape0-dev`. On Fedora `libxcb` and `libxcb-devel` would be needed.
