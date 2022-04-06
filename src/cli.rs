@@ -1,4 +1,4 @@
-use clap::{App as ClapApp, Arg};
+use clap::{Arg, Command};
 
 use super::banner::BANNER;
 
@@ -22,8 +22,8 @@ impl Cli {
   }
 
   /// create a new clapapp instance
-  pub fn get_clap_app<'a>(&mut self) -> ClapApp<'a> {
-    ClapApp::new(env!("CARGO_PKG_NAME"))
+  pub fn get_clap_app<'a>(&mut self) -> Command<'a> {
+    Command::new(env!("CARGO_PKG_NAME"))
       .version(env!("CARGO_PKG_VERSION"))
       .author(env!("CARGO_PKG_AUTHORS"))
       .about(env!("CARGO_PKG_DESCRIPTION"))
