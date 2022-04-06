@@ -30,7 +30,7 @@ tokio-stream = { version = "0.1.8", features = ["time"] }
 duct = "0.13"
 anyhow = "1.0"
 backtrace = "0.3"
-textwrap = "0.14"
+textwrap = "0.15"
 regex = "1"
 clipboard = "0.5"
 kube = "0.60.0"
