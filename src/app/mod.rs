@@ -14,9 +14,11 @@ pub(crate) mod replicasets;
 pub(crate) mod replication_controllers;
 pub(crate) mod secrets;
 pub(crate) mod statefulsets;
+pub(crate) mod storageclass;
 pub(crate) mod svcs;
 mod utils;
 
+use crate::app::storageclass::KubeStorageClass;
 use anyhow::anyhow;
 use kube::config::Kubeconfig;
 use kubectl_view_allocations::{GroupBy, QtyByQualifier};
@@ -69,6 +71,7 @@ pub enum ActiveBlock {
   CronJobs,
   Secrets,
   RplCtrl,
+  StorageClasses,
   More,
 }
 
@@ -123,6 +126,7 @@ pub struct Data {
   pub logs: LogsState,
   pub describe_out: ScrollableTxt,
   pub metrics: StatefulTable<(Vec<String>, Option<QtyByQualifier>)>,
+  pub storageclasses: StatefulTable<KubeStorageClass>,
 }
 
 /// selected data items
@@ -195,6 +199,7 @@ impl Default for Data {
       logs: LogsState::new(String::default()),
       describe_out: ScrollableTxt::new(),
       metrics: StatefulTable::new(),
+      storageclasses: StatefulTable::new(),
     }
   }
 }
@@ -318,7 +323,7 @@ impl Default for App {
         ("Replication Controllers".into(), ActiveBlock::RplCtrl),
         // ("Persistent Volume Claims".into(), ActiveBlock::RplCtrl),
         // ("Persistent Volumes".into(), ActiveBlock::RplCtrl),
-        // ("Storage Classes".into(), ActiveBlock::RplCtrl),
+        ("Storage Classes".into(), ActiveBlock::StorageClasses),
         // ("Roles".into(), ActiveBlock::RplCtrl),
         // ("Role Bindings".into(), ActiveBlock::RplCtrl),
         // ("Cluster Roles".into(), ActiveBlock::RplCtrl),
@@ -515,6 +520,7 @@ impl App {
     self.dispatch(IoEvent::GetCronJobs).await;
     self.dispatch(IoEvent::GetSecrets).await;
     self.dispatch(IoEvent::GetReplicationControllers).await;
+    self.dispatch(IoEvent::GetStorageClasses).await;
     self.dispatch(IoEvent::GetMetrics).await;
   }
 
@@ -552,6 +558,9 @@ impl App {
       }
       ActiveBlock::RplCtrl => {
         self.dispatch(IoEvent::GetReplicationControllers).await;
+      }
+      ActiveBlock::StorageClasses => {
+        self.dispatch(IoEvent::GetStorageClasses).await;
       }
       ActiveBlock::Logs => {
         if !self.is_streaming {
@@ -709,6 +718,7 @@ mod tests {
       sync_io_rx.recv().await.unwrap(),
       IoEvent::GetReplicationControllers
     );
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetStorageClasses);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetMetrics);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
