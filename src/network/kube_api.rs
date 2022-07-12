@@ -31,6 +31,7 @@ use crate::app::{
   roles::KubeRoles,
   secrets::KubeSecret,
   statefulsets::KubeStatefulSet,
+  storageclass::KubeStorageClass,
   svcs::KubeSvc,
 };
 
@@ -297,6 +298,15 @@ impl<'a> Network<'a> {
 
     let mut app = self.app.lock().await;
     app.data.daemon_sets.set_items(items);
+  }
+
+  pub async fn get_storage_classes(&self) {
+    let items: Vec<KubeStorageClass> = self
+      .get_namespaced_resources(|it| KubeStorageClass::from_api(it))
+      .await;
+
+    let mut app = self.app.lock().await;
+    app.data.storage_classes.set_items(items);
   }
 
   pub async fn get_roles(&self) {

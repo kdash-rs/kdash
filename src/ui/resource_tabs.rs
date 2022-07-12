@@ -32,6 +32,7 @@ static DAEMON_SETS_TITLE: &str = "DaemonSets";
 static CRON_JOBS_TITLE: &str = "Cron Jobs";
 static SECRETS_TITLE: &str = "Secrets";
 static RPL_CTRL_TITLE: &str = "ReplicationControllers";
+static STORAGE_CLASSES_LABEL: &str = "Storage Classes";
 static ROLES_TITLE: &str = "Roles";
 static DESCRIBE_ACTIVE: &str = "-> Describe ";
 static YAML_ACTIVE: &str = "-> YAML ";
@@ -81,6 +82,7 @@ fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App
     ActiveBlock::CronJobs => draw_cronjobs_tab(block, f, app, area),
     ActiveBlock::Secrets => draw_secrets_tab(block, f, app, area),
     ActiveBlock::RplCtrl => draw_replication_controllers_tab(block, f, app, area),
+    ActiveBlock::StorageClasses => draw_storage_classes_tab(block, f, app, area),
     ActiveBlock::Roles => draw_roles_tab(block, f, app, area),
     ActiveBlock::Describe | ActiveBlock::Yaml => {
       let mut prev_route = app.get_prev_route();
@@ -91,6 +93,7 @@ fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App
         ActiveBlock::CronJobs => draw_cronjobs_tab(block, f, app, area),
         ActiveBlock::Secrets => draw_secrets_tab(block, f, app, area),
         ActiveBlock::RplCtrl => draw_replication_controllers_tab(block, f, app, area),
+        ActiveBlock::StorageClasses => draw_storage_classes_tab(block, f, app, area),
         ActiveBlock::Roles => draw_roles_tab(block, f, app, area),
         _ => { /* do nothing */ }
       }
@@ -942,6 +945,68 @@ fn draw_replication_controllers_block<B: Backend>(f: &mut Frame<'_, B>, app: &mu
   );
 }
 
+fn draw_storage_classes_tab<B: Backend>(
+  block: ActiveBlock,
+  f: &mut Frame<'_, B>,
+  app: &mut App,
+  area: Rect,
+) {
+  draw_resource_tab!(
+    STORAGE_CLASSES_LABEL,
+    block,
+    f,
+    app,
+    area,
+    draw_storage_classes_tab,
+    draw_storage_classes_block,
+    app.data.storage_classes
+  );
+}
+
+fn draw_storage_classes_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let title =
+    get_cluster_wide_resource_title(STORAGE_CLASSES_LABEL, app.data.storage_classes.items.len());
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
+      resource: &mut app.data.storage_classes,
+      table_headers: vec![
+        "Name",
+        "Provisioner",
+        "Reclaim Policy",
+        "Volume binding mode",
+        "Allow volume expansion",
+        "Age",
+      ],
+      column_widths: vec![
+        Constraint::Percentage(10),
+        Constraint::Percentage(20),
+        Constraint::Percentage(10),
+        Constraint::Percentage(20),
+        Constraint::Percentage(20),
+        Constraint::Percentage(10),
+      ],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.provisioner.to_owned()),
+        Cell::from(c.reclaim_policy.to_owned()),
+        Cell::from(c.volume_binding_mode.to_owned()),
+        Cell::from(c.allow_volume_expansion.to_string()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary(app.light_theme))
+    },
+    app.light_theme,
+    app.is_loading,
+  );
+}
+
 fn draw_roles_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   draw_resource_tab!(
     ROLES_TITLE,
@@ -1076,6 +1141,10 @@ fn get_node_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
     app.data.nodes.items.len(),
     suffix.as_ref()
   )
+}
+
+fn get_cluster_wide_resource_title<S: AsRef<str>>(title: S, items_len: usize) -> String {
+  format!("{} [{}]", title.as_ref(), items_len,)
 }
 
 fn get_resource_title<S: AsRef<str>>(app: &App, title: S, suffix: S, items_len: usize) -> String {
@@ -1410,5 +1479,13 @@ mod tests {
   #[test]
   fn test_title_with_ns() {
     assert_eq!(title_with_ns("Title", "hello", 3), "Title (ns: hello) [3]");
+  }
+
+  #[test]
+  fn test_get_cluster_wide_resource_title() {
+    assert_eq!(
+      get_cluster_wide_resource_title("Cluster Resource", 3),
+      "Cluster Resource [3]"
+    );
   }
 }
