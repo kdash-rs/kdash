@@ -27,6 +27,7 @@ pub enum IoEvent {
   GetCronJobs,
   GetSecrets,
   GetReplicationControllers,
+  GetStorageClasses,
   GetMetrics,
   RefreshClient,
 }
@@ -153,6 +154,9 @@ impl<'a> Network<'a> {
       }
       IoEvent::GetMetrics => {
         self.get_utilizations().await;
+      }
+      IoEvent::GetStorageClasses => {
+        self.get_storage_classes().await;
       }
     };
 

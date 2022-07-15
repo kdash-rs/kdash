@@ -30,6 +30,7 @@ use crate::app::{
   replication_controllers::KubeReplicationController,
   secrets::KubeSecret,
   statefulsets::KubeStatefulSet,
+  storageclass::KubeStorageClass,
   svcs::KubeSvc,
 };
 
@@ -331,5 +332,14 @@ impl<'a> Network<'a> {
       Some(ns) => Api::namespaced(self.client.clone(), ns),
       None => Api::all(self.client.clone()),
     }
+  }
+
+  pub async fn get_storage_classes(&self) {
+    let items: Vec<KubeStorageClass> = self
+      .get_namespaced_resources(|it| KubeStorageClass::from_api(it))
+      .await;
+
+    let mut app = self.app.lock().await;
+    app.data.storageclasses.set_items(items);
   }
 }
