@@ -28,6 +28,7 @@ pub enum IoEvent {
   GetSecrets,
   GetReplicationControllers,
   GetMetrics,
+  GetRoles,
   RefreshClient,
 }
 
@@ -153,6 +154,9 @@ impl<'a> Network<'a> {
       }
       IoEvent::GetMetrics => {
         self.get_utilizations().await;
+      }
+      IoEvent::GetRoles => {
+        self.get_roles().await;
       }
     };
 
