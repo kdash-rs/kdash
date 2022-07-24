@@ -32,6 +32,7 @@ static DAEMON_SETS_TITLE: &str = "DaemonSets";
 static CRON_JOBS_TITLE: &str = "Cron Jobs";
 static SECRETS_TITLE: &str = "Secrets";
 static RPL_CTRL_TITLE: &str = "ReplicationControllers";
+static ROLES_TITLE: &str = "Roles";
 static DESCRIBE_ACTIVE: &str = "-> Describe ";
 static YAML_ACTIVE: &str = "-> YAML ";
 
@@ -80,6 +81,7 @@ fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App
     ActiveBlock::CronJobs => draw_cronjobs_tab(block, f, app, area),
     ActiveBlock::Secrets => draw_secrets_tab(block, f, app, area),
     ActiveBlock::RplCtrl => draw_replication_controllers_tab(block, f, app, area),
+    ActiveBlock::Roles => draw_roles_tab(block, f, app, area),
     ActiveBlock::Describe | ActiveBlock::Yaml => {
       let mut prev_route = app.get_prev_route();
       if prev_route.active_block == block {
@@ -89,6 +91,7 @@ fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App
         ActiveBlock::CronJobs => draw_cronjobs_tab(block, f, app, area),
         ActiveBlock::Secrets => draw_secrets_tab(block, f, app, area),
         ActiveBlock::RplCtrl => draw_replication_controllers_tab(block, f, app, area),
+        ActiveBlock::Roles => draw_roles_tab(block, f, app, area),
         _ => { /* do nothing */ }
       }
     }
@@ -930,6 +933,44 @@ fn draw_replication_controllers_block<B: Backend>(f: &mut Frame<'_, B>, app: &mu
         Cell::from(c.containers.to_owned()),
         Cell::from(c.images.to_owned()),
         Cell::from(c.selector.to_owned()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary(app.light_theme))
+    },
+    app.light_theme,
+    app.is_loading,
+  );
+}
+
+fn draw_roles_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  draw_resource_tab!(
+    ROLES_TITLE,
+    block,
+    f,
+    app,
+    area,
+    draw_roles_tab,
+    draw_roles_block,
+    app.data.roles
+  );
+}
+
+fn draw_roles_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let title = get_resource_title(app, ROLES_TITLE, "", app.data.roles.items.len());
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
+      resource: &mut app.data.roles,
+      table_headers: vec!["Name", "Age"],
+      column_widths: vec![Constraint::Percentage(50), Constraint::Percentage(50)],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.name.to_owned()),
         Cell::from(c.age.to_owned()),
       ])
       .style(style_primary(app.light_theme))
