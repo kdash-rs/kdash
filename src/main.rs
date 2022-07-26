@@ -2,7 +2,6 @@
 #[deny(clippy::shadow_unrelated)]
 mod app;
 mod banner;
-mod cli;
 mod cmd;
 mod event;
 mod handlers;
@@ -17,7 +16,9 @@ use std::{
 
 use anyhow::Result;
 use app::App;
-use cli::Cli;
+use banner::BANNER;
+use clap::Parser;
+
 use cmd::{CmdRunner, IoCmdEvent};
 use crossterm::{
   execute,
@@ -35,37 +36,36 @@ use tui::{
   Terminal,
 };
 
+/// kdash CLI
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None, override_usage = "Press `?` while running the app to see keybindings", before_help = BANNER)]
+pub struct Cli {
+  /// Set the tick rate (milliseconds): the lower the number the higher the FPS.
+  #[clap(short, long, value_parser, default_value_t = 250)]
+  pub tick_rate: u64,
+  /// Set the network call polling rate (milliseconds, should be multiples of tick-rate):
+  /// the lower the number the higher the network calls.
+  #[clap(short, long, value_parser, default_value_t = 5000)]
+  pub poll_rate: u64,
+  /// whether unicode symbols are used to improve the overall look of the app
+  #[clap(short, long, value_parser, default_value_t = true)]
+  pub enhanced_graphics: bool,
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
   panic::set_hook(Box::new(|info| {
     panic_hook(info);
   }));
 
-  let mut cli = Cli::new();
-  let clap_app = cli.get_clap_app();
-  let matches = clap_app.get_matches();
-
   // parse CLI arguments
-  if let Some(tick_rate) = matches
-    .value_of("tick-rate")
-    .and_then(|tick_rate| tick_rate.parse().ok())
-  {
-    if tick_rate >= 1000 {
-      panic!("Tick rate must be below 1000");
-    } else {
-      cli.tick_rate = tick_rate;
-    }
-  }
+  let cli = Cli::parse();
 
-  if let Some(poll_rate) = matches
-    .value_of("poll-rate")
-    .and_then(|poll_rate| poll_rate.parse().ok())
-  {
-    if (poll_rate % cli.tick_rate) > 0u64 {
-      panic!("Poll rate must be multiple of tick-rate");
-    } else {
-      cli.poll_rate = poll_rate;
-    }
+  if cli.tick_rate >= 1000 {
+    panic!("Tick rate must be below 1000");
+  }
+  if (cli.poll_rate % cli.tick_rate) > 0u64 {
+    panic!("Poll rate must be multiple of tick-rate");
   }
 
   // channels for communication between network/cmd threads & UI thread
