@@ -492,9 +492,9 @@ async fn handle_block_scroll(app: &mut App, up: bool, is_mouse: bool, page: bool
     ActiveBlock::CronJobs => app.data.cronjobs.handle_scroll(up, page),
     ActiveBlock::Secrets => app.data.secrets.handle_scroll(up, page),
     ActiveBlock::RplCtrl => app.data.rpl_ctrls.handle_scroll(up, page),
+    ActiveBlock::StorageClasses => app.data.storageclasses.handle_scroll(up, page),
     ActiveBlock::Contexts => app.data.contexts.handle_scroll(up, page),
     ActiveBlock::Utilization => app.data.metrics.handle_scroll(up, page),
-    ActiveBlock::StorageClasses => app.data.storageclasses.handle_scroll(up, page),
     ActiveBlock::Help => app.help_docs.handle_scroll(up, page),
     ActiveBlock::More => app.more_resources_menu.handle_scroll(up, page),
     ActiveBlock::Logs => {
