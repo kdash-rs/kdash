@@ -975,8 +975,8 @@ fn draw_storage_classes_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, a
         "Name",
         "Provisioner",
         "Reclaim Policy",
-        "Volume binding mode",
-        "Allow volume expansion",
+        "Volume Binding Mode",
+        "Allow Volume Expansion",
         "Age",
       ],
       column_widths: vec![

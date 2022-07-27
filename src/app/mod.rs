@@ -123,10 +123,10 @@ pub struct Data {
   pub cronjobs: StatefulTable<KubeCronJob>,
   pub secrets: StatefulTable<KubeSecret>,
   pub rpl_ctrls: StatefulTable<KubeReplicationController>,
+  pub storageclasses: StatefulTable<KubeStorageClass>,
   pub logs: LogsState,
   pub describe_out: ScrollableTxt,
   pub metrics: StatefulTable<(Vec<String>, Option<QtyByQualifier>)>,
-  pub storageclasses: StatefulTable<KubeStorageClass>,
 }
 
 /// selected data items
@@ -190,6 +190,7 @@ impl Default for Data {
       cronjobs: StatefulTable::new(),
       secrets: StatefulTable::new(),
       rpl_ctrls: StatefulTable::new(),
+      storageclasses: StatefulTable::new(),
       selected: Selected {
         ns: None,
         pod: None,
@@ -199,7 +200,6 @@ impl Default for Data {
       logs: LogsState::new(String::default()),
       describe_out: ScrollableTxt::new(),
       metrics: StatefulTable::new(),
-      storageclasses: StatefulTable::new(),
     }
   }
 }

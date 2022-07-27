@@ -298,7 +298,14 @@ impl<'a> Network<'a> {
     let mut app = self.app.lock().await;
     app.data.daemon_sets.set_items(items);
   }
+  pub async fn get_storage_classes(&self) {
+    let items: Vec<KubeStorageClass> = self
+      .get_namespaced_resources(|it| KubeStorageClass::from_api(it))
+      .await;
 
+    let mut app = self.app.lock().await;
+    app.data.storageclasses.set_items(items);
+  }
   /// calls the kubernetes API to list the given resource for either selected namespace or all namespaces
   async fn get_namespaced_resources<K: ApiResource, T, F>(&self, map_fn: F) -> Vec<T>
   where
@@ -332,14 +339,5 @@ impl<'a> Network<'a> {
       Some(ns) => Api::namespaced(self.client.clone(), ns),
       None => Api::all(self.client.clone()),
     }
-  }
-
-  pub async fn get_storage_classes(&self) {
-    let items: Vec<KubeStorageClass> = self
-      .get_namespaced_resources(|it| KubeStorageClass::from_api(it))
-      .await;
-
-    let mut app = self.app.lock().await;
-    app.data.storageclasses.set_items(items);
   }
 }
