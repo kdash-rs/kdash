@@ -24,17 +24,15 @@ A simple terminal dashboard for Kubernetes built with Rust
 
 Thanks to the sponsors of [@deepu105](https://github.com/sponsors/deepu105) who makes project maintaining like KDash sustainable. Consider [sponsoring](https://github.com/sponsors/deepu105) if you like my work.
 
-### Gold
+<!-- ### Gold
 
-- [Sponsor](https://github.com/sponsors/deepu105)
-
-### Silver
-
-- [Sponsor](https://github.com/sponsors/deepu105)
+### Silver -->
 
 ### Bronze
 
 - [Robusta](https://home.robusta.dev/)
+
+Gold and Silver tiers are open for [Sponsors](https://github.com/sponsors/deepu105)
 
 ## Installation
 

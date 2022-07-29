@@ -2,6 +2,11 @@
 
 ## Unreleased - 2022-XX-YY
 
+- Upgrade libraries
+- Add sponsors
+- Add support for Roles (https://github.com/kdash-rs/kdash/pull/224)
+- Add support for Storage classes (https://github.com/kdash-rs/kdash/pull/222)
+
 ## [0.3.1] - 2022-04-06
 
 - Upgrade libraries trying to fix cargo install issue
