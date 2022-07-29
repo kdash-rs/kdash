@@ -95,7 +95,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get -y update
-          sudo apt-get -y install -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev musl-tools python3.8
+          sudo apt-get -y install -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev musl-tools
           case ${{ matrix.triple.target }} in
             arm-unknown-linux-*) sudo apt-get -y install gcc-arm-linux-gnueabihf ;;
             aarch64-unknown-linux-*) sudo apt-get -y install gcc-aarch64-linux-gnu ;;
@@ -104,7 +104,7 @@ jobs:
       - name: Build
         uses: actions-rs/cargo@v1
         with:
-          use-cross: ${{ matrix.triple.use-cross }}
+          # use-cross: ${{ matrix.triple.use-cross }}
           command: build
           args: --release --verbose --target=${{ matrix.triple.target }}
           toolchain: ${{ matrix.rust }}
