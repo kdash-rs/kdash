@@ -290,7 +290,11 @@ fn draw_nodes_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mu
       app,
       area,
       title_with_dual_style(
-        get_node_title(app, get_describe_active(block)),
+        get_cluster_wide_resource_title(
+          NODES_TITLE,
+          app.data.nodes.items.len(),
+          get_describe_active(block),
+        ),
         format!("{} | {} <esc> ", COPY_HINT, NODES_TITLE),
         app.light_theme,
       ),
@@ -301,7 +305,7 @@ fn draw_nodes_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mu
 }
 
 fn draw_nodes_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
-  let title = get_node_title(app, "");
+  let title = get_cluster_wide_resource_title(NODES_TITLE, app.data.nodes.items.len(), "");
 
   draw_resource_block(
     f,
@@ -956,13 +960,16 @@ fn draw_storage_classes_tab<B: Backend>(
     area,
     draw_storage_classes_tab,
     draw_storage_classes_block,
-    app.data.secrets
+    app.data.storageclasses
   );
 }
 
 fn draw_storage_classes_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
-  let title =
-    get_cluster_wide_resource_title(STORAGE_CLASSES_LABEL, app.data.storageclasses.items.len());
+  let title = get_cluster_wide_resource_title(
+    STORAGE_CLASSES_LABEL,
+    app.data.storageclasses.items.len(),
+    "",
+  );
 
   draw_resource_block(
     f,
@@ -1093,17 +1100,8 @@ fn get_resource_row_style(status: &str, ready: (i32, i32), light: bool) -> Style
   }
 }
 
-fn get_node_title<S: AsRef<str>>(app: &App, suffix: S) -> String {
-  format!(
-    " {} [{}] {}",
-    NODES_TITLE,
-    app.data.nodes.items.len(),
-    suffix.as_ref()
-  )
-}
-
-fn get_cluster_wide_resource_title<S: AsRef<str>>(title: S, items_len: usize) -> String {
-  format!("{} [{}]", title.as_ref(), items_len,)
+fn get_cluster_wide_resource_title<S: AsRef<str>>(title: S, items_len: usize, suffix: S) -> String {
+  format!(" {} [{}] {}", title.as_ref(), items_len, suffix.as_ref())
 }
 
 fn get_resource_title<S: AsRef<str>>(app: &App, title: S, suffix: S, items_len: usize) -> String {
@@ -1412,12 +1410,6 @@ mod tests {
   }
 
   #[test]
-  fn test_get_node_title() {
-    let app = App::default();
-    assert_eq!(get_node_title(&app, "-> hello"), " Nodes [0] -> hello");
-  }
-
-  #[test]
   fn test_get_resource_title() {
     let app = App::default();
     assert_eq!(
@@ -1443,8 +1435,12 @@ mod tests {
   #[test]
   fn test_get_cluster_wide_resource_title() {
     assert_eq!(
-      get_cluster_wide_resource_title("Cluster Resource", 3),
-      "Cluster Resource [3]"
+      get_cluster_wide_resource_title("Cluster Resource", 3, ""),
+      " Cluster Resource [3] "
+    );
+    assert_eq!(
+      get_cluster_wide_resource_title("Nodes", 10, "-> hello"),
+      " Nodes [10] -> hello"
     );
   }
 }

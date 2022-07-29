@@ -318,7 +318,7 @@ impl Default for App {
         },
       ]),
       more_resources_menu: StatefulList::with_items(vec![
-        ("CronJobs".into(), ActiveBlock::CronJobs),
+        ("Cron Jobs".into(), ActiveBlock::CronJobs),
         ("Secrets".into(), ActiveBlock::Secrets),
         ("Replication Controllers".into(), ActiveBlock::RplCtrl),
         // ("Persistent Volume Claims".into(), ActiveBlock::RplCtrl),

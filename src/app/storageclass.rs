@@ -1,5 +1,4 @@
-use crate::app::models::KubeResource;
-use crate::app::utils;
+use super::{models::KubeResource, utils};
 use k8s_openapi::api::storage::v1::StorageClass;
 use k8s_openapi::chrono::Utc;
 
