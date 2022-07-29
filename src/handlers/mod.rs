@@ -417,7 +417,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::StorageClasses => {
-          if let Some(res) = handle_block_action(key, &mut app.data.storageclasses) {
+          if let Some(res) = handle_block_action(key, &mut app.data.storage_classes) {
             let _ok = handle_describe_or_yaml_action(
               key,
               app,
@@ -426,6 +426,21 @@ async fn handle_route_events(key: Key, app: &mut App) {
                 kind: "storageclass".to_owned(),
                 value: res.name.to_owned(),
                 ns: None,
+              },
+            )
+            .await;
+          }
+        }
+        ActiveBlock::Roles => {
+          if let Some(res) = handle_block_action(key, &mut app.data.roles) {
+            let _ok = handle_describe_or_yaml_action(
+              key,
+              app,
+              &res,
+              IoCmdEvent::GetDescribe {
+                kind: "roles".to_owned(),
+                value: res.name.to_owned(),
+                ns: Some(res.namespace.to_owned()),
               },
             )
             .await;
@@ -492,7 +507,8 @@ async fn handle_block_scroll(app: &mut App, up: bool, is_mouse: bool, page: bool
     ActiveBlock::CronJobs => app.data.cronjobs.handle_scroll(up, page),
     ActiveBlock::Secrets => app.data.secrets.handle_scroll(up, page),
     ActiveBlock::RplCtrl => app.data.rpl_ctrls.handle_scroll(up, page),
-    ActiveBlock::StorageClasses => app.data.storageclasses.handle_scroll(up, page),
+    ActiveBlock::StorageClasses => app.data.storage_classes.handle_scroll(up, page),
+    ActiveBlock::Roles => app.data.roles.handle_scroll(up, page),
     ActiveBlock::Contexts => app.data.contexts.handle_scroll(up, page),
     ActiveBlock::Utilization => app.data.metrics.handle_scroll(up, page),
     ActiveBlock::Help => app.help_docs.handle_scroll(up, page),

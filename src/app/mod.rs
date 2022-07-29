@@ -12,13 +12,13 @@ pub(crate) mod ns;
 pub(crate) mod pods;
 pub(crate) mod replicasets;
 pub(crate) mod replication_controllers;
+pub(crate) mod roles;
 pub(crate) mod secrets;
 pub(crate) mod statefulsets;
 pub(crate) mod storageclass;
 pub(crate) mod svcs;
 mod utils;
 
-use crate::app::storageclass::KubeStorageClass;
 use anyhow::anyhow;
 use kube::config::Kubeconfig;
 use kubectl_view_allocations::{GroupBy, QtyByQualifier};
@@ -40,8 +40,10 @@ use self::{
   pods::{KubeContainer, KubePod},
   replicasets::KubeReplicaSet,
   replication_controllers::KubeReplicationController,
+  roles::KubeRoles,
   secrets::KubeSecret,
   statefulsets::KubeStatefulSet,
+  storageclass::KubeStorageClass,
   svcs::KubeSvc,
 };
 use super::{
@@ -72,6 +74,7 @@ pub enum ActiveBlock {
   Secrets,
   RplCtrl,
   StorageClasses,
+  Roles,
   More,
 }
 
@@ -108,9 +111,12 @@ pub struct Data {
   pub kubeconfig: Option<Kubeconfig>,
   pub contexts: StatefulTable<KubeContext>,
   pub active_context: Option<KubeContext>,
-  pub nodes: StatefulTable<KubeNode>,
   pub node_metrics: Vec<KubeNodeMetrics>,
+  pub logs: LogsState,
+  pub describe_out: ScrollableTxt,
+  pub metrics: StatefulTable<(Vec<String>, Option<QtyByQualifier>)>,
   pub namespaces: StatefulTable<KubeNs>,
+  pub nodes: StatefulTable<KubeNode>,
   pub pods: StatefulTable<KubePod>,
   pub containers: StatefulTable<KubeContainer>,
   pub services: StatefulTable<KubeSvc>,
@@ -123,10 +129,8 @@ pub struct Data {
   pub cronjobs: StatefulTable<KubeCronJob>,
   pub secrets: StatefulTable<KubeSecret>,
   pub rpl_ctrls: StatefulTable<KubeReplicationController>,
-  pub storageclasses: StatefulTable<KubeStorageClass>,
-  pub logs: LogsState,
-  pub describe_out: ScrollableTxt,
-  pub metrics: StatefulTable<(Vec<String>, Option<QtyByQualifier>)>,
+  pub storage_classes: StatefulTable<KubeStorageClass>,
+  pub roles: StatefulTable<KubeRoles>,
 }
 
 /// selected data items
@@ -175,9 +179,18 @@ impl Default for Data {
       kubeconfig: None,
       contexts: StatefulTable::new(),
       active_context: None,
-      nodes: StatefulTable::new(),
       node_metrics: vec![],
       namespaces: StatefulTable::new(),
+      selected: Selected {
+        ns: None,
+        pod: None,
+        container: None,
+        context: None,
+      },
+      logs: LogsState::new(String::default()),
+      describe_out: ScrollableTxt::new(),
+      metrics: StatefulTable::new(),
+      nodes: StatefulTable::new(),
       pods: StatefulTable::new(),
       containers: StatefulTable::new(),
       services: StatefulTable::new(),
@@ -190,16 +203,8 @@ impl Default for Data {
       cronjobs: StatefulTable::new(),
       secrets: StatefulTable::new(),
       rpl_ctrls: StatefulTable::new(),
-      storageclasses: StatefulTable::new(),
-      selected: Selected {
-        ns: None,
-        pod: None,
-        container: None,
-        context: None,
-      },
-      logs: LogsState::new(String::default()),
-      describe_out: ScrollableTxt::new(),
-      metrics: StatefulTable::new(),
+      storage_classes: StatefulTable::new(),
+      roles: StatefulTable::new(),
     }
   }
 }
@@ -324,7 +329,7 @@ impl Default for App {
         // ("Persistent Volume Claims".into(), ActiveBlock::RplCtrl),
         // ("Persistent Volumes".into(), ActiveBlock::RplCtrl),
         ("Storage Classes".into(), ActiveBlock::StorageClasses),
-        // ("Roles".into(), ActiveBlock::RplCtrl),
+        ("Roles".into(), ActiveBlock::Roles),
         // ("Role Bindings".into(), ActiveBlock::RplCtrl),
         // ("Cluster Roles".into(), ActiveBlock::RplCtrl),
         // ("Cluster Role Bindings".into(), ActiveBlock::RplCtrl),
@@ -521,6 +526,7 @@ impl App {
     self.dispatch(IoEvent::GetSecrets).await;
     self.dispatch(IoEvent::GetReplicationControllers).await;
     self.dispatch(IoEvent::GetStorageClasses).await;
+    self.dispatch(IoEvent::GetRoles).await;
     self.dispatch(IoEvent::GetMetrics).await;
   }
 
@@ -561,6 +567,9 @@ impl App {
       }
       ActiveBlock::StorageClasses => {
         self.dispatch(IoEvent::GetStorageClasses).await;
+      }
+      ActiveBlock::Roles => {
+        self.dispatch(IoEvent::GetRoles).await;
       }
       ActiveBlock::Logs => {
         if !self.is_streaming {
@@ -719,6 +728,7 @@ mod tests {
       IoEvent::GetReplicationControllers
     );
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetStorageClasses);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetRoles);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetMetrics);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);

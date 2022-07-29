@@ -28,6 +28,7 @@ use crate::app::{
   pods::KubePod,
   replicasets::KubeReplicaSet,
   replication_controllers::KubeReplicationController,
+  roles::KubeRoles,
   secrets::KubeSecret,
   statefulsets::KubeStatefulSet,
   storageclass::KubeStorageClass,
@@ -298,14 +299,25 @@ impl<'a> Network<'a> {
     let mut app = self.app.lock().await;
     app.data.daemon_sets.set_items(items);
   }
+
   pub async fn get_storage_classes(&self) {
     let items: Vec<KubeStorageClass> = self
       .get_namespaced_resources(|it| KubeStorageClass::from_api(it))
       .await;
 
     let mut app = self.app.lock().await;
-    app.data.storageclasses.set_items(items);
+    app.data.storage_classes.set_items(items);
   }
+
+  pub async fn get_roles(&self) {
+    let items: Vec<KubeRoles> = self
+      .get_namespaced_resources(|it| KubeRoles::from_api(it))
+      .await;
+
+    let mut app = self.app.lock().await;
+    app.data.roles.set_items(items);
+  }
+
   /// calls the kubernetes API to list the given resource for either selected namespace or all namespaces
   async fn get_namespaced_resources<K: ApiResource, T, F>(&self, map_fn: F) -> Vec<T>
   where

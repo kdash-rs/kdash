@@ -29,12 +29,13 @@ static REPLICA_SETS_TITLE: &str = "ReplicaSets";
 static DEPLOYMENTS_TITLE: &str = "Deployments";
 static JOBS_TITLE: &str = "Jobs";
 static DAEMON_SETS_TITLE: &str = "DaemonSets";
-static CRON_JOBS_TITLE: &str = "Cron Jobs";
+static CRON_JOBS_TITLE: &str = "CronJobs";
 static SECRETS_TITLE: &str = "Secrets";
 static RPL_CTRL_TITLE: &str = "ReplicationControllers";
+static STORAGE_CLASSES_LABEL: &str = "StorageClasses";
+static ROLES_TITLE: &str = "Roles";
 static DESCRIBE_ACTIVE: &str = "-> Describe ";
 static YAML_ACTIVE: &str = "-> YAML ";
-static STORAGE_CLASSES_LABEL: &str = "StorageClasses";
 
 pub fn draw_resource_tabs_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let chunks =
@@ -82,6 +83,7 @@ fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App
     ActiveBlock::Secrets => draw_secrets_tab(block, f, app, area),
     ActiveBlock::RplCtrl => draw_replication_controllers_tab(block, f, app, area),
     ActiveBlock::StorageClasses => draw_storage_classes_tab(block, f, app, area),
+    ActiveBlock::Roles => draw_roles_tab(block, f, app, area),
     ActiveBlock::Describe | ActiveBlock::Yaml => {
       let mut prev_route = app.get_prev_route();
       if prev_route.active_block == block {
@@ -92,6 +94,7 @@ fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App
         ActiveBlock::Secrets => draw_secrets_tab(block, f, app, area),
         ActiveBlock::RplCtrl => draw_replication_controllers_tab(block, f, app, area),
         ActiveBlock::StorageClasses => draw_storage_classes_tab(block, f, app, area),
+        ActiveBlock::Roles => draw_roles_tab(block, f, app, area),
         _ => { /* do nothing */ }
       }
     }
@@ -960,14 +963,14 @@ fn draw_storage_classes_tab<B: Backend>(
     area,
     draw_storage_classes_tab,
     draw_storage_classes_block,
-    app.data.storageclasses
+    app.data.storage_classes
   );
 }
 
 fn draw_storage_classes_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_cluster_wide_resource_title(
     STORAGE_CLASSES_LABEL,
-    app.data.storageclasses.items.len(),
+    app.data.storage_classes.items.len(),
     "",
   );
 
@@ -977,7 +980,7 @@ fn draw_storage_classes_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, a
     ResourceTableProps {
       title,
       inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
-      resource: &mut app.data.storageclasses,
+      resource: &mut app.data.storage_classes,
       table_headers: vec![
         "Name",
         "Provisioner",
@@ -1002,6 +1005,49 @@ fn draw_storage_classes_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, a
         Cell::from(c.reclaim_policy.to_owned()),
         Cell::from(c.volume_binding_mode.to_owned()),
         Cell::from(c.allow_volume_expansion.to_string()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary(app.light_theme))
+    },
+    app.light_theme,
+    app.is_loading,
+  );
+}
+
+fn draw_roles_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  draw_resource_tab!(
+    ROLES_TITLE,
+    block,
+    f,
+    app,
+    area,
+    draw_roles_tab,
+    draw_roles_block,
+    app.data.roles
+  );
+}
+
+fn draw_roles_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let title = get_resource_title(app, ROLES_TITLE, "", app.data.roles.items.len());
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
+      resource: &mut app.data.roles,
+      table_headers: vec!["Namespace", "Name", "Age"],
+      column_widths: vec![
+        Constraint::Percentage(40),
+        Constraint::Percentage(40),
+        Constraint::Percentage(20),
+      ],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.namespace.to_owned()),
+        Cell::from(c.name.to_owned()),
         Cell::from(c.age.to_owned()),
       ])
       .style(style_primary(app.light_theme))
