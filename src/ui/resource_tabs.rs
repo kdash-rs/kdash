@@ -34,7 +34,7 @@ static SECRETS_TITLE: &str = "Secrets";
 static RPL_CTRL_TITLE: &str = "ReplicationControllers";
 static DESCRIBE_ACTIVE: &str = "-> Describe ";
 static YAML_ACTIVE: &str = "-> YAML ";
-static STORAGE_CLASSES_LABEL: &str = "Storage Classes";
+static STORAGE_CLASSES_LABEL: &str = "StorageClasses";
 
 pub fn draw_resource_tabs_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let chunks =
