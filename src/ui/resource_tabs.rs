@@ -1037,11 +1037,16 @@ fn draw_roles_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect)
       title,
       inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
       resource: &mut app.data.roles,
-      table_headers: vec!["Name", "Age"],
-      column_widths: vec![Constraint::Percentage(50), Constraint::Percentage(50)],
+      table_headers: vec!["Namespace", "Name", "Age"],
+      column_widths: vec![
+        Constraint::Percentage(40),
+        Constraint::Percentage(40),
+        Constraint::Percentage(20),
+      ],
     },
     |c| {
       Row::new(vec![
+        Cell::from(c.namespace.to_owned()),
         Cell::from(c.name.to_owned()),
         Cell::from(c.age.to_owned()),
       ])

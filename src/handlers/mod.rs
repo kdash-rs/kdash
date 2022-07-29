@@ -440,7 +440,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
               IoCmdEvent::GetDescribe {
                 kind: "roles".to_owned(),
                 value: res.name.to_owned(),
-                ns: None,
+                ns: Some(res.namespace.to_owned()),
               },
             )
             .await;

@@ -4,6 +4,7 @@ use super::{models::KubeResource, utils};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct KubeRoles {
+  pub namespace: String,
   pub name: String,
   pub age: String,
   k8s_obj: Role,
@@ -12,6 +13,7 @@ pub struct KubeRoles {
 impl KubeResource<Role> for KubeRoles {
   fn from_api(role: &Role) -> Self {
     KubeRoles {
+      namespace: role.metadata.namespace.clone().unwrap_or_default(),
       name: role.metadata.name.clone().unwrap_or_default(),
       age: utils::to_age(role.metadata.creation_timestamp.as_ref(), Utc::now()),
       k8s_obj: role.to_owned(),
@@ -38,6 +40,7 @@ mod tests {
     assert_eq!(
       roles[0],
       KubeRoles {
+        namespace: "default".to_string(),
         name: "kiali-viewer".into(),
         age: utils::to_age(Some(&get_time("2022-06-27T16:33:06Z")), Utc::now()),
         k8s_obj: roles_list[0].clone(),
