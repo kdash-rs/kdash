@@ -1,49 +1,53 @@
 name: Continuous Deployment
 
+# on:
+#   push:
+#     tags:
+#       - "v*.*.*"
 on:
+  # pull_request:
   push:
-    tags:
-      - "v*.*.*"
+    branches: main
 
 jobs:
-  create-github-release:
-    name: create-github-release
-    runs-on: ubuntu-latest
-    steps:
-      - name: Create artifacts directory
-        run: mkdir artifacts
+  # create-github-release:
+  #   name: create-github-release
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Create artifacts directory
+  #       run: mkdir artifacts
 
-      - name: Get the release version from the tag
-        if: env.VERSION == ''
-        run: |
-          if [[ -n "${{ github.event.inputs.tag }}" ]]; then
-            echo "Manual run against a tag; overriding actual tag in the environment..."
-            echo "VERSION=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
-          else
-            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-          fi
+  #     - name: Get the release version from the tag
+  #       if: env.VERSION == ''
+  #       run: |
+  #         if [[ -n "${{ github.event.inputs.tag }}" ]]; then
+  #           echo "Manual run against a tag; overriding actual tag in the environment..."
+  #           echo "VERSION=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
+  #         else
+  #           echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+  #         fi
 
-      - name: Validate version environment variable
-        run: |
-          echo "Version being built against is version ${{ env.VERSION }}"!
+  #     - name: Validate version environment variable
+  #       run: |
+  #         echo "Version being built against is version ${{ env.VERSION }}"!
 
-      - name: Save version number to artifact
-        run: echo "${{ env.VERSION }}" > artifacts/release-version
+  #     - name: Save version number to artifact
+  #       run: echo "${{ env.VERSION }}" > artifacts/release-version
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v1
-        with:
-          name: artifacts
-          path: artifacts
+  #     - name: Upload artifacts
+  #       uses: actions/upload-artifact@v1
+  #       with:
+  #         name: artifacts
+  #         path: artifacts
 
   build-release:
     name: build-release
-    needs: [create-github-release]
+    # needs: [create-github-release]
     runs-on: ${{ matrix.triple.os }}
     env:
       RUST_BACKTRACE: 1
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         rust: [stable]
         triple:
@@ -62,21 +66,25 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Get shared artifacts
-        uses: actions/download-artifact@v2
-        with:
-          name: artifacts
-          path: artifacts
+      # - name: Get shared artifacts
+      #   uses: actions/download-artifact@v2
+      #   with:
+      #     name: artifacts
+      #     path: artifacts
 
-      - name: Set release version
-        shell: bash
-        run: |
-          release_version="$(cat ./artifacts/release-version)"
-          echo "RELEASE_VERSION=$release_version" >> $GITHUB_ENV
+      # - name: Set release version
+      #   shell: bash
+      #   run: |
+      #     release_version="$(cat ./artifacts/release-version)"
+      #     echo "RELEASE_VERSION=$release_version" >> $GITHUB_ENV
 
-      - name: Validate release environment variables
+      # - name: Validate release environment variables
+      #   run: |
+      #     echo "Release version: ${{ env.RELEASE_VERSION }}"
+      - name: Validate release environment
         run: |
-          echo "Release version: ${{ env.RELEASE_VERSION }}"
+          python3 --version
+          python --version
 
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
@@ -109,48 +117,48 @@ jobs:
           args: --release --verbose --target=${{ matrix.triple.target }}
           toolchain: ${{ matrix.rust }}
 
-      - name: Packaging final binary (Windows)
-        if: matrix.triple.os == 'windows-latest'
-        shell: bash
-        run: |
-          cd target/${{ matrix.triple.target }}/release
-          BINARY_NAME=kdash.exe
-          strip $BINARY_NAME
-          RELEASE_NAME=kdash-${{ matrix.triple.artifact_prefix }}
-          tar czvf $RELEASE_NAME.tar.gz $BINARY_NAME
-          certutil -hashfile $RELEASE_NAME.tar.gz sha256 | grep -E [A-Fa-f0-9]{64} > $RELEASE_NAME.sha256
-          echo "RELEASE_NAME=$RELEASE_NAME" >> $GITHUB_ENV
+      # - name: Packaging final binary (Windows)
+      #   if: matrix.triple.os == 'windows-latest'
+      #   shell: bash
+      #   run: |
+      #     cd target/${{ matrix.triple.target }}/release
+      #     BINARY_NAME=kdash.exe
+      #     strip $BINARY_NAME
+      #     RELEASE_NAME=kdash-${{ matrix.triple.artifact_prefix }}
+      #     tar czvf $RELEASE_NAME.tar.gz $BINARY_NAME
+      #     certutil -hashfile $RELEASE_NAME.tar.gz sha256 | grep -E [A-Fa-f0-9]{64} > $RELEASE_NAME.sha256
+      #     echo "RELEASE_NAME=$RELEASE_NAME" >> $GITHUB_ENV
 
-      - name: Packaging final binary (macOS and Linux)
-        if: matrix.triple.os != 'windows-latest'
-        shell: bash
-        run: |
-          cd target/${{ matrix.triple.target }}/release
-          BINARY_NAME=kdash
-          strip $BINARY_NAME
-          RELEASE_NAME=kdash-${{ matrix.triple.artifact_prefix }}
-          tar czvf $RELEASE_NAME.tar.gz $BINARY_NAME
-          shasum -a 256 $RELEASE_NAME.tar.gz > $RELEASE_NAME.sha256
-          echo "RELEASE_NAME=$RELEASE_NAME" >> $GITHUB_ENV
+      # - name: Packaging final binary (macOS and Linux)
+      #   if: matrix.triple.os != 'windows-latest'
+      #   shell: bash
+      #   run: |
+      #     cd target/${{ matrix.triple.target }}/release
+      #     BINARY_NAME=kdash
+      #     strip $BINARY_NAME
+      #     RELEASE_NAME=kdash-${{ matrix.triple.artifact_prefix }}
+      #     tar czvf $RELEASE_NAME.tar.gz $BINARY_NAME
+      #     shasum -a 256 $RELEASE_NAME.tar.gz > $RELEASE_NAME.sha256
+      #     echo "RELEASE_NAME=$RELEASE_NAME" >> $GITHUB_ENV
 
-      - name: Releasing assets
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            target/${{ matrix.triple.target }}/release/${{ env.RELEASE_NAME }}.tar.gz
-            target/${{ matrix.triple.target }}/release/${{ env.RELEASE_NAME }}.sha256
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Releasing assets
+      #   uses: softprops/action-gh-release@v1
+      #   with:
+      #     files: |
+      #       target/${{ matrix.triple.target }}/release/${{ env.RELEASE_NAME }}.tar.gz
+      #       target/${{ matrix.triple.target }}/release/${{ env.RELEASE_NAME }}.sha256
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Add SHA to artifacts
-        run: |
-          cp target/${{ matrix.triple.target }}/release/${{ env.RELEASE_NAME }}.sha256 artifacts/
+      # - name: Add SHA to artifacts
+      #   run: |
+      #     cp target/${{ matrix.triple.target }}/release/${{ env.RELEASE_NAME }}.sha256 artifacts/
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v1
-        with:
-          name: artifacts
-          path: artifacts
+      # - name: Upload artifacts
+      #   uses: actions/upload-artifact@v1
+      #   with:
+      #     name: artifacts
+      #     path: artifacts
 
   # publish-package-formula:
   #   needs: [build-release]
