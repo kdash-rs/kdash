@@ -43,7 +43,7 @@ jobs:
     env:
       RUST_BACKTRACE: 1
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         rust: [stable]
         triple:
