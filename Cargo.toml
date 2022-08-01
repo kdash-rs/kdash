@@ -34,7 +34,7 @@ textwrap = "0.15"
 regex = "1"
 kube = "0.69.1"
 k8s-openapi = { version = "0.14", default-features = false, features = ["v1_22"] }
-openssl = { version = "0.10.40", features = ["vendored"] }
+openssl = { version = "0.10.41", features = ["vendored"] }
 human-panic = "1.0"
 kubectl-view-allocations = { version="0.14.8", default-features = false }
 
