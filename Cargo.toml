@@ -32,12 +32,15 @@ anyhow = "1.0"
 backtrace = "0.3"
 textwrap = "0.15"
 regex = "1"
-clipboard = "0.5"
 kube = "0.69.1"
 k8s-openapi = { version = "0.14", default-features = false, features = ["v1_22"] }
 openssl = { version = "0.10.40", features = ["vendored"] }
 human-panic = "1.0"
 kubectl-view-allocations = { version="0.14.8", default-features = false }
+
+# XCB is a PITA to compile for ARM so disabling the copy feature on ARM for now
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+clipboard = "0.5"
 
 [dev-dependencies.cargo-husky]
 version = "1"
