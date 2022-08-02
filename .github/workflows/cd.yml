@@ -262,7 +262,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: ${{ matrix.rust }}
+          toolchain: stable
           override: true
           profile: minimal # minimal component installation (ie, no documentation)
       - run: |

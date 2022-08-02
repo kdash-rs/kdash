@@ -43,3 +43,11 @@ docker-run:
 ## Analyse for unsafe usage - `cargo install cargo-geiger`
 analyse:  
 	@cargo geiger
+
+## Release tag
+release:
+	@git tag -a ${V} -m "Release ${V}" && git push origin ${V}
+
+## Delete tag
+delete-tag:
+	@git tag -d ${V} && git push --delete origin ${V}
