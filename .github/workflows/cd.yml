@@ -39,22 +39,22 @@ jobs:
   build-release:
     name: build-release
     needs: [create-github-release]
-    runs-on: ${{ matrix.triple.os }}
+    runs-on: ${{ matrix.job.os }}
     env:
       RUST_BACKTRACE: 1
     strategy:
       fail-fast: false
       matrix:
         rust: [stable]
-        triple:
-          - { os: "macOS-latest",   target: "x86_64-apple-darwin",          artifact_prefix: "macos"                            }
-          - { os: "windows-latest", target: "x86_64-pc-windows-msvc",       artifact_prefix: "windows"                          }
-          - { os: "ubuntu-latest",  target: "x86_64-unknown-linux-gnu",     artifact_prefix: "linux",                           }
-          - { os: "ubuntu-latest",  target: "x86_64-unknown-linux-musl",    artifact_prefix: "linux-musl",                      }
-          - { os: "ubuntu-latest",  target: "aarch64-unknown-linux-gnu",    artifact_prefix: "aarch64-gnu",     use-cross: true }
-          - { os: "ubuntu-latest",  target: "aarch64-unknown-linux-musl",   artifact_prefix: "aarch64-musl",    use-cross: true }
-          - { os: "ubuntu-latest",  target: "arm-unknown-linux-gnueabihf",  artifact_prefix: "arm-gnu",         use-cross: true }
-          - { os: "ubuntu-latest",  target: "arm-unknown-linux-musleabihf", artifact_prefix: "arm-musl",        use-cross: true }
+        job:
+          - { os: "macOS-latest",   target: "x86_64-apple-darwin",          artifact_prefix: "macos"                                                  }
+          - { os: "windows-latest", target: "x86_64-pc-windows-msvc",       artifact_prefix: "windows"                                                }
+          - { os: "ubuntu-latest",  target: "x86_64-unknown-linux-gnu",     artifact_prefix: "linux",                                                 }
+          - { os: "ubuntu-latest",  target: "x86_64-unknown-linux-musl",    artifact_prefix: "linux-musl",                                            }
+          - { os: "ubuntu-latest",  target: "aarch64-unknown-linux-gnu",    artifact_prefix: "aarch64-gnu",  use-cross: true, test-bin: "--bin kdash" }
+          - { os: "ubuntu-latest",  target: "aarch64-unknown-linux-musl",   artifact_prefix: "aarch64-musl", use-cross: true, test-bin: "--bin kdash" }
+          - { os: "ubuntu-latest",  target: "arm-unknown-linux-gnueabihf",  artifact_prefix: "arm-gnu",      use-cross: true, test-bin: "--bin kdash" }
+          - { os: "ubuntu-latest",  target: "arm-unknown-linux-musleabihf", artifact_prefix: "arm-musl",     use-cross: true, test-bin: "--bin kdash" }
 
     steps:
       - name: Checkout repository
@@ -83,20 +83,20 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           override: true
-          target: ${{ matrix.triple.target }}
+          target: ${{ matrix.job.target }}
           profile: minimal # minimal component installation (ie, no documentation)
 
       - name: Installing needed macOS dependencies
-        if: matrix.triple.os == 'macos-latest'
+        if: matrix.job.os == 'macos-latest'
         run: brew install openssl@1.1
 
       - name: Installing needed Ubuntu dependencies
-        if: matrix.triple.os == 'ubuntu-latest'
+        if: matrix.job.os == 'ubuntu-latest'
         shell: bash
         run: |
           sudo apt-get -y update
           sudo apt-get -y install -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev musl-tools
-          case ${{ matrix.triple.target }} in
+          case ${{ matrix.job.target }} in
             arm-unknown-linux-*) sudo apt-get -y install gcc-arm-linux-gnueabihf ;;
             aarch64-unknown-linux-*) sudo apt-get -y install gcc-aarch64-linux-gnu ;;
           esac
@@ -104,32 +104,49 @@ jobs:
       - name: Build
         uses: actions-rs/cargo@v1
         with:
-          use-cross: ${{ matrix.triple.use-cross }}
+          use-cross: ${{ matrix.job.use-cross }}
           command: build
-          args: --release --verbose --target=${{ matrix.triple.target }}
+          args: --release --verbose --target=${{ matrix.job.target }}
           toolchain: ${{ matrix.rust }}
 
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: ${{ matrix.job.use-cross }}
+          command: test
+          args: --target=${{ matrix.job.target }} ${{ matrix.job.test-bin }}
+
       - name: Packaging final binary (Windows)
-        if: matrix.triple.os == 'windows-latest'
+        if: matrix.job.os == 'windows-latest'
         shell: bash
         run: |
-          cd target/${{ matrix.triple.target }}/release
+          cd target/${{ matrix.job.target }}/release
           BINARY_NAME=kdash.exe
+          # strip the binary
           strip $BINARY_NAME
-          RELEASE_NAME=kdash-${{ matrix.triple.artifact_prefix }}
+          RELEASE_NAME=kdash-${{ matrix.job.artifact_prefix }}
           tar czvf $RELEASE_NAME.tar.gz $BINARY_NAME
+          # create sha checksum files
           certutil -hashfile $RELEASE_NAME.tar.gz sha256 | grep -E [A-Fa-f0-9]{64} > $RELEASE_NAME.sha256
           echo "RELEASE_NAME=$RELEASE_NAME" >> $GITHUB_ENV
 
       - name: Packaging final binary (macOS and Linux)
-        if: matrix.triple.os != 'windows-latest'
+        if: matrix.job.os != 'windows-latest'
         shell: bash
         run: |
-          cd target/${{ matrix.triple.target }}/release
+          # set the right strip executable
+          STRIP="strip"; 
+          case ${{ matrix.job.target }} in 
+            arm-*-linux-*) STRIP="arm-linux-gnueabihf-strip" ;; 
+            aarch64-*-linux-*) STRIP="aarch64-linux-gnu-strip" ;;
+          esac;
+          cd target/${{ matrix.job.target }}/release
           BINARY_NAME=kdash
-          strip $BINARY_NAME
-          RELEASE_NAME=kdash-${{ matrix.triple.artifact_prefix }}
+          # strip the binary
+          "$STRIP" "$BINARY_NAME"
+          RELEASE_NAME=kdash-${{ matrix.job.artifact_prefix }}
           tar czvf $RELEASE_NAME.tar.gz $BINARY_NAME
+          # create sha checksum files
           shasum -a 256 $RELEASE_NAME.tar.gz > $RELEASE_NAME.sha256
           echo "RELEASE_NAME=$RELEASE_NAME" >> $GITHUB_ENV
 
@@ -137,14 +154,14 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            target/${{ matrix.triple.target }}/release/${{ env.RELEASE_NAME }}.tar.gz
-            target/${{ matrix.triple.target }}/release/${{ env.RELEASE_NAME }}.sha256
+            target/${{ matrix.job.target }}/release/${{ env.RELEASE_NAME }}.tar.gz
+            target/${{ matrix.job.target }}/release/${{ env.RELEASE_NAME }}.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Add SHA to artifacts
         run: |
-          cp target/${{ matrix.triple.target }}/release/${{ env.RELEASE_NAME }}.sha256 artifacts/
+          cp target/${{ matrix.job.target }}/release/${{ env.RELEASE_NAME }}.sha256 artifacts/
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v1
@@ -189,7 +206,10 @@ jobs:
 
       - name: Execute Homebrew packaging script
         run: |
+          # run packaging script
           python "./deployment/homebrew/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/homebrew/kdash.rb.template" "./kdash.rb" ${{ env.MACOS_SHA }} ${{ env.LINUX_SHA }}
+          
+          # push to Git
           git config --global user.email "d4udts@gmail.com"
           git config --global user.name "deepu105"
           git clone https://deepu105:${{ secrets.TAP_GITHUB_TOKEN }}@github.com/kdash-rs/homebrew-kdash.git --branch=main brew
@@ -202,8 +222,11 @@ jobs:
 
       - name: Execute chocolatey packaging script
         run: |
+          # run packaging script
           python "./deployment/chocolatey/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/chocolatey/kdash.nuspec.template" "./kdash.nuspec" ${{ env.WINDOWS_SHA }}
           python "./deployment/chocolatey/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/chocolatey/chocolateyinstall.ps1.template" "./chocolateyinstall.ps1" ${{ env.WINDOWS_SHA }}
+          
+          # push to Git
           git config --global user.email "d4udts@gmail.com"
           git config --global user.name "deepu105"
           git clone https://deepu105:${{ secrets.CHOCO_GITHUB_TOKEN }}@github.com/kdash-rs/choco-kdash --branch=main choco
@@ -218,7 +241,10 @@ jobs:
 
       - name: Execute Scoop packaging script
         run: |
+          # run packaging script
           python "./deployment/scoop/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/scoop/kdash.json.template" "./kdash.json" ${{ env.WINDOWS_SHA }}
+
+          # push to Git
           git config --global user.email "d4udts@gmail.com"
           git config --global user.name "deepu105"
           git clone https://deepu105:${{ secrets.CHOCO_GITHUB_TOKEN }}@github.com/kdash-rs/scoop-kdash --branch=main scoop
@@ -236,8 +262,9 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: ${{ matrix.rust }}
           override: true
+          profile: minimal # minimal component installation (ie, no documentation)
       - run: |
           sudo apt-get update
           sudo apt-get install -y -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
