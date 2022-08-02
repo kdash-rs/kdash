@@ -2,13 +2,13 @@
 
 ## Unreleased - 2022-XX-YY
 
-## [0.3.2] - 2022-07-29
+## [0.3.3] - 2022-08-01
 
 - Upgrade libraries
 - Add sponsors
 - Add support for Roles (https://github.com/kdash-rs/kdash/pull/224)
 - Add support for Storage classes (https://github.com/kdash-rs/kdash/pull/222)
-- Add ARM and aarch64 binaries
+- Add support for ARM and aarch64 binaries
 
 ## [0.3.1] - 2022-04-06
 
