@@ -2,6 +2,10 @@
 
 ## Unreleased - 2022-XX-YY
 
+- Add support for Cluster Roles (https://github.com/kdash-rs/kdash/pull/236)
+- Upgrade libraries
+- 
+
 ## [0.3.3] - 2022-08-01
 
 - Upgrade libraries
