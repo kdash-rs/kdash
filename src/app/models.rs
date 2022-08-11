@@ -419,7 +419,7 @@ mod tests {
     };
     assert_eq!(
       ts.resource_to_yaml(),
-      "---\napiVersion: v1\nkind: Namespace\nmetadata:\n  name: test\n  namespace: test\n"
+      "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: test\n  namespace: test\n"
     )
   }
 
