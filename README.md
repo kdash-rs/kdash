@@ -220,4 +220,4 @@ MIT
 - [Asha Somayajula](https://github.com/somayaj)
 - [Tobias de Bruijn](https://github.com/TheDutchMC)
 - [Omid Rad](https://github.com/omid)
-- [shinu-ynap](https://github.com/shinu-ynap)
+- [Shinu Suresh](https://github.com/shinusuresh)
