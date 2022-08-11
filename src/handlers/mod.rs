@@ -618,7 +618,7 @@ mod tests {
     assert_eq!(app.get_current_route().active_block, ActiveBlock::Yaml);
     assert_eq!(
       app.data.describe_out.get_txt(),
-      "---\napiVersion: v1\nkind: Pod\nmetadata: {}\n"
+      "apiVersion: v1\nkind: Pod\nmetadata: {}\n"
     );
 
     assert!(
