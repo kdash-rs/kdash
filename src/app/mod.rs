@@ -40,7 +40,7 @@ use self::{
   pods::{KubeContainer, KubePod},
   replicasets::KubeReplicaSet,
   replication_controllers::KubeReplicationController,
-  roles::KubeRoles,
+  roles::{KubeClusterRoles, KubeRoles},
   secrets::KubeSecret,
   statefulsets::KubeStatefulSet,
   storageclass::KubeStorageClass,
@@ -75,6 +75,7 @@ pub enum ActiveBlock {
   RplCtrl,
   StorageClasses,
   Roles,
+  ClusterRoles,
   More,
 }
 
@@ -131,6 +132,7 @@ pub struct Data {
   pub rpl_ctrls: StatefulTable<KubeReplicationController>,
   pub storage_classes: StatefulTable<KubeStorageClass>,
   pub roles: StatefulTable<KubeRoles>,
+  pub clusterroles: StatefulTable<KubeClusterRoles>,
 }
 
 /// selected data items
@@ -205,6 +207,7 @@ impl Default for Data {
       rpl_ctrls: StatefulTable::new(),
       storage_classes: StatefulTable::new(),
       roles: StatefulTable::new(),
+      clusterroles: StatefulTable::new(),
     }
   }
 }
@@ -331,7 +334,7 @@ impl Default for App {
         ("Storage Classes".into(), ActiveBlock::StorageClasses),
         ("Roles".into(), ActiveBlock::Roles),
         // ("Role Bindings".into(), ActiveBlock::RplCtrl),
-        // ("Cluster Roles".into(), ActiveBlock::RplCtrl),
+        ("Cluster Roles".into(), ActiveBlock::ClusterRoles),
         // ("Cluster Role Bindings".into(), ActiveBlock::RplCtrl),
         // ("Service Accounts".into(), ActiveBlock::RplCtrl),
         // ("Ingresses".into(), ActiveBlock::RplCtrl),
@@ -527,6 +530,7 @@ impl App {
     self.dispatch(IoEvent::GetReplicationControllers).await;
     self.dispatch(IoEvent::GetStorageClasses).await;
     self.dispatch(IoEvent::GetRoles).await;
+    self.dispatch(IoEvent::GetClusterRoles).await;
     self.dispatch(IoEvent::GetMetrics).await;
   }
 
@@ -570,6 +574,9 @@ impl App {
       }
       ActiveBlock::Roles => {
         self.dispatch(IoEvent::GetRoles).await;
+      }
+      ActiveBlock::ClusterRoles => {
+        self.dispatch(IoEvent::GetClusterRoles).await;
       }
       ActiveBlock::Logs => {
         if !self.is_streaming {
@@ -729,6 +736,7 @@ mod tests {
     );
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetStorageClasses);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetRoles);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetClusterRoles);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetMetrics);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);

@@ -174,10 +174,12 @@ impl From<event::KeyEvent> for Key {
       event::KeyEvent {
         code: event::KeyCode::Char(c),
         modifiers: event::KeyModifiers::ALT,
+        ..
       } => Key::Alt(c),
       event::KeyEvent {
         code: event::KeyCode::Char(c),
         modifiers: event::KeyModifiers::CONTROL,
+        ..
       } => Key::Ctrl(c),
 
       event::KeyEvent {
@@ -220,14 +222,18 @@ mod tests {
     assert_eq!(
       Key::from(event::KeyEvent {
         code: event::KeyCode::Char('c'),
-        modifiers: event::KeyModifiers::ALT
+        modifiers: event::KeyModifiers::ALT,
+        kind: event::KeyEventKind::Press,
+        state: event::KeyEventState::NONE,
       }),
       Key::Alt('c')
     );
     assert_eq!(
       Key::from(event::KeyEvent {
         code: event::KeyCode::Char('c'),
-        modifiers: event::KeyModifiers::CONTROL
+        modifiers: event::KeyModifiers::CONTROL,
+        kind: event::KeyEventKind::Press,
+        state: event::KeyEventState::NONE
       }),
       Key::Ctrl('c')
     );
