@@ -28,7 +28,7 @@ use crate::app::{
   pods::KubePod,
   replicasets::KubeReplicaSet,
   replication_controllers::KubeReplicationController,
-  roles::KubeRoles,
+  roles::{KubeClusterRoles, KubeRoles},
   secrets::KubeSecret,
   statefulsets::KubeStatefulSet,
   storageclass::KubeStorageClass,
@@ -316,6 +316,15 @@ impl<'a> Network<'a> {
 
     let mut app = self.app.lock().await;
     app.data.roles.set_items(items);
+  }
+
+  pub async fn get_cluster_roles(&self) {
+    let items: Vec<KubeClusterRoles> = self
+      .get_namespaced_resources(|it| KubeClusterRoles::from_api(it))
+      .await;
+
+    let mut app = self.app.lock().await;
+    app.data.clusterroles.set_items(items);
   }
 
   /// calls the kubernetes API to list the given resource for either selected namespace or all namespaces
