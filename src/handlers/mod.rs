@@ -121,18 +121,18 @@ where
     let mut decoded_str = String::new();
     let of_any = res as &dyn std::any::Any;
     if let Some(secret) = of_any.downcast_ref::<KubeSecret>() {
-      if let Some(raw_token) = secret.data.get("token") {
-        decoded_str = match serde_yaml::to_string(raw_token) {
-          Ok(token_str) => {
-            match base64::decode(token_str.trim()) {
-              Ok(got_it) => String::from_utf8(got_it).unwrap(),
-              Err(_) => String::from(format!("can't base64 decode the data: {}", token_str))
+      for (key, raw_value) in secret.data.iter() {
+        let decoded_value = match serde_yaml::to_string(raw_value) {
+          Ok(encoded_value) => {
+            match base64::decode(encoded_value.trim()) {
+              Ok(decoded) => String::from_utf8(decoded).unwrap(),
+              Err(_) => String::from(format!("cannot base64 decode: {}", encoded_value.trim()))
             }
           },
-          Err(_) => "can't serde the raw token".into(),
+          Err(_) => "cannot deserialize value".into(),
         };
-      } else {
-        decoded_str = String::from("no secret.data['token']");
+        let decoded_kv = format!("{}: {}\n", key, decoded_value);
+        decoded_str.push_str(decoded_kv.as_str());
       }
     } else {
         decoded_str = String::from("not a KubeSecret");
