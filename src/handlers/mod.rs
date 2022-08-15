@@ -136,7 +136,8 @@ where
         decoded_str.push_str(decoded_kv.as_str());
       }
     } else {
-        decoded_str = String::from("resource is not a Secret");
+      // resource is not a secret
+      return false;
     }
     app.data.describe_out = ScrollableTxt::with_string(decoded_str);
     app.push_navigation_stack(RouteId::Home, ActiveBlock::Yaml);
