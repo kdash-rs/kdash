@@ -118,30 +118,30 @@ where
     app.push_navigation_stack(RouteId::Home, ActiveBlock::Yaml);
     true
   } else if key == DEFAULT_KEYBINDING.decode_secret.key {
-    // make sure we've got a secret
+    // make sure the resources is of type 'KubeSecret'
     let of_any = res as &dyn std::any::Any;
     if let Some(secret) = of_any.downcast_ref::<KubeSecret>() {
-      let mut decoded_str = String::new();
+      let mut display_output = String::new();
       for (key, encoded_bytes) in secret.data.iter() {
         let decoded_value = match serde_yaml::to_string(encoded_bytes) {
           Ok(encoded_str) => {
             match base64::decode(encoded_str.trim()) {
               Ok(decoded_bytes) => String::from_utf8(decoded_bytes).unwrap(),
-              Err(_) => String::from(format!("cannot base64 decode value: {}", encoded_str.trim()))
+              Err(_) => String::from(format!("cannot decode value: {}", encoded_str.trim()))
             }
           }
           Err(_) => String::from("cannot deserialize value"),
         };
         let decoded_kv = format!("{}: {}\n", key, decoded_value);
-        decoded_str.push_str(decoded_kv.as_str());
+        display_output.push_str(decoded_kv.as_str());
       }
+      app.data.describe_out = ScrollableTxt::with_string(display_output);
+      app.push_navigation_stack(RouteId::Home, ActiveBlock::Yaml);
+      true
     } else {
       // resource is not a secret
-      return false;
+      false
     }
-    app.data.describe_out = ScrollableTxt::with_string(decoded_str);
-    app.push_navigation_stack(RouteId::Home, ActiveBlock::Yaml);
-    true
   } else {
     false
   }
