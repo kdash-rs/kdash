@@ -10,7 +10,9 @@ use crate::{
   },
   cmd::IoCmdEvent,
   event::Key,
+  base64,
 };
+use crate::app::secrets::KubeSecret;
 
 pub async fn handle_key_events(key: Key, app: &mut App) {
   // First handle any global event and then move to route event
@@ -102,7 +104,7 @@ async fn handle_describe_or_yaml_action<T, S>(
   action: IoCmdEvent,
 ) -> bool
 where
-  T: KubeResource<S>,
+  T: KubeResource<S> + 'static,
   S: Serialize,
 {
   if key == DEFAULT_KEYBINDING.describe_resource.key {
@@ -113,6 +115,29 @@ where
   } else if key == DEFAULT_KEYBINDING.resource_yaml.key {
     let yaml = res.resource_to_yaml();
     app.data.describe_out = ScrollableTxt::with_string(yaml);
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Yaml);
+    true
+  } else if key == DEFAULT_KEYBINDING.decode_secret.key {
+    let mut decoded_str = String::new();
+    let of_any = res as &dyn std::any::Any;
+    if let Some(secret) = of_any.downcast_ref::<KubeSecret>() {
+      if let Some(raw_token) = secret.data.get("token") {
+        decoded_str = match serde_yaml::to_string(raw_token) {
+          Ok(token_str) => {
+            match base64::decode(token_str.trim()) {
+              Ok(got_it) => String::from_utf8(got_it).unwrap(),
+              Err(_) => String::from(format!("can't base64 decode the data: {}", token_str))
+            }
+          },
+          Err(_) => "can't serde the raw token".into(),
+        };
+      } else {
+        decoded_str = String::from("no secret.data['token']");
+      }
+    } else {
+        decoded_str = String::from("not a KubeSecret");
+    }
+    app.data.describe_out = ScrollableTxt::with_string(decoded_str);
     app.push_navigation_stack(RouteId::Home, ActiveBlock::Yaml);
     true
   } else {
@@ -498,7 +523,8 @@ fn handle_block_action<T: Clone>(key: Key, item: &mut StatefulTable<T>) -> Optio
   match key {
     _ if key == DEFAULT_KEYBINDING.submit.key
       || key == DEFAULT_KEYBINDING.describe_resource.key
-      || key == DEFAULT_KEYBINDING.resource_yaml.key =>
+      || key == DEFAULT_KEYBINDING.resource_yaml.key
+      || key == DEFAULT_KEYBINDING.decode_secret.key =>
     {
       item.get_selected_item_copy()
     }

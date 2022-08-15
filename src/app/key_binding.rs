@@ -41,6 +41,7 @@ generate_keybindings! {
   jump_to_namespace,
   describe_resource,
   resource_yaml,
+  decode_secret,
   jump_to_pods,
   jump_to_services,
   jump_to_nodes,
@@ -212,6 +213,12 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
     key: Key::Char('y'),
     alt: None,
     desc: "Get Resource YAML",
+    context: HContext::Overview,
+  },
+  decode_secret: KeyBinding {
+    key: Key::Char('x'),
+    alt: None,
+    desc: "Decode secret",
     context: HContext::Overview,
   },
   jump_to_pods: KeyBinding {

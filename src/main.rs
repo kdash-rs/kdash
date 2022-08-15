@@ -35,6 +35,7 @@ use tui::{
   backend::{Backend, CrosstermBackend},
   Terminal,
 };
+use base64;
 
 /// kdash CLI
 #[derive(Parser, Debug)]
