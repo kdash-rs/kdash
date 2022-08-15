@@ -123,7 +123,7 @@ where
     if let Some(secret) = of_any.downcast_ref::<KubeSecret>() {
       let mut display_output = String::new();
       for (key, encoded_bytes) in secret.data.iter() {
-        let decoded_value = match serde_yaml::to_string(encoded_bytes) {
+        let decoded_str = match serde_yaml::to_string(encoded_bytes) {
           Ok(encoded_str) => {
             match base64::decode(encoded_str.trim()) {
               Ok(decoded_bytes) => String::from_utf8(decoded_bytes).unwrap(),
@@ -132,7 +132,7 @@ where
           }
           Err(_) => String::from("cannot deserialize value"),
         };
-        let decoded_kv = format!("{}: {}\n", key, decoded_value);
+        let decoded_kv = format!("{}: {}\n", key, decoded_str);
         display_output.push_str(decoded_kv.as_str());
       }
       app.data.describe_out = ScrollableTxt::with_string(display_output);
