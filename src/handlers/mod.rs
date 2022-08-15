@@ -122,6 +122,11 @@ where
     let of_any = res as &dyn std::any::Any;
     if let Some(secret) = of_any.downcast_ref::<KubeSecret>() {
       let mut display_output = String::new();
+      display_output.push_str(format!("Name:         {}\n", secret.name).as_str());
+      display_output.push_str(format!("Namespace:    {}\n", secret.namespace).as_str());
+      display_output.push_str("\n");
+
+      // decode each of the key/values in the secret
       for (key, encoded_bytes) in secret.data.iter() {
         let decoded_str = match serde_yaml::to_string(encoded_bytes) {
           Ok(encoded_str) => {
