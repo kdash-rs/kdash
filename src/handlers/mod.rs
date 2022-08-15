@@ -118,18 +118,18 @@ where
     app.push_navigation_stack(RouteId::Home, ActiveBlock::Yaml);
     true
   } else if key == DEFAULT_KEYBINDING.decode_secret.key {
-    let mut decoded_str = String::new();
-      // make sure we've got a secret
+    // make sure we've got a secret
     let of_any = res as &dyn std::any::Any;
     if let Some(secret) = of_any.downcast_ref::<KubeSecret>() {
-      for (key, raw_value) in secret.data.iter() {
-        let decoded_value = match serde_yaml::to_string(raw_value) {
-          Ok(encoded_value) => {
-            match base64::decode(encoded_value.trim()) {
+      let mut decoded_str = String::new();
+      for (key, encoded_bytes) in secret.data.iter() {
+        let decoded_value = match serde_yaml::to_string(encoded_bytes) {
+          Ok(encoded_str) => {
+            match base64::decode(encoded_str.trim()) {
               Ok(decoded_bytes) => String::from_utf8(decoded_bytes).unwrap(),
-              Err(_) => String::from(format!("cannot base64 decode value: {}", encoded_value.trim()))
+              Err(_) => String::from(format!("cannot base64 decode value: {}", encoded_str.trim()))
             }
-          },
+          }
           Err(_) => String::from("cannot deserialize value"),
         };
         let decoded_kv = format!("{}: {}\n", key, decoded_value);
