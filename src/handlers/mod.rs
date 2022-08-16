@@ -124,7 +124,7 @@ where
       let mut display_output = String::new();
       display_output.push_str(format!("Name:         {}\n", secret.name).as_str());
       display_output.push_str(format!("Namespace:    {}\n", secret.namespace).as_str());
-      display_output.push_str("\n");
+      display_output.push('\n');
 
       // decode each of the key/values in the secret
       for (key, encoded_bytes) in secret.data.iter() {
@@ -132,7 +132,7 @@ where
           Ok(encoded_str) => {
             match base64::decode(encoded_str.trim()) {
               Ok(decoded_bytes) => String::from_utf8(decoded_bytes).unwrap(),
-              Err(_) => String::from(format!("cannot decode value: {}", encoded_str.trim()))
+              Err(_) => format!("cannot decode value: {}", encoded_str.trim())
             }
           }
           Err(_) => String::from("cannot deserialize value"),
