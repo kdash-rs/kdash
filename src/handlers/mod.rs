@@ -127,7 +127,7 @@ where
       display_output.push('\n');
 
       // decode each of the key/values in the secret
-      for (key, encoded_bytes) in secret.data.iter() {
+      for (keyname, encoded_bytes) in secret.data.iter() {
         let decoded_str = match serde_yaml::to_string(encoded_bytes) {
           Ok(encoded_str) => {
             match base64::decode(encoded_str.trim()) {
@@ -137,7 +137,7 @@ where
           }
           Err(_) => String::from("cannot deserialize value"),
         };
-        let decoded_kv = format!("{}: {}\n", key, decoded_str);
+        let decoded_kv = format!("{}: {}\n", keyname, decoded_str);
         display_output.push_str(decoded_kv.as_str());
       }
       app.data.describe_out = ScrollableTxt::with_string(display_output);
@@ -601,6 +601,7 @@ fn inverse_dir(up: bool, is_mouse: bool) -> bool {
 mod tests {
   use super::*;
   use crate::app::{contexts::KubeContext, pods::KubePod};
+  use k8s_openapi::ByteString;
 
   #[test]
   fn test_inverse_dir() {
@@ -667,6 +668,37 @@ mod tests {
       )
       .await
     );
+  }
+
+  #[tokio::test]
+  async fn test_decode_secret() {
+    const DATA1: &str = "Hello, World!";
+    const DATA2: &str = "Neque porro quisquam est qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit";
+
+    let mut app = App::default();
+    app.route_home();
+
+    let mut secret = KubeSecret::default();
+    // ByteString base64 encodes the data
+    secret.data.insert(String::from("key1"), ByteString(DATA1.as_bytes().into()));
+    secret.data.insert(String::from("key2"), ByteString(DATA2.as_bytes().into()));
+
+    assert!(
+      handle_describe_or_yaml_action(
+        Key::Char('x'),
+         &mut app,
+        &secret,
+        IoCmdEvent::GetDescribe {
+          kind: "secret".to_owned(),
+          value: "name".to_owned(),
+          ns: Some("namespace".to_owned()),
+        }
+      )
+      .await
+    );
+
+    assert!(app.data.describe_out.get_txt().contains(format!("key1: {}", DATA1).as_str()));
+    assert!(app.data.describe_out.get_txt().contains(format!("key2: {}", DATA2).as_str()));
   }
 
   #[tokio::test]
