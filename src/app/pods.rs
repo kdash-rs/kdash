@@ -26,6 +26,7 @@ pub struct KubePod {
 }
 
 #[derive(Clone, Default, Debug, PartialEq)]
+#[allow(clippy::derive_partial_eq_without_eq)]
 pub struct KubeContainer {
   pub name: String,
   pub image: String,

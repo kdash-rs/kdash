@@ -196,6 +196,7 @@ impl TabsState {
 }
 
 #[derive(Debug, PartialEq)]
+#[allow(clippy::derive_partial_eq_without_eq)]
 pub struct ScrollableTxt {
   items: Vec<String>,
   pub offset: u16,

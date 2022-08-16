@@ -2,6 +2,7 @@ use crossterm::event::{MouseEvent, MouseEventKind};
 use kubectl_view_allocations::GroupBy;
 use serde::Serialize;
 
+use crate::app::secrets::KubeSecret;
 use crate::{
   app::{
     key_binding::DEFAULT_KEYBINDING,
@@ -10,9 +11,7 @@ use crate::{
   },
   cmd::IoCmdEvent,
   event::Key,
-  base64,
 };
-use crate::app::secrets::KubeSecret;
 
 pub async fn handle_key_events(key: Key, app: &mut App) {
   // First handle any global event and then move to route event
@@ -129,12 +128,10 @@ where
       // decode each of the key/values in the secret
       for (keyname, encoded_bytes) in secret.data.iter() {
         let decoded_str = match serde_yaml::to_string(encoded_bytes) {
-          Ok(encoded_str) => {
-            match base64::decode(encoded_str.trim()) {
-              Ok(decoded_bytes) => String::from_utf8(decoded_bytes).unwrap(),
-              Err(_) => format!("cannot decode value: {}", encoded_str.trim())
-            }
-          }
+          Ok(encoded_str) => match base64::decode(encoded_str.trim()) {
+            Ok(decoded_bytes) => String::from_utf8(decoded_bytes).unwrap(),
+            Err(_) => format!("cannot decode value: {}", encoded_str.trim()),
+          },
           Err(_) => String::from("cannot deserialize value"),
         };
         let decoded_kv = format!("{}: {}\n", keyname, decoded_str);
@@ -673,20 +670,26 @@ mod tests {
   #[tokio::test]
   async fn test_decode_secret() {
     const DATA1: &str = "Hello, World!";
-    const DATA2: &str = "Neque porro quisquam est qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit";
+    const DATA2: &str =
+      "Neque porro quisquam est qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit";
 
     let mut app = App::default();
     app.route_home();
 
     let mut secret = KubeSecret::default();
     // ByteString base64 encodes the data
-    secret.data.insert(String::from("key1"), ByteString(DATA1.as_bytes().into()));
-    secret.data.insert(String::from("key2"), ByteString(DATA2.as_bytes().into()));
+    secret
+      .data
+      .insert(String::from("key1"), ByteString(DATA1.as_bytes().into()));
+    secret
+      .data
+      .insert(String::from("key2"), ByteString(DATA2.as_bytes().into()));
 
+    // ensure that 'x' decodes the secret data
     assert!(
       handle_describe_or_yaml_action(
         Key::Char('x'),
-         &mut app,
+        &mut app,
         &secret,
         IoCmdEvent::GetDescribe {
           kind: "secret".to_owned(),
@@ -697,8 +700,16 @@ mod tests {
       .await
     );
 
-    assert!(app.data.describe_out.get_txt().contains(format!("key1: {}", DATA1).as_str()));
-    assert!(app.data.describe_out.get_txt().contains(format!("key2: {}", DATA2).as_str()));
+    assert!(app
+      .data
+      .describe_out
+      .get_txt()
+      .contains(format!("key1: {}", DATA1).as_str()));
+    assert!(app
+      .data
+      .describe_out
+      .get_txt()
+      .contains(format!("key2: {}", DATA2).as_str()));
   }
 
   #[tokio::test]

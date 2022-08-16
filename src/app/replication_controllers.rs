@@ -18,6 +18,7 @@ pub struct KubeReplicationController {
   k8s_obj: ReplicationController,
 }
 
+#[allow(clippy::manual_filter_map)]
 impl KubeResource<ReplicationController> for KubeReplicationController {
   fn from_api(rplc: &ReplicationController) -> Self {
     let (current, ready) = match rplc.status.as_ref() {

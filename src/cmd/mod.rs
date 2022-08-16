@@ -9,6 +9,7 @@ use tokio::sync::Mutex;
 use crate::app::{self, models::ScrollableTxt, App, Cli};
 
 #[derive(Debug, PartialEq)]
+#[allow(clippy::derive_partial_eq_without_eq)]
 pub enum IoCmdEvent {
   GetCliInfo,
   GetDescribe {

@@ -52,6 +52,7 @@ use super::{
 };
 
 #[derive(Clone, Copy, PartialEq, Debug)]
+#[allow(clippy::derive_partial_eq_without_eq)]
 pub enum ActiveBlock {
   Help,
   Pods,
@@ -80,6 +81,7 @@ pub enum ActiveBlock {
 }
 
 #[derive(Clone, PartialEq, Debug)]
+#[allow(clippy::derive_partial_eq_without_eq)]
 pub enum RouteId {
   Home,
   Contexts,
