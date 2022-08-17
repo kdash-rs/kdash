@@ -30,7 +30,7 @@ Thanks to the sponsors of [@deepu105](https://github.com/sponsors/deepu105) who 
 
 ### Bronze
 
-- [Robusta](https://home.robusta.dev/)
+- [Robusta - Kubernetes monitoring](https://home.robusta.dev/)
 
 Gold and Silver tiers are open for [Sponsors](https://github.com/sponsors/deepu105)
 
