@@ -3,8 +3,8 @@
 ## Unreleased - 2022-XX-YY
 
 - Add support for Cluster Roles (https://github.com/kdash-rs/kdash/pull/236)
+- Add support for decoding secrets (https://github.com/kdash-rs/kdash/pull/242)
 - Upgrade libraries
-- 
 
 ## [0.3.3] - 2022-08-01
 
