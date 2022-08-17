@@ -25,8 +25,7 @@ pub struct KubePod {
   k8s_obj: Pod,
 }
 
-#[derive(Clone, Default, Debug, PartialEq)]
-#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, Default, Debug, Eq, PartialEq)]
 pub struct KubeContainer {
   pub name: String,
   pub image: String,

@@ -51,8 +51,7 @@ use super::{
   network::{stream::IoStreamEvent, IoEvent},
 };
 
-#[derive(Clone, Copy, PartialEq, Debug)]
-#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub enum ActiveBlock {
   Help,
   Pods,
@@ -80,8 +79,7 @@ pub enum ActiveBlock {
   More,
 }
 
-#[derive(Clone, PartialEq, Debug)]
-#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub enum RouteId {
   Home,
   Contexts,

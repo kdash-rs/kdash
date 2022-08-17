@@ -212,7 +212,7 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
   resource_yaml: KeyBinding {
     key: Key::Char('y'),
     alt: None,
-    desc: "Get Resource YAML",
+    desc: "Get resource YAML",
     context: HContext::Overview,
   },
   decode_secret: KeyBinding {

@@ -9,8 +9,7 @@ use tokio_stream::StreamExt;
 use super::refresh_kube_config;
 use crate::app::{ActiveBlock, App};
 
-#[derive(Debug, PartialEq)]
-#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum IoStreamEvent {
   RefreshClient,
   GetPodLogs(bool),

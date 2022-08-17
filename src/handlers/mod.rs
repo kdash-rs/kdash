@@ -96,7 +96,7 @@ fn handle_escape(app: &mut App) {
   }
 }
 
-async fn handle_describe_or_yaml_action<T, S>(
+async fn handle_describe_decode_or_yaml_action<T, S>(
   key: Key,
   app: &mut App,
   res: &T,
@@ -123,10 +123,10 @@ where
       let mut display_output = String::new();
       display_output.push_str(format!("Name:         {}\n", secret.name).as_str());
       display_output.push_str(format!("Namespace:    {}\n", secret.namespace).as_str());
-      display_output.push('\n');
+      display_output.push_str("\nData\n====\n\n");
 
       // decode each of the key/values in the secret
-      for (keyname, encoded_bytes) in secret.data.iter() {
+      for (key_name, encoded_bytes) in secret.data.iter() {
         let decoded_str = match serde_yaml::to_string(encoded_bytes) {
           Ok(encoded_str) => match base64::decode(encoded_str.trim()) {
             Ok(decoded_bytes) => String::from_utf8(decoded_bytes).unwrap(),
@@ -134,11 +134,11 @@ where
           },
           Err(_) => String::from("cannot deserialize value"),
         };
-        let decoded_kv = format!("{}: {}\n", keyname, decoded_str);
+        let decoded_kv = format!("{}: {}\n", key_name, decoded_str);
         display_output.push_str(decoded_kv.as_str());
       }
       app.data.describe_out = ScrollableTxt::with_string(display_output);
-      app.push_navigation_stack(RouteId::Home, ActiveBlock::Yaml);
+      app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
       true
     } else {
       // resource is not a secret
@@ -229,7 +229,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::Nodes => {
           if let Some(node) = handle_block_action(key, &mut app.data.nodes) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &node,
@@ -244,7 +244,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::Pods => {
           if let Some(pod) = handle_block_action(key, &mut app.data.pods) {
-            let ok = handle_describe_or_yaml_action(
+            let ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &pod,
@@ -282,7 +282,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::Services => {
           if let Some(res) = handle_block_action(key, &mut app.data.services) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -297,7 +297,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::Deployments => {
           if let Some(res) = handle_block_action(key, &mut app.data.deployments) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -312,7 +312,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::ConfigMaps => {
           if let Some(res) = handle_block_action(key, &mut app.data.config_maps) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -327,7 +327,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::StatefulSets => {
           if let Some(res) = handle_block_action(key, &mut app.data.stateful_sets) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -342,7 +342,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::ReplicaSets => {
           if let Some(res) = handle_block_action(key, &mut app.data.replica_sets) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -357,7 +357,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::Jobs => {
           if let Some(res) = handle_block_action(key, &mut app.data.jobs) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -372,7 +372,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::DaemonSets => {
           if let Some(res) = handle_block_action(key, &mut app.data.daemon_sets) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -402,7 +402,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::CronJobs => {
           if let Some(res) = handle_block_action(key, &mut app.data.cronjobs) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -417,7 +417,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::Secrets => {
           if let Some(res) = handle_block_action(key, &mut app.data.secrets) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -432,7 +432,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::RplCtrl => {
           if let Some(res) = handle_block_action(key, &mut app.data.rpl_ctrls) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -447,7 +447,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::StorageClasses => {
           if let Some(res) = handle_block_action(key, &mut app.data.storage_classes) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -462,7 +462,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::Roles => {
           if let Some(res) = handle_block_action(key, &mut app.data.roles) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -477,7 +477,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::ClusterRoles => {
           if let Some(res) = handle_block_action(key, &mut app.data.clusterroles) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -616,7 +616,7 @@ mod tests {
     let item = KubePod::default();
 
     assert!(
-      handle_describe_or_yaml_action(
+      handle_describe_decode_or_yaml_action(
         Key::Char('d'),
         &mut app,
         &item,
@@ -633,7 +633,7 @@ mod tests {
     assert_eq!(app.data.describe_out.get_txt(), "");
 
     assert!(
-      handle_describe_or_yaml_action(
+      handle_describe_decode_or_yaml_action(
         Key::Char('y'),
         &mut app,
         &item,
@@ -653,7 +653,7 @@ mod tests {
     );
 
     assert!(
-      !handle_describe_or_yaml_action(
+      !handle_describe_decode_or_yaml_action(
         Key::Char('s'),
         &mut app,
         &item,
@@ -687,7 +687,7 @@ mod tests {
 
     // ensure that 'x' decodes the secret data
     assert!(
-      handle_describe_or_yaml_action(
+      handle_describe_decode_or_yaml_action(
         Key::Char('x'),
         &mut app,
         &secret,

@@ -18,7 +18,6 @@ pub struct KubeReplicationController {
   k8s_obj: ReplicationController,
 }
 
-#[allow(clippy::manual_filter_map)]
 impl KubeResource<ReplicationController> for KubeReplicationController {
   fn from_api(rplc: &ReplicationController) -> Self {
     let (current, ready) = match rplc.status.as_ref() {
@@ -49,8 +48,7 @@ impl KubeResource<ReplicationController> for KubeReplicationController {
               pspec
                 .containers
                 .iter()
-                .filter(|c| c.image.is_some())
-                .map(|c| c.image.to_owned().unwrap())
+                .filter_map(|c| c.image.to_owned())
                 .collect::<Vec<String>>()
                 .join(","),
             ),

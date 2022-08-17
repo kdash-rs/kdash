@@ -11,8 +11,7 @@ use tokio::sync::Mutex;
 
 use crate::app::App;
 
-#[derive(Debug, PartialEq)]
-#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum IoEvent {
   GetKubeConfig,
   GetNodes,
