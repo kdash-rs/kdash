@@ -2,6 +2,7 @@ use crossterm::event::{MouseEvent, MouseEventKind};
 use kubectl_view_allocations::GroupBy;
 use serde::Serialize;
 
+use crate::app::secrets::KubeSecret;
 use crate::{
   app::{
     key_binding::DEFAULT_KEYBINDING,
@@ -95,14 +96,14 @@ fn handle_escape(app: &mut App) {
   }
 }
 
-async fn handle_describe_or_yaml_action<T, S>(
+async fn handle_describe_decode_or_yaml_action<T, S>(
   key: Key,
   app: &mut App,
   res: &T,
   action: IoCmdEvent,
 ) -> bool
 where
-  T: KubeResource<S>,
+  T: KubeResource<S> + 'static,
   S: Serialize,
 {
   if key == DEFAULT_KEYBINDING.describe_resource.key {
@@ -115,6 +116,34 @@ where
     app.data.describe_out = ScrollableTxt::with_string(yaml);
     app.push_navigation_stack(RouteId::Home, ActiveBlock::Yaml);
     true
+  } else if key == DEFAULT_KEYBINDING.decode_secret.key {
+    // make sure the resources is of type 'KubeSecret'
+    let of_any = res as &dyn std::any::Any;
+    if let Some(secret) = of_any.downcast_ref::<KubeSecret>() {
+      let mut display_output = String::new();
+      display_output.push_str(format!("Name:         {}\n", secret.name).as_str());
+      display_output.push_str(format!("Namespace:    {}\n", secret.namespace).as_str());
+      display_output.push_str("\nData\n====\n\n");
+
+      // decode each of the key/values in the secret
+      for (key_name, encoded_bytes) in secret.data.iter() {
+        let decoded_str = match serde_yaml::to_string(encoded_bytes) {
+          Ok(encoded_str) => match base64::decode(encoded_str.trim()) {
+            Ok(decoded_bytes) => String::from_utf8(decoded_bytes).unwrap(),
+            Err(_) => format!("cannot decode value: {}", encoded_str.trim()),
+          },
+          Err(_) => String::from("cannot deserialize value"),
+        };
+        let decoded_kv = format!("{}: {}\n", key_name, decoded_str);
+        display_output.push_str(decoded_kv.as_str());
+      }
+      app.data.describe_out = ScrollableTxt::with_string(display_output);
+      app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
+      true
+    } else {
+      // resource is not a secret
+      false
+    }
   } else {
     false
   }
@@ -200,7 +229,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::Nodes => {
           if let Some(node) = handle_block_action(key, &mut app.data.nodes) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &node,
@@ -215,7 +244,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::Pods => {
           if let Some(pod) = handle_block_action(key, &mut app.data.pods) {
-            let ok = handle_describe_or_yaml_action(
+            let ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &pod,
@@ -253,7 +282,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::Services => {
           if let Some(res) = handle_block_action(key, &mut app.data.services) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -268,7 +297,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::Deployments => {
           if let Some(res) = handle_block_action(key, &mut app.data.deployments) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -283,7 +312,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::ConfigMaps => {
           if let Some(res) = handle_block_action(key, &mut app.data.config_maps) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -298,7 +327,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::StatefulSets => {
           if let Some(res) = handle_block_action(key, &mut app.data.stateful_sets) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -313,7 +342,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::ReplicaSets => {
           if let Some(res) = handle_block_action(key, &mut app.data.replica_sets) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -328,7 +357,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::Jobs => {
           if let Some(res) = handle_block_action(key, &mut app.data.jobs) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -343,7 +372,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::DaemonSets => {
           if let Some(res) = handle_block_action(key, &mut app.data.daemon_sets) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -373,7 +402,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::CronJobs => {
           if let Some(res) = handle_block_action(key, &mut app.data.cronjobs) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -388,7 +417,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::Secrets => {
           if let Some(res) = handle_block_action(key, &mut app.data.secrets) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -403,7 +432,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::RplCtrl => {
           if let Some(res) = handle_block_action(key, &mut app.data.rpl_ctrls) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -418,7 +447,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::StorageClasses => {
           if let Some(res) = handle_block_action(key, &mut app.data.storage_classes) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -433,7 +462,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::Roles => {
           if let Some(res) = handle_block_action(key, &mut app.data.roles) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -448,7 +477,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::ClusterRoles => {
           if let Some(res) = handle_block_action(key, &mut app.data.clusterroles) {
-            let _ok = handle_describe_or_yaml_action(
+            let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
               &res,
@@ -498,7 +527,8 @@ fn handle_block_action<T: Clone>(key: Key, item: &mut StatefulTable<T>) -> Optio
   match key {
     _ if key == DEFAULT_KEYBINDING.submit.key
       || key == DEFAULT_KEYBINDING.describe_resource.key
-      || key == DEFAULT_KEYBINDING.resource_yaml.key =>
+      || key == DEFAULT_KEYBINDING.resource_yaml.key
+      || key == DEFAULT_KEYBINDING.decode_secret.key =>
     {
       item.get_selected_item_copy()
     }
@@ -568,6 +598,7 @@ fn inverse_dir(up: bool, is_mouse: bool) -> bool {
 mod tests {
   use super::*;
   use crate::app::{contexts::KubeContext, pods::KubePod};
+  use k8s_openapi::ByteString;
 
   #[test]
   fn test_inverse_dir() {
@@ -585,7 +616,7 @@ mod tests {
     let item = KubePod::default();
 
     assert!(
-      handle_describe_or_yaml_action(
+      handle_describe_decode_or_yaml_action(
         Key::Char('d'),
         &mut app,
         &item,
@@ -602,7 +633,7 @@ mod tests {
     assert_eq!(app.data.describe_out.get_txt(), "");
 
     assert!(
-      handle_describe_or_yaml_action(
+      handle_describe_decode_or_yaml_action(
         Key::Char('y'),
         &mut app,
         &item,
@@ -622,7 +653,7 @@ mod tests {
     );
 
     assert!(
-      !handle_describe_or_yaml_action(
+      !handle_describe_decode_or_yaml_action(
         Key::Char('s'),
         &mut app,
         &item,
@@ -634,6 +665,51 @@ mod tests {
       )
       .await
     );
+  }
+
+  #[tokio::test]
+  async fn test_decode_secret() {
+    const DATA1: &str = "Hello, World!";
+    const DATA2: &str =
+      "Neque porro quisquam est qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit";
+
+    let mut app = App::default();
+    app.route_home();
+
+    let mut secret = KubeSecret::default();
+    // ByteString base64 encodes the data
+    secret
+      .data
+      .insert(String::from("key1"), ByteString(DATA1.as_bytes().into()));
+    secret
+      .data
+      .insert(String::from("key2"), ByteString(DATA2.as_bytes().into()));
+
+    // ensure that 'x' decodes the secret data
+    assert!(
+      handle_describe_decode_or_yaml_action(
+        Key::Char('x'),
+        &mut app,
+        &secret,
+        IoCmdEvent::GetDescribe {
+          kind: "secret".to_owned(),
+          value: "name".to_owned(),
+          ns: Some("namespace".to_owned()),
+        }
+      )
+      .await
+    );
+
+    assert!(app
+      .data
+      .describe_out
+      .get_txt()
+      .contains(format!("key1: {}", DATA1).as_str()));
+    assert!(app
+      .data
+      .describe_out
+      .get_txt()
+      .contains(format!("key2: {}", DATA2).as_str()));
   }
 
   #[tokio::test]

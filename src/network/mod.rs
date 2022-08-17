@@ -11,7 +11,7 @@ use tokio::sync::Mutex;
 
 use crate::app::App;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum IoEvent {
   GetKubeConfig,
   GetNodes,

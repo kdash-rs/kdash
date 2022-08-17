@@ -19,6 +19,8 @@ use crate::app::{models::StatefulTable, ActiveBlock, App};
 
 static DESCRIBE_AND_YAML_HINT: &str = "| describe <d> | yaml <y> ";
 static DESCRIBE_YAML_AND_ESC_HINT: &str = "| describe <d> | yaml <y> | back to menu <esc> ";
+static DESCRIBE_YAML_DECODE_AND_ESC_HINT: &str =
+  "| describe <d> | yaml <y> | decode <x> | back to menu <esc> ";
 static COPY_HINT: &str = "| copy <c>";
 static NODES_TITLE: &str = "Nodes";
 static PODS_TITLE: &str = "Pods";
@@ -856,7 +858,7 @@ fn draw_secrets_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rec
     area,
     ResourceTableProps {
       title,
-      inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
+      inline_help: DESCRIBE_YAML_DECODE_AND_ESC_HINT.into(),
       resource: &mut app.data.secrets,
       table_headers: vec!["Namespace", "Name", "Type", "Data", "Age"],
       column_widths: vec![

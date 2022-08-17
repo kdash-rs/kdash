@@ -4,7 +4,7 @@ use k8s_openapi::{api::core::v1::Secret, chrono::Utc, ByteString};
 
 use super::{models::KubeResource, utils};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct KubeSecret {
   pub name: String,
   pub namespace: String,
