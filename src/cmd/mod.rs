@@ -8,7 +8,7 @@ use tokio::sync::Mutex;
 
 use crate::app::{self, models::ScrollableTxt, App, Cli};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum IoCmdEvent {
   GetCliInfo,
   GetDescribe {

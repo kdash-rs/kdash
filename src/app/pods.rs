@@ -25,7 +25,7 @@ pub struct KubePod {
   k8s_obj: Pod,
 }
 
-#[derive(Clone, Default, Debug, PartialEq)]
+#[derive(Clone, Default, Debug, Eq, PartialEq)]
 pub struct KubeContainer {
   pub name: String,
   pub image: String,

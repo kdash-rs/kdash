@@ -30,7 +30,7 @@ Thanks to the sponsors of [@deepu105](https://github.com/sponsors/deepu105) who 
 
 ### Bronze
 
-- [Robusta](https://home.robusta.dev/)
+- [Robusta - Kubernetes monitoring](https://home.robusta.dev/)
 
 Gold and Silver tiers are open for [Sponsors](https://github.com/sponsors/deepu105)
 
@@ -221,3 +221,4 @@ MIT
 - [Tobias de Bruijn](https://github.com/TheDutchMC)
 - [Omid Rad](https://github.com/omid)
 - [Shinu Suresh](https://github.com/shinusuresh)
+- [Andrew Alsup](https://github.com/aalsup)

@@ -9,7 +9,7 @@ use tokio_stream::StreamExt;
 use super::refresh_kube_config;
 use crate::app::{ActiveBlock, App};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum IoStreamEvent {
   RefreshClient,
   GetPodLogs(bool),
@@ -109,7 +109,7 @@ impl<'a> NetworkStream<'a> {
         let logs = logs.timeout(Duration::from_secs(2));
         tokio::pin!(logs);
 
-        #[allow(clippy::eval_order_dependence)]
+        #[allow(clippy::mixed_read_write_in_expression)]
         while let (true, Ok(Some(Ok(line)))) = (
           {
             let app = self.app.lock().await;

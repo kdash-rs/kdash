@@ -48,8 +48,7 @@ impl KubeResource<ReplicationController> for KubeReplicationController {
               pspec
                 .containers
                 .iter()
-                .filter(|c| c.image.is_some())
-                .map(|c| c.image.to_owned().unwrap())
+                .filter_map(|c| c.image.to_owned())
                 .collect::<Vec<String>>()
                 .join(","),
             ),
