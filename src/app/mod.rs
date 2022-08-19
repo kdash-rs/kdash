@@ -40,7 +40,7 @@ use self::{
   pods::{KubeContainer, KubePod},
   replicasets::KubeReplicaSet,
   replication_controllers::KubeReplicationController,
-  roles::{KubeClusterRoles, KubeRoles},
+  roles::{KubeClusterRoles, KubeRoleBindings, KubeRoles},
   secrets::KubeSecret,
   statefulsets::KubeStatefulSet,
   storageclass::KubeStorageClass,
@@ -75,6 +75,7 @@ pub enum ActiveBlock {
   RplCtrl,
   StorageClasses,
   Roles,
+  RoleBindings,
   ClusterRoles,
   More,
 }
@@ -132,6 +133,7 @@ pub struct Data {
   pub rpl_ctrls: StatefulTable<KubeReplicationController>,
   pub storage_classes: StatefulTable<KubeStorageClass>,
   pub roles: StatefulTable<KubeRoles>,
+  pub role_bindings: StatefulTable<KubeRoleBindings>,
   pub clusterroles: StatefulTable<KubeClusterRoles>,
 }
 
@@ -207,6 +209,7 @@ impl Default for Data {
       rpl_ctrls: StatefulTable::new(),
       storage_classes: StatefulTable::new(),
       roles: StatefulTable::new(),
+      role_bindings: StatefulTable::new(),
       clusterroles: StatefulTable::new(),
     }
   }
@@ -333,7 +336,7 @@ impl Default for App {
         // ("Persistent Volumes".into(), ActiveBlock::RplCtrl),
         ("Storage Classes".into(), ActiveBlock::StorageClasses),
         ("Roles".into(), ActiveBlock::Roles),
-        // ("Role Bindings".into(), ActiveBlock::RplCtrl),
+        ("Role Bindings".into(), ActiveBlock::RoleBindings),
         ("Cluster Roles".into(), ActiveBlock::ClusterRoles),
         // ("Cluster Role Bindings".into(), ActiveBlock::RplCtrl),
         // ("Service Accounts".into(), ActiveBlock::RplCtrl),
@@ -530,6 +533,7 @@ impl App {
     self.dispatch(IoEvent::GetReplicationControllers).await;
     self.dispatch(IoEvent::GetStorageClasses).await;
     self.dispatch(IoEvent::GetRoles).await;
+    self.dispatch(IoEvent::GetRoleBindings).await;
     self.dispatch(IoEvent::GetClusterRoles).await;
     self.dispatch(IoEvent::GetMetrics).await;
   }
@@ -574,6 +578,9 @@ impl App {
       }
       ActiveBlock::Roles => {
         self.dispatch(IoEvent::GetRoles).await;
+      }
+      ActiveBlock::RoleBindings => {
+        self.dispatch(IoEvent::GetRoleBindings).await;
       }
       ActiveBlock::ClusterRoles => {
         self.dispatch(IoEvent::GetClusterRoles).await;
@@ -736,6 +743,7 @@ mod tests {
     );
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetStorageClasses);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetRoles);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetRoleBindings);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetClusterRoles);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetMetrics);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
