@@ -1,0 +1,46 @@
+apiVersion: v1
+items:
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      creationTimestamp: "2022-03-02T16:50:53Z"
+      name: admin-user
+      resourceVersion: "70549225"
+      uid: e86a4046-d74b-457e-9e93-6269a675284d
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: cluster-admin
+    subjects:
+      - kind: ServiceAccount
+        name: power-user
+        namespace: kube-system
+      - kind: ServiceAccount
+        name: admin-user
+        namespace: kube-system
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/last-applied-configuration: |
+          {"apiVersion":"rbac.authorization.k8s.io/v1","kind":"ClusterRoleBinding","metadata":{"annotations":{},"name":"aws-node"},"roleRef":{"apiGroup":"rbac.authorization.k8s.io","kind":"ClusterRole","name":"aws-node"},"subjects":[{"kind":"ServiceAccount","name":"aws-node","namespace":"kube-system"}]}
+        meta.helm.sh/release-name: aws-cni
+        meta.helm.sh/release-namespace: kube-system
+      creationTimestamp: "2022-03-02T16:42:18Z"
+      labels:
+        app.kubernetes.io/managed-by: Helm
+      name: aws-node
+      resourceVersion: "70549265"
+      uid: f6dd32c5-f853-4a8b-a98b-0726d4702cbe
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: aws-node
+    subjects:
+      - kind: ServiceAccount
+        name: aws-node
+        namespace: kube-system
+kind: List
+metadata:
+  resourceVersion: ""
+  selfLink: ""

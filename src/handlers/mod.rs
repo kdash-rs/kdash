@@ -490,6 +490,21 @@ async fn handle_route_events(key: Key, app: &mut App) {
             .await;
           }
         }
+        ActiveBlock::ClusterRoleBinding => {
+          if let Some(res) = handle_block_action(key, &mut app.data.clusterrolebinding) {
+            let _ok = handle_describe_decode_or_yaml_action(
+              key,
+              app,
+              &res,
+              IoCmdEvent::GetDescribe {
+                kind: "clusterrolebinding".to_owned(),
+                value: res.name.to_owned(),
+                ns: None,
+              },
+            )
+            .await;
+          }
+        }
         ActiveBlock::Contexts | ActiveBlock::Utilization | ActiveBlock::Help => { /* Do nothing */ }
       }
     }
@@ -555,6 +570,7 @@ async fn handle_block_scroll(app: &mut App, up: bool, is_mouse: bool, page: bool
     ActiveBlock::StorageClasses => app.data.storage_classes.handle_scroll(up, page),
     ActiveBlock::Roles => app.data.roles.handle_scroll(up, page),
     ActiveBlock::ClusterRoles => app.data.clusterroles.handle_scroll(up, page),
+    ActiveBlock::ClusterRoleBinding => app.data.clusterrolebinding.handle_scroll(up, page),
     ActiveBlock::Contexts => app.data.contexts.handle_scroll(up, page),
     ActiveBlock::Utilization => app.data.metrics.handle_scroll(up, page),
     ActiveBlock::Help => app.help_docs.handle_scroll(up, page),
