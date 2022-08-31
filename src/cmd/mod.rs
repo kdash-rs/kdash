@@ -57,7 +57,7 @@ impl<'a> CmdRunner<'a> {
       .read()
     {
       Ok(out) => {
-        let v: serde_json::Result<JValue> = serde_json::from_str(&*out);
+        let v: serde_json::Result<JValue> = serde_json::from_str(&out);
         match v {
           Ok(val) => (
             Some(
