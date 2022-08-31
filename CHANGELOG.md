@@ -2,6 +2,8 @@
 
 ## Unreleased - 2022-XX-YY
 
+- Add support for RoleBindings (https://github.com/kdash-rs/kdash/pull/245)
+
 ## [0.3.4] - 2022-08-18
 
 - Add support for Cluster Roles (https://github.com/kdash-rs/kdash/pull/236)

@@ -28,7 +28,7 @@ use crate::app::{
   pods::KubePod,
   replicasets::KubeReplicaSet,
   replication_controllers::KubeReplicationController,
-  roles::{KubeClusterRoles, KubeRoles},
+  roles::{KubeClusterRoles, KubeRoleBindings, KubeRoles},
   secrets::KubeSecret,
   statefulsets::KubeStatefulSet,
   storageclass::KubeStorageClass,
@@ -316,6 +316,15 @@ impl<'a> Network<'a> {
 
     let mut app = self.app.lock().await;
     app.data.roles.set_items(items);
+  }
+
+  pub async fn get_role_bindings(&self) {
+    let items: Vec<KubeRoleBindings> = self
+      .get_namespaced_resources(|it| KubeRoleBindings::from_api(it))
+      .await;
+
+    let mut app = self.app.lock().await;
+    app.data.role_bindings.set_items(items);
   }
 
   pub async fn get_cluster_roles(&self) {

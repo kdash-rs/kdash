@@ -1,6 +1,6 @@
+use k8s_openapi::{api::storage::v1::StorageClass, chrono::Utc};
+
 use super::{models::KubeResource, utils};
-use k8s_openapi::api::storage::v1::StorageClass;
-use k8s_openapi::chrono::Utc;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct KubeStorageClass {
@@ -39,10 +39,13 @@ impl KubeResource<StorageClass> for KubeStorageClass {
 
 #[cfg(test)]
 mod tests {
-  use crate::app::storageclass::KubeStorageClass;
-  use crate::app::test_utils::{convert_resource_from_file, get_time};
-  use crate::app::utils;
   use k8s_openapi::chrono::Utc;
+
+  use crate::app::{
+    storageclass::KubeStorageClass,
+    test_utils::{convert_resource_from_file, get_time},
+    utils,
+  };
 
   #[tokio::test]
   async fn test_storageclass_from_api() {
