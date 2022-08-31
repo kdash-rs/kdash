@@ -1137,7 +1137,7 @@ fn draw_cluster_roles_tab<B: Backend>(
     area,
     draw_cluster_roles_tab,
     draw_cluster_roles_block,
-    app.data.clusterroles
+    app.data.cluster_roles
   );
 }
 
@@ -1146,7 +1146,7 @@ fn draw_cluster_roles_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, are
     app,
     CLUSTER_ROLES_TITLE,
     "",
-    app.data.clusterroles.items.len(),
+    app.data.cluster_roles.items.len(),
   );
 
   draw_resource_block(
@@ -1155,7 +1155,7 @@ fn draw_cluster_roles_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, are
     ResourceTableProps {
       title,
       inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
-      resource: &mut app.data.clusterroles,
+      resource: &mut app.data.cluster_roles,
       table_headers: vec!["Name", "Age"],
       column_widths: vec![Constraint::Percentage(50), Constraint::Percentage(50)],
     },
@@ -1185,7 +1185,7 @@ fn draw_cluster_role_binding_tab<B: Backend>(
     area,
     draw_cluster_role_binding_tab,
     draw_cluster_role_binding_block,
-    app.data.clusterrolebinding
+    app.data.cluster_role_binding
   );
 }
 
@@ -1194,7 +1194,7 @@ fn draw_cluster_role_binding_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut A
     app,
     CLUSTER_ROLES_BINDING_TITLE,
     "",
-    app.data.clusterrolebinding.items.len(),
+    app.data.cluster_role_binding.items.len(),
   );
 
   draw_resource_block(
@@ -1203,7 +1203,7 @@ fn draw_cluster_role_binding_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut A
     ResourceTableProps {
       title,
       inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
-      resource: &mut app.data.clusterrolebinding,
+      resource: &mut app.data.cluster_role_binding,
       table_headers: vec!["Name", "Role", "Age"],
       column_widths: vec![
         Constraint::Percentage(40),

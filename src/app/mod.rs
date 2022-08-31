@@ -40,7 +40,7 @@ use self::{
   pods::{KubeContainer, KubePod},
   replicasets::KubeReplicaSet,
   replication_controllers::KubeReplicationController,
-  roles::{KubeClusterRoleBinding, KubeClusterRoles, KubeRoles, KubeRoleBindings},
+  roles::{KubeClusterRoleBinding, KubeClusterRoles, KubeRoleBindings, KubeRoles},
   secrets::KubeSecret,
   statefulsets::KubeStatefulSet,
   storageclass::KubeStorageClass,
@@ -135,8 +135,8 @@ pub struct Data {
   pub storage_classes: StatefulTable<KubeStorageClass>,
   pub roles: StatefulTable<KubeRoles>,
   pub role_bindings: StatefulTable<KubeRoleBindings>,
-  pub clusterroles: StatefulTable<KubeClusterRoles>,
-  pub clusterrolebinding: StatefulTable<KubeClusterRoleBinding>,
+  pub cluster_roles: StatefulTable<KubeClusterRoles>,
+  pub cluster_role_binding: StatefulTable<KubeClusterRoleBinding>,
 }
 
 /// selected data items
@@ -212,8 +212,8 @@ impl Default for Data {
       storage_classes: StatefulTable::new(),
       roles: StatefulTable::new(),
       role_bindings: StatefulTable::new(),
-      clusterroles: StatefulTable::new(),
-      clusterrolebinding: StatefulTable::new(),
+      cluster_roles: StatefulTable::new(),
+      cluster_role_binding: StatefulTable::new(),
     }
   }
 }
