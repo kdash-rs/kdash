@@ -682,7 +682,7 @@ mod test_utils {
       .expect("Something went wrong reading yaml file");
     assert_ne!(yaml, "".to_string());
 
-    let res_list: serde_yaml::Result<ObjectList<K>> = serde_yaml::from_str(&*yaml);
+    let res_list: serde_yaml::Result<ObjectList<K>> = serde_yaml::from_str(&yaml);
     assert!(res_list.is_ok(), "{:?}", res_list.err());
     res_list.unwrap()
   }

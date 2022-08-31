@@ -1108,6 +1108,7 @@ fn draw_role_bindings_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, are
     },
     |c| {
       Row::new(vec![
+        Cell::from(c.namespace.to_owned()),
         Cell::from(c.name.to_owned()),
         Cell::from(c.role.to_owned()),
         Cell::from(c.age.to_owned()),

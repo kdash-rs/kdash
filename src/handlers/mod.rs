@@ -2,11 +2,11 @@ use crossterm::event::{MouseEvent, MouseEventKind};
 use kubectl_view_allocations::GroupBy;
 use serde::Serialize;
 
-use crate::app::secrets::KubeSecret;
 use crate::{
   app::{
     key_binding::DEFAULT_KEYBINDING,
     models::{KubeResource, Scrollable, ScrollableTxt, StatefulTable},
+    secrets::KubeSecret,
     ActiveBlock, App, Route, RouteId,
   },
   cmd::IoCmdEvent,
@@ -612,9 +612,10 @@ fn inverse_dir(up: bool, is_mouse: bool) -> bool {
 
 #[cfg(test)]
 mod tests {
+  use k8s_openapi::ByteString;
+
   use super::*;
   use crate::app::{contexts::KubeContext, pods::KubePod};
-  use k8s_openapi::ByteString;
 
   #[test]
   fn test_inverse_dir() {

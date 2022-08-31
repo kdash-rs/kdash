@@ -1,5 +1,6 @@
 use k8s_openapi::{
-  api::rbac::v1::ClusterRole, api::rbac::v1::Role, api::rbac::v1::RoleBinding, chrono::Utc,
+  api::rbac::v1::{ClusterRole, Role, RoleBinding},
+  chrono::Utc,
 };
 
 use super::{models::KubeResource, utils};
@@ -75,10 +76,13 @@ impl KubeResource<RoleBinding> for KubeRoleBindings {
 
 #[cfg(test)]
 mod tests {
-  use crate::app::roles::{KubeClusterRoles, KubeRoleBindings, KubeRoles};
-  use crate::app::test_utils::{convert_resource_from_file, get_time};
-  use crate::app::utils;
   use k8s_openapi::chrono::Utc;
+
+  use crate::app::{
+    roles::{KubeClusterRoles, KubeRoleBindings, KubeRoles},
+    test_utils::{convert_resource_from_file, get_time},
+    utils,
+  };
 
   #[test]
   fn test_roles_binding_from_rbac_api() {
