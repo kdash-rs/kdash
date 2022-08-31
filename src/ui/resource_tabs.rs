@@ -38,6 +38,7 @@ static STORAGE_CLASSES_LABEL: &str = "StorageClasses";
 static ROLES_TITLE: &str = "Roles";
 static ROLE_BINDINGS_TITLE: &str = "RoleBindings";
 static CLUSTER_ROLES_TITLE: &str = "ClusterRoles";
+static CLUSTER_ROLES_BINDING_TITLE: &str = "ClusterRoleBinding";
 static DESCRIBE_ACTIVE: &str = "-> Describe ";
 static YAML_ACTIVE: &str = "-> YAML ";
 
@@ -90,6 +91,7 @@ fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App
     ActiveBlock::Roles => draw_roles_tab(block, f, app, area),
     ActiveBlock::RoleBindings => draw_role_bindings_tab(block, f, app, area),
     ActiveBlock::ClusterRoles => draw_cluster_roles_tab(block, f, app, area),
+    ActiveBlock::ClusterRoleBinding => draw_cluster_role_binding_tab(block, f, app, area),
     ActiveBlock::Describe | ActiveBlock::Yaml => {
       let mut prev_route = app.get_prev_route();
       if prev_route.active_block == block {
@@ -103,6 +105,7 @@ fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App
         ActiveBlock::Roles => draw_roles_tab(block, f, app, area),
         ActiveBlock::RoleBindings => draw_role_bindings_tab(block, f, app, area),
         ActiveBlock::ClusterRoles => draw_cluster_roles_tab(block, f, app, area),
+        ActiveBlock::ClusterRoleBinding => draw_cluster_role_binding_tab(block, f, app, area),
         _ => { /* do nothing */ }
       }
     }
@@ -1134,7 +1137,7 @@ fn draw_cluster_roles_tab<B: Backend>(
     area,
     draw_cluster_roles_tab,
     draw_cluster_roles_block,
-    app.data.clusterroles
+    app.data.cluster_roles
   );
 }
 
@@ -1143,7 +1146,7 @@ fn draw_cluster_roles_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, are
     app,
     CLUSTER_ROLES_TITLE,
     "",
-    app.data.clusterroles.items.len(),
+    app.data.cluster_roles.items.len(),
   );
 
   draw_resource_block(
@@ -1152,13 +1155,66 @@ fn draw_cluster_roles_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, are
     ResourceTableProps {
       title,
       inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
-      resource: &mut app.data.clusterroles,
+      resource: &mut app.data.cluster_roles,
       table_headers: vec!["Name", "Age"],
       column_widths: vec![Constraint::Percentage(50), Constraint::Percentage(50)],
     },
     |c| {
       Row::new(vec![
         Cell::from(c.name.to_owned()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary(app.light_theme))
+    },
+    app.light_theme,
+    app.is_loading,
+  );
+}
+
+fn draw_cluster_role_binding_tab<B: Backend>(
+  block: ActiveBlock,
+  f: &mut Frame<'_, B>,
+  app: &mut App,
+  area: Rect,
+) {
+  draw_resource_tab!(
+    CLUSTER_ROLES_BINDING_TITLE,
+    block,
+    f,
+    app,
+    area,
+    draw_cluster_role_binding_tab,
+    draw_cluster_role_binding_block,
+    app.data.cluster_role_binding
+  );
+}
+
+fn draw_cluster_role_binding_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let title = get_resource_title(
+    app,
+    CLUSTER_ROLES_BINDING_TITLE,
+    "",
+    app.data.cluster_role_binding.items.len(),
+  );
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
+      resource: &mut app.data.cluster_role_binding,
+      table_headers: vec!["Name", "Role", "Age"],
+      column_widths: vec![
+        Constraint::Percentage(40),
+        Constraint::Percentage(40),
+        Constraint::Percentage(20),
+      ],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.role.to_owned()),
         Cell::from(c.age.to_owned()),
       ])
       .style(style_primary(app.light_theme))

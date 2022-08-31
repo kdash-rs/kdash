@@ -31,6 +31,7 @@ pub enum IoEvent {
   GetRoles,
   GetRoleBindings,
   GetClusterRoles,
+  GetClusterRoleBinding,
   GetMetrics,
   RefreshClient,
 }
@@ -169,6 +170,9 @@ impl<'a> Network<'a> {
       }
       IoEvent::GetClusterRoles => {
         self.get_cluster_roles().await;
+      }
+      IoEvent::GetClusterRoleBinding => {
+        self.get_cluster_role_binding().await;
       }
     };
 
