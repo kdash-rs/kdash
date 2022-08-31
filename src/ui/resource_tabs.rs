@@ -36,6 +36,7 @@ static SECRETS_TITLE: &str = "Secrets";
 static RPL_CTRL_TITLE: &str = "ReplicationControllers";
 static STORAGE_CLASSES_LABEL: &str = "StorageClasses";
 static ROLES_TITLE: &str = "Roles";
+static ROLE_BINDINGS_TITLE: &str = "RoleBindings";
 static CLUSTER_ROLES_TITLE: &str = "ClusterRoles";
 static CLUSTER_ROLES_BINDING_TITLE: &str = "ClusterRoleBinding";
 static DESCRIBE_ACTIVE: &str = "-> Describe ";
@@ -88,6 +89,7 @@ fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App
     ActiveBlock::RplCtrl => draw_replication_controllers_tab(block, f, app, area),
     ActiveBlock::StorageClasses => draw_storage_classes_tab(block, f, app, area),
     ActiveBlock::Roles => draw_roles_tab(block, f, app, area),
+    ActiveBlock::RoleBindings => draw_role_bindings_tab(block, f, app, area),
     ActiveBlock::ClusterRoles => draw_cluster_roles_tab(block, f, app, area),
     ActiveBlock::ClusterRoleBinding => draw_cluster_role_binding_tab(block, f, app, area),
     ActiveBlock::Describe | ActiveBlock::Yaml => {
@@ -101,6 +103,7 @@ fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App
         ActiveBlock::RplCtrl => draw_replication_controllers_tab(block, f, app, area),
         ActiveBlock::StorageClasses => draw_storage_classes_tab(block, f, app, area),
         ActiveBlock::Roles => draw_roles_tab(block, f, app, area),
+        ActiveBlock::RoleBindings => draw_role_bindings_tab(block, f, app, area),
         ActiveBlock::ClusterRoles => draw_cluster_roles_tab(block, f, app, area),
         ActiveBlock::ClusterRoleBinding => draw_cluster_role_binding_tab(block, f, app, area),
         _ => { /* do nothing */ }
@@ -1056,6 +1059,61 @@ fn draw_roles_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect)
       Row::new(vec![
         Cell::from(c.namespace.to_owned()),
         Cell::from(c.name.to_owned()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary(app.light_theme))
+    },
+    app.light_theme,
+    app.is_loading,
+  );
+}
+
+fn draw_role_bindings_tab<B: Backend>(
+  block: ActiveBlock,
+  f: &mut Frame<'_, B>,
+  app: &mut App,
+  area: Rect,
+) {
+  draw_resource_tab!(
+    ROLE_BINDINGS_TITLE,
+    block,
+    f,
+    app,
+    area,
+    draw_role_bindings_tab,
+    draw_role_bindings_block,
+    app.data.role_bindings
+  );
+}
+
+fn draw_role_bindings_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let title = get_resource_title(
+    app,
+    ROLE_BINDINGS_TITLE,
+    "",
+    app.data.role_bindings.items.len(),
+  );
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
+      resource: &mut app.data.role_bindings,
+      table_headers: vec!["Namespace", "Name", "Role", "Age"],
+      column_widths: vec![
+        Constraint::Percentage(20),
+        Constraint::Percentage(30),
+        Constraint::Percentage(30),
+        Constraint::Percentage(20),
+      ],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.namespace.to_owned()),
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.role.to_owned()),
         Cell::from(c.age.to_owned()),
       ])
       .style(style_primary(app.light_theme))

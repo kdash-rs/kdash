@@ -18,7 +18,6 @@ use anyhow::Result;
 use app::App;
 use banner::BANNER;
 use clap::Parser;
-
 use cmd::{CmdRunner, IoCmdEvent};
 use crossterm::{
   execute,
