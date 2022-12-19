@@ -5,6 +5,8 @@ use k8s_openapi::{
 
 use super::{models::KubeResource, utils};
 
+// TODO: fix inconsistent use of plurals
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct KubeRoles {
   pub namespace: String,
@@ -37,40 +39,44 @@ pub struct KubeClusterRoleBinding {
   k8s_obj: ClusterRoleBinding,
 }
 
-impl KubeResource<Role> for KubeRoles {
-  fn from_api(role: &Role) -> Self {
+impl From<Role> for KubeRoles {
+  fn from(role: Role) -> Self {
     KubeRoles {
       namespace: role.metadata.namespace.clone().unwrap_or_default(),
       name: role.metadata.name.clone().unwrap_or_default(),
       age: utils::to_age(role.metadata.creation_timestamp.as_ref(), Utc::now()),
-      k8s_obj: role.to_owned(),
+      k8s_obj: utils::sanitize_obj(role),
     }
   }
+}
 
+impl KubeResource<Role> for KubeRoles {
   fn get_k8s_obj(&self) -> &Role {
     &self.k8s_obj
   }
 }
 
-impl KubeResource<ClusterRole> for KubeClusterRoles {
-  fn from_api(cluster_role: &ClusterRole) -> Self {
+impl From<ClusterRole> for KubeClusterRoles {
+  fn from(cluster_role: ClusterRole) -> Self {
     KubeClusterRoles {
       name: cluster_role.metadata.name.clone().unwrap_or_default(),
       age: utils::to_age(
         cluster_role.metadata.creation_timestamp.as_ref(),
         Utc::now(),
       ),
-      k8s_obj: cluster_role.to_owned(),
+      k8s_obj: utils::sanitize_obj(cluster_role),
     }
   }
+}
 
+impl KubeResource<ClusterRole> for KubeClusterRoles {
   fn get_k8s_obj(&self) -> &ClusterRole {
     &self.k8s_obj
   }
 }
 
-impl KubeResource<RoleBinding> for KubeRoleBindings {
-  fn from_api(role_binding: &RoleBinding) -> Self {
+impl From<RoleBinding> for KubeRoleBindings {
+  fn from(role_binding: RoleBinding) -> Self {
     KubeRoleBindings {
       namespace: role_binding.metadata.namespace.clone().unwrap_or_default(),
       name: role_binding.metadata.name.clone().unwrap_or_default(),
@@ -79,17 +85,18 @@ impl KubeResource<RoleBinding> for KubeRoleBindings {
         role_binding.metadata.creation_timestamp.as_ref(),
         Utc::now(),
       ),
-      k8s_obj: role_binding.to_owned(),
+      k8s_obj: utils::sanitize_obj(role_binding),
     }
   }
-
+}
+impl KubeResource<RoleBinding> for KubeRoleBindings {
   fn get_k8s_obj(&self) -> &RoleBinding {
     &self.k8s_obj
   }
 }
 
-impl KubeResource<ClusterRoleBinding> for KubeClusterRoleBinding {
-  fn from_api(cluster_role_binding: &ClusterRoleBinding) -> Self {
+impl From<ClusterRoleBinding> for KubeClusterRoleBinding {
+  fn from(cluster_role_binding: ClusterRoleBinding) -> Self {
     KubeClusterRoleBinding {
       name: cluster_role_binding
         .metadata
@@ -105,10 +112,12 @@ impl KubeResource<ClusterRoleBinding> for KubeClusterRoleBinding {
         cluster_role_binding.metadata.creation_timestamp.as_ref(),
         Utc::now(),
       ),
-      k8s_obj: cluster_role_binding.to_owned(),
+      k8s_obj: utils::sanitize_obj(cluster_role_binding),
     }
   }
+}
 
+impl KubeResource<ClusterRoleBinding> for KubeClusterRoleBinding {
   fn get_k8s_obj(&self) -> &ClusterRoleBinding {
     &self.k8s_obj
   }

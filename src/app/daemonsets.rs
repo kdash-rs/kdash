@@ -14,9 +14,8 @@ pub struct KubeDaemonSet {
   pub age: String,
   k8s_obj: DaemonSet,
 }
-
-impl KubeResource<DaemonSet> for KubeDaemonSet {
-  fn from_api(ds: &DaemonSet) -> Self {
+impl From<DaemonSet> for KubeDaemonSet {
+  fn from(ds: DaemonSet) -> Self {
     let (desired, current, ready, up_to_date, available) = match ds.status.as_ref() {
       Some(s) => (
         s.desired_number_scheduled,
@@ -37,10 +36,11 @@ impl KubeResource<DaemonSet> for KubeDaemonSet {
       ready,
       up_to_date,
       available,
-      k8s_obj: ds.to_owned(),
+      k8s_obj: utils::sanitize_obj(ds),
     }
   }
-
+}
+impl KubeResource<DaemonSet> for KubeDaemonSet {
   fn get_k8s_obj(&self) -> &DaemonSet {
     &self.k8s_obj
   }

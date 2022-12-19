@@ -1,4 +1,4 @@
-use k8s_openapi::{api::batch::v1beta1::CronJob, chrono::Utc};
+use k8s_openapi::{api::batch::v1::CronJob, chrono::Utc};
 
 use super::{models::KubeResource, utils};
 
@@ -14,8 +14,8 @@ pub struct KubeCronJob {
   k8s_obj: CronJob,
 }
 
-impl KubeResource<CronJob> for KubeCronJob {
-  fn from_api(cronjob: &CronJob) -> Self {
+impl From<CronJob> for KubeCronJob {
+  fn from(cronjob: CronJob) -> Self {
     let (last_schedule, active) = match &cronjob.status {
       Some(cjs) => (
         utils::to_age_secs(cjs.last_schedule_time.as_ref(), Utc::now()),
@@ -37,10 +37,11 @@ impl KubeResource<CronJob> for KubeCronJob {
       last_schedule,
       active,
       age: utils::to_age(cronjob.metadata.creation_timestamp.as_ref(), Utc::now()),
-      k8s_obj: cronjob.to_owned(),
+      k8s_obj: utils::sanitize_obj(cronjob),
     }
   }
-
+}
+impl KubeResource<CronJob> for KubeCronJob {
   fn get_k8s_obj(&self) -> &CronJob {
     &self.k8s_obj
   }

@@ -13,9 +13,6 @@ use tui::{
 use super::Route;
 
 pub trait KubeResource<T: Serialize> {
-  /// convert a kube API object
-  fn from_api(item: &T) -> Self;
-
   fn get_k8s_obj(&self) -> &T;
 
   /// generate YAML from the original kubernetes resource

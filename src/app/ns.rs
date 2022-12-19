@@ -1,6 +1,6 @@
 use k8s_openapi::api::core::v1::Namespace;
 
-use super::{models::KubeResource, utils::UNKNOWN};
+use super::{models::KubeResource, utils::{self, UNKNOWN}};
 
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct KubeNs {
@@ -9,8 +9,8 @@ pub struct KubeNs {
   k8s_obj: Namespace,
 }
 
-impl KubeResource<Namespace> for KubeNs {
-  fn from_api(ns: &Namespace) -> Self {
+impl From<Namespace> for KubeNs {
+  fn from(ns: Namespace) -> Self {
     let status = match &ns.status {
       Some(stat) => match &stat.phase {
         Some(phase) => phase.clone(),
@@ -22,10 +22,12 @@ impl KubeResource<Namespace> for KubeNs {
     KubeNs {
       name: ns.metadata.name.clone().unwrap_or_default(),
       status,
-      k8s_obj: ns.to_owned(),
+      k8s_obj: utils::sanitize_obj(ns),
     }
   }
+}
 
+impl KubeResource<Namespace> for KubeNs {
   fn get_k8s_obj(&self) -> &Namespace {
     &self.k8s_obj
   }

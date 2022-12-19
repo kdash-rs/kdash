@@ -20,8 +20,8 @@ pub struct KubeSvc {
   k8s_obj: Service,
 }
 
-impl KubeResource<Service> for KubeSvc {
-  fn from_api(service: &Service) -> Self {
+impl From<Service> for KubeSvc {
+  fn from(service: Service) -> Self {
     let (type_, cluster_ip, external_ip, ports) = match &service.spec {
       Some(spec) => {
         let type_ = match &spec.type_ {
@@ -31,7 +31,7 @@ impl KubeResource<Service> for KubeSvc {
 
         let external_ips = match type_.as_str() {
           "ClusterIP" | "NodePort" => spec.external_ips.clone(),
-          "LoadBalancer" => get_lb_ext_ips(service, spec.external_ips.clone()),
+          "LoadBalancer" => get_lb_ext_ips(&service, spec.external_ips.clone()),
           "ExternalName" => Some(vec![spec.external_name.clone().unwrap_or_default()]),
           _ => None,
         };
@@ -59,10 +59,12 @@ impl KubeResource<Service> for KubeSvc {
       external_ip,
       ports,
       age: utils::to_age(service.metadata.creation_timestamp.as_ref(), Utc::now()),
-      k8s_obj: service.to_owned(),
+      k8s_obj: utils::sanitize_obj(service),
     }
   }
+}
 
+impl KubeResource<Service> for KubeSvc {
   fn get_k8s_obj(&self) -> &Service {
     &self.k8s_obj
   }
