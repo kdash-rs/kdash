@@ -194,7 +194,7 @@ impl<'a> Network<'a> {
 
   pub async fn get_pods(&self) {
     let items: Vec<KubePod> = self
-      .get_namespaced_resources(|x: Pod| KubePod::from(x))
+      .get_namespaced_resources(Pod::into)
       .await;
 
     let mut app = self.app.lock().await;
@@ -215,7 +215,7 @@ impl<'a> Network<'a> {
 
   pub async fn get_services(&self) {
     let items: Vec<KubeSvc> = self
-      .get_namespaced_resources(|it: Service| KubeSvc::from(it))
+      .get_namespaced_resources(Service::into)
       .await;
 
     let mut app = self.app.lock().await;
@@ -224,7 +224,7 @@ impl<'a> Network<'a> {
 
   pub async fn get_config_maps(&self) {
     let items: Vec<KubeConfigMap> = self
-      .get_namespaced_resources(|it: ConfigMap| KubeConfigMap::from(it))
+      .get_namespaced_resources(ConfigMap::into)
       .await;
 
     let mut app = self.app.lock().await;
@@ -233,7 +233,7 @@ impl<'a> Network<'a> {
 
   pub async fn get_stateful_sets(&self) {
     let items: Vec<KubeStatefulSet> = self
-      .get_namespaced_resources(|it: StatefulSet| KubeStatefulSet::from(it))
+      .get_namespaced_resources(StatefulSet::into)
       .await;
 
     let mut app = self.app.lock().await;
@@ -242,7 +242,7 @@ impl<'a> Network<'a> {
 
   pub async fn get_replica_sets(&self) {
     let items: Vec<KubeReplicaSet> = self
-      .get_namespaced_resources(|it: ReplicaSet| KubeReplicaSet::from(it))
+      .get_namespaced_resources(ReplicaSet::into)
       .await;
 
     let mut app = self.app.lock().await;
@@ -251,7 +251,7 @@ impl<'a> Network<'a> {
 
   pub async fn get_jobs(&self) {
     let items: Vec<KubeJob> = self
-      .get_namespaced_resources(|it: Job| KubeJob::from(it))
+      .get_namespaced_resources(Job::into)
       .await;
 
     let mut app = self.app.lock().await;
@@ -260,7 +260,7 @@ impl<'a> Network<'a> {
 
   pub async fn get_cron_jobs(&self) {
     let items: Vec<KubeCronJob> = self
-      .get_namespaced_resources(|it: CronJob| KubeCronJob::from(it))
+      .get_namespaced_resources(CronJob::into)
       .await;
 
     let mut app = self.app.lock().await;
@@ -269,7 +269,7 @@ impl<'a> Network<'a> {
 
   pub async fn get_secrets(&self) {
     let items: Vec<KubeSecret> = self
-      .get_namespaced_resources(|it: Secret| KubeSecret::from(it))
+      .get_namespaced_resources(Secret::into)
       .await;
 
     let mut app = self.app.lock().await;
@@ -278,7 +278,7 @@ impl<'a> Network<'a> {
 
   pub async fn get_replication_controllers(&self) {
     let items: Vec<KubeReplicationController> = self
-      .get_namespaced_resources(|it: ReplicationController| KubeReplicationController::from(it))
+      .get_namespaced_resources(ReplicationController::into)
       .await;
 
     let mut app = self.app.lock().await;
@@ -287,7 +287,7 @@ impl<'a> Network<'a> {
 
   pub async fn get_deployments(&self) {
     let items: Vec<KubeDeployment> = self
-      .get_namespaced_resources(|it: Deployment| KubeDeployment::from(it))
+      .get_namespaced_resources(Deployment::into)
       .await;
 
     let mut app = self.app.lock().await;
@@ -296,7 +296,7 @@ impl<'a> Network<'a> {
 
   pub async fn get_daemon_sets_jobs(&self) {
     let items: Vec<KubeDaemonSet> = self
-      .get_namespaced_resources(|it: DaemonSet| KubeDaemonSet::from(it))
+      .get_namespaced_resources(DaemonSet::into)
       .await;
 
     let mut app = self.app.lock().await;
@@ -305,7 +305,7 @@ impl<'a> Network<'a> {
 
   pub async fn get_storage_classes(&self) {
     let items: Vec<KubeStorageClass> = self
-      .get_namespaced_resources(|it: StorageClass| KubeStorageClass::from(it))
+      .get_namespaced_resources(StorageClass::into)
       .await;
 
     let mut app = self.app.lock().await;
@@ -314,7 +314,7 @@ impl<'a> Network<'a> {
 
   pub async fn get_roles(&self) {
     let items: Vec<KubeRoles> = self
-      .get_namespaced_resources(|it: Role| KubeRoles::from(it))
+      .get_namespaced_resources(Role::into)
       .await;
 
     let mut app = self.app.lock().await;
@@ -323,7 +323,7 @@ impl<'a> Network<'a> {
 
   pub async fn get_role_bindings(&self) {
     let items: Vec<KubeRoleBindings> = self
-      .get_namespaced_resources(|it: RoleBinding| KubeRoleBindings::from(it))
+      .get_namespaced_resources(RoleBinding::into)
       .await;
 
     let mut app = self.app.lock().await;
@@ -332,7 +332,7 @@ impl<'a> Network<'a> {
 
   pub async fn get_cluster_roles(&self) {
     let items: Vec<KubeClusterRoles> = self
-      .get_namespaced_resources(|it: ClusterRole| KubeClusterRoles::from(it))
+      .get_namespaced_resources(ClusterRole::into)
       .await;
 
     let mut app = self.app.lock().await;
@@ -341,7 +341,7 @@ impl<'a> Network<'a> {
 
   pub async fn get_cluster_role_binding(&self) {
     let items: Vec<KubeClusterRoleBinding> = self
-      .get_namespaced_resources(|it: ClusterRoleBinding| KubeClusterRoleBinding::from(it))
+      .get_namespaced_resources(ClusterRoleBinding::into)
       .await;
 
     let mut app = self.app.lock().await;
