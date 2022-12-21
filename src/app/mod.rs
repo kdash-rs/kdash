@@ -525,6 +525,7 @@ impl App {
     self.dispatch(IoEvent::GetNamespaces).await;
     self.dispatch(IoEvent::GetPods).await;
     self.dispatch(IoEvent::GetServices).await;
+    self.dispatch(IoEvent::GetNodes).await;
     self.dispatch(IoEvent::GetConfigMaps).await;
     self.dispatch(IoEvent::GetStatefulSets).await;
     self.dispatch(IoEvent::GetReplicaSets).await;
@@ -733,6 +734,7 @@ mod tests {
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetServices);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetConfigMaps);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetStatefulSets);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetReplicaSets);
@@ -788,6 +790,7 @@ mod tests {
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetServices);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetConfigMaps);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetStatefulSets);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetReplicaSets);

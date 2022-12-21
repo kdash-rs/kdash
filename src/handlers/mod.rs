@@ -224,6 +224,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         ActiveBlock::Namespaces => {
           if let Some(ns) = handle_block_action(key, &mut app.data.namespaces) {
             app.data.selected.ns = Some(ns.name);
+            app.cache_all_resource_data().await;
             app.pop_navigation_stack();
           }
         }
