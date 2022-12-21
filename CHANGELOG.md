@@ -2,6 +2,12 @@
 
 ## Unreleased - 2022-XX-YY
 
+## [0.3.6] - 2022-12-21
+
+- Hide managedFields in YAML view by default (https://github.com/kdash-rs/kdash/pull/296)
+- Fail gracefully when context not found (https://github.com/kdash-rs/kdash/issues/280)
+- Upgrade libraries
+
 ## [0.3.5] - 2022-08-31
 
 - Add support for RoleBindings (https://github.com/kdash-rs/kdash/pull/245)

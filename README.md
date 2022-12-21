@@ -222,3 +222,4 @@ MIT
 - [Omid Rad](https://github.com/omid)
 - [Shinu Suresh](https://github.com/shinusuresh)
 - [Andrew Alsup](https://github.com/aalsup)
+- [Eirik A](https://github.com/clux)
