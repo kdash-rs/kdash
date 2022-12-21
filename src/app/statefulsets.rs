@@ -12,8 +12,8 @@ pub struct KubeStatefulSet {
   k8s_obj: StatefulSet,
 }
 
-impl KubeResource<StatefulSet> for KubeStatefulSet {
-  fn from_api(stfs: &StatefulSet) -> Self {
+impl From<StatefulSet> for KubeStatefulSet {
+  fn from(stfs: StatefulSet) -> Self {
     let ready = match &stfs.status {
       Some(s) => format!("{}/{}", s.ready_replicas.unwrap_or_default(), s.replicas),
       _ => "".into(),
@@ -28,10 +28,12 @@ impl KubeResource<StatefulSet> for KubeStatefulSet {
         .as_ref()
         .map_or("n/a".into(), |spec| spec.service_name.to_owned()),
       ready,
-      k8s_obj: stfs.to_owned(),
+      k8s_obj: utils::sanitize_obj(stfs),
     }
   }
+}
 
+impl KubeResource<StatefulSet> for KubeStatefulSet {
   fn get_k8s_obj(&self) -> &StatefulSet {
     &self.k8s_obj
   }

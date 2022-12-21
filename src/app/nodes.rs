@@ -156,10 +156,6 @@ impl KubeResource<Node> for KubeNode {
   fn get_k8s_obj(&self) -> &Node {
     &self.k8s_obj
   }
-
-  fn from_api(_item: &Node) -> Self {
-    unimplemented!()
-  }
 }
 
 #[cfg(test)]

@@ -14,18 +14,19 @@ pub struct KubeSecret {
   k8s_obj: Secret,
 }
 
-impl KubeResource<Secret> for KubeSecret {
-  fn from_api(secret: &Secret) -> Self {
+impl From<Secret> for KubeSecret {
+  fn from(secret: Secret) -> Self {
     KubeSecret {
       name: secret.metadata.name.clone().unwrap_or_default(),
       namespace: secret.metadata.namespace.clone().unwrap_or_default(),
       type_: secret.type_.clone().unwrap_or_default(),
       age: utils::to_age(secret.metadata.creation_timestamp.as_ref(), Utc::now()),
       data: secret.data.clone().unwrap_or_default(),
-      k8s_obj: secret.to_owned(),
+      k8s_obj: utils::sanitize_obj(secret),
     }
   }
-
+}
+impl KubeResource<Secret> for KubeSecret {
   fn get_k8s_obj(&self) -> &Secret {
     &self.k8s_obj
   }

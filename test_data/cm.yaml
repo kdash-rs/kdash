@@ -32,21 +32,6 @@ items:
   kind: ConfigMap
   metadata:
     creationTimestamp: "2021-05-10T21:48:02Z"
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:data:
-          .: {}
-          f:client-ca-file: {}
-          f:requestheader-allowed-names: {}
-          f:requestheader-client-ca-file: {}
-          f:requestheader-extra-headers-prefix: {}
-          f:requestheader-group-headers: {}
-          f:requestheader-username-headers: {}
-      manager: k3s
-      operation: Update
-      time: "2021-05-10T21:48:02Z"
     name: extension-apiserver-authentication
     namespace: kube-system
     resourceVersion: "37"
@@ -58,17 +43,6 @@ items:
   kind: ConfigMap
   metadata:
     creationTimestamp: "2021-05-10T21:48:06Z"
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:data:
-          .: {}
-          f:clusterDNS: {}
-          f:clusterDomain: {}
-      manager: k3s
-      operation: Update
-      time: "2021-05-10T21:48:06Z"
     name: cluster-dns
     namespace: kube-system
     resourceVersion: "207"
@@ -138,30 +112,6 @@ items:
     creationTimestamp: "2021-05-10T21:48:06Z"
     labels:
       objectset.rio.cattle.io/hash: 183f35c65ffbc3064603f43f1580d8c68a2dabd4
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:data:
-          .: {}
-          f:config.json: {}
-          f:helperPod.yaml: {}
-          f:setup: {}
-          f:teardown: {}
-        f:metadata:
-          f:annotations:
-            .: {}
-            f:objectset.rio.cattle.io/applied: {}
-            f:objectset.rio.cattle.io/id: {}
-            f:objectset.rio.cattle.io/owner-gvk: {}
-            f:objectset.rio.cattle.io/owner-name: {}
-            f:objectset.rio.cattle.io/owner-namespace: {}
-          f:labels:
-            .: {}
-            f:objectset.rio.cattle.io/hash: {}
-      manager: k3s
-      operation: Update
-      time: "2021-05-10T21:48:06Z"
     name: local-path-config
     namespace: kube-system
     resourceVersion: "224"
@@ -179,24 +129,6 @@ items:
     creationTimestamp: "2021-05-10T21:48:06Z"
     labels:
       objectset.rio.cattle.io/hash: c42f5b5dd9ee50718523a82c68d4392a7dec9fc4
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:metadata:
-          f:annotations:
-            .: {}
-            f:objectset.rio.cattle.io/applied: {}
-            f:objectset.rio.cattle.io/id: {}
-            f:objectset.rio.cattle.io/owner-gvk: {}
-            f:objectset.rio.cattle.io/owner-name: {}
-            f:objectset.rio.cattle.io/owner-namespace: {}
-          f:labels:
-            .: {}
-            f:objectset.rio.cattle.io/hash: {}
-      manager: k3s
-      operation: Update
-      time: "2021-05-10T21:48:06Z"
     name: chart-content-traefik
     namespace: kube-system
     resourceVersion: "253"
@@ -217,16 +149,6 @@ items:
   kind: ConfigMap
   metadata:
     creationTimestamp: "2021-05-10T21:48:19Z"
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:data:
-          .: {}
-          f:ca.crt: {}
-      manager: k3s
-      operation: Update
-      time: "2021-05-10T21:48:19Z"
     name: kube-root-ca.crt
     namespace: default
     resourceVersion: "393"
@@ -249,28 +171,6 @@ items:
       chart: traefik-1.81.0
       heritage: Helm
       release: traefik
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:data:
-          .: {}
-          f:run.sh: {}
-        f:metadata:
-          f:annotations:
-            .: {}
-            f:meta.helm.sh/release-name: {}
-            f:meta.helm.sh/release-namespace: {}
-          f:labels:
-            .: {}
-            f:app: {}
-            f:app.kubernetes.io/managed-by: {}
-            f:chart: {}
-            f:heritage: {}
-            f:release: {}
-      manager: Go-http-client
-      operation: Update
-      time: "2021-05-10T21:48:35Z"
     name: traefik-test
     namespace: kube-system
     resourceVersion: "490"

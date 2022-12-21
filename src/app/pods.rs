@@ -40,8 +40,8 @@ pub struct KubeContainer {
   pub init: bool,
 }
 
-impl KubeResource<Pod> for KubePod {
-  fn from_api(pod: &Pod) -> Self {
+impl From<Pod> for KubePod {
+  fn from(pod: Pod) -> Self {
     let age = utils::to_age(pod.metadata.creation_timestamp.as_ref(), Utc::now());
     let pod_name = pod.metadata.name.clone().unwrap_or_default();
     let (status, cr, restarts, c_stats_len, containers) = match &pod.status {
@@ -99,7 +99,7 @@ impl KubeResource<Pod> for KubePod {
         // merge containers and init-containers into single array
         containers.append(&mut init_containers);
 
-        (get_status(status, pod), cr, rc, c_stats_len, containers)
+        (get_status(status, &pod), cr, rc, c_stats_len, containers)
       }
       _ => (UNKNOWN.into(), 0, 0, 0, vec![]),
     };
@@ -115,10 +115,12 @@ impl KubeResource<Pod> for KubePod {
       status,
       age,
       containers,
-      k8s_obj: pod.to_owned(),
+      k8s_obj: utils::sanitize_obj(pod),
     }
   }
+}
 
+impl KubeResource<Pod> for KubePod {
   fn get_k8s_obj(&self) -> &Pod {
     &self.k8s_obj
   }

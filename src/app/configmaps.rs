@@ -13,17 +13,19 @@ pub struct KubeConfigMap {
   k8s_obj: ConfigMap,
 }
 
-impl KubeResource<ConfigMap> for KubeConfigMap {
-  fn from_api(cm: &ConfigMap) -> Self {
-    KubeConfigMap {
+impl From<ConfigMap> for KubeConfigMap {
+  fn from(cm: ConfigMap) -> Self {
+    Self {
       name: cm.metadata.name.clone().unwrap_or_default(),
       namespace: cm.metadata.namespace.clone().unwrap_or_default(),
       age: utils::to_age(cm.metadata.creation_timestamp.as_ref(), Utc::now()),
       data: cm.data.clone().unwrap_or_default(),
-      k8s_obj: cm.to_owned(),
+      k8s_obj: utils::sanitize_obj(cm),
     }
   }
+}
 
+impl KubeResource<ConfigMap> for KubeConfigMap {
   fn get_k8s_obj(&self) -> &ConfigMap {
     &self.k8s_obj
   }

@@ -13,8 +13,8 @@ pub struct KubeStorageClass {
   k8s_obj: StorageClass,
 }
 
-impl KubeResource<StorageClass> for KubeStorageClass {
-  fn from_api(storage_class: &StorageClass) -> Self {
+impl From<StorageClass> for KubeStorageClass {
+  fn from(storage_class: StorageClass) -> Self {
     KubeStorageClass {
       name: storage_class.metadata.name.clone().unwrap_or_default(),
       provisioner: storage_class.provisioner.clone(),
@@ -28,10 +28,12 @@ impl KubeResource<StorageClass> for KubeStorageClass {
         storage_class.metadata.creation_timestamp.as_ref(),
         Utc::now(),
       ),
-      k8s_obj: storage_class.to_owned(),
+      k8s_obj: utils::sanitize_obj(storage_class),
     }
   }
+}
 
+impl KubeResource<StorageClass> for KubeStorageClass {
   fn get_k8s_obj(&self) -> &StorageClass {
     &self.k8s_obj
   }

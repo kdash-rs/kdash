@@ -12,8 +12,8 @@ pub struct KubeJob {
   k8s_obj: Job,
 }
 
-impl KubeResource<Job> for KubeJob {
-  fn from_api(job: &Job) -> Self {
+impl From<Job> for KubeJob {
+  fn from(job: Job) -> Self {
     let completions = match (job.spec.as_ref(), job.status.as_ref()) {
       (Some(spc), Some(stat)) => match spc.completions {
         Some(c) => format!("{:?}/{:?}", stat.succeeded.unwrap_or_default(), c),
@@ -40,16 +40,18 @@ impl KubeResource<Job> for KubeJob {
       None => "<none>".to_string(),
     };
 
-    KubeJob {
+    Self {
       name: job.metadata.name.clone().unwrap_or_default(),
       namespace: job.metadata.namespace.clone().unwrap_or_default(),
       completions,
       duration,
       age: utils::to_age(job.metadata.creation_timestamp.as_ref(), Utc::now()),
-      k8s_obj: job.to_owned(),
+      k8s_obj: utils::sanitize_obj(job),
     }
   }
+}
 
+impl KubeResource<Job> for KubeJob {
   fn get_k8s_obj(&self) -> &Job {
     &self.k8s_obj
   }

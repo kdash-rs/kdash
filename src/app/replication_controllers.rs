@@ -18,8 +18,8 @@ pub struct KubeReplicationController {
   k8s_obj: ReplicationController,
 }
 
-impl KubeResource<ReplicationController> for KubeReplicationController {
-  fn from_api(rplc: &ReplicationController) -> Self {
+impl From<ReplicationController> for KubeReplicationController {
+  fn from(rplc: ReplicationController) -> Self {
     let (current, ready) = match rplc.status.as_ref() {
       Some(s) => (s.replicas, s.ready_replicas.unwrap_or_default()),
       _ => (0, 0),
@@ -70,10 +70,12 @@ impl KubeResource<ReplicationController> for KubeReplicationController {
       containers,
       images,
       selector,
-      k8s_obj: rplc.to_owned(),
+      k8s_obj: utils::sanitize_obj(rplc),
     }
   }
+}
 
+impl KubeResource<ReplicationController> for KubeReplicationController {
   fn get_k8s_obj(&self) -> &ReplicationController {
     &self.k8s_obj
   }

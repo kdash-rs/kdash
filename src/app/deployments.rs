@@ -13,8 +13,8 @@ pub struct KubeDeployment {
   k8s_obj: Deployment,
 }
 
-impl KubeResource<Deployment> for KubeDeployment {
-  fn from_api(deployment: &Deployment) -> Self {
+impl From<Deployment> for KubeDeployment {
+  fn from(deployment: Deployment) -> Self {
     let (ready, available, updated) = match &deployment.status {
       Some(s) => (
         format!(
@@ -28,17 +28,18 @@ impl KubeResource<Deployment> for KubeDeployment {
       _ => ("".into(), 0, 0),
     };
 
-    KubeDeployment {
+    Self {
       name: deployment.metadata.name.clone().unwrap_or_default(),
       namespace: deployment.metadata.namespace.clone().unwrap_or_default(),
       age: utils::to_age(deployment.metadata.creation_timestamp.as_ref(), Utc::now()),
       available,
       updated,
       ready,
-      k8s_obj: deployment.to_owned(),
+      k8s_obj: utils::sanitize_obj(deployment),
     }
   }
-
+}
+impl KubeResource<Deployment> for KubeDeployment {
   fn get_k8s_obj(&self) -> &Deployment {
     &self.k8s_obj
   }

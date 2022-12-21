@@ -4,15 +4,6 @@ items:
   kind: Namespace
   metadata:
     creationTimestamp: "2021-05-10T21:48:02Z"
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:status:
-          f:phase: {}
-      manager: k3s
-      operation: Update
-      time: "2021-05-10T21:48:02Z"
     name: default
     resourceVersion: "4"
     uid: 9cbc82d2-bc3b-4997-bedf-662e86110097
@@ -25,15 +16,6 @@ items:
   kind: Namespace
   metadata:
     creationTimestamp: "2021-05-10T21:48:02Z"
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:status:
-          f:phase: {}
-      manager: k3s
-      operation: Update
-      time: "2021-05-10T21:48:02Z"
     name: kube-system
     resourceVersion: "16"
     uid: 6905938f-7c22-453b-8a26-e633808fcff3
@@ -46,15 +28,6 @@ items:
   kind: Namespace
   metadata:
     creationTimestamp: "2021-05-10T21:48:02Z"
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:status:
-          f:phase: {}
-      manager: k3s
-      operation: Update
-      time: "2021-05-10T21:48:02Z"
     name: kube-public
     resourceVersion: "20"
     uid: 4b8edf12-46b0-4e80-843b-e0c47f301e4c
@@ -67,15 +40,6 @@ items:
   kind: Namespace
   metadata:
     creationTimestamp: "2021-05-10T21:48:02Z"
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:status:
-          f:phase: {}
-      manager: k3s
-      operation: Update
-      time: "2021-05-10T21:48:02Z"
     name: kube-node-lease
     resourceVersion: "23"
     uid: b6a2061b-3172-405d-b408-67c6de68e656

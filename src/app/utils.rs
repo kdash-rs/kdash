@@ -3,6 +3,13 @@ use k8s_openapi::{
   chrono::{DateTime, Duration, Utc},
 };
 
+use kube::{Resource, ResourceExt};
+
+pub fn sanitize_obj<K: Resource>(mut obj: K) -> K {
+  obj.managed_fields_mut().clear();
+  obj
+}
+
 pub static UNKNOWN: &str = "Unknown";
 
 pub fn to_age(timestamp: Option<&Time>, against: DateTime<Utc>) -> String {

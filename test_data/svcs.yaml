@@ -7,31 +7,6 @@ items:
     labels:
       component: apiserver
       provider: kubernetes
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:metadata:
-          f:labels:
-            .: {}
-            f:component: {}
-            f:provider: {}
-        f:spec:
-          f:clusterIP: {}
-          f:ipFamilyPolicy: {}
-          f:ports:
-            .: {}
-            k:{"port":443,"protocol":"TCP"}:
-              .: {}
-              f:name: {}
-              f:port: {}
-              f:protocol: {}
-              f:targetPort: {}
-          f:sessionAffinity: {}
-          f:type: {}
-      manager: k3s
-      operation: Update
-      time: "2021-05-10T21:48:03Z"
     name: kubernetes
     namespace: default
     resourceVersion: "189"
@@ -67,56 +42,6 @@ items:
       kubernetes.io/cluster-service: "true"
       kubernetes.io/name: CoreDNS
       objectset.rio.cattle.io/hash: bce283298811743a0386ab510f2f67ef74240c57
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:metadata:
-          f:annotations:
-            .: {}
-            f:objectset.rio.cattle.io/applied: {}
-            f:objectset.rio.cattle.io/id: {}
-            f:objectset.rio.cattle.io/owner-gvk: {}
-            f:objectset.rio.cattle.io/owner-name: {}
-            f:objectset.rio.cattle.io/owner-namespace: {}
-            f:prometheus.io/port: {}
-            f:prometheus.io/scrape: {}
-          f:labels:
-            .: {}
-            f:k8s-app: {}
-            f:kubernetes.io/cluster-service: {}
-            f:kubernetes.io/name: {}
-            f:objectset.rio.cattle.io/hash: {}
-        f:spec:
-          f:clusterIP: {}
-          f:ports:
-            .: {}
-            k:{"port":53,"protocol":"TCP"}:
-              .: {}
-              f:name: {}
-              f:port: {}
-              f:protocol: {}
-              f:targetPort: {}
-            k:{"port":53,"protocol":"UDP"}:
-              .: {}
-              f:name: {}
-              f:port: {}
-              f:protocol: {}
-              f:targetPort: {}
-            k:{"port":9153,"protocol":"TCP"}:
-              .: {}
-              f:name: {}
-              f:port: {}
-              f:protocol: {}
-              f:targetPort: {}
-          f:selector:
-            .: {}
-            f:k8s-app: {}
-          f:sessionAffinity: {}
-          f:type: {}
-      manager: k3s
-      operation: Update
-      time: "2021-05-10T21:48:06Z"
     name: kube-dns
     namespace: kube-system
     resourceVersion: "217"
@@ -159,39 +84,6 @@ items:
       kubernetes.io/cluster-service: "true"
       kubernetes.io/name: Metrics-server
       objectset.rio.cattle.io/hash: a5d3bc601c871e123fa32b27f549b6ea770bcf4a
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:metadata:
-          f:annotations:
-            .: {}
-            f:objectset.rio.cattle.io/applied: {}
-            f:objectset.rio.cattle.io/id: {}
-            f:objectset.rio.cattle.io/owner-gvk: {}
-            f:objectset.rio.cattle.io/owner-name: {}
-            f:objectset.rio.cattle.io/owner-namespace: {}
-          f:labels:
-            .: {}
-            f:kubernetes.io/cluster-service: {}
-            f:kubernetes.io/name: {}
-            f:objectset.rio.cattle.io/hash: {}
-        f:spec:
-          f:ports:
-            .: {}
-            k:{"port":443,"protocol":"TCP"}:
-              .: {}
-              f:port: {}
-              f:protocol: {}
-              f:targetPort: {}
-          f:selector:
-            .: {}
-            f:k8s-app: {}
-          f:sessionAffinity: {}
-          f:type: {}
-      manager: k3s
-      operation: Update
-      time: "2021-05-10T21:48:06Z"
     name: metrics-server
     namespace: kube-system
     resourceVersion: "240"
@@ -223,40 +115,6 @@ items:
       chart: traefik-1.81.0
       heritage: Helm
       release: traefik
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:metadata:
-          f:annotations:
-            .: {}
-            f:meta.helm.sh/release-name: {}
-            f:meta.helm.sh/release-namespace: {}
-          f:labels:
-            .: {}
-            f:app: {}
-            f:app.kubernetes.io/managed-by: {}
-            f:chart: {}
-            f:heritage: {}
-            f:release: {}
-        f:spec:
-          f:ports:
-            .: {}
-            k:{"port":9100,"protocol":"TCP"}:
-              .: {}
-              f:name: {}
-              f:port: {}
-              f:protocol: {}
-              f:targetPort: {}
-          f:selector:
-            .: {}
-            f:app: {}
-            f:release: {}
-          f:sessionAffinity: {}
-          f:type: {}
-      manager: Go-http-client
-      operation: Update
-      time: "2021-05-10T21:48:35Z"
     name: traefik-prometheus
     namespace: kube-system
     resourceVersion: "499"
@@ -290,56 +148,6 @@ items:
       chart: traefik-1.81.0
       heritage: Helm
       release: traefik
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:metadata:
-          f:annotations:
-            .: {}
-            f:meta.helm.sh/release-name: {}
-            f:meta.helm.sh/release-namespace: {}
-          f:labels:
-            .: {}
-            f:app: {}
-            f:app.kubernetes.io/managed-by: {}
-            f:chart: {}
-            f:heritage: {}
-            f:release: {}
-        f:spec:
-          f:externalTrafficPolicy: {}
-          f:ports:
-            .: {}
-            k:{"port":80,"protocol":"TCP"}:
-              .: {}
-              f:name: {}
-              f:port: {}
-              f:protocol: {}
-              f:targetPort: {}
-            k:{"port":443,"protocol":"TCP"}:
-              .: {}
-              f:name: {}
-              f:port: {}
-              f:protocol: {}
-              f:targetPort: {}
-          f:selector:
-            .: {}
-            f:app: {}
-            f:release: {}
-          f:sessionAffinity: {}
-          f:type: {}
-      manager: Go-http-client
-      operation: Update
-      time: "2021-05-10T21:48:35Z"
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:status:
-          f:loadBalancer:
-            f:ingress: {}
-      manager: k3s
-      operation: Update
-      time: "2021-05-10T21:48:50Z"
     name: traefik
     namespace: kube-system
     resourceVersion: "557"
