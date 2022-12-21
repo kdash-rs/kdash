@@ -96,23 +96,12 @@ impl KubeResource<RoleBinding> for KubeRoleBindings {
 }
 
 impl From<ClusterRoleBinding> for KubeClusterRoleBinding {
-  fn from(cluster_role_binding: ClusterRoleBinding) -> Self {
+  fn from(crb: ClusterRoleBinding) -> Self {
     KubeClusterRoleBinding {
-      name: cluster_role_binding
-        .metadata
-        .name
-        .clone()
-        .unwrap_or_default(),
-      role: format!(
-        "{}/{}",
-        cluster_role_binding.role_ref.kind.clone(),
-        cluster_role_binding.role_ref.name.clone()
-      ),
-      age: utils::to_age(
-        cluster_role_binding.metadata.creation_timestamp.as_ref(),
-        Utc::now(),
-      ),
-      k8s_obj: utils::sanitize_obj(cluster_role_binding),
+      name: crb.metadata.name.clone().unwrap_or_default(),
+      role: format!("{}/{}", crb.role_ref.kind, crb.role_ref.name),
+      age: utils::to_age(crb.metadata.creation_timestamp.as_ref(), Utc::now()),
+      k8s_obj: utils::sanitize_obj(crb),
     }
   }
 }

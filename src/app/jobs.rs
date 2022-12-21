@@ -11,7 +11,7 @@ pub struct KubeJob {
   pub age: String,
   k8s_obj: Job,
 }
- 
+
 impl From<Job> for KubeJob {
   fn from(job: Job) -> Self {
     let completions = match (job.spec.as_ref(), job.status.as_ref()) {

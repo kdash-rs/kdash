@@ -1,6 +1,9 @@
 use k8s_openapi::api::core::v1::Namespace;
 
-use super::{models::KubeResource, utils::{self, UNKNOWN}};
+use super::{
+  models::KubeResource,
+  utils::{self, UNKNOWN},
+};
 
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct KubeNs {

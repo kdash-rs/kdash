@@ -396,10 +396,6 @@ mod tests {
       k8s_obj: Namespace,
     }
     impl KubeResource<Namespace> for TestStruct {
-      fn from_api(_: &Namespace) -> Self {
-        unimplemented!()
-      }
-
       fn get_k8s_obj(&self) -> &Namespace {
         &self.k8s_obj
       }

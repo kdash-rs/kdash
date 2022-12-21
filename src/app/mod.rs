@@ -674,10 +674,7 @@ mod test_utils {
     let res_list = load_resource_from_file(filename);
     let original_res_list = res_list.items.clone();
 
-    let resources: Vec<T> = res_list
-      .iter()
-      .map(|it| T::from_api(it))
-      .collect::<Vec<_>>();
+    let resources: Vec<T> = res_list.iter().map(K::into).collect::<Vec<_>>();
 
     (resources, original_res_list)
   }
