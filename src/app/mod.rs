@@ -40,7 +40,7 @@ use self::{
   pods::{KubeContainer, KubePod},
   replicasets::KubeReplicaSet,
   replication_controllers::KubeReplicationController,
-  roles::{KubeClusterRoleBinding, KubeClusterRoles, KubeRoleBindings, KubeRoles},
+  roles::{KubeClusterRole, KubeClusterRoleBinding, KubeRole, KubeRoleBinding},
   secrets::KubeSecret,
   statefulsets::KubeStatefulSet,
   storageclass::KubeStorageClass,
@@ -133,9 +133,9 @@ pub struct Data {
   pub secrets: StatefulTable<KubeSecret>,
   pub rpl_ctrls: StatefulTable<KubeReplicationController>,
   pub storage_classes: StatefulTable<KubeStorageClass>,
-  pub roles: StatefulTable<KubeRoles>,
-  pub role_bindings: StatefulTable<KubeRoleBindings>,
-  pub cluster_roles: StatefulTable<KubeClusterRoles>,
+  pub roles: StatefulTable<KubeRole>,
+  pub role_bindings: StatefulTable<KubeRoleBinding>,
+  pub cluster_roles: StatefulTable<KubeClusterRole>,
   pub cluster_role_binding: StatefulTable<KubeClusterRoleBinding>,
 }
 

@@ -33,7 +33,7 @@ use crate::app::{
   pods::KubePod,
   replicasets::KubeReplicaSet,
   replication_controllers::KubeReplicationController,
-  roles::{KubeClusterRoleBinding, KubeClusterRoles, KubeRoleBindings, KubeRoles},
+  roles::{KubeClusterRole, KubeClusterRoleBinding, KubeRole, KubeRoleBinding},
   secrets::KubeSecret,
   statefulsets::KubeStatefulSet,
   storageclass::KubeStorageClass,
@@ -293,21 +293,21 @@ impl<'a> Network<'a> {
   }
 
   pub async fn get_roles(&self) {
-    let items: Vec<KubeRoles> = self.get_namespaced_resources(Role::into).await;
+    let items: Vec<KubeRole> = self.get_namespaced_resources(Role::into).await;
 
     let mut app = self.app.lock().await;
     app.data.roles.set_items(items);
   }
 
   pub async fn get_role_bindings(&self) {
-    let items: Vec<KubeRoleBindings> = self.get_namespaced_resources(RoleBinding::into).await;
+    let items: Vec<KubeRoleBinding> = self.get_namespaced_resources(RoleBinding::into).await;
 
     let mut app = self.app.lock().await;
     app.data.role_bindings.set_items(items);
   }
 
   pub async fn get_cluster_roles(&self) {
-    let items: Vec<KubeClusterRoles> = self.get_namespaced_resources(ClusterRole::into).await;
+    let items: Vec<KubeClusterRole> = self.get_namespaced_resources(ClusterRole::into).await;
 
     let mut app = self.app.lock().await;
     app.data.cluster_roles.set_items(items);
