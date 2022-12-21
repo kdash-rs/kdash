@@ -10,7 +10,6 @@ items:
     generation: 1
     labels:
       app: nginx
-    managedFields: []
     name: nginx
     namespace: default
     resourceVersion: "511472"

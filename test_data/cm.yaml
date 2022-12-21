@@ -32,7 +32,6 @@ items:
   kind: ConfigMap
   metadata:
     creationTimestamp: "2021-05-10T21:48:02Z"
-    managedFields: []
     name: extension-apiserver-authentication
     namespace: kube-system
     resourceVersion: "37"
@@ -44,7 +43,6 @@ items:
   kind: ConfigMap
   metadata:
     creationTimestamp: "2021-05-10T21:48:06Z"
-    managedFields: []
     name: cluster-dns
     namespace: kube-system
     resourceVersion: "207"
@@ -114,7 +112,6 @@ items:
     creationTimestamp: "2021-05-10T21:48:06Z"
     labels:
       objectset.rio.cattle.io/hash: 183f35c65ffbc3064603f43f1580d8c68a2dabd4
-    managedFields: []
     name: local-path-config
     namespace: kube-system
     resourceVersion: "224"
@@ -132,7 +129,6 @@ items:
     creationTimestamp: "2021-05-10T21:48:06Z"
     labels:
       objectset.rio.cattle.io/hash: c42f5b5dd9ee50718523a82c68d4392a7dec9fc4
-    managedFields: []
     name: chart-content-traefik
     namespace: kube-system
     resourceVersion: "253"
@@ -153,7 +149,6 @@ items:
   kind: ConfigMap
   metadata:
     creationTimestamp: "2021-05-10T21:48:19Z"
-    managedFields: []
     name: kube-root-ca.crt
     namespace: default
     resourceVersion: "393"
@@ -176,7 +171,6 @@ items:
       chart: traefik-1.81.0
       heritage: Helm
       release: traefik
-    managedFields: []
     name: traefik-test
     namespace: kube-system
     resourceVersion: "490"

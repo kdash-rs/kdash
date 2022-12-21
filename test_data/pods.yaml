@@ -8,7 +8,6 @@ items:
     labels:
       app: adservice
       pod-template-hash: f787c8dcd
-    managedFields: []
     name: adservice-f787c8dcd-tb6x2
     namespace: default
     ownerReferences:

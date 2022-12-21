@@ -13,7 +13,6 @@ items:
     labels:
       helmcharts.helm.cattle.io/chart: traefik
       objectset.rio.cattle.io/hash: c42f5b5dd9ee50718523a82c68d4392a7dec9fc4
-    managedFields: []
     name: helm-install-traefik
     namespace: kube-system
     resourceVersion: "800"

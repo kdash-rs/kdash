@@ -7,7 +7,6 @@ items:
     labels:
       component: apiserver
       provider: kubernetes
-    managedFields: []
     name: kubernetes
     namespace: default
     resourceVersion: "189"
@@ -43,7 +42,6 @@ items:
       kubernetes.io/cluster-service: "true"
       kubernetes.io/name: CoreDNS
       objectset.rio.cattle.io/hash: bce283298811743a0386ab510f2f67ef74240c57
-    managedFields: []
     name: kube-dns
     namespace: kube-system
     resourceVersion: "217"
@@ -86,7 +84,6 @@ items:
       kubernetes.io/cluster-service: "true"
       kubernetes.io/name: Metrics-server
       objectset.rio.cattle.io/hash: a5d3bc601c871e123fa32b27f549b6ea770bcf4a
-    managedFields: []
     name: metrics-server
     namespace: kube-system
     resourceVersion: "240"
@@ -118,7 +115,6 @@ items:
       chart: traefik-1.81.0
       heritage: Helm
       release: traefik
-    managedFields: []
     name: traefik-prometheus
     namespace: kube-system
     resourceVersion: "499"
@@ -152,7 +148,6 @@ items:
       chart: traefik-1.81.0
       heritage: Helm
       release: traefik
-    managedFields: []
     name: traefik
     namespace: kube-system
     resourceVersion: "557"
