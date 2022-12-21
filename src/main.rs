@@ -37,17 +37,17 @@ use tui::{
 
 /// kdash CLI
 #[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = None, override_usage = "Press `?` while running the app to see keybindings", before_help = BANNER)]
+#[command(author, version, about, long_about = None, override_usage = "Press `?` while running the app to see keybindings", before_help = BANNER)]
 pub struct Cli {
   /// Set the tick rate (milliseconds): the lower the number the higher the FPS.
-  #[clap(short, long, value_parser, default_value_t = 250)]
+  #[arg(short, long, value_parser, default_value_t = 250)]
   pub tick_rate: u64,
   /// Set the network call polling rate (milliseconds, should be multiples of tick-rate):
   /// the lower the number the higher the network calls.
-  #[clap(short, long, value_parser, default_value_t = 5000)]
+  #[arg(short, long, value_parser, default_value_t = 5000)]
   pub poll_rate: u64,
   /// whether unicode symbols are used to improve the overall look of the app
-  #[clap(short, long, value_parser, default_value_t = true)]
+  #[arg(short, long, value_parser, default_value_t = true)]
   pub enhanced_graphics: bool,
 }
 
