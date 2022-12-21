@@ -147,7 +147,7 @@ impl KubeNode {
       mem_a: utils::mem_to_mi(mem_a.unwrap_or_default()),
       cpu_percent,
       mem_percent,
-      k8s_obj: node.to_owned(),
+      k8s_obj: utils::sanitize_obj(node.to_owned()),
     }
   }
 }
