@@ -408,7 +408,6 @@ impl App {
     if let Some(io_tx) = &self.io_tx {
       if let Err(e) = io_tx.send(action).await {
         self.is_loading = false;
-        println!("Error from network dispatch {}", e);
         self.handle_error(anyhow!(e));
       };
     }
@@ -421,7 +420,6 @@ impl App {
     if let Some(io_stream_tx) = &self.io_stream_tx {
       if let Err(e) = io_stream_tx.send(action).await {
         self.is_loading = false;
-        println!("Error from stream dispatch {}", e);
         self.handle_error(anyhow!(e));
       };
     }
@@ -434,7 +432,6 @@ impl App {
     if let Some(io_cmd_tx) = &self.io_cmd_tx {
       if let Err(e) = io_cmd_tx.send(action).await {
         self.is_loading = false;
-        println!("Error from cmd dispatch {}", e);
         self.handle_error(anyhow!(e));
       };
     }

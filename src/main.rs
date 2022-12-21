@@ -14,7 +14,8 @@ use std::{
   sync::Arc,
 };
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
+
 use app::App;
 use banner::BANNER;
 use clap::Parser;
@@ -115,7 +116,10 @@ async fn start_network(mut io_rx: mpsc::Receiver<IoEvent>, app: &Arc<Mutex<App>>
         network.handle_network_event(io_event).await;
       }
     }
-    Err(e) => panic!("Unable to obtain Kubernetes client {}", e),
+    Err(e) => {
+      let mut app = app.lock().await;
+      app.handle_error(anyhow!("Unable to obtain Kubernetes client. {:?}", e));
+    }
   }
 }
 
@@ -129,7 +133,10 @@ async fn start_stream_network(mut io_rx: mpsc::Receiver<IoStreamEvent>, app: &Ar
         network.handle_network_stream_event(io_event).await;
       }
     }
-    Err(e) => panic!("Unable to obtain Kubernetes client {}", e),
+    Err(e) => {
+      let mut app = app.lock().await;
+      app.handle_error(anyhow!("Unable to obtain Kubernetes client. {:?}", e));
+    }
   }
 }
 
