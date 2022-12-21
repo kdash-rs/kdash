@@ -6,6 +6,7 @@
 
 - Hide managedFields in YAML view by default (https://github.com/kdash-rs/kdash/pull/296)
 - Fail gracefully when context not found (https://github.com/kdash-rs/kdash/issues/280)
+- Improve cache (https://github.com/kdash-rs/kdash/issues/271)
 - Upgrade libraries
 
 ## [0.3.5] - 2022-08-31
