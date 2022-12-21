@@ -7,50 +7,7 @@ items:
       kubectl.kubernetes.io/last-applied-configuration: |
         {"apiVersion":"batch/v1","kind":"CronJob","metadata":{"annotations":{},"name":"hello","namespace":"default"},"spec":{"jobTemplate":{"spec":{"template":{"spec":{"containers":[{"command":["/bin/sh","-c","date; echo Hello from the Kubernetes cluster"],"image":"busybox","imagePullPolicy":"IfNotPresent","name":"hello"}],"restartPolicy":"OnFailure"}}}},"schedule":"*/1 * * * *"}}
     creationTimestamp: "2021-07-05T09:37:21Z"
-    managedFields:
-    - apiVersion: batch/v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:metadata:
-          f:annotations:
-            .: {}
-            f:kubectl.kubernetes.io/last-applied-configuration: {}
-        f:spec:
-          f:concurrencyPolicy: {}
-          f:failedJobsHistoryLimit: {}
-          f:jobTemplate:
-            f:spec:
-              f:template:
-                f:spec:
-                  f:containers:
-                    k:{"name":"hello"}:
-                      .: {}
-                      f:command: {}
-                      f:image: {}
-                      f:imagePullPolicy: {}
-                      f:name: {}
-                      f:resources: {}
-                      f:terminationMessagePath: {}
-                      f:terminationMessagePolicy: {}
-                  f:dnsPolicy: {}
-                  f:restartPolicy: {}
-                  f:schedulerName: {}
-                  f:securityContext: {}
-                  f:terminationGracePeriodSeconds: {}
-          f:schedule: {}
-          f:successfulJobsHistoryLimit: {}
-          f:suspend: {}
-      manager: kubectl
-      operation: Update
-      time: "2021-07-05T09:37:21Z"
-    - apiVersion: batch/v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:status:
-          f:lastScheduleTime: {}
-      manager: k3s
-      operation: Update
-      time: "2021-07-05T09:39:00Z"
+    managedFields: []
     name: hello
     namespace: default
     resourceVersion: "769"

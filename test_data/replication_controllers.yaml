@@ -10,69 +10,7 @@ items:
     generation: 1
     labels:
       app: nginx
-    managedFields:
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:metadata:
-          f:annotations:
-            .: {}
-            f:kubectl.kubernetes.io/last-applied-configuration: {}
-          f:labels:
-            .: {}
-            f:app: {}
-        f:spec:
-          f:replicas: {}
-          f:selector:
-            .: {}
-            f:app: {}
-          f:template:
-            .: {}
-            f:metadata:
-              .: {}
-              f:creationTimestamp: {}
-              f:labels:
-                .: {}
-                f:app: {}
-              f:name: {}
-            f:spec:
-              .: {}
-              f:containers:
-                .: {}
-                k:{"name":"nginx"}:
-                  .: {}
-                  f:image: {}
-                  f:imagePullPolicy: {}
-                  f:name: {}
-                  f:ports:
-                    .: {}
-                    k:{"containerPort":80,"protocol":"TCP"}:
-                      .: {}
-                      f:containerPort: {}
-                      f:protocol: {}
-                  f:resources: {}
-                  f:terminationMessagePath: {}
-                  f:terminationMessagePolicy: {}
-              f:dnsPolicy: {}
-              f:restartPolicy: {}
-              f:schedulerName: {}
-              f:securityContext: {}
-              f:terminationGracePeriodSeconds: {}
-      manager: kubectl
-      operation: Update
-      time: "2021-07-27T14:37:49Z"
-    - apiVersion: v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:status:
-          f:availableReplicas: {}
-          f:fullyLabeledReplicas: {}
-          f:observedGeneration: {}
-          f:readyReplicas: {}
-          f:replicas: {}
-      manager: k3s
-      operation: Update
-      time: "2021-07-27T14:38:06Z"
+    managedFields: []
     name: nginx
     namespace: default
     resourceVersion: "511472"
