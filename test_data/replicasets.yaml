@@ -16,6 +16,7 @@ items:
     labels:
       k8s-app: metrics-server
       pod-template-hash: 86cbb8457f
+    managedFields: []
     name: metrics-server-86cbb8457f
     namespace: kube-system
     ownerReferences:
@@ -93,6 +94,7 @@ items:
     labels:
       app: local-path-provisioner
       pod-template-hash: 5ff76fc89d
+    managedFields: []
     name: local-path-provisioner-5ff76fc89d
     namespace: kube-system
     ownerReferences:
@@ -182,6 +184,7 @@ items:
     labels:
       k8s-app: kube-dns
       pod-template-hash: 854c77959c
+    managedFields: []
     name: coredns-854c77959c
     namespace: kube-system
     ownerReferences:
@@ -314,6 +317,7 @@ items:
       heritage: Helm
       pod-template-hash: 6f9cbd9bd4
       release: traefik
+    managedFields: []
     name: traefik-6f9cbd9bd4
     namespace: kube-system
     ownerReferences:

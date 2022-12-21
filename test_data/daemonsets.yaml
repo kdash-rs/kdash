@@ -15,6 +15,7 @@ items:
     labels:
       objectset.rio.cattle.io/hash: f31475152fbf70655d3c016d368e90118938f6ea
       svccontroller.k3s.cattle.io/nodeselector: "false"
+    managedFields: []
     name: svclb-traefik
     namespace: kube-system
     ownerReferences:

@@ -28,6 +28,7 @@ items:
       node-role.kubernetes.io/control-plane: "true"
       node-role.kubernetes.io/master: "true"
       node.kubernetes.io/instance-type: k3s
+    managedFields: []
     name: gke-hello-hipster-default-pool-9e6f6ffb-q16l
     resourceVersion: "8762"
     uid: 32e5afcb-a116-456b-992a-b52518d7b0b0

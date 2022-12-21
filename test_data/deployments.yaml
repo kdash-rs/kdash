@@ -15,6 +15,7 @@ items:
     labels:
       k8s-app: metrics-server
       objectset.rio.cattle.io/hash: e10e245e13e46a725c9dddd4f9eb239f147774fd
+    managedFields: []
     name: metrics-server
     namespace: kube-system
     resourceVersion: "465"
@@ -101,6 +102,7 @@ items:
     generation: 1
     labels:
       objectset.rio.cattle.io/hash: 183f35c65ffbc3064603f43f1580d8c68a2dabd4
+    managedFields: []
     name: local-path-provisioner
     namespace: kube-system
     resourceVersion: "479"
@@ -201,6 +203,7 @@ items:
       k8s-app: kube-dns
       kubernetes.io/name: CoreDNS
       objectset.rio.cattle.io/hash: bce283298811743a0386ab510f2f67ef74240c57
+    managedFields: []
     name: coredns
     namespace: kube-system
     resourceVersion: "535"
@@ -342,6 +345,7 @@ items:
       chart: traefik-1.81.0
       heritage: Helm
       release: traefik
+    managedFields: []
     name: traefik
     namespace: kube-system
     resourceVersion: "585"
