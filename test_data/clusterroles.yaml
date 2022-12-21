@@ -15,6 +15,7 @@ items:
     name: admin
     resourceVersion: "98511715"
     uid: 82a8bcf1-ca5f-4934-8775-45e623b10208
+    managedFields: []
   rules:
   - apiGroups:
     - ""

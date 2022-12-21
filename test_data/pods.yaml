@@ -109,6 +109,7 @@ items:
       pod-template-hash: 67b89ffc69
     name: cartservice-67b89ffc69-s5qp8
     namespace: default
+    managedFields: []
     ownerReferences:
     - apiVersion: apps/v1
       blockOwnerDeletion: true
@@ -248,6 +249,7 @@ items:
       pod-template-hash: 68887d98fd
     name: currencyservice-68887d98fd-gc9cn
     namespace: default
+    managedFields: []
     ownerReferences:
     - apiVersion: apps/v1
       blockOwnerDeletion: true
@@ -345,6 +347,7 @@ items:
       pod-template-hash: 5f8fc7dbb4
     name: emailservice-5f8fc7dbb4-5lqdb
     namespace: default
+    managedFields: []
     ownerReferences:
     - apiVersion: apps/v1
       blockOwnerDeletion: true
@@ -479,6 +482,7 @@ items:
       pod-template-hash: 5c4745dfdb
     name: frontend-5c4745dfdb-6k8wf
     namespace: default
+    managedFields: []
     ownerReferences:
     - apiVersion: apps/v1
       blockOwnerDeletion: true
@@ -598,6 +602,7 @@ items:
       pod-template-hash: 5c4745dfdb
     name: frontend-5c4745dfdb-qz7fg
     namespace: default
+    managedFields: []
     ownerReferences:
     - apiVersion: apps/v1
       blockOwnerDeletion: true
@@ -703,6 +708,7 @@ items:
       pod-template-hash: 5c4745dfdb
     name: frontend-5c4745dfdb-6k8wf
     namespace: default
+    managedFields: []
     ownerReferences:
     - apiVersion: apps/v1
       blockOwnerDeletion: true
@@ -827,6 +833,7 @@ items:
       pod-template-hash: 86f46dcb88
     name: loadgenerator-86f46dcb88-62vzw
     namespace: default
+    managedFields: []
     ownerReferences:
     - apiVersion: apps/v1
       blockOwnerDeletion: true
@@ -904,6 +911,7 @@ items:
       pod-template-hash: "6658569876"
     name: paymentservice-6658569876-d6r72
     namespace: default
+    managedFields: []
     ownerReferences:
     - apiVersion: apps/v1
       blockOwnerDeletion: true
@@ -1028,6 +1036,7 @@ items:
       pod-template-hash: 78965f984b
     name: recommendationservice-78965f984b-z9x79
     namespace: default
+    managedFields: []
     ownerReferences:
     - apiVersion: apps/v1
       blockOwnerDeletion: true
@@ -1160,6 +1169,7 @@ items:
       pod-template-hash: "6998959488"
     name: shippingservice-6998959488-tvhph
     namespace: default
+    managedFields: []
     ownerReferences:
     - apiVersion: apps/v1
       blockOwnerDeletion: true
@@ -1281,6 +1291,7 @@ items:
       kubectl.kubernetes.io/last-applied-configuration: |
         {"apiVersion":"v1","kind":"Pod","metadata":{"annotations":{},"labels":{"purpose":"initContainers-demo"},"name":"pod-init-container","namespace":"default"},"spec":{"containers":[{"command":["echo","Hello main container"],"image":"busybox","name":"main-busybox"}],"initContainers":[{"command":["echo","I am init-conatiner"],"image":"busybox","name":"init-busybox1"},{"command":["sleep","30"],"image":"busybox","name":"init-busybox2"}],"restartPolicy":"Never"}}
     creationTimestamp: "2021-06-18T08:57:56Z"
+    managedFields: []
     labels:
       purpose: initContainers-demo
     name: pod-init-container
@@ -1428,6 +1439,7 @@ items:
       kubectl.kubernetes.io/last-applied-configuration: |
         {"apiVersion":"v1","kind":"Pod","metadata":{"annotations":{},"labels":{"purpose":"initContainers-demo"},"name":"pod-init-container-2","namespace":"default"},"spec":{"containers":[{"command":["echo","Hello main container"],"image":"busybox","name":"main-busybox"}],"initContainers":[{"command":["echo","I am init-conatiner"],"image":"busybox","name":"init-busybox1"},{"command":["sleep","30"],"image":"busybox","name":"init-busybox2"}],"restartPolicy":"Never"}}
     creationTimestamp: "2021-06-18T09:26:11Z"
+    managedFields: []
     labels:
       purpose: initContainers-demo
     name: pod-init-container-2

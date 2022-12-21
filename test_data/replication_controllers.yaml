@@ -55,6 +55,7 @@ items:
         {"apiVersion":"v1","kind":"ReplicationController","metadata":{"annotations":{},"name":"nginx-new","namespace":"default"},"spec":{"replicas":3,"selector":{"app":"nginx"},"template":{"metadata":{"labels":{"app":"nginx"},"name":"nginx"},"spec":{"containers":[{"image":"nginx","name":"nginx","ports":[{"containerPort":80}]},{"image":"nginx","name":"nginx2","ports":[{"containerPort":80}]}]}}}}
     creationTimestamp: "2021-07-27T14:45:24Z"
     generation: 1
+    managedFields: []
     labels:
       app: nginx
     name: nginx-new

@@ -18,6 +18,7 @@ items:
     namespace: default
     resourceVersion: "102143364"
     uid: f0de3ac8-1680-4794-88c3-927a42cccce0
+    managedFields: []
   roleRef:
     apiGroup: rbac.authorization.k8s.io
     kind: Role

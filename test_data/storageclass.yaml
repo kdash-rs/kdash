@@ -14,6 +14,7 @@ items:
     name: ebs-performance
     resourceVersion: "98487651"
     uid: 4c55b509-35f6-4539-91f3-5efc04502287
+    managedFields: []
   parameters:
     iopsPerGB: "30"
     type: io1
@@ -35,6 +36,7 @@ items:
     name: ebs-standard
     resourceVersion: "98487650"
     uid: 38ba70fb-25a8-4d9f-a1d3-2407de9e9128
+    managedFields: []    
   parameters:
     type: gp2
   provisioner: kubernetes.io/aws-ebs
@@ -54,6 +56,7 @@ items:
     name: efs-sc
     resourceVersion: "98487652"
     uid: d60d2b3f-6e91-4fa1-add0-9383c0a8c6ea
+    managedFields: []
   provisioner: efs.csi.aws.com
   reclaimPolicy: Delete
   volumeBindingMode: Immediate
@@ -68,6 +71,7 @@ items:
     name: gp2
     resourceVersion: "183"
     uid: 330bc0b5-b40c-4327-82ab-ca6f53b553cc
+    managedFields: []
   parameters:
     fsType: ext4
     type: gp2

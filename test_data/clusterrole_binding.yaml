@@ -7,6 +7,7 @@ items:
       name: admin-user
       resourceVersion: "70549225"
       uid: e86a4046-d74b-457e-9e93-6269a675284d
+      managedFields: []
     roleRef:
       apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
@@ -32,6 +33,7 @@ items:
       name: aws-node
       resourceVersion: "70549265"
       uid: f6dd32c5-f853-4a8b-a98b-0726d4702cbe
+      managedFields: []
     roleRef:
       apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
