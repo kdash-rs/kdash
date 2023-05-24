@@ -3,6 +3,7 @@ pub(crate) mod contexts;
 pub(crate) mod cronjobs;
 pub(crate) mod daemonsets;
 pub(crate) mod deployments;
+pub(crate) mod ingress;
 pub(crate) mod jobs;
 pub(crate) mod key_binding;
 pub(crate) mod metrics;
@@ -31,6 +32,7 @@ use self::{
   cronjobs::KubeCronJob,
   daemonsets::KubeDaemonSet,
   deployments::KubeDeployment,
+  ingress::KubeIngress,
   jobs::KubeJob,
   key_binding::DEFAULT_KEYBINDING,
   metrics::KubeNodeMetrics,
@@ -78,6 +80,7 @@ pub enum ActiveBlock {
   RoleBindings,
   ClusterRoles,
   ClusterRoleBinding,
+  Ingress,
   More,
 }
 
@@ -137,6 +140,7 @@ pub struct Data {
   pub role_bindings: StatefulTable<KubeRoleBinding>,
   pub cluster_roles: StatefulTable<KubeClusterRole>,
   pub cluster_role_binding: StatefulTable<KubeClusterRoleBinding>,
+  pub ingress: StatefulTable<KubeIngress>,
 }
 
 /// selected data items
@@ -214,6 +218,7 @@ impl Default for Data {
       role_bindings: StatefulTable::new(),
       cluster_roles: StatefulTable::new(),
       cluster_role_binding: StatefulTable::new(),
+      ingress: StatefulTable::new(),
     }
   }
 }
@@ -346,7 +351,7 @@ impl Default for App {
           ActiveBlock::ClusterRoleBinding,
         ),
         // ("Service Accounts".into(), ActiveBlock::RplCtrl),
-        // ("Ingresses".into(), ActiveBlock::RplCtrl),
+        ("Ingresses".into(), ActiveBlock::Ingress),
         // ("Network Policies".into(), ActiveBlock::RplCtrl),
       ]),
       show_info_bar: true,
@@ -540,6 +545,7 @@ impl App {
     self.dispatch(IoEvent::GetRoleBindings).await;
     self.dispatch(IoEvent::GetClusterRoles).await;
     self.dispatch(IoEvent::GetClusterRoleBinding).await;
+    self.dispatch(IoEvent::GetIngress).await;
     self.dispatch(IoEvent::GetMetrics).await;
   }
 
@@ -592,6 +598,9 @@ impl App {
       }
       ActiveBlock::ClusterRoleBinding => {
         self.dispatch(IoEvent::GetClusterRoleBinding).await;
+      }
+      ActiveBlock::Ingress => {
+        self.dispatch(IoEvent::GetIngress).await;
       }
       ActiveBlock::Logs => {
         if !self.is_streaming {
@@ -755,6 +764,7 @@ mod tests {
       sync_io_rx.recv().await.unwrap(),
       IoEvent::GetClusterRoleBinding
     );
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetIngress);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetMetrics);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
