@@ -521,6 +521,21 @@ async fn handle_route_events(key: Key, app: &mut App) {
             .await;
           }
         }
+        ActiveBlock::Ingress => {
+          if let Some(res) = handle_block_action(key, &mut app.data.ingress) {
+            let _ok = handle_describe_decode_or_yaml_action(
+              key,
+              app,
+              &res,
+              IoCmdEvent::GetDescribe {
+                kind: "ingress".to_owned(),
+                value: res.name.to_owned(),
+                ns: None,
+              },
+            )
+            .await;
+          }
+        }
         ActiveBlock::Contexts | ActiveBlock::Utilization | ActiveBlock::Help => { /* Do nothing */ }
       }
     }
@@ -588,6 +603,7 @@ async fn handle_block_scroll(app: &mut App, up: bool, is_mouse: bool, page: bool
     ActiveBlock::RoleBindings => app.data.role_bindings.handle_scroll(up, page),
     ActiveBlock::ClusterRoles => app.data.cluster_roles.handle_scroll(up, page),
     ActiveBlock::ClusterRoleBinding => app.data.cluster_role_binding.handle_scroll(up, page),
+    ActiveBlock::Ingress => app.data.ingress.handle_scroll(up, page),
     ActiveBlock::Contexts => app.data.contexts.handle_scroll(up, page),
     ActiveBlock::Utilization => app.data.metrics.handle_scroll(up, page),
     ActiveBlock::Help => app.help_docs.handle_scroll(up, page),

@@ -1,13 +1,14 @@
 use std::fmt;
 
 use anyhow::anyhow;
-use k8s_openapi::api::apps::v1::{DaemonSet, Deployment, ReplicaSet, StatefulSet};
-use k8s_openapi::api::batch::v1::{CronJob, Job};
-use k8s_openapi::api::core::v1::{
-  ConfigMap, Namespace, Node, Pod, ReplicationController, Secret, Service,
+use k8s_openapi::api::{
+  apps::v1::{DaemonSet, Deployment, ReplicaSet, StatefulSet},
+  batch::v1::{CronJob, Job},
+  core::v1::{ConfigMap, Namespace, Node, Pod, ReplicationController, Secret, Service},
+  networking::v1::Ingress,
+  rbac::v1::{ClusterRole, ClusterRoleBinding, Role, RoleBinding},
+  storage::v1::StorageClass,
 };
-use k8s_openapi::api::rbac::v1::{ClusterRole, ClusterRoleBinding, Role, RoleBinding};
-use k8s_openapi::api::storage::v1::StorageClass;
 use kube::{
   api::{ListMeta, ListParams, ObjectList},
   config::Kubeconfig,
@@ -26,6 +27,7 @@ use crate::app::{
   cronjobs::KubeCronJob,
   daemonsets::KubeDaemonSet,
   deployments::KubeDeployment,
+  ingress::KubeIngress,
   jobs::KubeJob,
   metrics::{self, KubeNodeMetrics},
   nodes::KubeNode,
@@ -320,6 +322,13 @@ impl<'a> Network<'a> {
 
     let mut app = self.app.lock().await;
     app.data.cluster_role_binding.set_items(items);
+  }
+
+  pub async fn get_ingress(&self) {
+    let items: Vec<KubeIngress> = self.get_namespaced_resources(Ingress::into).await;
+
+    let mut app = self.app.lock().await;
+    app.data.ingress.set_items(items);
   }
 
   /// calls the kubernetes API to list the given resource for either selected namespace or all namespaces
