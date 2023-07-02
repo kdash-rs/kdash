@@ -1,13 +1,16 @@
 use std::fmt;
 
 use anyhow::anyhow;
-use k8s_openapi::api::{
-  apps::v1::{DaemonSet, Deployment, ReplicaSet, StatefulSet},
-  batch::v1::{CronJob, Job},
-  core::v1::{ConfigMap, Namespace, Node, Pod, ReplicationController, Secret, Service},
-  networking::v1::Ingress,
-  rbac::v1::{ClusterRole, ClusterRoleBinding, Role, RoleBinding},
-  storage::v1::StorageClass,
+use k8s_openapi::{
+  api::{
+    apps::v1::{DaemonSet, Deployment, ReplicaSet, StatefulSet},
+    batch::v1::{CronJob, Job},
+    core::v1::{ConfigMap, Namespace, Node, Pod, ReplicationController, Secret, Service},
+    networking::v1::Ingress,
+    rbac::v1::{ClusterRole, ClusterRoleBinding, Role, RoleBinding},
+    storage::v1::StorageClass,
+  },
+  NamespaceResourceScope,
 };
 use kube::{
   api::{ListMeta, ListParams, ObjectList},
@@ -288,7 +291,7 @@ impl<'a> Network<'a> {
   }
 
   pub async fn get_storage_classes(&self) {
-    let items: Vec<KubeStorageClass> = self.get_namespaced_resources(StorageClass::into).await;
+    let items: Vec<KubeStorageClass> = self.get_resources(StorageClass::into).await;
 
     let mut app = self.app.lock().await;
     app.data.storage_classes.set_items(items);
@@ -309,16 +312,14 @@ impl<'a> Network<'a> {
   }
 
   pub async fn get_cluster_roles(&self) {
-    let items: Vec<KubeClusterRole> = self.get_namespaced_resources(ClusterRole::into).await;
+    let items: Vec<KubeClusterRole> = self.get_resources(ClusterRole::into).await;
 
     let mut app = self.app.lock().await;
     app.data.cluster_roles.set_items(items);
   }
 
   pub async fn get_cluster_role_binding(&self) {
-    let items: Vec<KubeClusterRoleBinding> = self
-      .get_namespaced_resources(ClusterRoleBinding::into)
-      .await;
+    let items: Vec<KubeClusterRoleBinding> = self.get_resources(ClusterRoleBinding::into).await;
 
     let mut app = self.app.lock().await;
     app.data.cluster_role_binding.set_items(items);
@@ -335,10 +336,34 @@ impl<'a> Network<'a> {
   async fn get_namespaced_resources<K: ApiResource, T, F>(&self, map_fn: F) -> Vec<T>
   where
     <K as ApiResource>::DynamicType: Default,
+    K: kube::Resource<Scope = NamespaceResourceScope>,
     K: Clone + DeserializeOwned + fmt::Debug,
     F: Fn(K) -> T,
   {
     let api: Api<K> = self.get_namespaced_api().await;
+    let lp = ListParams::default();
+    match api.list(&lp).await {
+      Ok(list) => list.into_iter().map(map_fn).collect::<Vec<_>>(),
+      Err(e) => {
+        self
+          .handle_error(anyhow!(
+            "Failed to get namespaced resource {}. {:?}",
+            std::any::type_name::<T>(),
+            e
+          ))
+          .await;
+        vec![]
+      }
+    }
+  }
+
+  async fn get_resources<K: ApiResource, T, F>(&self, map_fn: F) -> Vec<T>
+  where
+    <K as ApiResource>::DynamicType: Default,
+    K: Clone + DeserializeOwned + fmt::Debug,
+    F: Fn(K) -> T,
+  {
+    let api: Api<K> = Api::all(self.client.clone());
     let lp = ListParams::default();
     match api.list(&lp).await {
       Ok(list) => list.into_iter().map(map_fn).collect::<Vec<_>>(),
@@ -358,6 +383,7 @@ impl<'a> Network<'a> {
   async fn get_namespaced_api<K: ApiResource>(&self) -> Api<K>
   where
     <K as ApiResource>::DynamicType: Default,
+    K: kube::Resource<Scope = NamespaceResourceScope>,
   {
     let app = self.app.lock().await;
     match &app.data.selected.ns {

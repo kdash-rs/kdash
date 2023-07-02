@@ -1,4 +1,4 @@
-use kube::config::{Kubeconfig, NamedContext};
+use kube::config::{Context, Kubeconfig, NamedContext};
 
 #[derive(Clone, Default)]
 pub struct KubeContext {
@@ -11,11 +11,13 @@ pub struct KubeContext {
 
 impl KubeContext {
   pub fn from_api(ctx: &NamedContext, is_active: bool) -> Self {
+    let def_context = Context::default();
+    let context = ctx.context.as_ref().unwrap_or(&def_context);
     KubeContext {
       name: ctx.name.clone(),
-      cluster: ctx.context.cluster.clone(),
-      user: ctx.context.user.clone(),
-      namespace: ctx.context.namespace.clone(),
+      cluster: context.cluster.clone(),
+      user: context.user.clone(),
+      namespace: context.namespace.clone(),
       is_active,
     }
   }

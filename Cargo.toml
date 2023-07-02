@@ -19,7 +19,7 @@ edition = "2021"
 [badges]
 
 [dependencies]
-crossterm = "0.25"
+crossterm = "0.26.1"
 tui = { version = "0.19", default-features = false, features = ['crossterm'] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -32,12 +32,12 @@ anyhow = "1.0"
 backtrace = "0.3"
 textwrap = "0.16.0"
 regex = "1"
-kube = "0.74.0"
-k8s-openapi = { version = "0.15.0", default-features = false, features = ["v1_22"] }
-base64 ="0.20"
+kube = "0.80.0"
+k8s-openapi = { version = "0.17.0", default-features = false, features = ["v1_22"] }
+base64 ="0.21.2"
 openssl = { version = "0.10", features = ["vendored"] }
 human-panic = "1.0"
-kubectl-view-allocations = { version="0.15", default-features = false }
+kubectl-view-allocations = { version="0.16.3", default-features = false }
 
 # XCB is a PITA to compile for ARM so disabling the copy feature on ARM for now
 [target.'cfg(target_arch = "x86_64")'.dependencies]

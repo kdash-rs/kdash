@@ -1,3 +1,4 @@
+use base64::{engine::general_purpose, Engine as _};
 use crossterm::event::{MouseEvent, MouseEventKind};
 use kubectl_view_allocations::GroupBy;
 use serde::Serialize;
@@ -128,7 +129,7 @@ where
       // decode each of the key/values in the secret
       for (key_name, encoded_bytes) in secret.data.iter() {
         let decoded_str = match serde_yaml::to_string(encoded_bytes) {
-          Ok(encoded_str) => match base64::decode(encoded_str.trim()) {
+          Ok(encoded_str) => match general_purpose::STANDARD.decode(encoded_str.trim()) {
             Ok(decoded_bytes) => String::from_utf8(decoded_bytes).unwrap(),
             Err(_) => format!("cannot decode value: {}", encoded_str.trim()),
           },

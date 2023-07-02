@@ -2,6 +2,11 @@
 
 ## Unreleased - 2022-XX-YY
 
+## [0.3.7] - 2023-06-30
+
+- Add support for Ingress (https://github.com/kdash-rs/kdash/pull/316)
+- Upgrade libraries
+
 ## [0.3.6] - 2022-12-21
 
 - Hide managedFields in YAML view by default (https://github.com/kdash-rs/kdash/pull/296)
