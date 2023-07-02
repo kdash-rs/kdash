@@ -40,6 +40,8 @@ static ROLE_BINDINGS_TITLE: &str = "RoleBindings";
 static CLUSTER_ROLES_TITLE: &str = "ClusterRoles";
 static CLUSTER_ROLES_BINDING_TITLE: &str = "ClusterRoleBinding";
 static INGRESS_TITLE: &str = "Ingresses";
+static PVC_TITLE: &str = "PersistentVolumeClaims";
+static PV_TITLE: &str = "PersistentVolumes";
 static DESCRIBE_ACTIVE: &str = "-> Describe ";
 static YAML_ACTIVE: &str = "-> YAML ";
 
@@ -94,6 +96,8 @@ fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App
     ActiveBlock::ClusterRoles => draw_cluster_roles_tab(block, f, app, area),
     ActiveBlock::ClusterRoleBinding => draw_cluster_role_binding_tab(block, f, app, area),
     ActiveBlock::Ingress => draw_ingress_tab(block, f, app, area),
+    ActiveBlock::Pvc => draw_pvc_tab(block, f, app, area),
+    ActiveBlock::Pv => draw_pv_tab(block, f, app, area),
     ActiveBlock::Describe | ActiveBlock::Yaml => {
       let mut prev_route = app.get_prev_route();
       if prev_route.active_block == block {
@@ -1188,7 +1192,7 @@ fn draw_cluster_role_binding_tab<B: Backend>(
     area,
     draw_cluster_role_binding_tab,
     draw_cluster_role_binding_block,
-    app.data.cluster_role_binding
+    app.data.cluster_role_bindings
   );
 }
 
@@ -1197,7 +1201,7 @@ fn draw_cluster_role_binding_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut A
     app,
     CLUSTER_ROLES_BINDING_TITLE,
     "",
-    app.data.cluster_role_binding.items.len(),
+    app.data.cluster_role_bindings.items.len(),
   );
 
   draw_resource_block(
@@ -1206,7 +1210,7 @@ fn draw_cluster_role_binding_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut A
     ResourceTableProps {
       title,
       inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
-      resource: &mut app.data.cluster_role_binding,
+      resource: &mut app.data.cluster_role_bindings,
       table_headers: vec!["Name", "Role", "Age"],
       column_widths: vec![
         Constraint::Percentage(40),
@@ -1282,6 +1286,134 @@ fn draw_ingress_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rec
         Cell::from(c.paths.to_owned()),
         Cell::from(c.default_backend.to_owned()),
         Cell::from(c.address.to_owned()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary(app.light_theme))
+    },
+    app.light_theme,
+    app.is_loading,
+  );
+}
+
+fn draw_pvc_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  draw_resource_tab!(
+    PVC_TITLE,
+    block,
+    f,
+    app,
+    area,
+    draw_pvc_tab,
+    draw_pvc_block,
+    app.data.pvcs
+  );
+}
+
+fn draw_pvc_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let title = get_resource_title(app, PVC_TITLE, "", app.data.pvcs.items.len());
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
+      resource: &mut app.data.pvcs,
+      table_headers: vec![
+        "Namespace",
+        "Name",
+        "Status",
+        "Volume",
+        "Capacity",
+        "Access Modes",
+        "Storage Class",
+        "Age",
+      ],
+      column_widths: vec![
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(20),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+      ],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.namespace.to_owned()),
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.status.to_owned()),
+        Cell::from(c.volume.to_owned()),
+        Cell::from(c.capacity.to_owned()),
+        Cell::from(c.access_modes.to_owned()),
+        Cell::from(c.storage_class.to_owned()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary(app.light_theme))
+    },
+    app.light_theme,
+    app.is_loading,
+  );
+}
+
+fn draw_pv_tab<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  draw_resource_tab!(
+    PV_TITLE,
+    block,
+    f,
+    app,
+    area,
+    draw_pv_tab,
+    draw_pv_block,
+    app.data.pvs
+  );
+}
+
+fn draw_pv_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let title = get_resource_title(app, PV_TITLE, "", app.data.pvs.items.len());
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
+      resource: &mut app.data.pvs,
+      table_headers: vec![
+        "Name",
+        "Capacity",
+        "Access Modes",
+        "Reclaim Policy",
+        "Status",
+        "Claim",
+        "Storage Class",
+        "Reason",
+        "Age",
+      ],
+      column_widths: vec![
+        Constraint::Percentage(20),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+      ],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.capacity.to_owned()),
+        Cell::from(c.access_modes.to_owned()),
+        Cell::from(c.reclaim_policy.to_owned()),
+        Cell::from(c.status.to_owned()),
+        Cell::from(c.claim.to_owned()),
+        Cell::from(c.storage_class.to_owned()),
+        Cell::from(c.reason.to_owned()),
         Cell::from(c.age.to_owned()),
       ])
       .style(style_primary(app.light_theme))

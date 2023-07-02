@@ -508,7 +508,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::ClusterRoleBinding => {
-          if let Some(res) = handle_block_action(key, &mut app.data.cluster_role_binding) {
+          if let Some(res) = handle_block_action(key, &mut app.data.cluster_role_bindings) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -530,6 +530,36 @@ async fn handle_route_events(key: Key, app: &mut App) {
               &res,
               IoCmdEvent::GetDescribe {
                 kind: "ingress".to_owned(),
+                value: res.name.to_owned(),
+                ns: None,
+              },
+            )
+            .await;
+          }
+        }
+        ActiveBlock::Pvc => {
+          if let Some(res) = handle_block_action(key, &mut app.data.pvcs) {
+            let _ok = handle_describe_decode_or_yaml_action(
+              key,
+              app,
+              &res,
+              IoCmdEvent::GetDescribe {
+                kind: "persistentvolumeclaims".to_owned(),
+                value: res.name.to_owned(),
+                ns: None,
+              },
+            )
+            .await;
+          }
+        }
+        ActiveBlock::Pv => {
+          if let Some(res) = handle_block_action(key, &mut app.data.pvs) {
+            let _ok = handle_describe_decode_or_yaml_action(
+              key,
+              app,
+              &res,
+              IoCmdEvent::GetDescribe {
+                kind: "persistentvolumes".to_owned(),
                 value: res.name.to_owned(),
                 ns: None,
               },
@@ -603,7 +633,9 @@ async fn handle_block_scroll(app: &mut App, up: bool, is_mouse: bool, page: bool
     ActiveBlock::Roles => app.data.roles.handle_scroll(up, page),
     ActiveBlock::RoleBindings => app.data.role_bindings.handle_scroll(up, page),
     ActiveBlock::ClusterRoles => app.data.cluster_roles.handle_scroll(up, page),
-    ActiveBlock::ClusterRoleBinding => app.data.cluster_role_binding.handle_scroll(up, page),
+    ActiveBlock::ClusterRoleBinding => app.data.cluster_role_bindings.handle_scroll(up, page),
+    ActiveBlock::Pvc => app.data.pvcs.handle_scroll(up, page),
+    ActiveBlock::Pv => app.data.pvs.handle_scroll(up, page),
     ActiveBlock::Ingress => app.data.ingress.handle_scroll(up, page),
     ActiveBlock::Contexts => app.data.contexts.handle_scroll(up, page),
     ActiveBlock::Utilization => app.data.metrics.handle_scroll(up, page),

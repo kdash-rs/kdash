@@ -1,0 +1,108 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    annotations:
+      pv.kubernetes.io/bind-completed: "yes"
+      pv.kubernetes.io/bound-by-controller: "yes"
+      volume.beta.kubernetes.io/storage-provisioner: ebs.csi.aws.com
+      volume.kubernetes.io/selected-node: ip-10-0-10-105.eu-west-1.compute.internal
+      volume.kubernetes.io/storage-provisioner: ebs.csi.aws.com
+    creationTimestamp: "2023-06-30T17:27:23Z"
+    finalizers:
+    - kubernetes.io/pvc-protection
+    labels:
+      app: consul
+      app.kubernetes.io/name: consul
+    managedFields: []
+    name: data-consul-0
+    namespace: jhipster
+    resourceVersion: "3975"
+    uid: 149f1f3b-c0fd-471d-bc3e-d039369755ef
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 8Gi
+    storageClassName: gp2
+    volumeMode: Filesystem
+    volumeName: pvc-149f1f3b-c0fd-471d-bc3e-d039369755ef
+  status:
+    accessModes:
+    - ReadWriteOnce
+    capacity:
+      storage: 8Gi
+    phase: Bound
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    annotations:
+      pv.kubernetes.io/bind-completed: "yes"
+      pv.kubernetes.io/bound-by-controller: "yes"
+      volume.beta.kubernetes.io/storage-provisioner: ebs.csi.aws.com
+      volume.kubernetes.io/selected-node: ip-10-0-12-221.eu-west-1.compute.internal
+      volume.kubernetes.io/storage-provisioner: ebs.csi.aws.com
+    creationTimestamp: "2023-06-30T17:27:23Z"
+    finalizers:
+    - kubernetes.io/pvc-protection
+    labels:
+      app: consul
+      app.kubernetes.io/name: consul
+    name: data-consul-1
+    namespace: jhipster
+    resourceVersion: "3972"
+    uid: c5a5b78c-732a-4c44-8c2c-4682296da68c
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 8Gi
+    storageClassName: gp2
+    volumeMode: Filesystem
+    volumeName: pvc-c5a5b78c-732a-4c44-8c2c-4682296da68c
+  status:
+    accessModes:
+    - ReadWriteOnce
+    capacity:
+      storage: 8Gi
+    phase: Bound
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    annotations:
+      pv.kubernetes.io/bind-completed: "yes"
+      pv.kubernetes.io/bound-by-controller: "yes"
+      volume.beta.kubernetes.io/storage-provisioner: ebs.csi.aws.com
+      volume.kubernetes.io/selected-node: ip-10-0-11-179.eu-west-1.compute.internal
+      volume.kubernetes.io/storage-provisioner: ebs.csi.aws.com
+    creationTimestamp: "2023-06-30T17:27:23Z"
+    finalizers:
+    - kubernetes.io/pvc-protection
+    labels:
+      app: consul
+      app.kubernetes.io/name: consul
+    name: data-consul-2
+    namespace: jhipster
+    resourceVersion: "3985"
+    uid: d2ccb749-9fdc-4503-81e9-f268073e1487
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 8Gi
+    storageClassName: gp2
+    volumeMode: Filesystem
+    volumeName: pvc-d2ccb749-9fdc-4503-81e9-f268073e1487
+  status:
+    accessModes:
+    - ReadWriteOnce
+    capacity:
+      storage: 8Gi
+    phase: Bound
+kind: List
+metadata:
+  resourceVersion: ""

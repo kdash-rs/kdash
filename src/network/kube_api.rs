@@ -5,7 +5,10 @@ use k8s_openapi::{
   api::{
     apps::v1::{DaemonSet, Deployment, ReplicaSet, StatefulSet},
     batch::v1::{CronJob, Job},
-    core::v1::{ConfigMap, Namespace, Node, Pod, ReplicationController, Secret, Service},
+    core::v1::{
+      ConfigMap, Namespace, Node, PersistentVolume, PersistentVolumeClaim, Pod,
+      ReplicationController, Secret, Service,
+    },
     networking::v1::Ingress,
     rbac::v1::{ClusterRole, ClusterRoleBinding, Role, RoleBinding},
     storage::v1::StorageClass,
@@ -36,6 +39,8 @@ use crate::app::{
   nodes::KubeNode,
   ns::KubeNs,
   pods::KubePod,
+  pvcs::KubePVC,
+  pvs::KubePV,
   replicasets::KubeReplicaSet,
   replication_controllers::KubeReplicationController,
   roles::{KubeClusterRole, KubeClusterRoleBinding, KubeRole, KubeRoleBinding},
@@ -322,7 +327,7 @@ impl<'a> Network<'a> {
     let items: Vec<KubeClusterRoleBinding> = self.get_resources(ClusterRoleBinding::into).await;
 
     let mut app = self.app.lock().await;
-    app.data.cluster_role_binding.set_items(items);
+    app.data.cluster_role_bindings.set_items(items);
   }
 
   pub async fn get_ingress(&self) {
@@ -330,6 +335,22 @@ impl<'a> Network<'a> {
 
     let mut app = self.app.lock().await;
     app.data.ingress.set_items(items);
+  }
+
+  pub async fn get_pvcs(&self) {
+    let items: Vec<KubePVC> = self
+      .get_namespaced_resources(PersistentVolumeClaim::into)
+      .await;
+
+    let mut app = self.app.lock().await;
+    app.data.pvcs.set_items(items);
+  }
+
+  pub async fn get_pvs(&self) {
+    let items: Vec<KubePV> = self.get_resources(PersistentVolume::into).await;
+
+    let mut app = self.app.lock().await;
+    app.data.pvs.set_items(items);
   }
 
   /// calls the kubernetes API to list the given resource for either selected namespace or all namespaces

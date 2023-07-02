@@ -11,6 +11,8 @@ pub(crate) mod models;
 pub(crate) mod nodes;
 pub(crate) mod ns;
 pub(crate) mod pods;
+pub(crate) mod pvcs;
+pub(crate) mod pvs;
 pub(crate) mod replicasets;
 pub(crate) mod replication_controllers;
 pub(crate) mod roles;
@@ -40,6 +42,8 @@ use self::{
   nodes::KubeNode,
   ns::KubeNs,
   pods::{KubeContainer, KubePod},
+  pvcs::KubePVC,
+  pvs::KubePV,
   replicasets::KubeReplicaSet,
   replication_controllers::KubeReplicationController,
   roles::{KubeClusterRole, KubeClusterRoleBinding, KubeRole, KubeRoleBinding},
@@ -81,6 +85,8 @@ pub enum ActiveBlock {
   ClusterRoles,
   ClusterRoleBinding,
   Ingress,
+  Pvc,
+  Pv,
   More,
 }
 
@@ -139,8 +145,10 @@ pub struct Data {
   pub roles: StatefulTable<KubeRole>,
   pub role_bindings: StatefulTable<KubeRoleBinding>,
   pub cluster_roles: StatefulTable<KubeClusterRole>,
-  pub cluster_role_binding: StatefulTable<KubeClusterRoleBinding>,
+  pub cluster_role_bindings: StatefulTable<KubeClusterRoleBinding>,
   pub ingress: StatefulTable<KubeIngress>,
+  pub pvcs: StatefulTable<KubePVC>,
+  pub pvs: StatefulTable<KubePV>,
 }
 
 /// selected data items
@@ -217,8 +225,10 @@ impl Default for Data {
       roles: StatefulTable::new(),
       role_bindings: StatefulTable::new(),
       cluster_roles: StatefulTable::new(),
-      cluster_role_binding: StatefulTable::new(),
+      cluster_role_bindings: StatefulTable::new(),
       ingress: StatefulTable::new(),
+      pvcs: StatefulTable::new(),
+      pvs: StatefulTable::new(),
     }
   }
 }
@@ -340,8 +350,8 @@ impl Default for App {
         ("Cron Jobs".into(), ActiveBlock::CronJobs),
         ("Secrets".into(), ActiveBlock::Secrets),
         ("Replication Controllers".into(), ActiveBlock::RplCtrl),
-        // ("Persistent Volume Claims".into(), ActiveBlock::RplCtrl),
-        // ("Persistent Volumes".into(), ActiveBlock::RplCtrl),
+        ("Persistent Volume Claims".into(), ActiveBlock::Pvc),
+        ("Persistent Volumes".into(), ActiveBlock::Pv),
         ("Storage Classes".into(), ActiveBlock::StorageClasses),
         ("Roles".into(), ActiveBlock::Roles),
         ("Role Bindings".into(), ActiveBlock::RoleBindings),
@@ -544,8 +554,10 @@ impl App {
     self.dispatch(IoEvent::GetRoles).await;
     self.dispatch(IoEvent::GetRoleBindings).await;
     self.dispatch(IoEvent::GetClusterRoles).await;
-    self.dispatch(IoEvent::GetClusterRoleBinding).await;
+    self.dispatch(IoEvent::GetClusterRoleBindings).await;
     self.dispatch(IoEvent::GetIngress).await;
+    self.dispatch(IoEvent::GetPvcs).await;
+    self.dispatch(IoEvent::GetPvs).await;
     self.dispatch(IoEvent::GetMetrics).await;
   }
 
@@ -597,10 +609,16 @@ impl App {
         self.dispatch(IoEvent::GetClusterRoles).await;
       }
       ActiveBlock::ClusterRoleBinding => {
-        self.dispatch(IoEvent::GetClusterRoleBinding).await;
+        self.dispatch(IoEvent::GetClusterRoleBindings).await;
       }
       ActiveBlock::Ingress => {
         self.dispatch(IoEvent::GetIngress).await;
+      }
+      ActiveBlock::Pvc => {
+        self.dispatch(IoEvent::GetPvcs).await;
+      }
+      ActiveBlock::Pv => {
+        self.dispatch(IoEvent::GetPvs).await;
       }
       ActiveBlock::Logs => {
         if !self.is_streaming {
@@ -762,9 +780,11 @@ mod tests {
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetClusterRoles);
     assert_eq!(
       sync_io_rx.recv().await.unwrap(),
-      IoEvent::GetClusterRoleBinding
+      IoEvent::GetClusterRoleBindings
     );
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetIngress);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPvcs);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPvs);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetMetrics);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);

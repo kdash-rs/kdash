@@ -1,0 +1,156 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: PersistentVolume
+  metadata:
+    annotations:
+      pv.kubernetes.io/migrated-to: ebs.csi.aws.com
+      pv.kubernetes.io/provisioned-by: kubernetes.io/aws-ebs
+      volume.kubernetes.io/provisioner-deletion-secret-name: ""
+      volume.kubernetes.io/provisioner-deletion-secret-namespace: ""
+    creationTimestamp: "2023-06-30T17:27:26Z"
+    finalizers:
+    - kubernetes.io/pv-protection
+    - external-attacher/ebs-csi-aws-com
+    managedFields: []
+    labels:
+      topology.kubernetes.io/region: eu-west-1
+      topology.kubernetes.io/zone: eu-west-1a
+    name: pvc-149f1f3b-c0fd-471d-bc3e-d039369755ef
+    resourceVersion: "4003"
+    uid: cc4fb787-2543-4f7f-bec1-635fc4c1f555
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    awsElasticBlockStore:
+      fsType: ext4
+      volumeID: vol-004bb053d7ab1ea55
+    capacity:
+      storage: 8Gi
+    claimRef:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: data-consul-0
+      namespace: jhipster
+      resourceVersion: "3817"
+      uid: 149f1f3b-c0fd-471d-bc3e-d039369755ef
+    nodeAffinity:
+      required:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: topology.kubernetes.io/zone
+            operator: In
+            values:
+            - eu-west-1a
+          - key: topology.kubernetes.io/region
+            operator: In
+            values:
+            - eu-west-1
+    persistentVolumeReclaimPolicy: Delete
+    storageClassName: gp2
+    volumeMode: Filesystem
+  status:
+    phase: Bound
+- apiVersion: v1
+  kind: PersistentVolume
+  metadata:
+    annotations:
+      pv.kubernetes.io/migrated-to: ebs.csi.aws.com
+      pv.kubernetes.io/provisioned-by: kubernetes.io/aws-ebs
+      volume.kubernetes.io/provisioner-deletion-secret-name: ""
+      volume.kubernetes.io/provisioner-deletion-secret-namespace: ""
+    creationTimestamp: "2023-06-30T17:27:26Z"
+    finalizers:
+    - kubernetes.io/pv-protection
+    - external-attacher/ebs-csi-aws-com
+    labels:
+      topology.kubernetes.io/region: eu-west-1
+      topology.kubernetes.io/zone: eu-west-1c
+    name: pvc-c5a5b78c-732a-4c44-8c2c-4682296da68c
+    resourceVersion: "4004"
+    uid: 04f0b878-a2f6-4dbb-80a0-fc1d6a84e426
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    awsElasticBlockStore:
+      fsType: ext4
+      volumeID: vol-005f365b0f59043d3
+    capacity:
+      storage: 8Gi
+    claimRef:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: data-consul-1
+      namespace: jhipster
+      resourceVersion: "3826"
+      uid: c5a5b78c-732a-4c44-8c2c-4682296da68c
+    nodeAffinity:
+      required:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: topology.kubernetes.io/zone
+            operator: In
+            values:
+            - eu-west-1c
+          - key: topology.kubernetes.io/region
+            operator: In
+            values:
+            - eu-west-1
+    persistentVolumeReclaimPolicy: Delete
+    storageClassName: gp2
+    volumeMode: Filesystem
+  status:
+    phase: Bound
+- apiVersion: v1
+  kind: PersistentVolume
+  metadata:
+    annotations:
+      pv.kubernetes.io/migrated-to: ebs.csi.aws.com
+      pv.kubernetes.io/provisioned-by: kubernetes.io/aws-ebs
+      volume.kubernetes.io/provisioner-deletion-secret-name: ""
+      volume.kubernetes.io/provisioner-deletion-secret-namespace: ""
+    creationTimestamp: "2023-06-30T17:27:26Z"
+    finalizers:
+    - kubernetes.io/pv-protection
+    - external-attacher/ebs-csi-aws-com
+    labels:
+      topology.kubernetes.io/region: eu-west-1
+      topology.kubernetes.io/zone: eu-west-1b
+    name: pvc-d2ccb749-9fdc-4503-81e9-f268073e1487
+    resourceVersion: "4012"
+    uid: 8aff308a-4652-41ca-996c-be5bffb43e0e
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    awsElasticBlockStore:
+      fsType: ext4
+      volumeID: vol-06f16eaaced9a2f4f
+    capacity:
+      storage: 8Gi
+    claimRef:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: data-consul-2
+      namespace: jhipster
+      resourceVersion: "3833"
+      uid: d2ccb749-9fdc-4503-81e9-f268073e1487
+    nodeAffinity:
+      required:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: topology.kubernetes.io/zone
+            operator: In
+            values:
+            - eu-west-1b
+          - key: topology.kubernetes.io/region
+            operator: In
+            values:
+            - eu-west-1
+    persistentVolumeReclaimPolicy: Delete
+    storageClassName: gp2
+    volumeMode: Filesystem
+  status:
+    phase: Bound
+kind: List
+metadata:
+  resourceVersion: ""

@@ -22,7 +22,7 @@ run:
 
 ## Run clippy
 lint:  
-	@find . | grep '\.\/src\/.*\.rs$$' | xargs touch && cargo clippy --all-targets --workspace
+	@find . | grep '\./src/.*\.rs$$' | xargs touch && cargo clippy --all-targets --workspace
 
 ## Fix lint
 lint-fix:  
