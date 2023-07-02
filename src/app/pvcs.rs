@@ -75,7 +75,7 @@ mod tests {
   use crate::app::test_utils::*;
 
   #[test]
-  fn test_replica_sets_from_api() {
+  fn test_persistent_volume_claims_from_api() {
     let (pvc, pvc_list): (Vec<KubePVC>, Vec<_>) = convert_resource_from_file("pvcs");
 
     assert_eq!(pvc.len(), 3);

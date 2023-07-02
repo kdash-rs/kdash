@@ -42,6 +42,7 @@ static CLUSTER_ROLES_BINDING_TITLE: &str = "ClusterRoleBinding";
 static INGRESS_TITLE: &str = "Ingresses";
 static PVC_TITLE: &str = "PersistentVolumeClaims";
 static PV_TITLE: &str = "PersistentVolumes";
+static SVC_ACCT_TITLE: &str = "ServiceAccounts";
 static DESCRIBE_ACTIVE: &str = "-> Describe ";
 static YAML_ACTIVE: &str = "-> YAML ";
 
@@ -98,6 +99,7 @@ fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App
     ActiveBlock::Ingress => draw_ingress_tab(block, f, app, area),
     ActiveBlock::Pvc => draw_pvc_tab(block, f, app, area),
     ActiveBlock::Pv => draw_pv_tab(block, f, app, area),
+    ActiveBlock::ServiceAccounts => draw_svc_acct_tab(block, f, app, area),
     ActiveBlock::Describe | ActiveBlock::Yaml => {
       let mut prev_route = app.get_prev_route();
       if prev_route.active_block == block {
@@ -113,6 +115,9 @@ fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App
         ActiveBlock::ClusterRoles => draw_cluster_roles_tab(block, f, app, area),
         ActiveBlock::ClusterRoleBinding => draw_cluster_role_binding_tab(block, f, app, area),
         ActiveBlock::Ingress => draw_ingress_tab(block, f, app, area),
+        ActiveBlock::Pvc => draw_pvc_tab(block, f, app, area),
+        ActiveBlock::Pv => draw_pv_tab(block, f, app, area),
+        ActiveBlock::ServiceAccounts => draw_svc_acct_tab(block, f, app, area),
         _ => { /* do nothing */ }
       }
     }
@@ -1023,6 +1028,61 @@ fn draw_storage_classes_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, a
         Cell::from(c.reclaim_policy.to_owned()),
         Cell::from(c.volume_binding_mode.to_owned()),
         Cell::from(c.allow_volume_expansion.to_string()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary(app.light_theme))
+    },
+    app.light_theme,
+    app.is_loading,
+  );
+}
+
+fn draw_svc_acct_tab<B: Backend>(
+  block: ActiveBlock,
+  f: &mut Frame<'_, B>,
+  app: &mut App,
+  area: Rect,
+) {
+  draw_resource_tab!(
+    SVC_ACCT_TITLE,
+    block,
+    f,
+    app,
+    area,
+    draw_svc_acct_tab,
+    draw_svc_acct_block,
+    app.data.service_accounts
+  );
+}
+
+fn draw_svc_acct_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let title = get_resource_title(
+    app,
+    SVC_ACCT_TITLE,
+    "",
+    app.data.service_accounts.items.len(),
+  );
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
+      resource: &mut app.data.service_accounts,
+      table_headers: vec!["Namespace", "Name", "Secrets", "Age"],
+      column_widths: vec![
+        Constraint::Percentage(30),
+        Constraint::Percentage(30),
+        Constraint::Percentage(20),
+        Constraint::Percentage(20),
+      ],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.namespace.to_owned()),
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.secrets.to_string()),
         Cell::from(c.age.to_owned()),
       ])
       .style(style_primary(app.light_theme))

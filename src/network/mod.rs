@@ -35,6 +35,7 @@ pub enum IoEvent {
   GetIngress,
   GetPvcs,
   GetPvs,
+  GetServiceAccounts,
   GetMetrics,
   RefreshClient,
 }
@@ -185,6 +186,9 @@ impl<'a> Network<'a> {
       }
       IoEvent::GetPvs => {
         self.get_pvs().await;
+      }
+      IoEvent::GetServiceAccounts => {
+        self.get_service_accounts().await;
       }
     };
 

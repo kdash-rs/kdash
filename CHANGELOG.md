@@ -5,6 +5,9 @@
 ## [0.3.7] - 2023-06-30
 
 - Add support for Ingress (https://github.com/kdash-rs/kdash/pull/316)
+- Add support for PersistentVolumeClaims
+- Add support for PersistentVolumes
+- Add support for ServiceAccounts
 - Upgrade libraries
 
 ## [0.3.6] - 2022-12-21

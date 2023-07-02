@@ -17,6 +17,7 @@ pub(crate) mod replicasets;
 pub(crate) mod replication_controllers;
 pub(crate) mod roles;
 pub(crate) mod secrets;
+pub(crate) mod serviceaccounts;
 pub(crate) mod statefulsets;
 pub(crate) mod storageclass;
 pub(crate) mod svcs;
@@ -48,6 +49,7 @@ use self::{
   replication_controllers::KubeReplicationController,
   roles::{KubeClusterRole, KubeClusterRoleBinding, KubeRole, KubeRoleBinding},
   secrets::KubeSecret,
+  serviceaccounts::KubeSvcAcct,
   statefulsets::KubeStatefulSet,
   storageclass::KubeStorageClass,
   svcs::KubeSvc,
@@ -87,6 +89,7 @@ pub enum ActiveBlock {
   Ingress,
   Pvc,
   Pv,
+  ServiceAccounts,
   More,
 }
 
@@ -149,6 +152,7 @@ pub struct Data {
   pub ingress: StatefulTable<KubeIngress>,
   pub pvcs: StatefulTable<KubePVC>,
   pub pvs: StatefulTable<KubePV>,
+  pub service_accounts: StatefulTable<KubeSvcAcct>,
 }
 
 /// selected data items
@@ -229,6 +233,7 @@ impl Default for Data {
       ingress: StatefulTable::new(),
       pvcs: StatefulTable::new(),
       pvs: StatefulTable::new(),
+      service_accounts: StatefulTable::new(),
     }
   }
 }
@@ -360,7 +365,7 @@ impl Default for App {
           "Cluster Role Bindings".into(),
           ActiveBlock::ClusterRoleBinding,
         ),
-        // ("Service Accounts".into(), ActiveBlock::RplCtrl),
+        ("Service Accounts".into(), ActiveBlock::ServiceAccounts),
         ("Ingresses".into(), ActiveBlock::Ingress),
         // ("Network Policies".into(), ActiveBlock::RplCtrl),
       ]),
@@ -558,6 +563,7 @@ impl App {
     self.dispatch(IoEvent::GetIngress).await;
     self.dispatch(IoEvent::GetPvcs).await;
     self.dispatch(IoEvent::GetPvs).await;
+    self.dispatch(IoEvent::GetServiceAccounts).await;
     self.dispatch(IoEvent::GetMetrics).await;
   }
 
@@ -619,6 +625,9 @@ impl App {
       }
       ActiveBlock::Pv => {
         self.dispatch(IoEvent::GetPvs).await;
+      }
+      ActiveBlock::ServiceAccounts => {
+        self.dispatch(IoEvent::GetServiceAccounts).await;
       }
       ActiveBlock::Logs => {
         if !self.is_streaming {
@@ -785,6 +794,10 @@ mod tests {
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetIngress);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPvcs);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPvs);
+    assert_eq!(
+      sync_io_rx.recv().await.unwrap(),
+      IoEvent::GetServiceAccounts
+    );
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetMetrics);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);

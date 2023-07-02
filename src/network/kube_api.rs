@@ -7,7 +7,7 @@ use k8s_openapi::{
     batch::v1::{CronJob, Job},
     core::v1::{
       ConfigMap, Namespace, Node, PersistentVolume, PersistentVolumeClaim, Pod,
-      ReplicationController, Secret, Service,
+      ReplicationController, Secret, Service, ServiceAccount,
     },
     networking::v1::Ingress,
     rbac::v1::{ClusterRole, ClusterRoleBinding, Role, RoleBinding},
@@ -45,6 +45,7 @@ use crate::app::{
   replication_controllers::KubeReplicationController,
   roles::{KubeClusterRole, KubeClusterRoleBinding, KubeRole, KubeRoleBinding},
   secrets::KubeSecret,
+  serviceaccounts::KubeSvcAcct,
   statefulsets::KubeStatefulSet,
   storageclass::KubeStorageClass,
   svcs::KubeSvc,
@@ -351,6 +352,13 @@ impl<'a> Network<'a> {
 
     let mut app = self.app.lock().await;
     app.data.pvs.set_items(items);
+  }
+
+  pub async fn get_service_accounts(&self) {
+    let items: Vec<KubeSvcAcct> = self.get_namespaced_resources(ServiceAccount::into).await;
+
+    let mut app = self.app.lock().await;
+    app.data.service_accounts.set_items(items);
   }
 
   /// calls the kubernetes API to list the given resource for either selected namespace or all namespaces

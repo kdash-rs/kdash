@@ -531,7 +531,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
               IoCmdEvent::GetDescribe {
                 kind: "ingress".to_owned(),
                 value: res.name.to_owned(),
-                ns: None,
+                ns: Some(res.namespace.to_owned()),
               },
             )
             .await;
@@ -546,7 +546,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
               IoCmdEvent::GetDescribe {
                 kind: "persistentvolumeclaims".to_owned(),
                 value: res.name.to_owned(),
-                ns: None,
+                ns: Some(res.namespace.to_owned()),
               },
             )
             .await;
@@ -562,6 +562,21 @@ async fn handle_route_events(key: Key, app: &mut App) {
                 kind: "persistentvolumes".to_owned(),
                 value: res.name.to_owned(),
                 ns: None,
+              },
+            )
+            .await;
+          }
+        }
+        ActiveBlock::ServiceAccounts => {
+          if let Some(res) = handle_block_action(key, &mut app.data.service_accounts) {
+            let _ok = handle_describe_decode_or_yaml_action(
+              key,
+              app,
+              &res,
+              IoCmdEvent::GetDescribe {
+                kind: "serviceaccounts".to_owned(),
+                value: res.name.to_owned(),
+                ns: Some(res.namespace.to_owned()),
               },
             )
             .await;
@@ -637,6 +652,7 @@ async fn handle_block_scroll(app: &mut App, up: bool, is_mouse: bool, page: bool
     ActiveBlock::Pvc => app.data.pvcs.handle_scroll(up, page),
     ActiveBlock::Pv => app.data.pvs.handle_scroll(up, page),
     ActiveBlock::Ingress => app.data.ingress.handle_scroll(up, page),
+    ActiveBlock::ServiceAccounts => app.data.service_accounts.handle_scroll(up, page),
     ActiveBlock::Contexts => app.data.contexts.handle_scroll(up, page),
     ActiveBlock::Utilization => app.data.metrics.handle_scroll(up, page),
     ActiveBlock::Help => app.help_docs.handle_scroll(up, page),
