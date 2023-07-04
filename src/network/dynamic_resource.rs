@@ -6,7 +6,7 @@ use kube::{
 };
 
 use crate::app::{
-  dynamic::{KubeDynamicGroup, KubeDynamicResource},
+  dynamic::{KubeDynamicKind, KubeDynamicResource},
   models::StatefulList,
   ActiveBlock,
 };
@@ -52,6 +52,7 @@ impl<'a> Network<'a> {
       "ClusterRoleBinding",
       "ServiceAccount",
       "Ingress",
+      "NetworkPolicy",
     ];
 
     for group in discovery.groups() {
@@ -61,19 +62,21 @@ impl<'a> Network<'a> {
         }
 
         dynamic_menu.push((ar.kind.to_string(), ActiveBlock::DynamicResource));
-        dynamic_resources.push(KubeDynamicGroup::new(ar, caps.scope));
+        dynamic_resources.push(KubeDynamicKind::new(ar, caps.scope));
       }
     }
     let mut app = self.app.lock().await;
+    // sort dynamic_menu alphabetically using the first element of the tuple
+    dynamic_menu.sort_by(|a, b| a.0.cmp(&b.0));
     app.dynamic_resources_menu = StatefulList::with_items(dynamic_menu);
-    app.data.dynamic_resources = dynamic_resources.clone();
+    app.data.dynamic_kinds = dynamic_resources.clone();
   }
 
   /// fetch entries for a custom resource from the cluster
   pub async fn get_dynamic_resources(&self) {
     let mut app = self.app.lock().await;
 
-    if let Some(drs) = &app.data.dynamic_resource_selected {
+    if let Some(drs) = &app.data.selected.dynamic_kind {
       let api: Api<DynamicObject> = if drs.scope == Scope::Cluster {
         Api::all_with(self.client.clone(), &drs.api_resource)
       } else {
@@ -96,7 +99,7 @@ impl<'a> Network<'a> {
           return;
         }
       };
-      app.data.dynamic_resource_items.set_items(items);
+      app.data.dynamic_resources.set_items(items);
     }
   }
 }

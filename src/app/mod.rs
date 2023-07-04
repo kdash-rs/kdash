@@ -37,7 +37,7 @@ use self::{
   cronjobs::KubeCronJob,
   daemonsets::KubeDaemonSet,
   deployments::KubeDeployment,
-  dynamic::{KubeDynamicGroup, KubeDynamicResource},
+  dynamic::{KubeDynamicKind, KubeDynamicResource},
   ingress::KubeIngress,
   jobs::KubeJob,
   key_binding::DEFAULT_KEYBINDING,
@@ -161,9 +161,8 @@ pub struct Data {
   pub pvs: StatefulTable<KubePV>,
   pub nw_policies: StatefulTable<KubeNetworkPolicy>,
   pub service_accounts: StatefulTable<KubeSvcAcct>,
-  pub dynamic_resources: Vec<KubeDynamicGroup>,
-  pub dynamic_resource_selected: Option<KubeDynamicGroup>,
-  pub dynamic_resource_items: StatefulTable<KubeDynamicResource>,
+  pub dynamic_kinds: Vec<KubeDynamicKind>,
+  pub dynamic_resources: StatefulTable<KubeDynamicResource>,
 }
 
 /// selected data items
@@ -172,6 +171,7 @@ pub struct Selected {
   pub pod: Option<String>,
   pub container: Option<String>,
   pub context: Option<String>,
+  pub dynamic_kind: Option<KubeDynamicKind>,
 }
 
 /// Holds main application state
@@ -220,6 +220,7 @@ impl Default for Data {
         pod: None,
         container: None,
         context: None,
+        dynamic_kind: None,
       },
       logs: LogsState::new(String::default()),
       describe_out: ScrollableTxt::new(),
@@ -247,9 +248,8 @@ impl Default for Data {
       pvs: StatefulTable::new(),
       nw_policies: StatefulTable::new(),
       service_accounts: StatefulTable::new(),
-      dynamic_resources: vec![],
-      dynamic_resource_selected: None,
-      dynamic_resource_items: StatefulTable::new(),
+      dynamic_kinds: vec![],
+      dynamic_resources: StatefulTable::new(),
     }
   }
 }
@@ -378,22 +378,22 @@ impl Default for App {
         },
       ]),
       more_resources_menu: StatefulList::with_items(vec![
-        ("Cron Jobs".into(), ActiveBlock::CronJobs),
+        ("CronJobs".into(), ActiveBlock::CronJobs),
         ("Secrets".into(), ActiveBlock::Secrets),
-        ("Replication Controllers".into(), ActiveBlock::RplCtrl),
-        ("Persistent Volume Claims".into(), ActiveBlock::Pvc),
-        ("Persistent Volumes".into(), ActiveBlock::Pv),
-        ("Storage Classes".into(), ActiveBlock::StorageClasses),
+        ("ReplicationControllers".into(), ActiveBlock::RplCtrl),
+        ("PersistentVolumeClaims".into(), ActiveBlock::Pvc),
+        ("PersistentVolumes".into(), ActiveBlock::Pv),
+        ("StorageClasses".into(), ActiveBlock::StorageClasses),
         ("Roles".into(), ActiveBlock::Roles),
-        ("Role Bindings".into(), ActiveBlock::RoleBindings),
-        ("Cluster Roles".into(), ActiveBlock::ClusterRoles),
+        ("RoleBindings".into(), ActiveBlock::RoleBindings),
+        ("ClusterRoles".into(), ActiveBlock::ClusterRoles),
         (
-          "Cluster Role Bindings".into(),
+          "ClusterRoleBindings".into(),
           ActiveBlock::ClusterRoleBinding,
         ),
-        ("Service Accounts".into(), ActiveBlock::ServiceAccounts),
+        ("ServiceAccounts".into(), ActiveBlock::ServiceAccounts),
         ("Ingresses".into(), ActiveBlock::Ingress),
-        ("Network Policies".into(), ActiveBlock::NetworkPolicies),
+        ("NetworkPolicies".into(), ActiveBlock::NetworkPolicies),
       ]),
       dynamic_resources_menu: StatefulList::new(),
       show_info_bar: true,

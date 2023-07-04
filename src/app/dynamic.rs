@@ -10,7 +10,7 @@ use crate::app::models::KubeResource;
 use super::utils;
 
 #[derive(Clone, Debug)]
-pub struct KubeDynamicGroup {
+pub struct KubeDynamicKind {
   pub name: String,
   pub group: String,
   pub version: String,
@@ -20,9 +20,9 @@ pub struct KubeDynamicGroup {
   pub api_resource: ApiResource,
 }
 
-impl KubeDynamicGroup {
+impl KubeDynamicKind {
   pub fn new(ar: ApiResource, scope: Scope) -> Self {
-    KubeDynamicGroup {
+    KubeDynamicKind {
       api_resource: ar.clone(),
       name: ar.plural,
       group: ar.group,

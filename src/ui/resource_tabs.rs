@@ -1554,7 +1554,7 @@ fn draw_dynamic_res_tab<B: Backend>(
   app: &mut App,
   area: Rect,
 ) {
-  let title = if let Some(res) = &app.data.dynamic_resource_selected {
+  let title = if let Some(res) = &app.data.selected.dynamic_kind {
     res.kind.as_str()
   } else {
     ""
@@ -1567,29 +1567,29 @@ fn draw_dynamic_res_tab<B: Backend>(
     area,
     draw_dynamic_res_tab,
     draw_dynamic_res_block,
-    app.data.dynamic_resource_items
+    app.data.dynamic_resources
   );
 }
 
 fn draw_dynamic_res_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
-  let (title, scope) = if let Some(res) = &app.data.dynamic_resource_selected {
+  let (title, scope) = if let Some(res) = &app.data.selected.dynamic_kind {
     (res.kind.as_str(), res.scope.clone())
   } else {
     ("", Scope::Cluster)
   };
-  let title = get_resource_title(app, title, "", app.data.dynamic_resource_items.items.len());
+  let title = get_resource_title(app, title, "", app.data.dynamic_resources.items.len());
 
   let (table_headers, column_widths) = if scope == Scope::Cluster {
     (
       vec!["Name", "Age"],
-      vec![Constraint::Percentage(30), Constraint::Percentage(30)],
+      vec![Constraint::Percentage(70), Constraint::Percentage(30)],
     )
   } else {
     (
       vec!["Namespace", "Name", "Age"],
       vec![
         Constraint::Percentage(30),
-        Constraint::Percentage(30),
+        Constraint::Percentage(50),
         Constraint::Percentage(20),
       ],
     )
@@ -1601,7 +1601,7 @@ fn draw_dynamic_res_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area:
     ResourceTableProps {
       title,
       inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
-      resource: &mut app.data.dynamic_resource_items,
+      resource: &mut app.data.dynamic_resources,
       table_headers,
       column_widths,
     },

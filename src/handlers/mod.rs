@@ -421,19 +421,15 @@ async fn handle_route_events(key: Key, app: &mut App) {
                 id: RouteId::Home,
                 active_block,
               });
-              let selected = app
-                .data
-                .dynamic_resources
-                .iter()
-                .find(|&it| it.kind == title);
-              app.data.dynamic_resource_selected = selected.cloned();
-              app.data.dynamic_resource_items.set_items(vec![]);
+              let selected = app.data.dynamic_kinds.iter().find(|&it| it.kind == title);
+              app.data.selected.dynamic_kind = selected.cloned();
+              app.data.dynamic_resources.set_items(vec![]);
             }
           }
         }
         ActiveBlock::DynamicResource => {
-          if let Some(dynamic_res) = app.data.dynamic_resource_selected.as_ref() {
-            if let Some(res) = handle_block_action(key, &mut app.data.dynamic_resource_items) {
+          if let Some(dynamic_res) = app.data.selected.dynamic_kind.as_ref() {
+            if let Some(res) = handle_block_action(key, &mut app.data.dynamic_resources) {
               let _ok = handle_describe_decode_or_yaml_action(
                 key,
                 app,
@@ -715,7 +711,7 @@ async fn handle_block_scroll(app: &mut App, up: bool, is_mouse: bool, page: bool
     ActiveBlock::Ingress => app.data.ingress.handle_scroll(up, page),
     ActiveBlock::ServiceAccounts => app.data.service_accounts.handle_scroll(up, page),
     ActiveBlock::NetworkPolicies => app.data.nw_policies.handle_scroll(up, page),
-    ActiveBlock::DynamicResource => app.data.dynamic_resource_items.handle_scroll(up, page),
+    ActiveBlock::DynamicResource => app.data.dynamic_resources.handle_scroll(up, page),
     ActiveBlock::Contexts => app.data.contexts.handle_scroll(up, page),
     ActiveBlock::Utilization => app.data.metrics.handle_scroll(up, page),
     ActiveBlock::Help => app.help_docs.handle_scroll(up, page),
