@@ -1,0 +1,1079 @@
+apiVersion: v1
+items:
+- apiVersion: apps/v1
+  data:
+    spec:
+      template:
+        $patch: replace
+        metadata:
+          creationTimestamp: null
+          labels:
+            app: consul
+            app.kubernetes.io/name: consul
+        spec:
+          affinity:
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - podAffinityTerm:
+                  labelSelector:
+                    matchLabels:
+                      app: consul
+                      app.kubernetes.io/name: consul
+                  namespaces:
+                  - jhipster
+                  topologyKey: kubernetes.io/hostname
+                weight: 1
+          containers:
+          - env:
+            - name: BITNAMI_DEBUG
+              value: "false"
+            - name: CONSUL_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: CONSUL_RETRY_JOIN
+              value: consul-headless.jhipster.svc.cluster.local
+            - name: CONSUL_DISABLE_KEYRING_FILE
+              value: "true"
+            - name: CONSUL_BOOTSTRAP_EXPECT
+              value: "3"
+            - name: CONSUL_RAFT_MULTIPLIER
+              value: "1"
+            - name: CONSUL_DOMAIN
+              value: consul
+            - name: CONSUL_DATACENTER
+              value: dc1
+            - name: CONSUL_UI
+              value: "true"
+            - name: CONSUL_HTTP_PORT_NUMBER
+              value: "8500"
+            - name: CONSUL_DNS_PORT_NUMBER
+              value: "8600"
+            - name: CONSUL_RPC_PORT_NUMBER
+              value: "8400"
+            - name: CONSUL_SERF_LAN_PORT_NUMBER
+              value: "8301"
+            image: docker.io/bitnami/consul:1.15.3
+            imagePullPolicy: IfNotPresent
+            lifecycle:
+              preStop:
+                exec:
+                  command:
+                  - consul
+                  - leave
+            livenessProbe:
+              exec:
+                command:
+                - consul
+                - operator
+                - raft
+                - list-peers
+              failureThreshold: 6
+              initialDelaySeconds: 30
+              periodSeconds: 10
+              successThreshold: 1
+              timeoutSeconds: 5
+            name: consul
+            ports:
+            - containerPort: 8500
+              name: http
+              protocol: TCP
+            - containerPort: 8400
+              name: rpc
+              protocol: TCP
+            - containerPort: 8301
+              name: serflan-tcp
+              protocol: TCP
+            - containerPort: 8301
+              name: serflan-udp
+              protocol: UDP
+            - containerPort: 8300
+              name: rpc-server
+              protocol: TCP
+            - containerPort: 8600
+              name: dns-tcp
+              protocol: TCP
+            - containerPort: 8600
+              name: dns-udp
+              protocol: UDP
+            readinessProbe:
+              exec:
+                command:
+                - consul
+                - members
+              failureThreshold: 6
+              initialDelaySeconds: 5
+              periodSeconds: 10
+              successThreshold: 1
+              timeoutSeconds: 5
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+            securityContext:
+              allowPrivilegeEscalation: false
+              runAsNonRoot: true
+              runAsUser: 1001
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: /bitnami/consul
+              name: data
+          dnsPolicy: ClusterFirst
+          restartPolicy: Always
+          schedulerName: default-scheduler
+          securityContext:
+            fsGroup: 1001
+          terminationGracePeriodSeconds: 30
+  kind: ControllerRevision
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"StatefulSet","metadata":{"annotations":{},"labels":{"app":"consul","app.kubernetes.io/name":"consul"},"name":"consul","namespace":"jhipster"},"spec":{"podManagementPolicy":"Parallel","replicas":3,"selector":{"matchLabels":{"app":"consul","app.kubernetes.io/name":"consul"}},"serviceName":"consul-headless","template":{"metadata":{"labels":{"app":"consul","app.kubernetes.io/name":"consul"}},"spec":{"affinity":{"nodeAffinity":null,"podAffinity":null,"podAntiAffinity":{"preferredDuringSchedulingIgnoredDuringExecution":[{"podAffinityTerm":{"labelSelector":{"matchLabels":{"app":"consul","app.kubernetes.io/name":"consul"}},"namespaces":["jhipster"],"topologyKey":"kubernetes.io/hostname"},"weight":1}]}},"containers":[{"env":[{"name":"BITNAMI_DEBUG","value":"false"},{"name":"CONSUL_NODE_NAME","valueFrom":{"fieldRef":{"fieldPath":"metadata.name"}}},{"name":"CONSUL_RETRY_JOIN","value":"consul-headless.jhipster.svc.cluster.local"},{"name":"CONSUL_DISABLE_KEYRING_FILE","value":"true"},{"name":"CONSUL_BOOTSTRAP_EXPECT","value":"3"},{"name":"CONSUL_RAFT_MULTIPLIER","value":"1"},{"name":"CONSUL_DOMAIN","value":"consul"},{"name":"CONSUL_DATACENTER","value":"dc1"},{"name":"CONSUL_UI","value":"true"},{"name":"CONSUL_HTTP_PORT_NUMBER","value":"8500"},{"name":"CONSUL_DNS_PORT_NUMBER","value":"8600"},{"name":"CONSUL_RPC_PORT_NUMBER","value":"8400"},{"name":"CONSUL_SERF_LAN_PORT_NUMBER","value":"8301"}],"envFrom":null,"image":"docker.io/bitnami/consul:1.15.3","imagePullPolicy":"IfNotPresent","lifecycle":{"preStop":{"exec":{"command":["consul","leave"]}}},"livenessProbe":{"exec":{"command":["consul","operator","raft","list-peers"]},"failureThreshold":6,"initialDelaySeconds":30,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":5},"name":"consul","ports":[{"containerPort":8500,"name":"http"},{"containerPort":8400,"name":"rpc"},{"containerPort":8301,"name":"serflan-tcp","protocol":"TCP"},{"containerPort":8301,"name":"serflan-udp","protocol":"UDP"},{"containerPort":8300,"name":"rpc-server"},{"containerPort":8600,"name":"dns-tcp"},{"containerPort":8600,"name":"dns-udp","protocol":"UDP"}],"readinessProbe":{"exec":{"command":["consul","members"]},"failureThreshold":6,"initialDelaySeconds":5,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":5},"resources":{"requests":{"cpu":"100m","memory":"512Mi"}},"securityContext":{"allowPrivilegeEscalation":false,"runAsNonRoot":true,"runAsUser":1001},"volumeMounts":[{"mountPath":"/bitnami/consul","name":"data"}]}],"securityContext":{"fsGroup":1001},"volumes":null}},"updateStrategy":{"type":"RollingUpdate"},"volumeClaimTemplates":[{"metadata":{"name":"data"},"spec":{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"8Gi"}}}}]}}
+    creationTimestamp: "2023-06-30T17:27:23Z"
+    labels:
+      app: consul
+      app.kubernetes.io/name: consul
+      controller.kubernetes.io/hash: 5bb65dd4c8
+    name: consul-5bb65dd4c8
+    namespace: jhipster
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: StatefulSet
+      name: consul
+      uid: b5575b0f-ebb4-4710-8063-2b927b417d0f
+    resourceVersion: "3806"
+    uid: 9d3e702d-dfbf-493f-aed0-4fbbb0e8d2df
+  revision: 1
+- apiVersion: apps/v1
+  data:
+    spec:
+      template:
+        $patch: replace
+        metadata:
+          creationTimestamp: null
+          labels:
+            app.kubernetes.io/instance: aws-vpc-cni
+            app.kubernetes.io/name: aws-node
+            k8s-app: aws-node
+        spec:
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: kubernetes.io/os
+                    operator: In
+                    values:
+                    - linux
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                    - amd64
+                    - arm64
+                  - key: eks.amazonaws.com/compute-type
+                    operator: NotIn
+                    values:
+                    - fargate
+          containers:
+          - env:
+            - name: ADDITIONAL_ENI_TAGS
+              value: '{}'
+            - name: AWS_VPC_CNI_NODE_PORT_SUPPORT
+              value: "true"
+            - name: AWS_VPC_ENI_MTU
+              value: "9001"
+            - name: AWS_VPC_K8S_CNI_CUSTOM_NETWORK_CFG
+              value: "false"
+            - name: AWS_VPC_K8S_CNI_EXTERNALSNAT
+              value: "false"
+            - name: AWS_VPC_K8S_CNI_LOGLEVEL
+              value: DEBUG
+            - name: AWS_VPC_K8S_CNI_LOG_FILE
+              value: /host/var/log/aws-routed-eni/ipamd.log
+            - name: AWS_VPC_K8S_CNI_RANDOMIZESNAT
+              value: prng
+            - name: AWS_VPC_K8S_CNI_VETHPREFIX
+              value: eni
+            - name: AWS_VPC_K8S_PLUGIN_LOG_FILE
+              value: /var/log/aws-routed-eni/plugin.log
+            - name: AWS_VPC_K8S_PLUGIN_LOG_LEVEL
+              value: DEBUG
+            - name: DISABLE_INTROSPECTION
+              value: "false"
+            - name: DISABLE_METRICS
+              value: "false"
+            - name: DISABLE_NETWORK_RESOURCE_PROVISIONING
+              value: "false"
+            - name: ENABLE_IPv4
+              value: "true"
+            - name: ENABLE_IPv6
+              value: "false"
+            - name: ENABLE_POD_ENI
+              value: "false"
+            - name: ENABLE_PREFIX_DELEGATION
+              value: "false"
+            - name: WARM_ENI_TARGET
+              value: "1"
+            - name: WARM_PREFIX_TARGET
+              value: "1"
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            image: 602401143452.dkr.ecr.eu-west-1.amazonaws.com/amazon-k8s-cni:v1.12.6-eksbuild.2
+            imagePullPolicy: IfNotPresent
+            livenessProbe:
+              exec:
+                command:
+                - /app/grpc-health-probe
+                - -addr=:50051
+                - -connect-timeout=5s
+                - -rpc-timeout=5s
+              failureThreshold: 3
+              initialDelaySeconds: 60
+              periodSeconds: 10
+              successThreshold: 1
+              timeoutSeconds: 10
+            name: aws-node
+            ports:
+            - containerPort: 61678
+              hostPort: 61678
+              name: metrics
+              protocol: TCP
+            readinessProbe:
+              exec:
+                command:
+                - /app/grpc-health-probe
+                - -addr=:50051
+                - -connect-timeout=5s
+                - -rpc-timeout=5s
+              failureThreshold: 3
+              initialDelaySeconds: 1
+              periodSeconds: 10
+              successThreshold: 1
+              timeoutSeconds: 10
+            resources:
+              requests:
+                cpu: 25m
+            securityContext:
+              capabilities:
+                add:
+                - NET_ADMIN
+                - NET_RAW
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: /host/opt/cni/bin
+              name: cni-bin-dir
+            - mountPath: /host/etc/cni/net.d
+              name: cni-net-dir
+            - mountPath: /host/var/log/aws-routed-eni
+              name: log-dir
+            - mountPath: /var/run/aws-node
+              name: run-dir
+            - mountPath: /run/xtables.lock
+              name: xtables-lock
+          dnsPolicy: ClusterFirst
+          hostNetwork: true
+          initContainers:
+          - env:
+            - name: DISABLE_TCP_EARLY_DEMUX
+              value: "false"
+            - name: ENABLE_IPv6
+              value: "false"
+            image: 602401143452.dkr.ecr.eu-west-1.amazonaws.com/amazon-k8s-cni-init:v1.12.6-eksbuild.2
+            imagePullPolicy: IfNotPresent
+            name: aws-vpc-cni-init
+            resources: {}
+            securityContext:
+              privileged: true
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: /host/opt/cni/bin
+              name: cni-bin-dir
+          priorityClassName: system-node-critical
+          restartPolicy: Always
+          schedulerName: default-scheduler
+          securityContext: {}
+          serviceAccount: aws-node
+          serviceAccountName: aws-node
+          terminationGracePeriodSeconds: 10
+          tolerations:
+          - operator: Exists
+          volumes:
+          - hostPath:
+              path: /opt/cni/bin
+              type: ""
+            name: cni-bin-dir
+          - hostPath:
+              path: /etc/cni/net.d
+              type: ""
+            name: cni-net-dir
+          - hostPath:
+              path: /var/log/aws-routed-eni
+              type: DirectoryOrCreate
+            name: log-dir
+          - hostPath:
+              path: /var/run/aws-node
+              type: DirectoryOrCreate
+            name: run-dir
+          - hostPath:
+              path: /run/xtables.lock
+              type: ""
+            name: xtables-lock
+  kind: ControllerRevision
+  metadata:
+    annotations:
+      deprecated.daemonset.template.generation: "1"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"DaemonSet","metadata":{"annotations":{},"labels":{"app.kubernetes.io/instance":"aws-vpc-cni","app.kubernetes.io/name":"aws-node","app.kubernetes.io/version":"v1.12.6","k8s-app":"aws-node"},"name":"aws-node","namespace":"kube-system"},"spec":{"selector":{"matchLabels":{"k8s-app":"aws-node"}},"template":{"metadata":{"labels":{"app.kubernetes.io/instance":"aws-vpc-cni","app.kubernetes.io/name":"aws-node","k8s-app":"aws-node"}},"spec":{"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"kubernetes.io/os","operator":"In","values":["linux"]},{"key":"kubernetes.io/arch","operator":"In","values":["amd64","arm64"]},{"key":"eks.amazonaws.com/compute-type","operator":"NotIn","values":["fargate"]}]}]}}},"containers":[{"env":[{"name":"ADDITIONAL_ENI_TAGS","value":"{}"},{"name":"AWS_VPC_CNI_NODE_PORT_SUPPORT","value":"true"},{"name":"AWS_VPC_ENI_MTU","value":"9001"},{"name":"AWS_VPC_K8S_CNI_CUSTOM_NETWORK_CFG","value":"false"},{"name":"AWS_VPC_K8S_CNI_EXTERNALSNAT","value":"false"},{"name":"AWS_VPC_K8S_CNI_LOGLEVEL","value":"DEBUG"},{"name":"AWS_VPC_K8S_CNI_LOG_FILE","value":"/host/var/log/aws-routed-eni/ipamd.log"},{"name":"AWS_VPC_K8S_CNI_RANDOMIZESNAT","value":"prng"},{"name":"AWS_VPC_K8S_CNI_VETHPREFIX","value":"eni"},{"name":"AWS_VPC_K8S_PLUGIN_LOG_FILE","value":"/var/log/aws-routed-eni/plugin.log"},{"name":"AWS_VPC_K8S_PLUGIN_LOG_LEVEL","value":"DEBUG"},{"name":"DISABLE_INTROSPECTION","value":"false"},{"name":"DISABLE_METRICS","value":"false"},{"name":"DISABLE_NETWORK_RESOURCE_PROVISIONING","value":"false"},{"name":"ENABLE_IPv4","value":"true"},{"name":"ENABLE_IPv6","value":"false"},{"name":"ENABLE_POD_ENI","value":"false"},{"name":"ENABLE_PREFIX_DELEGATION","value":"false"},{"name":"WARM_ENI_TARGET","value":"1"},{"name":"WARM_PREFIX_TARGET","value":"1"},{"name":"MY_NODE_NAME","valueFrom":{"fieldRef":{"apiVersion":"v1","fieldPath":"spec.nodeName"}}},{"name":"MY_POD_NAME","valueFrom":{"fieldRef":{"apiVersion":"v1","fieldPath":"metadata.name"}}}],"image":"602401143452.dkr.ecr.eu-west-1.amazonaws.com/amazon-k8s-cni:v1.12.6-eksbuild.2","livenessProbe":{"exec":{"command":["/app/grpc-health-probe","-addr=:50051","-connect-timeout=5s","-rpc-timeout=5s"]},"initialDelaySeconds":60,"timeoutSeconds":10},"name":"aws-node","ports":[{"containerPort":61678,"name":"metrics"}],"readinessProbe":{"exec":{"command":["/app/grpc-health-probe","-addr=:50051","-connect-timeout=5s","-rpc-timeout=5s"]},"initialDelaySeconds":1,"timeoutSeconds":10},"resources":{"requests":{"cpu":"25m"}},"securityContext":{"capabilities":{"add":["NET_ADMIN","NET_RAW"]}},"volumeMounts":[{"mountPath":"/host/opt/cni/bin","name":"cni-bin-dir"},{"mountPath":"/host/etc/cni/net.d","name":"cni-net-dir"},{"mountPath":"/host/var/log/aws-routed-eni","name":"log-dir"},{"mountPath":"/var/run/aws-node","name":"run-dir"},{"mountPath":"/run/xtables.lock","name":"xtables-lock"}]}],"hostNetwork":true,"initContainers":[{"env":[{"name":"DISABLE_TCP_EARLY_DEMUX","value":"false"},{"name":"ENABLE_IPv6","value":"false"}],"image":"602401143452.dkr.ecr.eu-west-1.amazonaws.com/amazon-k8s-cni-init:v1.12.6-eksbuild.2","name":"aws-vpc-cni-init","securityContext":{"privileged":true},"volumeMounts":[{"mountPath":"/host/opt/cni/bin","name":"cni-bin-dir"}]}],"priorityClassName":"system-node-critical","securityContext":{},"serviceAccountName":"aws-node","terminationGracePeriodSeconds":10,"tolerations":[{"operator":"Exists"}],"volumes":[{"hostPath":{"path":"/opt/cni/bin"},"name":"cni-bin-dir"},{"hostPath":{"path":"/etc/cni/net.d"},"name":"cni-net-dir"},{"hostPath":{"path":"/var/log/aws-routed-eni","type":"DirectoryOrCreate"},"name":"log-dir"},{"hostPath":{"path":"/var/run/aws-node","type":"DirectoryOrCreate"},"name":"run-dir"},{"hostPath":{"path":"/run/xtables.lock"},"name":"xtables-lock"}]}},"updateStrategy":{"rollingUpdate":{"maxUnavailable":"10%"},"type":"RollingUpdate"}}}
+    creationTimestamp: "2023-06-30T17:13:19Z"
+    labels:
+      app.kubernetes.io/instance: aws-vpc-cni
+      app.kubernetes.io/name: aws-node
+      controller-revision-hash: 6b69b97794
+      k8s-app: aws-node
+    name: aws-node-6b69b97794
+    namespace: kube-system
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DaemonSet
+      name: aws-node
+      uid: 97083b76-f69b-468e-a8d8-b4806e2477a1
+    resourceVersion: "330"
+    uid: 61294795-08b6-4c2e-b5a7-41ae9a3a542e
+  revision: 1
+- apiVersion: apps/v1
+  data:
+    spec:
+      template:
+        $patch: replace
+        metadata:
+          creationTimestamp: null
+          labels:
+            app.kubernetes.io/instance: aws-vpc-cni
+            app.kubernetes.io/name: aws-node
+            k8s-app: aws-node
+        spec:
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: kubernetes.io/os
+                    operator: In
+                    values:
+                    - linux
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                    - amd64
+                    - arm64
+                  - key: eks.amazonaws.com/compute-type
+                    operator: NotIn
+                    values:
+                    - fargate
+          containers:
+          - env:
+            - name: ADDITIONAL_ENI_TAGS
+              value: '{}'
+            - name: ANNOTATE_POD_IP
+              value: "false"
+            - name: AWS_VPC_CNI_NODE_PORT_SUPPORT
+              value: "true"
+            - name: AWS_VPC_ENI_MTU
+              value: "9001"
+            - name: AWS_VPC_K8S_CNI_CUSTOM_NETWORK_CFG
+              value: "false"
+            - name: AWS_VPC_K8S_CNI_EXTERNALSNAT
+              value: "false"
+            - name: AWS_VPC_K8S_CNI_LOGLEVEL
+              value: DEBUG
+            - name: AWS_VPC_K8S_CNI_LOG_FILE
+              value: /host/var/log/aws-routed-eni/ipamd.log
+            - name: AWS_VPC_K8S_CNI_RANDOMIZESNAT
+              value: prng
+            - name: AWS_VPC_K8S_CNI_VETHPREFIX
+              value: eni
+            - name: AWS_VPC_K8S_PLUGIN_LOG_FILE
+              value: /var/log/aws-routed-eni/plugin.log
+            - name: AWS_VPC_K8S_PLUGIN_LOG_LEVEL
+              value: DEBUG
+            - name: CLUSTER_ENDPOINT
+              value: https://4E8A94EC42D2141C179F5D90B0164790.gr7.eu-west-1.eks.amazonaws.com
+            - name: CLUSTER_NAME
+              value: okta-auth0-jhipster-eks
+            - name: DISABLE_INTROSPECTION
+              value: "false"
+            - name: DISABLE_METRICS
+              value: "false"
+            - name: DISABLE_NETWORK_RESOURCE_PROVISIONING
+              value: "false"
+            - name: ENABLE_IPv4
+              value: "true"
+            - name: ENABLE_IPv6
+              value: "false"
+            - name: ENABLE_POD_ENI
+              value: "false"
+            - name: ENABLE_PREFIX_DELEGATION
+              value: "false"
+            - name: VPC_ID
+              value: vpc-0ffeeebd3382d23a1
+            - name: WARM_ENI_TARGET
+              value: "1"
+            - name: WARM_PREFIX_TARGET
+              value: "1"
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            image: 602401143452.dkr.ecr.eu-west-1.amazonaws.com/amazon-k8s-cni:v1.12.6-eksbuild.2
+            imagePullPolicy: IfNotPresent
+            livenessProbe:
+              exec:
+                command:
+                - /app/grpc-health-probe
+                - -addr=:50051
+                - -connect-timeout=5s
+                - -rpc-timeout=5s
+              failureThreshold: 3
+              initialDelaySeconds: 60
+              periodSeconds: 10
+              successThreshold: 1
+              timeoutSeconds: 10
+            name: aws-node
+            ports:
+            - containerPort: 61678
+              hostPort: 61678
+              name: metrics
+              protocol: TCP
+            readinessProbe:
+              exec:
+                command:
+                - /app/grpc-health-probe
+                - -addr=:50051
+                - -connect-timeout=5s
+                - -rpc-timeout=5s
+              failureThreshold: 3
+              initialDelaySeconds: 1
+              periodSeconds: 10
+              successThreshold: 1
+              timeoutSeconds: 10
+            resources:
+              requests:
+                cpu: 25m
+            securityContext:
+              capabilities:
+                add:
+                - NET_ADMIN
+                - NET_RAW
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: /host/opt/cni/bin
+              name: cni-bin-dir
+            - mountPath: /host/etc/cni/net.d
+              name: cni-net-dir
+            - mountPath: /host/var/log/aws-routed-eni
+              name: log-dir
+            - mountPath: /var/run/aws-node
+              name: run-dir
+            - mountPath: /run/xtables.lock
+              name: xtables-lock
+          dnsPolicy: ClusterFirst
+          hostNetwork: true
+          initContainers:
+          - env:
+            - name: DISABLE_TCP_EARLY_DEMUX
+              value: "false"
+            - name: ENABLE_IPv6
+              value: "false"
+            image: 602401143452.dkr.ecr.eu-west-1.amazonaws.com/amazon-k8s-cni-init:v1.12.6-eksbuild.2
+            imagePullPolicy: IfNotPresent
+            name: aws-vpc-cni-init
+            resources: {}
+            securityContext:
+              privileged: true
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: /host/opt/cni/bin
+              name: cni-bin-dir
+          priorityClassName: system-node-critical
+          restartPolicy: Always
+          schedulerName: default-scheduler
+          securityContext: {}
+          serviceAccount: aws-node
+          serviceAccountName: aws-node
+          terminationGracePeriodSeconds: 10
+          tolerations:
+          - operator: Exists
+          volumes:
+          - hostPath:
+              path: /opt/cni/bin
+              type: ""
+            name: cni-bin-dir
+          - hostPath:
+              path: /etc/cni/net.d
+              type: ""
+            name: cni-net-dir
+          - hostPath:
+              path: /var/log/aws-routed-eni
+              type: DirectoryOrCreate
+            name: log-dir
+          - hostPath:
+              path: /var/run/aws-node
+              type: DirectoryOrCreate
+            name: run-dir
+          - hostPath:
+              path: /run/xtables.lock
+              type: ""
+            name: xtables-lock
+  kind: ControllerRevision
+  metadata:
+    annotations:
+      deprecated.daemonset.template.generation: "2"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"DaemonSet","metadata":{"annotations":{},"labels":{"app.kubernetes.io/instance":"aws-vpc-cni","app.kubernetes.io/name":"aws-node","app.kubernetes.io/version":"v1.12.6","k8s-app":"aws-node"},"name":"aws-node","namespace":"kube-system"},"spec":{"selector":{"matchLabels":{"k8s-app":"aws-node"}},"template":{"metadata":{"labels":{"app.kubernetes.io/instance":"aws-vpc-cni","app.kubernetes.io/name":"aws-node","k8s-app":"aws-node"}},"spec":{"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"kubernetes.io/os","operator":"In","values":["linux"]},{"key":"kubernetes.io/arch","operator":"In","values":["amd64","arm64"]},{"key":"eks.amazonaws.com/compute-type","operator":"NotIn","values":["fargate"]}]}]}}},"containers":[{"env":[{"name":"ADDITIONAL_ENI_TAGS","value":"{}"},{"name":"AWS_VPC_CNI_NODE_PORT_SUPPORT","value":"true"},{"name":"AWS_VPC_ENI_MTU","value":"9001"},{"name":"AWS_VPC_K8S_CNI_CUSTOM_NETWORK_CFG","value":"false"},{"name":"AWS_VPC_K8S_CNI_EXTERNALSNAT","value":"false"},{"name":"AWS_VPC_K8S_CNI_LOGLEVEL","value":"DEBUG"},{"name":"AWS_VPC_K8S_CNI_LOG_FILE","value":"/host/var/log/aws-routed-eni/ipamd.log"},{"name":"AWS_VPC_K8S_CNI_RANDOMIZESNAT","value":"prng"},{"name":"AWS_VPC_K8S_CNI_VETHPREFIX","value":"eni"},{"name":"AWS_VPC_K8S_PLUGIN_LOG_FILE","value":"/var/log/aws-routed-eni/plugin.log"},{"name":"AWS_VPC_K8S_PLUGIN_LOG_LEVEL","value":"DEBUG"},{"name":"DISABLE_INTROSPECTION","value":"false"},{"name":"DISABLE_METRICS","value":"false"},{"name":"DISABLE_NETWORK_RESOURCE_PROVISIONING","value":"false"},{"name":"ENABLE_IPv4","value":"true"},{"name":"ENABLE_IPv6","value":"false"},{"name":"ENABLE_POD_ENI","value":"false"},{"name":"ENABLE_PREFIX_DELEGATION","value":"false"},{"name":"WARM_ENI_TARGET","value":"1"},{"name":"WARM_PREFIX_TARGET","value":"1"},{"name":"MY_NODE_NAME","valueFrom":{"fieldRef":{"apiVersion":"v1","fieldPath":"spec.nodeName"}}},{"name":"MY_POD_NAME","valueFrom":{"fieldRef":{"apiVersion":"v1","fieldPath":"metadata.name"}}}],"image":"602401143452.dkr.ecr.eu-west-1.amazonaws.com/amazon-k8s-cni:v1.12.6-eksbuild.2","livenessProbe":{"exec":{"command":["/app/grpc-health-probe","-addr=:50051","-connect-timeout=5s","-rpc-timeout=5s"]},"initialDelaySeconds":60,"timeoutSeconds":10},"name":"aws-node","ports":[{"containerPort":61678,"name":"metrics"}],"readinessProbe":{"exec":{"command":["/app/grpc-health-probe","-addr=:50051","-connect-timeout=5s","-rpc-timeout=5s"]},"initialDelaySeconds":1,"timeoutSeconds":10},"resources":{"requests":{"cpu":"25m"}},"securityContext":{"capabilities":{"add":["NET_ADMIN","NET_RAW"]}},"volumeMounts":[{"mountPath":"/host/opt/cni/bin","name":"cni-bin-dir"},{"mountPath":"/host/etc/cni/net.d","name":"cni-net-dir"},{"mountPath":"/host/var/log/aws-routed-eni","name":"log-dir"},{"mountPath":"/var/run/aws-node","name":"run-dir"},{"mountPath":"/run/xtables.lock","name":"xtables-lock"}]}],"hostNetwork":true,"initContainers":[{"env":[{"name":"DISABLE_TCP_EARLY_DEMUX","value":"false"},{"name":"ENABLE_IPv6","value":"false"}],"image":"602401143452.dkr.ecr.eu-west-1.amazonaws.com/amazon-k8s-cni-init:v1.12.6-eksbuild.2","name":"aws-vpc-cni-init","securityContext":{"privileged":true},"volumeMounts":[{"mountPath":"/host/opt/cni/bin","name":"cni-bin-dir"}]}],"priorityClassName":"system-node-critical","securityContext":{},"serviceAccountName":"aws-node","terminationGracePeriodSeconds":10,"tolerations":[{"operator":"Exists"}],"volumes":[{"hostPath":{"path":"/opt/cni/bin"},"name":"cni-bin-dir"},{"hostPath":{"path":"/etc/cni/net.d"},"name":"cni-net-dir"},{"hostPath":{"path":"/var/log/aws-routed-eni","type":"DirectoryOrCreate"},"name":"log-dir"},{"hostPath":{"path":"/var/run/aws-node","type":"DirectoryOrCreate"},"name":"run-dir"},{"hostPath":{"path":"/run/xtables.lock"},"name":"xtables-lock"}]}},"updateStrategy":{"rollingUpdate":{"maxUnavailable":"10%"},"type":"RollingUpdate"}}}
+    creationTimestamp: "2023-06-30T17:18:02Z"
+    labels:
+      app.kubernetes.io/instance: aws-vpc-cni
+      app.kubernetes.io/name: aws-node
+      controller-revision-hash: 768d847df8
+      k8s-app: aws-node
+    name: aws-node-768d847df8
+    namespace: kube-system
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DaemonSet
+      name: aws-node
+      uid: 97083b76-f69b-468e-a8d8-b4806e2477a1
+    resourceVersion: "1333"
+    uid: ba06033b-aee2-4154-b75c-c7b3a5a2e420
+  revision: 2
+- apiVersion: apps/v1
+  data:
+    spec:
+      template:
+        $patch: replace
+        metadata:
+          creationTimestamp: null
+          labels:
+            app: ebs-csi-node
+            app.kubernetes.io/component: csi-driver
+            app.kubernetes.io/managed-by: EKS
+            app.kubernetes.io/name: aws-ebs-csi-driver
+            app.kubernetes.io/version: 1.20.0
+        spec:
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: eks.amazonaws.com/compute-type
+                    operator: NotIn
+                    values:
+                    - fargate
+          containers:
+          - args:
+            - node
+            - --endpoint=$(CSI_ENDPOINT)
+            - --logging-format=text
+            - --v=2
+            env:
+            - name: CSI_ENDPOINT
+              value: unix:/csi/csi.sock
+            - name: CSI_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+            image: 602401143452.dkr.ecr.eu-west-1.amazonaws.com/eks/aws-ebs-csi-driver:v1.20.0
+            imagePullPolicy: IfNotPresent
+            livenessProbe:
+              failureThreshold: 5
+              httpGet:
+                path: /healthz
+                port: healthz
+                scheme: HTTP
+              initialDelaySeconds: 10
+              periodSeconds: 10
+              successThreshold: 1
+              timeoutSeconds: 3
+            name: ebs-plugin
+            ports:
+            - containerPort: 9808
+              name: healthz
+              protocol: TCP
+            resources:
+              limits:
+                memory: 256Mi
+              requests:
+                cpu: 10m
+                memory: 40Mi
+            securityContext:
+              privileged: true
+              readOnlyRootFilesystem: true
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: /var/lib/kubelet
+              mountPropagation: Bidirectional
+              name: kubelet-dir
+            - mountPath: /csi
+              name: plugin-dir
+            - mountPath: /dev
+              name: device-dir
+          - args:
+            - --csi-address=$(ADDRESS)
+            - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
+            - --v=2
+            env:
+            - name: ADDRESS
+              value: /csi/csi.sock
+            - name: DRIVER_REG_SOCK_PATH
+              value: /var/lib/kubelet/plugins/ebs.csi.aws.com/csi.sock
+            image: 602401143452.dkr.ecr.eu-west-1.amazonaws.com/eks/csi-node-driver-registrar:v2.8.0-eks-1-27-3
+            imagePullPolicy: IfNotPresent
+            livenessProbe:
+              exec:
+                command:
+                - /csi-node-driver-registrar
+                - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
+                - --mode=kubelet-registration-probe
+              failureThreshold: 3
+              initialDelaySeconds: 30
+              periodSeconds: 90
+              successThreshold: 1
+              timeoutSeconds: 15
+            name: node-driver-registrar
+            resources:
+              limits:
+                memory: 256Mi
+              requests:
+                cpu: 10m
+                memory: 40Mi
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: /csi
+              name: plugin-dir
+            - mountPath: /registration
+              name: registration-dir
+            - mountPath: /var/lib/kubelet/plugins/ebs.csi.aws.com/
+              name: probe-dir
+          - args:
+            - --csi-address=/csi/csi.sock
+            image: 602401143452.dkr.ecr.eu-west-1.amazonaws.com/eks/livenessprobe:v2.10.0-eks-1-27-3
+            imagePullPolicy: IfNotPresent
+            name: liveness-probe
+            resources:
+              limits:
+                memory: 256Mi
+              requests:
+                cpu: 10m
+                memory: 40Mi
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: /csi
+              name: plugin-dir
+          dnsPolicy: ClusterFirst
+          nodeSelector:
+            kubernetes.io/os: linux
+          priorityClassName: system-node-critical
+          restartPolicy: Always
+          schedulerName: default-scheduler
+          securityContext:
+            fsGroup: 0
+            runAsGroup: 0
+            runAsNonRoot: false
+            runAsUser: 0
+          serviceAccount: ebs-csi-node-sa
+          serviceAccountName: ebs-csi-node-sa
+          terminationGracePeriodSeconds: 30
+          tolerations:
+          - operator: Exists
+          volumes:
+          - hostPath:
+              path: /var/lib/kubelet
+              type: Directory
+            name: kubelet-dir
+          - hostPath:
+              path: /var/lib/kubelet/plugins/ebs.csi.aws.com/
+              type: DirectoryOrCreate
+            name: plugin-dir
+          - hostPath:
+              path: /var/lib/kubelet/plugins_registry/
+              type: Directory
+            name: registration-dir
+          - hostPath:
+              path: /dev
+              type: Directory
+            name: device-dir
+          - emptyDir: {}
+            name: probe-dir
+  kind: ControllerRevision
+  metadata:
+    annotations:
+      deprecated.daemonset.template.generation: "1"
+    creationTimestamp: "2023-06-30T17:18:04Z"
+    labels:
+      app: ebs-csi-node
+      app.kubernetes.io/component: csi-driver
+      app.kubernetes.io/managed-by: EKS
+      app.kubernetes.io/name: aws-ebs-csi-driver
+      app.kubernetes.io/version: 1.20.0
+      controller-revision-hash: 64467ddff4
+    name: ebs-csi-node-64467ddff4
+    namespace: kube-system
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DaemonSet
+      name: ebs-csi-node
+      uid: 7c267b53-bc11-4e2f-acbb-1074a8d18729
+    resourceVersion: "1372"
+    uid: cb84338f-09cb-4761-92ed-62e6a6e9a198
+  revision: 1
+- apiVersion: apps/v1
+  data:
+    spec:
+      template:
+        $patch: replace
+        metadata:
+          creationTimestamp: null
+          labels:
+            app: ebs-csi-node
+            app.kubernetes.io/component: csi-driver
+            app.kubernetes.io/managed-by: EKS
+            app.kubernetes.io/name: aws-ebs-csi-driver
+            app.kubernetes.io/version: 1.20.0
+        spec:
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: eks.amazonaws.com/compute-type
+                    operator: NotIn
+                    values:
+                    - fargate
+          containers:
+          - args:
+            - node
+            - --endpoint=$(CSI_ENDPOINT)
+            - --logging-format=text
+            - --v=2
+            env:
+            - name: CSI_ENDPOINT
+              value: unix:/csi/csi.sock
+            - name: CSI_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+            image: 602401143452.dkr.ecr.eu-west-1.amazonaws.com/eks/aws-ebs-csi-driver:v1.20.0
+            imagePullPolicy: IfNotPresent
+            livenessProbe:
+              failureThreshold: 5
+              httpGet:
+                path: /healthz
+                port: healthz
+                scheme: HTTP
+              initialDelaySeconds: 10
+              periodSeconds: 10
+              successThreshold: 1
+              timeoutSeconds: 3
+            name: ebs-plugin
+            ports:
+            - containerPort: 9808
+              name: healthz
+              protocol: TCP
+            resources:
+              limits:
+                memory: 256Mi
+              requests:
+                cpu: 10m
+                memory: 40Mi
+            securityContext:
+              windowsOptions:
+                runAsUserName: ContainerAdministrator
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: C:\var\lib\kubelet
+              mountPropagation: None
+              name: kubelet-dir
+            - mountPath: C:\csi
+              name: plugin-dir
+            - mountPath: \\.\pipe\csi-proxy-disk-v1
+              name: csi-proxy-disk-pipe
+            - mountPath: \\.\pipe\csi-proxy-volume-v1
+              name: csi-proxy-volume-pipe
+            - mountPath: \\.\pipe\csi-proxy-filesystem-v1
+              name: csi-proxy-filesystem-pipe
+          - args:
+            - --csi-address=$(ADDRESS)
+            - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
+            - --v=2
+            env:
+            - name: ADDRESS
+              value: unix:/csi/csi.sock
+            - name: DRIVER_REG_SOCK_PATH
+              value: C:\var\lib\kubelet\plugins\ebs.csi.aws.com\csi.sock
+            image: 602401143452.dkr.ecr.eu-west-1.amazonaws.com/eks/csi-node-driver-registrar:v2.8.0-eks-1-27-3
+            imagePullPolicy: IfNotPresent
+            livenessProbe:
+              exec:
+                command:
+                - /csi-node-driver-registrar.exe
+                - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
+                - --mode=kubelet-registration-probe
+              failureThreshold: 3
+              initialDelaySeconds: 30
+              periodSeconds: 90
+              successThreshold: 1
+              timeoutSeconds: 15
+            name: node-driver-registrar
+            resources:
+              limits:
+                memory: 256Mi
+              requests:
+                cpu: 10m
+                memory: 40Mi
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: C:\csi
+              name: plugin-dir
+            - mountPath: C:\registration
+              name: registration-dir
+            - mountPath: C:\var\lib\kubelet\plugins\ebs.csi.aws.com
+              name: probe-dir
+          - args:
+            - --csi-address=unix:/csi/csi.sock
+            image: 602401143452.dkr.ecr.eu-west-1.amazonaws.com/eks/livenessprobe:v2.10.0-eks-1-27-3
+            imagePullPolicy: IfNotPresent
+            name: liveness-probe
+            resources:
+              limits:
+                memory: 256Mi
+              requests:
+                cpu: 10m
+                memory: 40Mi
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: C:\csi
+              name: plugin-dir
+          dnsPolicy: ClusterFirst
+          nodeSelector:
+            kubernetes.io/os: windows
+          priorityClassName: system-node-critical
+          restartPolicy: Always
+          schedulerName: default-scheduler
+          securityContext: {}
+          serviceAccount: ebs-csi-node-sa
+          serviceAccountName: ebs-csi-node-sa
+          terminationGracePeriodSeconds: 30
+          tolerations:
+          - operator: Exists
+          volumes:
+          - hostPath:
+              path: C:\var\lib\kubelet
+              type: Directory
+            name: kubelet-dir
+          - hostPath:
+              path: C:\var\lib\kubelet\plugins\ebs.csi.aws.com
+              type: DirectoryOrCreate
+            name: plugin-dir
+          - hostPath:
+              path: C:\var\lib\kubelet\plugins_registry
+              type: Directory
+            name: registration-dir
+          - hostPath:
+              path: \\.\pipe\csi-proxy-disk-v1
+              type: ""
+            name: csi-proxy-disk-pipe
+          - hostPath:
+              path: \\.\pipe\csi-proxy-volume-v1
+              type: ""
+            name: csi-proxy-volume-pipe
+          - hostPath:
+              path: \\.\pipe\csi-proxy-filesystem-v1
+              type: ""
+            name: csi-proxy-filesystem-pipe
+          - emptyDir: {}
+            name: probe-dir
+  kind: ControllerRevision
+  metadata:
+    annotations:
+      deprecated.daemonset.template.generation: "1"
+    creationTimestamp: "2023-06-30T17:18:03Z"
+    labels:
+      app: ebs-csi-node
+      app.kubernetes.io/component: csi-driver
+      app.kubernetes.io/managed-by: EKS
+      app.kubernetes.io/name: aws-ebs-csi-driver
+      app.kubernetes.io/version: 1.20.0
+      controller-revision-hash: 8685fff889
+    name: ebs-csi-node-windows-8685fff889
+    namespace: kube-system
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DaemonSet
+      name: ebs-csi-node-windows
+      uid: f22b43c8-616f-45c3-a46a-523c460cac23
+    resourceVersion: "1368"
+    uid: 685e3cac-d2ae-4a5d-bb2d-a2e19bee5aec
+  revision: 1
+- apiVersion: apps/v1
+  data:
+    spec:
+      template:
+        $patch: replace
+        metadata:
+          creationTimestamp: null
+          labels:
+            k8s-app: kube-proxy
+        spec:
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: kubernetes.io/os
+                    operator: In
+                    values:
+                    - linux
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                    - amd64
+                    - arm64
+                  - key: eks.amazonaws.com/compute-type
+                    operator: NotIn
+                    values:
+                    - fargate
+          containers:
+          - command:
+            - kube-proxy
+            - --v=2
+            - --config=/var/lib/kube-proxy-config/config
+            - --hostname-override=$(NODE_NAME)
+            env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+            image: 602401143452.dkr.ecr.eu-west-1.amazonaws.com/eks/kube-proxy:v1.27.1-minimal-eksbuild.1
+            imagePullPolicy: IfNotPresent
+            name: kube-proxy
+            resources:
+              requests:
+                cpu: 100m
+            securityContext:
+              privileged: true
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: /var/log
+              name: varlog
+            - mountPath: /run/xtables.lock
+              name: xtables-lock
+            - mountPath: /lib/modules
+              name: lib-modules
+              readOnly: true
+            - mountPath: /var/lib/kube-proxy/
+              name: kubeconfig
+            - mountPath: /var/lib/kube-proxy-config/
+              name: config
+          dnsPolicy: ClusterFirst
+          hostNetwork: true
+          priorityClassName: system-node-critical
+          restartPolicy: Always
+          schedulerName: default-scheduler
+          securityContext: {}
+          serviceAccount: kube-proxy
+          serviceAccountName: kube-proxy
+          terminationGracePeriodSeconds: 30
+          tolerations:
+          - operator: Exists
+          volumes:
+          - hostPath:
+              path: /var/log
+              type: ""
+            name: varlog
+          - hostPath:
+              path: /run/xtables.lock
+              type: FileOrCreate
+            name: xtables-lock
+          - hostPath:
+              path: /lib/modules
+              type: ""
+            name: lib-modules
+          - configMap:
+              defaultMode: 420
+              name: kube-proxy
+            name: kubeconfig
+          - configMap:
+              defaultMode: 420
+              name: kube-proxy-config
+            name: config
+  kind: ControllerRevision
+  metadata:
+    annotations:
+      deprecated.daemonset.template.generation: "1"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"DaemonSet","metadata":{"annotations":{},"labels":{"eks.amazonaws.com/component":"kube-proxy","k8s-app":"kube-proxy"},"name":"kube-proxy","namespace":"kube-system"},"spec":{"selector":{"matchLabels":{"k8s-app":"kube-proxy"}},"template":{"metadata":{"labels":{"k8s-app":"kube-proxy"}},"spec":{"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"kubernetes.io/os","operator":"In","values":["linux"]},{"key":"kubernetes.io/arch","operator":"In","values":["amd64","arm64"]},{"key":"eks.amazonaws.com/compute-type","operator":"NotIn","values":["fargate"]}]}]}}},"containers":[{"command":["kube-proxy","--v=2","--config=/var/lib/kube-proxy-config/config","--hostname-override=$(NODE_NAME)"],"env":[{"name":"NODE_NAME","valueFrom":{"fieldRef":{"fieldPath":"spec.nodeName"}}}],"image":"602401143452.dkr.ecr.eu-west-1.amazonaws.com/eks/kube-proxy:v1.27.1-minimal-eksbuild.1","name":"kube-proxy","resources":{"requests":{"cpu":"100m"}},"securityContext":{"privileged":true},"volumeMounts":[{"mountPath":"/var/log","name":"varlog","readOnly":false},{"mountPath":"/run/xtables.lock","name":"xtables-lock","readOnly":false},{"mountPath":"/lib/modules","name":"lib-modules","readOnly":true},{"mountPath":"/var/lib/kube-proxy/","name":"kubeconfig"},{"mountPath":"/var/lib/kube-proxy-config/","name":"config"}]}],"hostNetwork":true,"priorityClassName":"system-node-critical","serviceAccountName":"kube-proxy","tolerations":[{"operator":"Exists"}],"volumes":[{"hostPath":{"path":"/var/log"},"name":"varlog"},{"hostPath":{"path":"/run/xtables.lock","type":"FileOrCreate"},"name":"xtables-lock"},{"hostPath":{"path":"/lib/modules"},"name":"lib-modules"},{"configMap":{"name":"kube-proxy"},"name":"kubeconfig"},{"configMap":{"name":"kube-proxy-config"},"name":"config"}]}},"updateStrategy":{"rollingUpdate":{"maxUnavailable":"10%"},"type":"RollingUpdate"}}}
+    creationTimestamp: "2023-06-30T17:13:19Z"
+    labels:
+      controller-revision-hash: 64665499b9
+      k8s-app: kube-proxy
+    name: kube-proxy-64665499b9
+    namespace: kube-system
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DaemonSet
+      name: kube-proxy
+      uid: 915d9917-d2fd-4a2f-b59e-31509cff1a67
+    resourceVersion: "331"
+    uid: 99506eee-bd6b-4035-be27-ed588fd0d6ee
+  revision: 1
+kind: List
+metadata:
+  resourceVersion: ""

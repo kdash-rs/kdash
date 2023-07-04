@@ -3,6 +3,7 @@ pub(crate) mod contexts;
 pub(crate) mod cronjobs;
 pub(crate) mod daemonsets;
 pub(crate) mod deployments;
+pub(crate) mod dynamic;
 pub(crate) mod ingress;
 pub(crate) mod jobs;
 pub(crate) mod key_binding;
@@ -35,6 +36,7 @@ use self::{
   cronjobs::KubeCronJob,
   daemonsets::KubeDaemonSet,
   deployments::KubeDeployment,
+  dynamic::{KubeDynamicGroup, KubeDynamicResource},
   ingress::KubeIngress,
   jobs::KubeJob,
   key_binding::DEFAULT_KEYBINDING,
@@ -79,6 +81,7 @@ pub enum ActiveBlock {
   Jobs,
   DaemonSets,
   CronJobs,
+  DynamicResource,
   Secrets,
   RplCtrl,
   StorageClasses,
@@ -91,6 +94,7 @@ pub enum ActiveBlock {
   Pv,
   ServiceAccounts,
   More,
+  DynamicView,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -153,6 +157,9 @@ pub struct Data {
   pub pvcs: StatefulTable<KubePVC>,
   pub pvs: StatefulTable<KubePV>,
   pub service_accounts: StatefulTable<KubeSvcAcct>,
+  pub dynamic_resources: Vec<KubeDynamicGroup>,
+  pub dynamic_resource_selected: Option<KubeDynamicGroup>,
+  pub dynamic_resource_items: StatefulTable<KubeDynamicResource>,
 }
 
 /// selected data items
@@ -174,6 +181,7 @@ pub struct App {
   pub main_tabs: TabsState,
   pub context_tabs: TabsState,
   pub more_resources_menu: StatefulList<(String, ActiveBlock)>,
+  pub dynamic_resources_menu: StatefulList<(String, ActiveBlock)>,
   pub show_info_bar: bool,
   pub is_loading: bool,
   pub is_streaming: bool,
@@ -234,6 +242,9 @@ impl Default for Data {
       pvcs: StatefulTable::new(),
       pvs: StatefulTable::new(),
       service_accounts: StatefulTable::new(),
+      dynamic_resources: vec![],
+      dynamic_resource_selected: None,
+      dynamic_resource_items: StatefulTable::new(),
     }
   }
 }
@@ -350,6 +361,16 @@ impl Default for App {
             id: RouteId::Home,
           },
         },
+        TabRoute {
+          title: format!(
+            "Dynamic {}",
+            DEFAULT_KEYBINDING.jump_to_dynamic_resources.key
+          ),
+          route: Route {
+            active_block: ActiveBlock::DynamicView,
+            id: RouteId::Home,
+          },
+        },
       ]),
       more_resources_menu: StatefulList::with_items(vec![
         ("Cron Jobs".into(), ActiveBlock::CronJobs),
@@ -369,6 +390,7 @@ impl Default for App {
         ("Ingresses".into(), ActiveBlock::Ingress),
         // ("Network Policies".into(), ActiveBlock::RplCtrl),
       ]),
+      dynamic_resources_menu: StatefulList::new(),
       show_info_bar: true,
       is_loading: false,
       is_streaming: false,
@@ -544,6 +566,7 @@ impl App {
   pub async fn cache_all_resource_data(&mut self) {
     self.dispatch(IoEvent::GetNamespaces).await;
     self.dispatch(IoEvent::GetPods).await;
+    self.dispatch(IoEvent::DiscoverDynamicRes).await;
     self.dispatch(IoEvent::GetServices).await;
     self.dispatch(IoEvent::GetNodes).await;
     self.dispatch(IoEvent::GetConfigMaps).await;
@@ -629,6 +652,9 @@ impl App {
       ActiveBlock::ServiceAccounts => {
         self.dispatch(IoEvent::GetServiceAccounts).await;
       }
+      ActiveBlock::DynamicResource => {
+        self.dispatch(IoEvent::GetDynamicRes).await;
+      }
       ActiveBlock::Logs => {
         if !self.is_streaming {
           // do not tail to avoid duplicates
@@ -700,7 +726,6 @@ mod test_utils {
 
   pub fn convert_resource_from_file<K: Serialize, T>(filename: &str) -> (Vec<T>, Vec<K>)
   where
-    <K as Resource>::DynamicType: Default,
     K: Clone + DeserializeOwned + fmt::Debug,
     K: Resource,
     T: KubeResource<K> + From<K>,
@@ -715,7 +740,6 @@ mod test_utils {
 
   pub fn load_resource_from_file<K>(filename: &str) -> ObjectList<K>
   where
-    <K as Resource>::DynamicType: Default,
     K: Clone + DeserializeOwned + fmt::Debug,
     K: Resource,
   {
@@ -769,6 +793,10 @@ mod tests {
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetKubeConfig);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
+    assert_eq!(
+      sync_io_rx.recv().await.unwrap(),
+      IoEvent::DiscoverDynamicRes
+    );
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetServices);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetConfigMaps);
@@ -832,6 +860,10 @@ mod tests {
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetKubeConfig);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
+    assert_eq!(
+      sync_io_rx.recv().await.unwrap(),
+      IoEvent::DiscoverDynamicRes
+    );
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetServices);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetConfigMaps);

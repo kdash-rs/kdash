@@ -226,7 +226,6 @@ impl<'a> Network<'a> {
 
   pub async fn get_services(&self) {
     let items: Vec<KubeSvc> = self.get_namespaced_resources(Service::into).await;
-
     let mut app = self.app.lock().await;
     app.data.services.set_items(items);
   }
@@ -386,6 +385,7 @@ impl<'a> Network<'a> {
     }
   }
 
+  /// calls the kubernetes API to list the given resource for all namespaces
   async fn get_resources<K: ApiResource, T, F>(&self, map_fn: F) -> Vec<T>
   where
     <K as ApiResource>::DynamicType: Default,

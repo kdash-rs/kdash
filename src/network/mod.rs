@@ -1,4 +1,5 @@
 // adapted from https://github.com/Rigellute/spotify-tui
+pub(crate) mod dynamic_resource;
 mod kube_api;
 pub(crate) mod stream;
 
@@ -38,6 +39,8 @@ pub enum IoEvent {
   GetServiceAccounts,
   GetMetrics,
   RefreshClient,
+  DiscoverDynamicRes,
+  GetDynamicRes,
 }
 
 async fn refresh_kube_config(context: &Option<String>) -> Result<kube::Client> {
@@ -189,6 +192,12 @@ impl<'a> Network<'a> {
       }
       IoEvent::GetServiceAccounts => {
         self.get_service_accounts().await;
+      }
+      IoEvent::DiscoverDynamicRes => {
+        self.discover_dynamic_resources().await;
+      }
+      IoEvent::GetDynamicRes => {
+        self.get_dynamic_resources().await;
       }
     };
 

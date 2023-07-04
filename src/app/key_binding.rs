@@ -52,6 +52,7 @@ generate_keybindings! {
   jump_to_jobs,
   jump_to_daemonsets,
   jump_to_more_resources,
+  jump_to_dynamic_resources,
   cycle_group_by
 }
 
@@ -279,6 +280,12 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
     key: Key::Char('0'),
     alt: None,
     desc: "Select more resources",
+    context: HContext::Overview,
+  },
+  jump_to_dynamic_resources: KeyBinding {
+    key: Key::Char('-'),
+    alt: None,
+    desc: "Select dynamic resources",
     context: HContext::Overview,
   },
   cycle_group_by: KeyBinding {

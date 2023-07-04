@@ -92,6 +92,9 @@ fn handle_escape(app: &mut App) {
         if let ActiveBlock::More = app.get_prev_route().active_block {
           app.pop_navigation_stack();
         }
+        if let ActiveBlock::DynamicView = app.get_prev_route().active_block {
+          app.pop_navigation_stack();
+        }
       }
     },
   }
@@ -215,6 +218,10 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_more_resources.key => {
           let route = app.context_tabs.set_index(9).route.clone();
+          app.push_navigation_route(route);
+        }
+        _ if key == DEFAULT_KEYBINDING.jump_to_dynamic_resources.key => {
+          let route = app.context_tabs.set_index(10).route.clone();
           app.push_navigation_route(route);
         }
         _ => {}
@@ -399,6 +406,45 @@ async fn handle_route_events(key: Key, app: &mut App) {
                 id: RouteId::Home,
                 active_block,
               });
+            }
+          }
+        }
+        ActiveBlock::DynamicView => {
+          if key == DEFAULT_KEYBINDING.submit.key {
+            if let Some((title, active_block)) = app
+              .dynamic_resources_menu
+              .state
+              .selected()
+              .map(|i| app.dynamic_resources_menu.items[i].clone())
+            {
+              app.push_navigation_route(Route {
+                id: RouteId::Home,
+                active_block,
+              });
+              let selected = app
+                .data
+                .dynamic_resources
+                .iter()
+                .find(|&it| it.kind == title);
+              app.data.dynamic_resource_selected = selected.cloned();
+              app.data.dynamic_resource_items.set_items(vec![]);
+            }
+          }
+        }
+        ActiveBlock::DynamicResource => {
+          if let Some(dynamic_res) = app.data.dynamic_resource_selected.as_ref() {
+            if let Some(res) = handle_block_action(key, &mut app.data.dynamic_resource_items) {
+              let _ok = handle_describe_decode_or_yaml_action(
+                key,
+                app,
+                &res,
+                IoCmdEvent::GetDescribe {
+                  kind: dynamic_res.kind.to_owned(),
+                  value: res.name.to_owned(),
+                  ns: res.namespace.to_owned(),
+                },
+              )
+              .await;
             }
           }
         }
@@ -653,10 +699,12 @@ async fn handle_block_scroll(app: &mut App, up: bool, is_mouse: bool, page: bool
     ActiveBlock::Pv => app.data.pvs.handle_scroll(up, page),
     ActiveBlock::Ingress => app.data.ingress.handle_scroll(up, page),
     ActiveBlock::ServiceAccounts => app.data.service_accounts.handle_scroll(up, page),
+    ActiveBlock::DynamicResource => app.data.dynamic_resource_items.handle_scroll(up, page),
     ActiveBlock::Contexts => app.data.contexts.handle_scroll(up, page),
     ActiveBlock::Utilization => app.data.metrics.handle_scroll(up, page),
     ActiveBlock::Help => app.help_docs.handle_scroll(up, page),
     ActiveBlock::More => app.more_resources_menu.handle_scroll(up, page),
+    ActiveBlock::DynamicView => app.dynamic_resources_menu.handle_scroll(up, page),
     ActiveBlock::Logs => {
       app.log_auto_scroll = false;
       app.data.logs.handle_scroll(inverse_dir(up, is_mouse), page);

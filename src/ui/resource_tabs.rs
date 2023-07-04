@@ -1,3 +1,4 @@
+use kube::discovery::Scope;
 use tui::{
   backend::Backend,
   layout::{Constraint, Rect},
@@ -15,7 +16,10 @@ use super::{
   },
   HIGHLIGHT,
 };
-use crate::app::{models::StatefulTable, ActiveBlock, App};
+use crate::app::{
+  models::{StatefulList, StatefulTable},
+  ActiveBlock, App,
+};
 
 static DESCRIBE_AND_YAML_HINT: &str = "| describe <d> | yaml <y> ";
 static DESCRIBE_YAML_AND_ESC_HINT: &str = "| describe <d> | yaml <y> | back to menu <esc> ";
@@ -79,7 +83,8 @@ pub fn draw_resource_tabs_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App,
     6 => draw_deployments_tab(app.get_current_route().active_block, f, app, chunks[1]),
     7 => draw_jobs_tab(app.get_current_route().active_block, f, app, chunks[1]),
     8 => draw_daemon_sets_tab(app.get_current_route().active_block, f, app, chunks[1]),
-    9 => draw_more(app.get_current_route().active_block, f, app, chunks[1]),
+    9 | 10 => draw_more(app.get_current_route().active_block, f, app, chunks[1]),
+    // 10 => draw_dynamic(app.get_current_route().active_block, f, app, chunks[1]),
     _ => {}
   };
 }
@@ -87,7 +92,8 @@ pub fn draw_resource_tabs_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App,
 /// more resources tab
 fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   match block {
-    // ActiveBlock::More => draw_menu(f, app, area),
+    ActiveBlock::More => draw_menu(f, &mut app.more_resources_menu, area),
+    ActiveBlock::DynamicView => draw_menu(f, &mut app.dynamic_resources_menu, area),
     ActiveBlock::CronJobs => draw_cronjobs_tab(block, f, app, area),
     ActiveBlock::Secrets => draw_secrets_tab(block, f, app, area),
     ActiveBlock::RplCtrl => draw_replication_controllers_tab(block, f, app, area),
@@ -100,6 +106,7 @@ fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App
     ActiveBlock::Pvc => draw_pvc_tab(block, f, app, area),
     ActiveBlock::Pv => draw_pv_tab(block, f, app, area),
     ActiveBlock::ServiceAccounts => draw_svc_acct_tab(block, f, app, area),
+    ActiveBlock::DynamicResource => draw_dynamic_res_tab(block, f, app, area),
     ActiveBlock::Describe | ActiveBlock::Yaml => {
       let mut prev_route = app.get_prev_route();
       if prev_route.active_block == block {
@@ -118,20 +125,24 @@ fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App
         ActiveBlock::Pvc => draw_pvc_tab(block, f, app, area),
         ActiveBlock::Pv => draw_pv_tab(block, f, app, area),
         ActiveBlock::ServiceAccounts => draw_svc_acct_tab(block, f, app, area),
+        ActiveBlock::DynamicResource => draw_dynamic_res_tab(block, f, app, area),
         _ => { /* do nothing */ }
       }
     }
     ActiveBlock::Namespaces => draw_more(app.get_prev_route().active_block, f, app, area),
-    _ => draw_menu(f, app, area),
+    _ => { /* do nothing */ }
   }
 }
 
 /// more resources menu
-fn draw_menu<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_menu<B: Backend>(
+  f: &mut Frame<'_, B>,
+  more_resources_menu: &mut StatefulList<(String, ActiveBlock)>,
+  area: Rect,
+) {
   let area = centered_rect(50, 15, area);
 
-  let items: Vec<ListItem<'_>> = app
-    .more_resources_menu
+  let items: Vec<ListItem<'_>> = more_resources_menu
     .items
     .iter()
     .map(|it| ListItem::new(it.0.clone()))
@@ -142,7 +153,7 @@ fn draw_menu<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
       .highlight_style(style_highlight())
       .highlight_symbol(HIGHLIGHT),
     area,
-    &mut app.more_resources_menu.state,
+    &mut more_resources_menu.state,
   );
 }
 
@@ -1477,6 +1488,83 @@ fn draw_pv_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
         Cell::from(c.age.to_owned()),
       ])
       .style(style_primary(app.light_theme))
+    },
+    app.light_theme,
+    app.is_loading,
+  );
+}
+
+fn draw_dynamic_res_tab<B: Backend>(
+  block: ActiveBlock,
+  f: &mut Frame<'_, B>,
+  app: &mut App,
+  area: Rect,
+) {
+  let title = if let Some(res) = &app.data.dynamic_resource_selected {
+    res.kind.as_str()
+  } else {
+    ""
+  };
+  draw_resource_tab!(
+    title,
+    block,
+    f,
+    app,
+    area,
+    draw_dynamic_res_tab,
+    draw_dynamic_res_block,
+    app.data.dynamic_resource_items
+  );
+}
+
+fn draw_dynamic_res_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let (title, scope) = if let Some(res) = &app.data.dynamic_resource_selected {
+    (res.kind.as_str(), res.scope.clone())
+  } else {
+    ("", Scope::Cluster)
+  };
+  let title = get_resource_title(app, title, "", app.data.dynamic_resource_items.items.len());
+
+  let (table_headers, column_widths) = if scope == Scope::Cluster {
+    (
+      vec!["Name", "Age"],
+      vec![Constraint::Percentage(30), Constraint::Percentage(30)],
+    )
+  } else {
+    (
+      vec!["Namespace", "Name", "Age"],
+      vec![
+        Constraint::Percentage(30),
+        Constraint::Percentage(30),
+        Constraint::Percentage(20),
+      ],
+    )
+  };
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
+      resource: &mut app.data.dynamic_resource_items,
+      table_headers,
+      column_widths,
+    },
+    |c| {
+      let rows = if scope == Scope::Cluster {
+        Row::new(vec![
+          Cell::from(c.name.to_owned()),
+          Cell::from(c.age.to_owned()),
+        ])
+      } else {
+        Row::new(vec![
+          Cell::from(c.namespace.clone().unwrap_or_default()),
+          Cell::from(c.name.to_owned()),
+          Cell::from(c.age.to_owned()),
+        ])
+      };
+      rows.style(style_primary(app.light_theme))
     },
     app.light_theme,
     app.is_loading,
