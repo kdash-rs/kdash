@@ -2,6 +2,12 @@
 
 ## Unreleased - 2022-XX-YY
 
+## [0.4.0] - 2023-07-04
+
+- Add basic support for Custom Resource Definitions (https://github.com/kdash-rs/kdash/commit/fb4b4c4451fca5e5ad62dd93e658dd8009e8c659)
+- Add support for NetworkPolicy
+- Upgrade libraries
+
 ## [0.3.7] - 2023-06-30
 
 - Add support for Ingress (https://github.com/kdash-rs/kdash/pull/316)

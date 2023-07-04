@@ -106,7 +106,7 @@ Run KDash as a Docker container by mounting your `KUBECONFIG`. For example the b
 docker run --rm -it -v ~/.kube/config:/root/.kube/config deepu105/kdash
 ```
 
-You can also clone this repo and run `make docker` to build a docker image locally and run it using above command
+You can also clone this repo and run `make docker` to build a docker image locally and run it using the above command
 
 **Note**: This may not work properly if you run Kubernetes locally using Minikube or Kind
 
@@ -154,6 +154,7 @@ Press `?` while running the app to see keybindings
 - CLI Info
 - Node metrics
 - Resource Watch (configurable polling interval with `-p` flag)
+- Custom resource definitions
 - Describe resources & copy output
 - Get YAML for resources & copy output
 - Stream container logs
