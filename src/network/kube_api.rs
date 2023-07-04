@@ -9,7 +9,7 @@ use k8s_openapi::{
       ConfigMap, Namespace, Node, PersistentVolume, PersistentVolumeClaim, Pod,
       ReplicationController, Secret, Service, ServiceAccount,
     },
-    networking::v1::Ingress,
+    networking::v1::{Ingress, NetworkPolicy},
     rbac::v1::{ClusterRole, ClusterRoleBinding, Role, RoleBinding},
     storage::v1::StorageClass,
   },
@@ -36,6 +36,7 @@ use crate::app::{
   ingress::KubeIngress,
   jobs::KubeJob,
   metrics::{self, KubeNodeMetrics},
+  network_policies::KubeNetworkPolicy,
   nodes::KubeNode,
   ns::KubeNs,
   pods::KubePod,
@@ -358,6 +359,13 @@ impl<'a> Network<'a> {
 
     let mut app = self.app.lock().await;
     app.data.service_accounts.set_items(items);
+  }
+
+  pub async fn get_network_policies(&self) {
+    let items: Vec<KubeNetworkPolicy> = self.get_namespaced_resources(NetworkPolicy::into).await;
+
+    let mut app = self.app.lock().await;
+    app.data.nw_policies.set_items(items);
   }
 
   /// calls the kubernetes API to list the given resource for either selected namespace or all namespaces

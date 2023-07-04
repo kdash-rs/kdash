@@ -9,6 +9,7 @@ pub(crate) mod jobs;
 pub(crate) mod key_binding;
 pub(crate) mod metrics;
 pub(crate) mod models;
+pub(crate) mod network_policies;
 pub(crate) mod nodes;
 pub(crate) mod ns;
 pub(crate) mod pods;
@@ -42,6 +43,7 @@ use self::{
   key_binding::DEFAULT_KEYBINDING,
   metrics::KubeNodeMetrics,
   models::{LogsState, ScrollableTxt, StatefulList, StatefulTable, TabRoute, TabsState},
+  network_policies::KubeNetworkPolicy,
   nodes::KubeNode,
   ns::KubeNs,
   pods::{KubeContainer, KubePod},
@@ -92,6 +94,7 @@ pub enum ActiveBlock {
   Ingress,
   Pvc,
   Pv,
+  NetworkPolicies,
   ServiceAccounts,
   More,
   DynamicView,
@@ -156,6 +159,7 @@ pub struct Data {
   pub ingress: StatefulTable<KubeIngress>,
   pub pvcs: StatefulTable<KubePVC>,
   pub pvs: StatefulTable<KubePV>,
+  pub nw_policies: StatefulTable<KubeNetworkPolicy>,
   pub service_accounts: StatefulTable<KubeSvcAcct>,
   pub dynamic_resources: Vec<KubeDynamicGroup>,
   pub dynamic_resource_selected: Option<KubeDynamicGroup>,
@@ -241,6 +245,7 @@ impl Default for Data {
       ingress: StatefulTable::new(),
       pvcs: StatefulTable::new(),
       pvs: StatefulTable::new(),
+      nw_policies: StatefulTable::new(),
       service_accounts: StatefulTable::new(),
       dynamic_resources: vec![],
       dynamic_resource_selected: None,
@@ -388,7 +393,7 @@ impl Default for App {
         ),
         ("Service Accounts".into(), ActiveBlock::ServiceAccounts),
         ("Ingresses".into(), ActiveBlock::Ingress),
-        // ("Network Policies".into(), ActiveBlock::RplCtrl),
+        ("Network Policies".into(), ActiveBlock::NetworkPolicies),
       ]),
       dynamic_resources_menu: StatefulList::new(),
       show_info_bar: true,
@@ -587,6 +592,7 @@ impl App {
     self.dispatch(IoEvent::GetPvcs).await;
     self.dispatch(IoEvent::GetPvs).await;
     self.dispatch(IoEvent::GetServiceAccounts).await;
+    self.dispatch(IoEvent::GetNetworkPolicies).await;
     self.dispatch(IoEvent::GetMetrics).await;
   }
 
@@ -825,6 +831,10 @@ mod tests {
     assert_eq!(
       sync_io_rx.recv().await.unwrap(),
       IoEvent::GetServiceAccounts
+    );
+    assert_eq!(
+      sync_io_rx.recv().await.unwrap(),
+      IoEvent::GetNetworkPolicies
     );
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetMetrics);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);

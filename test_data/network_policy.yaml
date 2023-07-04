@@ -1,0 +1,238 @@
+apiVersion: v1
+items:
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"name":"sample-network-policy","namespace":"default"},"spec":{"egress":[{"ports":[{"port":53,"protocol":"UDP"}],"to":[{"namespaceSelector":{},"podSelector":{"matchLabels":{"k8s-app":"kube-dns"}}}]},{"to":[{"podSelector":{}}]},{"ports":[{"port":443},{"port":80}],"to":[{"podSelector":{"matchLabels":{"app":"webapp"}}}]}],"ingress":[{"from":[{"podSelector":{"matchLabels":{"app":"webapp"}}}],"ports":[{"port":443},{"port":80}]},{"from":[{"podSelector":{}}]},{"from":[{"ipBlock":{"cidr":"172.16.0.0/16"}}],"ports":[{"port":443},{"port":80}]},{"from":[{"ipBlock":{"cidr":"0.0.0.0/0"}}],"ports":[{"port":443},{"port":80}]}],"podSelector":{"matchLabels":{"app":"webapp"}},"policyTypes":["Egress","Ingress"]}}
+    creationTimestamp: "2023-07-04T16:49:05Z"
+    generation: 1
+    name: sample-network-policy
+    namespace: default
+    resourceVersion: "1339742"
+    uid: f1db5334-23b0-4111-84ca-68a5c16b406a
+    managedFields: []
+  spec:
+    egress:
+    - ports:
+      - port: 53
+        protocol: UDP
+      to:
+      - namespaceSelector: {}
+        podSelector:
+          matchLabels:
+            k8s-app: kube-dns
+    - to:
+      - podSelector: {}
+    - ports:
+      - port: 443
+        protocol: TCP
+      - port: 80
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app: webapp
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app: webapp
+      ports:
+      - port: 443
+        protocol: TCP
+      - port: 80
+        protocol: TCP
+    - from:
+      - podSelector: {}
+    - from:
+      - ipBlock:
+          cidr: 172.16.0.0/16
+      ports:
+      - port: 443
+        protocol: TCP
+      - port: 80
+        protocol: TCP
+    - from:
+      - ipBlock:
+          cidr: 0.0.0.0/0
+      ports:
+      - port: 443
+        protocol: TCP
+      - port: 80
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app: webapp
+    policyTypes:
+    - Egress
+    - Ingress
+  status: {}
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"name":"sample-network-policy-2","namespace":"default"},"spec":{"ingress":[{"from":[{"podSelector":{"matchLabels":{"app":"webapp"}}}],"ports":[{"port":443},{"port":80}]},{"from":[{"podSelector":{}}]},{"from":[{"ipBlock":{"cidr":"172.16.0.0/16"}}],"ports":[{"port":443},{"port":80}]},{"from":[{"ipBlock":{"cidr":"0.0.0.0/0"}}],"ports":[{"port":443},{"port":80}]}],"podSelector":{"matchLabels":{"app":"webapp"}},"policyTypes":["Ingress"]}}
+    creationTimestamp: "2023-07-04T16:49:48Z"
+    generation: 1
+    name: sample-network-policy-2
+    namespace: default
+    resourceVersion: "1339906"
+    uid: d5f7ef17-a655-422f-b15e-103dead5a53b
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app: webapp
+      ports:
+      - port: 443
+        protocol: TCP
+      - port: 80
+        protocol: TCP
+    - from:
+      - podSelector: {}
+    - from:
+      - ipBlock:
+          cidr: 172.16.0.0/16
+      ports:
+      - port: 443
+        protocol: TCP
+      - port: 80
+        protocol: TCP
+    - from:
+      - ipBlock:
+          cidr: 0.0.0.0/0
+      ports:
+      - port: 443
+        protocol: TCP
+      - port: 80
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app: webapp
+    policyTypes:
+    - Ingress
+  status: {}
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"name":"sample-network-policy-3","namespace":"default"},"spec":{"egress":[{"ports":[{"port":53,"protocol":"UDP"}],"to":[{"namespaceSelector":{},"podSelector":{"matchLabels":{"k8s-app":"kube-dns"}}}]},{"to":[{"podSelector":{}}]},{"ports":[{"port":443},{"port":80}],"to":[{"podSelector":{"matchLabels":{"app":"webapp"}}}]},{"ports":[{"port":443},{"port":80}],"to":[{"ipBlock":{"cidr":"172.16.0.0/16"}}]}],"podSelector":{"matchLabels":{"app":"webapp"}},"policyTypes":["Egress"]}}
+    creationTimestamp: "2023-07-04T16:51:38Z"
+    generation: 1
+    name: sample-network-policy-3
+    namespace: default
+    resourceVersion: "1340336"
+    uid: 88ab544b-33c9-4bd4-afbb-ddfd91003f40
+  spec:
+    egress:
+    - ports:
+      - port: 53
+        protocol: UDP
+      to:
+      - namespaceSelector: {}
+        podSelector:
+          matchLabels:
+            k8s-app: kube-dns
+    - to:
+      - podSelector: {}
+    - ports:
+      - port: 443
+        protocol: TCP
+      - port: 80
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app: webapp
+    - ports:
+      - port: 443
+        protocol: TCP
+      - port: 80
+        protocol: TCP
+      to:
+      - ipBlock:
+          cidr: 172.16.0.0/16
+    podSelector:
+      matchLabels:
+        app: webapp
+    policyTypes:
+    - Egress
+  status: {}
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"name":"sample-network-policy-4","namespace":"default"},"spec":{"egress":[{"ports":[{"port":53,"protocol":"UDP"}],"to":[{"namespaceSelector":{},"podSelector":{"matchLabels":{"k8s-app":"kube-dns"}}}]},{"to":[{"podSelector":{}}]},{"ports":[{"port":443},{"port":80}],"to":[{"podSelector":{"matchLabels":{"app":"webapp"}}}]}],"ingress":[{"from":[{"podSelector":{"matchLabels":{"app":"webapp"}}}],"ports":[{"port":443},{"port":80}]},{"from":[{"podSelector":{}}]},{"from":[{"ipBlock":{"cidr":"172.16.0.0/16"}}],"ports":[{"port":443},{"port":80}]},{"from":[{"ipBlock":{"cidr":"0.0.0.0/0"}}],"ports":[{"port":443},{"port":80}]}],"podSelector":{"matchLabels":{"app":"webapp","app3":"webapp3"}},"policyTypes":["Egress","Ingress"]}}
+    creationTimestamp: "2023-07-04T17:04:33Z"
+    generation: 1
+    name: sample-network-policy-4
+    namespace: default
+    resourceVersion: "1343355"
+    uid: 46a533a0-f07f-42d4-86c1-ec356e1f3266
+    managedFields: []
+  spec:
+    egress:
+    - ports:
+      - port: 53
+        protocol: UDP
+      to:
+      - namespaceSelector: {}
+        podSelector:
+          matchLabels:
+            k8s-app: kube-dns
+    - to:
+      - podSelector: {}
+    - ports:
+      - port: 443
+        protocol: TCP
+      - port: 80
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app: webapp
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app: webapp
+      ports:
+      - port: 443
+        protocol: TCP
+      - port: 80
+        protocol: TCP
+    - from:
+      - podSelector: {}
+    - from:
+      - ipBlock:
+          cidr: 172.16.0.0/16
+      ports:
+      - port: 443
+        protocol: TCP
+      - port: 80
+        protocol: TCP
+    - from:
+      - ipBlock:
+          cidr: 0.0.0.0/0
+      ports:
+      - port: 443
+        protocol: TCP
+      - port: 80
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app: webapp
+        app3: webapp3
+    policyTypes:
+    - Egress
+    - Ingress
+  status: {}
+kind: List
+metadata:
+  resourceVersion: ""

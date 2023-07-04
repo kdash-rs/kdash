@@ -47,6 +47,7 @@ static INGRESS_TITLE: &str = "Ingresses";
 static PVC_TITLE: &str = "PersistentVolumeClaims";
 static PV_TITLE: &str = "PersistentVolumes";
 static SVC_ACCT_TITLE: &str = "ServiceAccounts";
+static NW_POLICY_TITLE: &str = "NetworkPolicies";
 static DESCRIBE_ACTIVE: &str = "-> Describe ";
 static YAML_ACTIVE: &str = "-> YAML ";
 
@@ -84,7 +85,6 @@ pub fn draw_resource_tabs_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App,
     7 => draw_jobs_tab(app.get_current_route().active_block, f, app, chunks[1]),
     8 => draw_daemon_sets_tab(app.get_current_route().active_block, f, app, chunks[1]),
     9 | 10 => draw_more(app.get_current_route().active_block, f, app, chunks[1]),
-    // 10 => draw_dynamic(app.get_current_route().active_block, f, app, chunks[1]),
     _ => {}
   };
 }
@@ -106,6 +106,7 @@ fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App
     ActiveBlock::Pvc => draw_pvc_tab(block, f, app, area),
     ActiveBlock::Pv => draw_pv_tab(block, f, app, area),
     ActiveBlock::ServiceAccounts => draw_svc_acct_tab(block, f, app, area),
+    ActiveBlock::NetworkPolicies => draw_nw_policy_tab(block, f, app, area),
     ActiveBlock::DynamicResource => draw_dynamic_res_tab(block, f, app, area),
     ActiveBlock::Describe | ActiveBlock::Yaml => {
       let mut prev_route = app.get_prev_route();
@@ -125,6 +126,7 @@ fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App
         ActiveBlock::Pvc => draw_pvc_tab(block, f, app, area),
         ActiveBlock::Pv => draw_pv_tab(block, f, app, area),
         ActiveBlock::ServiceAccounts => draw_svc_acct_tab(block, f, app, area),
+        ActiveBlock::NetworkPolicies => draw_nw_policy_tab(block, f, app, area),
         ActiveBlock::DynamicResource => draw_dynamic_res_tab(block, f, app, area),
         _ => { /* do nothing */ }
       }
@@ -1094,6 +1096,58 @@ fn draw_svc_acct_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Re
         Cell::from(c.namespace.to_owned()),
         Cell::from(c.name.to_owned()),
         Cell::from(c.secrets.to_string()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary(app.light_theme))
+    },
+    app.light_theme,
+    app.is_loading,
+  );
+}
+
+fn draw_nw_policy_tab<B: Backend>(
+  block: ActiveBlock,
+  f: &mut Frame<'_, B>,
+  app: &mut App,
+  area: Rect,
+) {
+  draw_resource_tab!(
+    NW_POLICY_TITLE,
+    block,
+    f,
+    app,
+    area,
+    draw_nw_policy_tab,
+    draw_nw_policy_block,
+    app.data.nw_policies
+  );
+}
+
+fn draw_nw_policy_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let title = get_resource_title(app, NW_POLICY_TITLE, "", app.data.nw_policies.items.len());
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
+      resource: &mut app.data.nw_policies,
+      table_headers: vec!["Namespace", "Name", "Pod Selector", "Policy Types", "Age"],
+      column_widths: vec![
+        Constraint::Percentage(20),
+        Constraint::Percentage(20),
+        Constraint::Percentage(30),
+        Constraint::Percentage(20),
+        Constraint::Percentage(10),
+      ],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.namespace.to_owned()),
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.pod_selector.to_owned()),
+        Cell::from(c.policy_types.to_owned()),
         Cell::from(c.age.to_owned()),
       ])
       .style(style_primary(app.light_theme))
