@@ -2,7 +2,7 @@
 
 ![ci](https://github.com/kdash-rs/kdash/actions/workflows/ci.yml/badge.svg)
 ![cd](https://github.com/kdash-rs/kdash/actions/workflows/cd.yml/badge.svg)
-![Licence](https://img.shields.io/badge/license-MIT-blueviolet.svg)
+![License](https://img.shields.io/badge/license-MIT-blueviolet.svg)
 ![LOC](https://tokei.rs/b1/github/kdash-rs/kdash?category=code)
 [![crates.io link](https://img.shields.io/crates/v/kdash.svg)](https://crates.io/crates/kdash)
 ![Docker Release](https://img.shields.io/docker/v/deepu105/kdash?label=Docker%20version)
@@ -62,7 +62,7 @@ scoop install kdash
 
 ### Chocolatey (Windows)
 
-Choco package located [here](https://chocolatey.org/packages/kdash).
+Chocolatey package is located [here](https://chocolatey.org/packages/kdash).
 Since validation of the package takes forever, it may take a long while to become available after a release. I would recommend using Scoop instead for Windows.
 
 ```bash
@@ -80,7 +80,7 @@ choco upgrade kdash --version=0.2.7
 
 ### Install script
 
-Run the below command to install the latest binary. Run with sudo if you don't have write access to /usr/local/bin. Else the script will install to current directory
+Run the below command to install the latest binary. Run with sudo if you don't have write access to `/usr/local/bin`. Else the script will install to the current directory
 
 ```sh
 curl https://raw.githubusercontent.com/kdash-rs/kdash/main/deployment/getLatest.sh | bash
@@ -100,7 +100,7 @@ Binaries for macOS, Linux and Windows are available on the [releases](https://gi
 
 ### Docker
 
-Run KDash as a Docker container by mounting your `KUBECONFIG`. For example the below for default path
+Run KDash as a Docker container by mounting your `KUBECONFIG`. For example the below command for the default path
 
 ```bash
 docker run --rm -it -v ~/.kube/config:/root/.kube/config deepu105/kdash
@@ -151,12 +151,12 @@ Press `?` while running the app to see keybindings
 
 ## Features
 
-- CLI Info
+- CLI info
 - Node metrics
-- Resource Watch (configurable polling interval with `-p` flag)
+- Resource watch (configurable polling interval with `-p` flag)
 - Custom resource definitions
-- Describe resources & copy output
-- Get YAML for resources & copy output
+- Describe resources & copy the output
+- Get YAML for resources & copy the output
 - Stream container logs
 - Context
   - Context info
@@ -165,6 +165,7 @@ Press `?` while running the app to see keybindings
   - Context switch
 - Resources utilizations for nodes, pods and namespaces based on metrics server. Requires [metrics-server](https://kubernetes.io/docs/tasks/debug-application-cluster/resource-metrics-pipeline/#metrics-server) to be deployed on the cluster.
 - Dark/Light themes
+- Sensible keyboard shortcuts
 
 ## Screenshots
 
@@ -204,9 +205,9 @@ Press `?` while running the app to see keybindings
 
 [K9S](https://github.com/derailed/k9s) is a beast compared to this as it offers way more features including CRUD actions.
 
-KDash only offers a view of most used resources with a focus on speed and UX. Really, if something is slow or have bad UX then please raise a bug. Hence the UI/UX is designed to be more user friendly and easier to navigate with contextual help everywhere and a tab system to switch between different resources easily.
+KDash only offers a view of the resources with a focus on speed and UX. Really, if something is slow or has bad UX then please raise a bug. Hence the UI/UX is designed to be more user-friendly and easier to navigate with contextual help everywhere and a tab system to switch between different resources easily.
 
-At least for now there are no plans to add full CRUD for resources but we will add more resources and more useful actions
+At least for now, there are no plans to add full CRUD for resources but in the future, we might.
 
 ## Licence
 
