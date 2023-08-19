@@ -78,6 +78,11 @@ To upgrade
 choco upgrade kdash --version=0.2.7
 ```
 
+### Nix
+
+Try out kdash via `nix run nixpkgs#kdash` or add `kdash` to your
+`configuration.nix` for permanent installation.
+
 ### Install script
 
 Run the below command to install the latest binary. Run with sudo if you don't have write access to `/usr/local/bin`. Else the script will install to the current directory
