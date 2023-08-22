@@ -79,7 +79,7 @@ impl AppResource for DeploymentResource {
       app,
       area,
       Self::render,
-      draw_deployments_block,
+      draw_block,
       app.data.deployments
     );
   }
@@ -92,7 +92,7 @@ impl AppResource for DeploymentResource {
   }
 }
 
-fn draw_deployments_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, DEPLOYMENTS_TITLE, "", app.data.deployments.items.len());
 
   draw_resource_block(

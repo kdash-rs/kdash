@@ -90,7 +90,7 @@ impl AppResource for JobResource {
       app,
       area,
       Self::render,
-      draw_jobs_block,
+      draw_block,
       app.data.jobs
     );
   }
@@ -103,7 +103,7 @@ impl AppResource for JobResource {
   }
 }
 
-fn draw_jobs_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, JOBS_TITLE, "", app.data.jobs.items.len());
 
   draw_resource_block(

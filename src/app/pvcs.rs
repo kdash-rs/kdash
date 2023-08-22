@@ -104,7 +104,7 @@ impl AppResource for PvcResource {
       app,
       area,
       Self::render,
-      draw_pvc_block,
+      draw_block,
       app.data.pvcs
     );
   }
@@ -119,7 +119,7 @@ impl AppResource for PvcResource {
   }
 }
 
-fn draw_pvc_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, PVC_TITLE, "", app.data.pvcs.items.len());
 
   draw_resource_block(

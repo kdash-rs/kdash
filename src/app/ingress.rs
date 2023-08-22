@@ -174,7 +174,7 @@ impl AppResource for IngressResource {
       app,
       area,
       Self::render,
-      draw_ingress_block,
+      draw_block,
       app.data.ingress
     );
   }
@@ -187,7 +187,7 @@ impl AppResource for IngressResource {
   }
 }
 
-fn draw_ingress_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, INGRESS_TITLE, "", app.data.ingress.items.len());
 
   draw_resource_block(

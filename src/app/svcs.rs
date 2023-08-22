@@ -101,7 +101,7 @@ impl AppResource for SvcResource {
       app,
       area,
       Self::render,
-      draw_services_block,
+      draw_block,
       app.data.services
     );
   }
@@ -113,7 +113,7 @@ impl AppResource for SvcResource {
   }
 }
 
-fn draw_services_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, SERVICES_TITLE, "", app.data.services.items.len());
 
   draw_resource_block(

@@ -169,7 +169,7 @@ impl AppResource for PodResource {
       ),
       ActiveBlock::Logs => draw_logs_block(f, app, area),
       ActiveBlock::Namespaces => Self::render(app.get_prev_route().active_block, f, app, area),
-      _ => draw_pods_block(f, app, area),
+      _ => draw_block(f, app, area),
     }
   }
 
@@ -193,7 +193,7 @@ impl AppResource for PodResource {
   }
 }
 
-fn draw_pods_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, PODS_TITLE, "", app.data.pods.items.len());
 
   draw_resource_block(

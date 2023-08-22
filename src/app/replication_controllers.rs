@@ -116,7 +116,7 @@ impl AppResource for ReplicationControllerResource {
       app,
       area,
       Self::render,
-      draw_replication_controllers_block,
+      draw_block,
       app.data.rpl_ctrls
     );
   }
@@ -131,7 +131,7 @@ impl AppResource for ReplicationControllerResource {
   }
 }
 
-fn draw_replication_controllers_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, RPL_CTRL_TITLE, "", app.data.rpl_ctrls.items.len());
 
   draw_resource_block(

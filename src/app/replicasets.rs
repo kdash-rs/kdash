@@ -75,7 +75,7 @@ impl AppResource for ReplicaSetResource {
       app,
       area,
       Self::render,
-      draw_replica_sets_block,
+      draw_block,
       app.data.replica_sets
     );
   }
@@ -88,7 +88,7 @@ impl AppResource for ReplicaSetResource {
   }
 }
 
-fn draw_replica_sets_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(
     app,
     REPLICA_SETS_TITLE,

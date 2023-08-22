@@ -80,7 +80,7 @@ impl AppResource for DaemonSetResource {
       app,
       area,
       Self::render,
-      draw_daemon_sets_block,
+      draw_block,
       app.data.daemon_sets
     );
   }
@@ -93,7 +93,7 @@ impl AppResource for DaemonSetResource {
   }
 }
 
-fn draw_daemon_sets_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, DAEMON_SETS_TITLE, "", app.data.daemon_sets.items.len());
 
   draw_resource_block(

@@ -65,7 +65,7 @@ impl AppResource for SvcAcctResource {
       app,
       area,
       Self::render,
-      draw_svc_acct_block,
+      draw_block,
       app.data.service_accounts
     );
   }
@@ -78,7 +78,7 @@ impl AppResource for SvcAcctResource {
   }
 }
 
-fn draw_svc_acct_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(
     app,
     SVC_ACCT_TITLE,

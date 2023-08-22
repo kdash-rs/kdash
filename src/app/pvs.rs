@@ -123,7 +123,7 @@ impl AppResource for PvResource {
       app,
       area,
       Self::render,
-      draw_pv_block,
+      draw_block,
       app.data.pvs
     );
   }
@@ -136,7 +136,7 @@ impl AppResource for PvResource {
   }
 }
 
-fn draw_pv_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, PV_TITLE, "", app.data.pvs.items.len());
 
   draw_resource_block(

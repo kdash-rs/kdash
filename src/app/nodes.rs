@@ -203,7 +203,7 @@ impl AppResource for NodeResource {
         ),
       ),
       ActiveBlock::Namespaces => Self::render(app.get_prev_route().active_block, f, app, area),
-      _ => draw_nodes_block(f, app, area),
+      _ => draw_block(f, app, area),
     };
   }
 
@@ -264,7 +264,7 @@ async fn get_node_metrics(nw: &Network<'_>) {
   };
 }
 
-fn draw_nodes_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_cluster_wide_resource_title(NODES_TITLE, app.data.nodes.items.len(), "");
 
   draw_resource_block(

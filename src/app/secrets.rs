@@ -68,7 +68,7 @@ impl AppResource for SecretResource {
       app,
       area,
       Self::render,
-      draw_secrets_block,
+      draw_block,
       app.data.secrets
     );
   }
@@ -81,7 +81,7 @@ impl AppResource for SecretResource {
   }
 }
 
-fn draw_secrets_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, SECRETS_TITLE, "", app.data.secrets.items.len());
 
   draw_resource_block(

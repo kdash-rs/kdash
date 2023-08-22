@@ -82,7 +82,7 @@ impl AppResource for CronJobResource {
       app,
       area,
       Self::render,
-      draw_cronjobs_block,
+      draw_block,
       app.data.cronjobs
     );
   }
@@ -95,7 +95,7 @@ impl AppResource for CronJobResource {
   }
 }
 
-fn draw_cronjobs_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, CRON_JOBS_TITLE, "", app.data.cronjobs.items.len());
 
   draw_resource_block(

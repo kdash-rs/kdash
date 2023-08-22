@@ -95,7 +95,7 @@ impl AppResource for DynamicResource {
       app,
       area,
       Self::render,
-      draw_dynamic_res_block,
+      draw_block,
       app.data.dynamic_resources
     );
   }
@@ -131,7 +131,7 @@ impl AppResource for DynamicResource {
   }
 }
 
-fn draw_dynamic_res_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let (title, scope) = if let Some(res) = &app.data.selected.dynamic_kind {
     (res.kind.as_str(), res.scope.clone())
   } else {

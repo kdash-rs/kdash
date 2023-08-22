@@ -83,7 +83,7 @@ impl AppResource for NetworkPolicyResource {
       app,
       area,
       Self::render,
-      draw_nw_policy_block,
+      draw_block,
       app.data.nw_policies
     );
   }
@@ -96,7 +96,7 @@ impl AppResource for NetworkPolicyResource {
   }
 }
 
-fn draw_nw_policy_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, NW_POLICY_TITLE, "", app.data.nw_policies.items.len());
 
   draw_resource_block(

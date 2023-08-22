@@ -73,7 +73,7 @@ impl AppResource for StatefulSetResource {
       app,
       area,
       Self::render,
-      draw_stateful_sets_block,
+      draw_block,
       app.data.stateful_sets
     );
   }
@@ -86,7 +86,7 @@ impl AppResource for StatefulSetResource {
   }
 }
 
-fn draw_stateful_sets_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, STFS_TITLE, "", app.data.stateful_sets.items.len());
 
   draw_resource_block(

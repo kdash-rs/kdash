@@ -74,7 +74,7 @@ impl AppResource for StorageClassResource {
       app,
       area,
       Self::render,
-      draw_storage_classes_block,
+      draw_block,
       app.data.storage_classes
     );
   }
@@ -87,7 +87,7 @@ impl AppResource for StorageClassResource {
   }
 }
 
-fn draw_storage_classes_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   let title = get_cluster_wide_resource_title(
     STORAGE_CLASSES_LABEL,
     app.data.storage_classes.items.len(),
