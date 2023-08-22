@@ -420,9 +420,7 @@ mod tests {
   use tui::{backend::TestBackend, buffer::Buffer, style::Modifier, widgets::Cell, Terminal};
 
   use super::*;
-  use crate::{
-    ui::utils::{COLOR_CYAN, COLOR_WHITE, COLOR_YELLOW},
-  };
+  use crate::ui::utils::{COLOR_CYAN, COLOR_WHITE, COLOR_YELLOW};
 
   #[test]
   fn test_draw_resource_block() {
