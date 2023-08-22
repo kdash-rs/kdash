@@ -3,9 +3,26 @@ use k8s_openapi::{
   chrono::Utc,
 };
 
+use async_trait::async_trait;
+use tui::{
+  backend::Backend,
+  layout::{Constraint, Rect},
+  widgets::{Cell, Row},
+  Frame,
+};
+
 use super::{
-  models::KubeResource,
+  models::{AppResource, KubeResource},
   utils::{self, UNKNOWN},
+  ActiveBlock, App,
+};
+use crate::{
+  draw_resource_tab,
+  network::Network,
+  ui::utils::{
+    draw_describe_block, draw_resource_block, get_describe_active, get_resource_title,
+    style_primary, title_with_dual_style, ResourceTableProps, COPY_HINT, DESCRIBE_AND_YAML_HINT,
+  },
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -68,6 +85,78 @@ impl KubeResource<Service> for KubeSvc {
   fn get_k8s_obj(&self) -> &Service {
     &self.k8s_obj
   }
+}
+
+static SERVICES_TITLE: &str = "Services";
+
+pub struct SvcResource {}
+
+#[async_trait]
+impl AppResource for SvcResource {
+  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+    draw_resource_tab!(
+      SERVICES_TITLE,
+      block,
+      f,
+      app,
+      area,
+      Self::render,
+      draw_services_block,
+      app.data.services
+    );
+  }
+
+  async fn get_resource(nw: &Network<'_>) {
+    let items: Vec<KubeSvc> = nw.get_namespaced_resources(Service::into).await;
+    let mut app = nw.app.lock().await;
+    app.data.services.set_items(items);
+  }
+}
+
+fn draw_services_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let title = get_resource_title(app, SERVICES_TITLE, "", app.data.services.items.len());
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: DESCRIBE_AND_YAML_HINT.into(),
+      resource: &mut app.data.services,
+      table_headers: vec![
+        "Namespace",
+        "Name",
+        "Type",
+        "Cluster IP",
+        "External IP",
+        "Ports",
+        "Age",
+      ],
+      column_widths: vec![
+        Constraint::Percentage(10),
+        Constraint::Percentage(25),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(15),
+        Constraint::Percentage(20),
+        Constraint::Percentage(10),
+      ],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.namespace.to_owned()),
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.type_.to_owned()),
+        Cell::from(c.cluster_ip.to_owned()),
+        Cell::from(c.external_ip.to_owned()),
+        Cell::from(c.ports.to_owned()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary(app.light_theme))
+    },
+    app.light_theme,
+    app.is_loading,
+  );
 }
 
 fn get_ports(s_ports: &Option<Vec<ServicePort>>) -> Option<String> {

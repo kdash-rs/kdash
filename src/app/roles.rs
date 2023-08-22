@@ -3,7 +3,28 @@ use k8s_openapi::{
   chrono::Utc,
 };
 
-use super::{models::KubeResource, utils};
+use async_trait::async_trait;
+use tui::{
+  backend::Backend,
+  layout::{Constraint, Rect},
+  widgets::{Cell, Row},
+  Frame,
+};
+
+use super::{
+  models::{AppResource, KubeResource},
+  utils::{self},
+  ActiveBlock, App,
+};
+use crate::{
+  draw_resource_tab,
+  network::Network,
+  ui::utils::{
+    draw_describe_block, draw_resource_block, get_describe_active, get_resource_title,
+    style_primary, title_with_dual_style, ResourceTableProps, COPY_HINT,
+    DESCRIBE_YAML_AND_ESC_HINT,
+  },
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct KubeRole {
@@ -54,6 +75,63 @@ impl KubeResource<Role> for KubeRole {
   }
 }
 
+static ROLES_TITLE: &str = "Roles";
+
+pub struct RoleResource {}
+
+#[async_trait]
+impl AppResource for RoleResource {
+  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+    draw_resource_tab!(
+      ROLES_TITLE,
+      block,
+      f,
+      app,
+      area,
+      Self::render,
+      draw_roles_block,
+      app.data.roles
+    );
+  }
+
+  async fn get_resource(nw: &Network<'_>) {
+    let items: Vec<KubeRole> = nw.get_namespaced_resources(Role::into).await;
+
+    let mut app = nw.app.lock().await;
+    app.data.roles.set_items(items);
+  }
+}
+
+fn draw_roles_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let title = get_resource_title(app, ROLES_TITLE, "", app.data.roles.items.len());
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
+      resource: &mut app.data.roles,
+      table_headers: vec!["Namespace", "Name", "Age"],
+      column_widths: vec![
+        Constraint::Percentage(40),
+        Constraint::Percentage(40),
+        Constraint::Percentage(20),
+      ],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.namespace.to_owned()),
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary(app.light_theme))
+    },
+    app.light_theme,
+    app.is_loading,
+  );
+}
+
 impl From<ClusterRole> for KubeClusterRole {
   fn from(cluster_role: ClusterRole) -> Self {
     KubeClusterRole {
@@ -71,6 +149,63 @@ impl KubeResource<ClusterRole> for KubeClusterRole {
   fn get_k8s_obj(&self) -> &ClusterRole {
     &self.k8s_obj
   }
+}
+
+static CLUSTER_ROLES_TITLE: &str = "ClusterRoles";
+
+pub struct ClusterRoleResource {}
+
+#[async_trait]
+impl AppResource for ClusterRoleResource {
+  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+    draw_resource_tab!(
+      CLUSTER_ROLES_TITLE,
+      block,
+      f,
+      app,
+      area,
+      Self::render,
+      draw_cluster_roles_block,
+      app.data.cluster_roles
+    );
+  }
+
+  async fn get_resource(nw: &Network<'_>) {
+    let items: Vec<KubeClusterRole> = nw.get_resources(ClusterRole::into).await;
+
+    let mut app = nw.app.lock().await;
+    app.data.cluster_roles.set_items(items);
+  }
+}
+
+fn draw_cluster_roles_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let title = get_resource_title(
+    app,
+    CLUSTER_ROLES_TITLE,
+    "",
+    app.data.cluster_roles.items.len(),
+  );
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
+      resource: &mut app.data.cluster_roles,
+      table_headers: vec!["Name", "Age"],
+      column_widths: vec![Constraint::Percentage(50), Constraint::Percentage(50)],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary(app.light_theme))
+    },
+    app.light_theme,
+    app.is_loading,
+  );
 }
 
 impl From<RoleBinding> for KubeRoleBinding {
@@ -93,6 +228,70 @@ impl KubeResource<RoleBinding> for KubeRoleBinding {
   }
 }
 
+static ROLE_BINDINGS_TITLE: &str = "RoleBindings";
+
+pub struct RoleBindingResource {}
+
+#[async_trait]
+impl AppResource for RoleBindingResource {
+  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+    draw_resource_tab!(
+      ROLE_BINDINGS_TITLE,
+      block,
+      f,
+      app,
+      area,
+      Self::render,
+      draw_role_bindings_block,
+      app.data.role_bindings
+    );
+  }
+
+  async fn get_resource(nw: &Network<'_>) {
+    let items: Vec<KubeRoleBinding> = nw.get_namespaced_resources(RoleBinding::into).await;
+
+    let mut app = nw.app.lock().await;
+    app.data.role_bindings.set_items(items);
+  }
+}
+
+fn draw_role_bindings_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let title = get_resource_title(
+    app,
+    ROLE_BINDINGS_TITLE,
+    "",
+    app.data.role_bindings.items.len(),
+  );
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
+      resource: &mut app.data.role_bindings,
+      table_headers: vec!["Namespace", "Name", "Role", "Age"],
+      column_widths: vec![
+        Constraint::Percentage(20),
+        Constraint::Percentage(30),
+        Constraint::Percentage(30),
+        Constraint::Percentage(20),
+      ],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.namespace.to_owned()),
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.role.to_owned()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary(app.light_theme))
+    },
+    app.light_theme,
+    app.is_loading,
+  );
+}
+
 impl From<ClusterRoleBinding> for KubeClusterRoleBinding {
   fn from(crb: ClusterRoleBinding) -> Self {
     KubeClusterRoleBinding {
@@ -108,6 +307,68 @@ impl KubeResource<ClusterRoleBinding> for KubeClusterRoleBinding {
   fn get_k8s_obj(&self) -> &ClusterRoleBinding {
     &self.k8s_obj
   }
+}
+
+static CLUSTER_ROLES_BINDING_TITLE: &str = "ClusterRoleBinding";
+
+pub struct ClusterRoleBindingResource {}
+
+#[async_trait]
+impl AppResource for ClusterRoleBindingResource {
+  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+    draw_resource_tab!(
+      CLUSTER_ROLES_BINDING_TITLE,
+      block,
+      f,
+      app,
+      area,
+      Self::render,
+      draw_cluster_role_binding_block,
+      app.data.cluster_role_bindings
+    );
+  }
+
+  async fn get_resource(nw: &Network<'_>) {
+    let items: Vec<KubeClusterRoleBinding> = nw.get_resources(ClusterRoleBinding::into).await;
+
+    let mut app = nw.app.lock().await;
+    app.data.cluster_role_bindings.set_items(items);
+  }
+}
+
+fn draw_cluster_role_binding_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let title = get_resource_title(
+    app,
+    CLUSTER_ROLES_BINDING_TITLE,
+    "",
+    app.data.cluster_role_bindings.items.len(),
+  );
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
+      resource: &mut app.data.cluster_role_bindings,
+      table_headers: vec!["Name", "Role", "Age"],
+      column_widths: vec![
+        Constraint::Percentage(40),
+        Constraint::Percentage(40),
+        Constraint::Percentage(20),
+      ],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.role.to_owned()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary(app.light_theme))
+    },
+    app.light_theme,
+    app.is_loading,
+  );
 }
 
 #[cfg(test)]

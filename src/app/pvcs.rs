@@ -2,7 +2,28 @@ use k8s_openapi::{
   api::core::v1::PersistentVolumeClaim, apimachinery::pkg::api::resource::Quantity, chrono::Utc,
 };
 
-use super::{models::KubeResource, utils};
+use async_trait::async_trait;
+use tui::{
+  backend::Backend,
+  layout::{Constraint, Rect},
+  widgets::{Cell, Row},
+  Frame,
+};
+
+use super::{
+  models::{AppResource, KubeResource},
+  utils::{self},
+  ActiveBlock, App,
+};
+use crate::{
+  draw_resource_tab,
+  network::Network,
+  ui::utils::{
+    draw_describe_block, draw_resource_block, get_describe_active, get_resource_title,
+    style_primary, title_with_dual_style, ResourceTableProps, COPY_HINT,
+    DESCRIBE_YAML_AND_ESC_HINT,
+  },
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct KubePVC {
@@ -67,6 +88,85 @@ impl KubeResource<PersistentVolumeClaim> for KubePVC {
   fn get_k8s_obj(&self) -> &PersistentVolumeClaim {
     &self.k8s_obj
   }
+}
+
+static PVC_TITLE: &str = "PersistentVolumeClaims";
+
+pub struct PvcResource {}
+
+#[async_trait]
+impl AppResource for PvcResource {
+  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+    draw_resource_tab!(
+      PVC_TITLE,
+      block,
+      f,
+      app,
+      area,
+      Self::render,
+      draw_pvc_block,
+      app.data.pvcs
+    );
+  }
+
+  async fn get_resource(nw: &Network<'_>) {
+    let items: Vec<KubePVC> = nw
+      .get_namespaced_resources(PersistentVolumeClaim::into)
+      .await;
+
+    let mut app = nw.app.lock().await;
+    app.data.pvcs.set_items(items);
+  }
+}
+
+fn draw_pvc_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let title = get_resource_title(app, PVC_TITLE, "", app.data.pvcs.items.len());
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
+      resource: &mut app.data.pvcs,
+      table_headers: vec![
+        "Namespace",
+        "Name",
+        "Status",
+        "Volume",
+        "Capacity",
+        "Access Modes",
+        "Storage Class",
+        "Age",
+      ],
+      column_widths: vec![
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(20),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+      ],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.namespace.to_owned()),
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.status.to_owned()),
+        Cell::from(c.volume.to_owned()),
+        Cell::from(c.capacity.to_owned()),
+        Cell::from(c.access_modes.to_owned()),
+        Cell::from(c.storage_class.to_owned()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary(app.light_theme))
+    },
+    app.light_theme,
+    app.is_loading,
+  );
 }
 
 #[cfg(test)]

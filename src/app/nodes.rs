@@ -2,13 +2,35 @@ use k8s_openapi::{
   api::core::v1::{Node, Pod},
   chrono::Utc,
 };
-use kube::api::ObjectList;
+use kube::{
+  api::{ListParams, ObjectList},
+  core::ListMeta,
+  Api,
+};
 use tokio::sync::MutexGuard;
 
+use anyhow::anyhow;
+use async_trait::async_trait;
+use tui::{
+  backend::Backend,
+  layout::{Constraint, Rect},
+  widgets::{Cell, Row},
+  Frame,
+};
+
 use super::{
-  models::KubeResource,
+  metrics::{self, KubeNodeMetrics},
+  models::{AppResource, KubeResource},
   utils::{self, UNKNOWN},
-  App,
+  ActiveBlock, App,
+};
+use crate::{
+  network::Network,
+  ui::utils::{
+    draw_describe_block, draw_resource_block, get_cluster_wide_resource_title, get_describe_active,
+    style_failure, style_primary, title_with_dual_style, ResourceTableProps, COPY_HINT,
+    DESCRIBE_AND_YAML_HINT,
+  },
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -156,6 +178,146 @@ impl KubeResource<Node> for KubeNode {
   fn get_k8s_obj(&self) -> &Node {
     &self.k8s_obj
   }
+}
+
+static NODES_TITLE: &str = "Nodes";
+
+pub struct NodeResource {}
+
+#[async_trait]
+impl AppResource for NodeResource {
+  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+    match block {
+      ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
+        f,
+        app,
+        area,
+        title_with_dual_style(
+          get_cluster_wide_resource_title(
+            NODES_TITLE,
+            app.data.nodes.items.len(),
+            get_describe_active(block),
+          ),
+          format!("{} | {} <esc> ", COPY_HINT, NODES_TITLE),
+          app.light_theme,
+        ),
+      ),
+      ActiveBlock::Namespaces => Self::render(app.get_prev_route().active_block, f, app, area),
+      _ => draw_nodes_block(f, app, area),
+    };
+  }
+
+  async fn get_resource(nw: &Network<'_>) {
+    let lp = ListParams::default();
+    let api_pods: Api<Pod> = Api::all(nw.client.clone());
+    let api_nodes: Api<Node> = Api::all(nw.client.clone());
+
+    match api_nodes.list(&lp).await {
+      Ok(node_list) => {
+        get_node_metrics(nw).await;
+
+        let pods_list = match api_pods.list(&lp).await {
+          Ok(list) => list,
+          Err(_) => ObjectList {
+            metadata: ListMeta::default(),
+            items: vec![],
+          },
+        };
+
+        let mut app = nw.app.lock().await;
+
+        let items = node_list
+          .iter()
+          .map(|node| KubeNode::from_api_with_pods(node, &pods_list, &mut app))
+          .collect::<Vec<_>>();
+
+        app.data.nodes.set_items(items);
+      }
+      Err(e) => {
+        nw.handle_error(anyhow!("Failed to get nodes. {:?}", e))
+          .await;
+      }
+    }
+  }
+}
+
+async fn get_node_metrics(nw: &Network<'_>) {
+  let api_node_metrics: Api<metrics::NodeMetrics> = Api::all(nw.client.clone());
+
+  match api_node_metrics.list(&ListParams::default()).await {
+    Ok(node_metrics) => {
+      let mut app = nw.app.lock().await;
+
+      let items = node_metrics
+        .iter()
+        .map(|metric| KubeNodeMetrics::from_api(metric, &app))
+        .collect();
+
+      app.data.node_metrics = items;
+    }
+    Err(_) => {
+      let mut app = nw.app.lock().await;
+      app.data.node_metrics = vec![];
+      // lets not show error as it will always be showing up and be annoying
+      // TODO may be show once and then disable polling
+    }
+  };
+}
+
+fn draw_nodes_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let title = get_cluster_wide_resource_title(NODES_TITLE, app.data.nodes.items.len(), "");
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: DESCRIBE_AND_YAML_HINT.into(),
+      resource: &mut app.data.nodes,
+      table_headers: vec![
+        "Name", "Status", "Roles", "Version", "Pods", "CPU", "Mem", "CPU %", "Mem %", "CPU/A",
+        "Mem/A", "Age",
+      ],
+      column_widths: vec![
+        Constraint::Percentage(25),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(5),
+        Constraint::Percentage(5),
+        Constraint::Percentage(5),
+        Constraint::Percentage(5),
+        Constraint::Percentage(5),
+        Constraint::Percentage(5),
+        Constraint::Percentage(5),
+        Constraint::Percentage(10),
+      ],
+    },
+    |c| {
+      let style = if c.status != "Ready" {
+        style_failure(app.light_theme)
+      } else {
+        style_primary(app.light_theme)
+      };
+      Row::new(vec![
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.status.to_owned()),
+        Cell::from(c.role.to_owned()),
+        Cell::from(c.version.to_owned()),
+        Cell::from(c.pods.to_string()),
+        Cell::from(c.cpu.to_owned()),
+        Cell::from(c.mem.to_owned()),
+        Cell::from(c.cpu_percent.to_owned()),
+        Cell::from(c.mem_percent.to_owned()),
+        Cell::from(c.cpu_a.to_owned()),
+        Cell::from(c.mem_a.to_owned()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style)
+    },
+    app.light_theme,
+    app.is_loading,
+  );
 }
 
 #[cfg(test)]

@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 
+use async_trait::async_trait;
 use serde::Serialize;
 use tui::{
   backend::Backend,
@@ -10,8 +11,16 @@ use tui::{
   Frame,
 };
 
-use super::Route;
+use crate::network::Network;
 
+use super::{ActiveBlock, App, Route};
+
+#[async_trait]
+pub trait AppResource {
+  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect);
+
+  async fn get_resource(network: &Network<'_>);
+}
 pub trait KubeResource<T: Serialize> {
   fn get_k8s_obj(&self) -> &T;
 

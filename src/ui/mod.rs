@@ -1,9 +1,7 @@
-mod contexts;
 mod help;
 mod overview;
-mod resource_tabs;
-mod utilization;
-mod utils;
+pub mod resource_tabs;
+pub mod utils;
 
 use tui::{
   backend::Backend,
@@ -14,18 +12,19 @@ use tui::{
 };
 
 use self::{
-  contexts::draw_contexts,
   help::draw_help,
   overview::draw_overview,
-  utilization::draw_utilization,
   utils::{
     horizontal_chunks_with_margin, layout_block, style_default, style_failure, style_help,
     style_main_background, style_primary, style_secondary, title_style_logo, vertical_chunks,
   },
 };
-use crate::app::{App, RouteId};
+use crate::app::{
+  contexts::ContextResource, metrics::UtilizationResource, models::AppResource, ActiveBlock, App,
+  RouteId,
+};
 
-static HIGHLIGHT: &str = "=> ";
+pub static HIGHLIGHT: &str = "=> ";
 
 pub fn draw<B: Backend>(f: &mut Frame<'_, B>, app: &mut App) {
   let block = Block::default().style(style_main_background(app.light_theme));
@@ -55,10 +54,10 @@ pub fn draw<B: Backend>(f: &mut Frame<'_, B>, app: &mut App) {
       draw_help(f, app, last_chunk);
     }
     RouteId::Contexts => {
-      draw_contexts(f, app, last_chunk);
+      ContextResource::render(ActiveBlock::Contexts, f, app, last_chunk);
     }
     RouteId::Utilization => {
-      draw_utilization(f, app, last_chunk);
+      UtilizationResource::render(ActiveBlock::Utilization, f, app, last_chunk);
     }
     _ => {
       draw_overview(f, app, last_chunk);

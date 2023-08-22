@@ -6,9 +6,27 @@ use k8s_openapi::{
   chrono::Utc,
 };
 
+use async_trait::async_trait;
+use tui::{
+  backend::Backend,
+  layout::{Constraint, Rect},
+  style::Style,
+  widgets::{Cell, Row},
+  Frame,
+};
+
 use super::{
-  models::KubeResource,
+  models::{AppResource, KubeResource},
   utils::{self, UNKNOWN},
+  ActiveBlock, App,
+};
+use crate::{
+  network::Network,
+  ui::utils::{
+    draw_describe_block, draw_resource_block, get_describe_active, get_resource_title,
+    layout_block_top_border, loading, style_failure, style_primary, style_secondary, style_success,
+    title_with_dual_style, ResourceTableProps, COPY_HINT, DESCRIBE_AND_YAML_HINT,
+  },
 };
 
 #[derive(Clone, Default, Debug, PartialEq)]
@@ -123,6 +141,203 @@ impl From<Pod> for KubePod {
 impl KubeResource<Pod> for KubePod {
   fn get_k8s_obj(&self) -> &Pod {
     &self.k8s_obj
+  }
+}
+
+static PODS_TITLE: &str = "Pods";
+pub struct PodResource {}
+
+#[async_trait]
+impl AppResource for PodResource {
+  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+    match block {
+      ActiveBlock::Containers => draw_containers_block(f, app, area),
+      ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
+        f,
+        app,
+        area,
+        title_with_dual_style(
+          get_resource_title(
+            app,
+            PODS_TITLE,
+            get_describe_active(block),
+            app.data.pods.items.len(),
+          ),
+          format!("{} | {} <esc> ", COPY_HINT, PODS_TITLE),
+          app.light_theme,
+        ),
+      ),
+      ActiveBlock::Logs => draw_logs_block(f, app, area),
+      ActiveBlock::Namespaces => Self::render(app.get_prev_route().active_block, f, app, area),
+      _ => draw_pods_block(f, app, area),
+    }
+  }
+
+  async fn get_resource(nw: &Network<'_>) {
+    let items: Vec<KubePod> = nw.get_namespaced_resources(Pod::into).await;
+
+    let mut app = nw.app.lock().await;
+    if app.data.selected.pod.is_some() {
+      let containers = &items.iter().find_map(|pod| {
+        if pod.name == app.data.selected.pod.clone().unwrap() {
+          Some(&pod.containers)
+        } else {
+          None
+        }
+      });
+      if containers.is_some() {
+        app.data.containers.set_items(containers.unwrap().clone());
+      }
+    }
+    app.data.pods.set_items(items);
+  }
+}
+
+fn draw_pods_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let title = get_resource_title(app, PODS_TITLE, "", app.data.pods.items.len());
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: format!("| Containers <enter> {}", DESCRIBE_AND_YAML_HINT),
+      resource: &mut app.data.pods,
+      table_headers: vec!["Namespace", "Name", "Ready", "Status", "Restarts", "Age"],
+      column_widths: vec![
+        Constraint::Percentage(25),
+        Constraint::Percentage(35),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+      ],
+    },
+    |c| {
+      let style = get_resource_row_style(c.status.as_str(), c.ready, app.light_theme);
+      Row::new(vec![
+        Cell::from(c.namespace.to_owned()),
+        Cell::from(c.name.to_owned()),
+        Cell::from(format!("{}/{}", c.ready.0, c.ready.1)),
+        Cell::from(c.status.to_owned()),
+        Cell::from(c.restarts.to_string()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style)
+    },
+    app.light_theme,
+    app.is_loading,
+  );
+}
+
+fn draw_containers_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let title = get_container_title(app, app.data.containers.items.len(), "");
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: format!("| Logs <enter> | {} <esc> ", PODS_TITLE),
+      resource: &mut app.data.containers,
+      table_headers: vec![
+        "Name",
+        "Image",
+        "Init",
+        "Ready",
+        "State",
+        "Restarts",
+        "Probes(L/R)",
+        "Ports",
+        "Age",
+      ],
+      column_widths: vec![
+        Constraint::Percentage(20),
+        Constraint::Percentage(25),
+        Constraint::Percentage(5),
+        Constraint::Percentage(5),
+        Constraint::Percentage(10),
+        Constraint::Percentage(5),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+      ],
+    },
+    |c| {
+      let style = get_resource_row_style(c.status.as_str(), (0, 0), app.light_theme);
+      Row::new(vec![
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.image.to_owned()),
+        Cell::from(c.init.to_string()),
+        Cell::from(c.ready.to_owned()),
+        Cell::from(c.status.to_owned()),
+        Cell::from(c.restarts.to_string()),
+        Cell::from(format!("{}/{}", c.liveliness_probe, c.readiness_probe,)),
+        Cell::from(c.ports.to_owned()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style)
+    },
+    app.light_theme,
+    app.is_loading,
+  );
+}
+
+fn get_container_title<S: AsRef<str>>(app: &App, container_len: usize, suffix: S) -> String {
+  let title = get_resource_title(
+    app,
+    PODS_TITLE,
+    format!("-> Containers [{}] {}", container_len, suffix.as_ref()).as_str(),
+    app.data.pods.items.len(),
+  );
+  title
+}
+
+fn draw_logs_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let selected_container = app.data.selected.container.clone();
+  let container_name = selected_container.unwrap_or_default();
+
+  let title = title_with_dual_style(
+    get_container_title(
+      app,
+      app.data.containers.items.len(),
+      format!("-> Logs ({}) ", container_name),
+    ),
+    "| copy <c> | Containers <esc> ".into(),
+    app.light_theme,
+  );
+
+  let block = layout_block_top_border(title);
+
+  if container_name == app.data.logs.id {
+    app.data.logs.render_list(
+      f,
+      area,
+      block,
+      style_primary(app.light_theme),
+      app.log_auto_scroll,
+    );
+  } else {
+    loading(f, block, area, app.is_loading, app.light_theme);
+  }
+}
+
+fn get_resource_row_style(status: &str, ready: (i32, i32), light: bool) -> Style {
+  if status == "Running" && ready.0 == ready.1 {
+    style_primary(light)
+  } else if status == "Completed" {
+    style_success(light)
+  } else if [
+    "ContainerCreating",
+    "PodInitializing",
+    "Pending",
+    "Initialized",
+  ]
+  .contains(&status)
+  {
+    style_secondary(light)
+  } else {
+    style_failure(light)
   }
 }
 
@@ -325,6 +540,15 @@ fn get_container_ports(ports_ref: &Option<Vec<ContainerPort>>) -> Option<String>
 mod tests {
   use super::*;
   use crate::app::test_utils::*;
+
+  #[test]
+  fn test_get_container_title() {
+    let app = App::default();
+    assert_eq!(
+      get_container_title(&app, 3, "hello"),
+      " Pods (ns: all) [0] -> Containers [3] hello"
+    );
+  }
 
   #[test]
   fn test_pod_from_api() {

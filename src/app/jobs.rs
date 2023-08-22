@@ -1,6 +1,25 @@
 use k8s_openapi::{api::batch::v1::Job, chrono::Utc};
 
-use super::{models::KubeResource, utils};
+use async_trait::async_trait;
+use tui::{
+  backend::Backend,
+  layout::{Constraint, Rect},
+  widgets::{Cell, Row},
+  Frame,
+};
+
+use super::{
+  models::{AppResource, KubeResource},
+  utils, ActiveBlock, App,
+};
+use crate::{
+  draw_resource_tab,
+  network::Network,
+  ui::utils::{
+    draw_describe_block, draw_resource_block, get_describe_active, get_resource_title,
+    style_primary, title_with_dual_style, ResourceTableProps, COPY_HINT, DESCRIBE_AND_YAML_HINT,
+  },
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct KubeJob {
@@ -55,6 +74,67 @@ impl KubeResource<Job> for KubeJob {
   fn get_k8s_obj(&self) -> &Job {
     &self.k8s_obj
   }
+}
+
+static JOBS_TITLE: &str = "Jobs";
+
+pub struct JobResource {}
+
+#[async_trait]
+impl AppResource for JobResource {
+  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+    draw_resource_tab!(
+      JOBS_TITLE,
+      block,
+      f,
+      app,
+      area,
+      Self::render,
+      draw_jobs_block,
+      app.data.jobs
+    );
+  }
+
+  async fn get_resource(nw: &Network<'_>) {
+    let items: Vec<KubeJob> = nw.get_namespaced_resources(Job::into).await;
+
+    let mut app = nw.app.lock().await;
+    app.data.jobs.set_items(items);
+  }
+}
+
+fn draw_jobs_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let title = get_resource_title(app, JOBS_TITLE, "", app.data.jobs.items.len());
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: DESCRIBE_AND_YAML_HINT.into(),
+      resource: &mut app.data.jobs,
+      table_headers: vec!["Namespace", "Name", "Completions", "Duration", "Age"],
+      column_widths: vec![
+        Constraint::Percentage(25),
+        Constraint::Percentage(40),
+        Constraint::Percentage(15),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+      ],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.namespace.to_owned()),
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.completions.to_owned()),
+        Cell::from(c.duration.to_string()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary(app.light_theme))
+    },
+    app.light_theme,
+    app.is_loading,
+  );
 }
 
 #[cfg(test)]
