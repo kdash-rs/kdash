@@ -54,6 +54,7 @@ pub struct Cli {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+  openssl_probe::init_ssl_cert_env_vars();
   panic::set_hook(Box::new(|info| {
     panic_hook(info);
   }));

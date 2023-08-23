@@ -19,6 +19,7 @@ edition = "2021"
 [badges]
 
 [dependencies]
+openssl-probe = "0.1.2"
 crossterm = "0.26.1"
 tui = { version = "0.19", default-features = false, features = ['crossterm'] }
 serde = { version = "1.0", features = ["derive"] }
