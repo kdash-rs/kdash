@@ -26,7 +26,7 @@ lint:
 
 ## Fix lint
 lint-fix:  
-	@cargo fix
+	@cargo fix --allow-staged
 
 ## Run format
 fmt:  

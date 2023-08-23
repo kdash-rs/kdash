@@ -1,8 +1,26 @@
 use std::collections::BTreeMap;
 
+use async_trait::async_trait;
 use k8s_openapi::{api::core::v1::ConfigMap, chrono::Utc};
+use tui::{
+  backend::Backend,
+  layout::{Constraint, Rect},
+  widgets::{Cell, Row},
+  Frame,
+};
 
-use super::{models::KubeResource, utils};
+use super::{
+  models::{AppResource, KubeResource},
+  utils, ActiveBlock, App,
+};
+use crate::{
+  draw_resource_tab,
+  network::Network,
+  ui::utils::{
+    draw_describe_block, draw_resource_block, get_describe_active, get_resource_title,
+    style_primary, title_with_dual_style, ResourceTableProps, COPY_HINT, DESCRIBE_AND_YAML_HINT,
+  },
+};
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct KubeConfigMap {
@@ -29,6 +47,65 @@ impl KubeResource<ConfigMap> for KubeConfigMap {
   fn get_k8s_obj(&self) -> &ConfigMap {
     &self.k8s_obj
   }
+}
+
+static CONFIG_MAPS_TITLE: &str = "ConfigMaps";
+
+pub struct ConfigMapResource {}
+
+#[async_trait]
+impl AppResource for ConfigMapResource {
+  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+    draw_resource_tab!(
+      CONFIG_MAPS_TITLE,
+      block,
+      f,
+      app,
+      area,
+      Self::render,
+      draw_block,
+      app.data.config_maps
+    );
+  }
+
+  async fn get_resource(nw: &Network<'_>) {
+    let items: Vec<KubeConfigMap> = nw.get_namespaced_resources(ConfigMap::into).await;
+
+    let mut app = nw.app.lock().await;
+    app.data.config_maps.set_items(items);
+  }
+}
+
+fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  let title = get_resource_title(app, CONFIG_MAPS_TITLE, "", app.data.config_maps.items.len());
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: DESCRIBE_AND_YAML_HINT.into(),
+      resource: &mut app.data.config_maps,
+      table_headers: vec!["Namespace", "Name", "Data", "Age"],
+      column_widths: vec![
+        Constraint::Percentage(30),
+        Constraint::Percentage(40),
+        Constraint::Percentage(15),
+        Constraint::Percentage(15),
+      ],
+    },
+    |c| {
+      Row::new(vec![
+        Cell::from(c.namespace.to_owned()),
+        Cell::from(c.name.to_owned()),
+        Cell::from(c.data.len().to_string()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style_primary(app.light_theme))
+    },
+    app.light_theme,
+    app.is_loading,
+  );
 }
 
 #[cfg(test)]

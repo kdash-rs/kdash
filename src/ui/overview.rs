@@ -10,13 +10,11 @@ use super::{
   resource_tabs::draw_resource_tabs_block,
   utils::{
     get_gauge_style, horizontal_chunks, layout_block_default, loading, style_default,
-    style_failure, style_highlight, style_logo, style_primary, style_secondary, table_header_style,
-    vertical_chunks, vertical_chunks_with_margin,
+    style_failure, style_logo, style_primary, vertical_chunks, vertical_chunks_with_margin,
   },
-  HIGHLIGHT,
 };
 use crate::{
-  app::{key_binding::DEFAULT_KEYBINDING, metrics::KubeNodeMetrics, ActiveBlock, App},
+  app::{metrics::KubeNodeMetrics, models::AppResource, ns::NamespaceResource, ActiveBlock, App},
   banner::BANNER,
 };
 
@@ -41,7 +39,7 @@ fn draw_status_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect
     area,
   );
 
-  draw_namespaces_block(f, app, chunks[0]);
+  NamespaceResource::render(ActiveBlock::Namespaces, f, app, chunks[0]);
   draw_context_info_block(f, app, chunks[1]);
   draw_cli_version_block(f, app, chunks[2]);
   draw_logo_block(f, app, chunks[3])
@@ -152,44 +150,6 @@ fn draw_context_info_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area
     .ratio(limited_ratio)
     .label(Spans::from(format!("{:.0}%", ratio * 100.0)));
   f.render_widget(mem_gauge, chunks[2]);
-}
-
-fn draw_namespaces_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
-  let title = format!(
-    " Namespaces {} (all: {}) ",
-    DEFAULT_KEYBINDING.jump_to_namespace.key, DEFAULT_KEYBINDING.select_all_namespace.key
-  );
-  let mut block = layout_block_default(title.as_str());
-
-  if app.get_current_route().active_block == ActiveBlock::Namespaces {
-    block = block.style(style_secondary(app.light_theme))
-  }
-
-  if !app.data.namespaces.items.is_empty() {
-    let rows = app.data.namespaces.items.iter().map(|s| {
-      let style = if Some(s.name.clone()) == app.data.selected.ns {
-        style_secondary(app.light_theme)
-      } else {
-        style_primary(app.light_theme)
-      };
-      Row::new(vec![
-        Cell::from(s.name.as_ref()),
-        Cell::from(s.status.as_ref()),
-      ])
-      .style(style)
-    });
-
-    let table = Table::new(rows)
-      .header(table_header_style(vec!["Name", "Status"], app.light_theme))
-      .block(block)
-      .highlight_style(style_highlight())
-      .highlight_symbol(HIGHLIGHT)
-      .widths(&[Constraint::Length(22), Constraint::Length(6)]);
-
-    f.render_stateful_widget(table, area, &mut app.data.namespaces.state);
-  } else {
-    loading(f, block, area, app.is_loading, app.light_theme);
-  }
 }
 
 // Utility methods

@@ -6,10 +6,20 @@ use tui::{
   style::{Color, Modifier, Style},
   symbols,
   text::{Span, Spans, Text},
-  widgets::{Block, Borders, Paragraph, Row},
+  widgets::{Block, Borders, Paragraph, Row, Table, Wrap},
   Frame,
 };
+
+use crate::app::{models::StatefulTable, ActiveBlock, App};
+
+use super::HIGHLIGHT;
 // Utils
+
+pub static COPY_HINT: &str = "| copy <c>";
+pub static DESCRIBE_AND_YAML_HINT: &str = "| describe <d> | yaml <y> ";
+pub static DESCRIBE_YAML_AND_ESC_HINT: &str = "| describe <d> | yaml <y> | back to menu <esc> ";
+pub static DESCRIBE_YAML_DECODE_AND_ESC_HINT: &str =
+  "| describe <d> | yaml <y> | decode <x> | back to menu <esc> ";
 
 // default colors
 pub const COLOR_TEAL: Color = Color::Rgb(35, 50, 55);
@@ -270,5 +280,292 @@ pub fn loading<B: Backend>(
     f.render_widget(paragraph, area);
   } else {
     f.render_widget(block, area)
+  }
+}
+
+// using a macro to reuse code as generics will make handling lifetimes a PITA
+#[macro_export]
+macro_rules! draw_resource_tab {
+  ($title:expr, $block:expr, $f:expr, $app:expr, $area:expr, $fn1:expr, $fn2:expr, $res:expr) => {
+    match $block {
+      ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
+        $f,
+        $app,
+        $area,
+        title_with_dual_style(
+          get_resource_title($app, $title, get_describe_active($block), $res.items.len()),
+          format!("{} | {} <esc> ", COPY_HINT, $title),
+          $app.light_theme,
+        ),
+      ),
+      ActiveBlock::Namespaces => $fn1($app.get_prev_route().active_block, $f, $app, $area),
+      _ => $fn2($f, $app, $area),
+    };
+  };
+}
+
+pub struct ResourceTableProps<'a, T> {
+  pub title: String,
+  pub inline_help: String,
+  pub resource: &'a mut StatefulTable<T>,
+  pub table_headers: Vec<&'a str>,
+  pub column_widths: Vec<Constraint>,
+}
+/// common for all resources
+pub fn draw_describe_block<B: Backend>(
+  f: &mut Frame<'_, B>,
+  app: &mut App,
+  area: Rect,
+  title: Spans<'_>,
+) {
+  let block = layout_block_top_border(title);
+
+  let txt = &app.data.describe_out.get_txt();
+  if !txt.is_empty() {
+    let mut txt = Text::from(txt.clone());
+    txt.patch_style(style_primary(app.light_theme));
+
+    let paragraph = Paragraph::new(txt)
+      .block(block)
+      .wrap(Wrap { trim: false })
+      .scroll((app.data.describe_out.offset, 0));
+    f.render_widget(paragraph, area);
+  } else {
+    loading(f, block, area, app.is_loading, app.light_theme);
+  }
+}
+
+/// Draw a kubernetes resource overview tab
+pub fn draw_resource_block<'a, B, T, F>(
+  f: &mut Frame<'_, B>,
+  area: Rect,
+  table_props: ResourceTableProps<'a, T>,
+  row_cell_mapper: F,
+  light_theme: bool,
+  is_loading: bool,
+) where
+  B: Backend,
+  F: Fn(&T) -> Row<'a>,
+{
+  let title = title_with_dual_style(table_props.title, table_props.inline_help, light_theme);
+  let block = layout_block_top_border(title);
+
+  if !table_props.resource.items.is_empty() {
+    let rows = table_props
+      .resource
+      .items
+      .iter()
+      //   .map(|c| { Row::new(row_cell_mapper(c)) }.style(style_primary()));
+      .map(row_cell_mapper);
+
+    let table = Table::new(rows)
+      .header(table_header_style(table_props.table_headers, light_theme))
+      .block(block)
+      .highlight_style(style_highlight())
+      .highlight_symbol(HIGHLIGHT)
+      .widths(&table_props.column_widths);
+
+    f.render_stateful_widget(table, area, &mut table_props.resource.state);
+  } else {
+    loading(f, block, area, is_loading, light_theme);
+  }
+}
+
+pub fn get_cluster_wide_resource_title<S: AsRef<str>>(
+  title: S,
+  items_len: usize,
+  suffix: S,
+) -> String {
+  format!(" {} [{}] {}", title.as_ref(), items_len, suffix.as_ref())
+}
+
+pub fn get_resource_title<S: AsRef<str>>(
+  app: &App,
+  title: S,
+  suffix: S,
+  items_len: usize,
+) -> String {
+  format!(
+    " {} {}",
+    title_with_ns(
+      title.as_ref(),
+      app
+        .data
+        .selected
+        .ns
+        .as_ref()
+        .unwrap_or(&String::from("all")),
+      items_len
+    ),
+    suffix.as_ref(),
+  )
+}
+
+static DESCRIBE_ACTIVE: &str = "-> Describe ";
+static YAML_ACTIVE: &str = "-> YAML ";
+
+pub fn get_describe_active<'a>(block: ActiveBlock) -> &'a str {
+  match block {
+    ActiveBlock::Describe => DESCRIBE_ACTIVE,
+    _ => YAML_ACTIVE,
+  }
+}
+
+pub fn title_with_ns(title: &str, ns: &str, length: usize) -> String {
+  format!("{} (ns: {}) [{}]", title, ns, length)
+}
+
+#[cfg(test)]
+mod tests {
+  use tui::{backend::TestBackend, buffer::Buffer, style::Modifier, widgets::Cell, Terminal};
+
+  use super::*;
+  use crate::ui::utils::{COLOR_CYAN, COLOR_WHITE, COLOR_YELLOW};
+
+  #[test]
+  fn test_draw_resource_block() {
+    let backend = TestBackend::new(100, 6);
+    let mut terminal = Terminal::new(backend).unwrap();
+
+    struct RenderTest {
+      pub name: String,
+      pub namespace: String,
+      pub data: i32,
+      pub age: String,
+    }
+    terminal
+      .draw(|f| {
+        let size = f.size();
+        let mut resource: StatefulTable<RenderTest> = StatefulTable::new();
+        resource.set_items(vec![
+          RenderTest {
+            name: "Test 1".into(),
+            namespace: "Test ns".into(),
+            age: "65h3m".into(),
+            data: 5,
+          },
+          RenderTest {
+            name: "Test long name that should be truncated from view".into(),
+            namespace: "Test ns".into(),
+            age: "65h3m".into(),
+            data: 3,
+          },
+          RenderTest {
+            name: "test_long_name_that_should_be_truncated_from_view".into(),
+            namespace: "Test ns long value check that should be truncated".into(),
+            age: "65h3m".into(),
+            data: 6,
+          },
+        ]);
+        draw_resource_block(
+          f,
+          size,
+          ResourceTableProps {
+            title: "Test".into(),
+            inline_help: "-> yaml <y>".into(),
+            resource: &mut resource,
+            table_headers: vec!["Namespace", "Name", "Data", "Age"],
+            column_widths: vec![
+              Constraint::Percentage(30),
+              Constraint::Percentage(40),
+              Constraint::Percentage(15),
+              Constraint::Percentage(15),
+            ],
+          },
+          |c| {
+            Row::new(vec![
+              Cell::from(c.namespace.to_owned()),
+              Cell::from(c.name.to_owned()),
+              Cell::from(c.data.to_string()),
+              Cell::from(c.age.to_owned()),
+            ])
+            .style(style_primary(false))
+          },
+          false,
+          false,
+        );
+      })
+      .unwrap();
+
+    let mut expected = Buffer::with_lines(vec![
+        "Test-> yaml <y>─────────────────────────────────────────────────────────────────────────────────────",
+        "   Namespace                      Name                                     Data            Age      ",
+        "=> Test ns                        Test 1                                   5               65h3m    ",
+        "   Test ns                        Test long name that should be truncated  3               65h3m    ",
+        "   Test ns long value check that  test_long_name_that_should_be_truncated_ 6               65h3m    ",
+        "                                                                                                    ",
+      ]);
+    // set row styles
+    // First row heading style
+    for col in 0..=99 {
+      match col {
+        0..=3 => {
+          expected.get_mut(col, 0).set_style(
+            Style::default()
+              .fg(COLOR_YELLOW)
+              .add_modifier(Modifier::BOLD),
+          );
+        }
+        4..=14 => {
+          expected.get_mut(col, 0).set_style(
+            Style::default()
+              .fg(COLOR_WHITE)
+              .add_modifier(Modifier::BOLD),
+          );
+        }
+        _ => {}
+      }
+    }
+
+    // Second row table header style
+    for col in 0..=99 {
+      expected
+        .get_mut(col, 1)
+        .set_style(Style::default().fg(COLOR_WHITE));
+    }
+    // first table data row style
+    for col in 0..=99 {
+      expected.get_mut(col, 2).set_style(
+        Style::default()
+          .fg(COLOR_CYAN)
+          .add_modifier(Modifier::REVERSED),
+      );
+    }
+    // remaining table data row style
+    for row in 3..=4 {
+      for col in 0..=99 {
+        expected
+          .get_mut(col, row)
+          .set_style(Style::default().fg(COLOR_CYAN));
+      }
+    }
+
+    terminal.backend().assert_buffer(&expected);
+  }
+
+  #[test]
+  fn test_get_resource_title() {
+    let app = App::default();
+    assert_eq!(
+      get_resource_title(&app, "Title", "-> hello", 5),
+      " Title (ns: all) [5] -> hello"
+    );
+  }
+
+  #[test]
+  fn test_title_with_ns() {
+    assert_eq!(title_with_ns("Title", "hello", 3), "Title (ns: hello) [3]");
+  }
+
+  #[test]
+  fn test_get_cluster_wide_resource_title() {
+    assert_eq!(
+      get_cluster_wide_resource_title("Cluster Resource", 3, ""),
+      " Cluster Resource [3] "
+    );
+    assert_eq!(
+      get_cluster_wide_resource_title("Nodes", 10, "-> hello"),
+      " Nodes [10] -> hello"
+    );
   }
 }

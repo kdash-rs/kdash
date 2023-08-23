@@ -1,16 +1,43 @@
-// adapted from https://github.com/Rigellute/spotify-tui
-mod dynamic_resource;
-mod kube_api;
 pub(crate) mod stream;
 
 use core::convert::TryFrom;
-use std::sync::Arc;
+use std::{fmt, sync::Arc};
 
+use crate::app::{
+  configmaps::ConfigMapResource,
+  contexts,
+  cronjobs::CronJobResource,
+  daemonsets::DaemonSetResource,
+  deployments::DeploymentResource,
+  dynamic::{DynamicResource, KubeDynamicKind},
+  ingress::IngressResource,
+  jobs::JobResource,
+  metrics::UtilizationResource,
+  models::{AppResource, StatefulList},
+  network_policies::NetworkPolicyResource,
+  nodes::NodeResource,
+  ns::NamespaceResource,
+  pods::PodResource,
+  pvcs::PvcResource,
+  pvs::PvResource,
+  replicasets::ReplicaSetResource,
+  replication_controllers::ReplicationControllerResource,
+  roles::{ClusterRoleBindingResource, ClusterRoleResource, RoleBindingResource, RoleResource},
+  secrets::SecretResource,
+  serviceaccounts::SvcAcctResource,
+  statefulsets::StatefulSetResource,
+  storageclass::StorageClassResource,
+  svcs::SvcResource,
+  ActiveBlock, App,
+};
 use anyhow::{anyhow, Result};
-use kube::Client;
+use k8s_openapi::NamespaceResourceScope;
+use kube::{
+  api::ListParams, config::Kubeconfig, discovery::verbs, Api, Client, Discovery,
+  Resource as ApiResource,
+};
+use serde::de::DeserializeOwned;
 use tokio::sync::Mutex;
-
-use crate::app::App;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum IoEvent {
@@ -126,82 +153,82 @@ impl<'a> Network<'a> {
         self.get_kube_config().await;
       }
       IoEvent::GetNodes => {
-        self.get_nodes().await;
+        NodeResource::get_resource(self).await;
       }
       IoEvent::GetNamespaces => {
-        self.get_namespaces().await;
+        NamespaceResource::get_resource(self).await;
       }
       IoEvent::GetPods => {
-        self.get_pods().await;
+        PodResource::get_resource(self).await;
       }
       IoEvent::GetServices => {
-        self.get_services().await;
+        SvcResource::get_resource(self).await;
       }
       IoEvent::GetConfigMaps => {
-        self.get_config_maps().await;
+        ConfigMapResource::get_resource(self).await;
       }
       IoEvent::GetStatefulSets => {
-        self.get_stateful_sets().await;
+        StatefulSetResource::get_resource(self).await;
       }
       IoEvent::GetReplicaSets => {
-        self.get_replica_sets().await;
+        ReplicaSetResource::get_resource(self).await;
       }
       IoEvent::GetJobs => {
-        self.get_jobs().await;
+        JobResource::get_resource(self).await;
       }
       IoEvent::GetDaemonSets => {
-        self.get_daemon_sets_jobs().await;
+        DaemonSetResource::get_resource(self).await;
       }
       IoEvent::GetCronJobs => {
-        self.get_cron_jobs().await;
+        CronJobResource::get_resource(self).await;
       }
       IoEvent::GetSecrets => {
-        self.get_secrets().await;
+        SecretResource::get_resource(self).await;
       }
       IoEvent::GetDeployments => {
-        self.get_deployments().await;
+        DeploymentResource::get_resource(self).await;
       }
       IoEvent::GetReplicationControllers => {
-        self.get_replication_controllers().await;
+        ReplicationControllerResource::get_resource(self).await;
       }
       IoEvent::GetMetrics => {
-        self.get_utilizations().await;
+        UtilizationResource::get_resource(self).await;
       }
       IoEvent::GetStorageClasses => {
-        self.get_storage_classes().await;
+        StorageClassResource::get_resource(self).await;
       }
       IoEvent::GetRoles => {
-        self.get_roles().await;
+        RoleResource::get_resource(self).await;
       }
       IoEvent::GetRoleBindings => {
-        self.get_role_bindings().await;
+        RoleBindingResource::get_resource(self).await;
       }
       IoEvent::GetClusterRoles => {
-        self.get_cluster_roles().await;
+        ClusterRoleResource::get_resource(self).await;
       }
       IoEvent::GetClusterRoleBindings => {
-        self.get_cluster_role_binding().await;
+        ClusterRoleBindingResource::get_resource(self).await;
       }
       IoEvent::GetIngress => {
-        self.get_ingress().await;
+        IngressResource::get_resource(self).await;
       }
       IoEvent::GetPvcs => {
-        self.get_pvcs().await;
+        PvcResource::get_resource(self).await;
       }
       IoEvent::GetPvs => {
-        self.get_pvs().await;
+        PvResource::get_resource(self).await;
       }
       IoEvent::GetServiceAccounts => {
-        self.get_service_accounts().await;
+        SvcAcctResource::get_resource(self).await;
       }
       IoEvent::GetNetworkPolicies => {
-        self.get_network_policies().await;
+        NetworkPolicyResource::get_resource(self).await;
       }
       IoEvent::DiscoverDynamicRes => {
         self.discover_dynamic_resources().await;
       }
       IoEvent::GetDynamicRes => {
-        self.get_dynamic_resources().await;
+        DynamicResource::get_resource(self).await;
       }
     };
 
@@ -209,8 +236,143 @@ impl<'a> Network<'a> {
     app.is_loading = false;
   }
 
-  async fn handle_error(&self, e: anyhow::Error) {
+  pub async fn handle_error(&self, e: anyhow::Error) {
     let mut app = self.app.lock().await;
     app.handle_error(e);
+  }
+
+  pub async fn get_kube_config(&self) {
+    match Kubeconfig::read() {
+      Ok(config) => {
+        let mut app = self.app.lock().await;
+        let selected_ctx = app.data.selected.context.to_owned();
+        app.set_contexts(contexts::get_contexts(&config, selected_ctx));
+        app.data.kubeconfig = Some(config);
+      }
+      Err(e) => {
+        self
+          .handle_error(anyhow!("Failed to load Kubernetes config. {:?}", e))
+          .await;
+      }
+    }
+  }
+
+  /// calls the kubernetes API to list the given resource for either selected namespace or all namespaces
+  pub async fn get_namespaced_resources<K: ApiResource, T, F>(&self, map_fn: F) -> Vec<T>
+  where
+    <K as ApiResource>::DynamicType: Default,
+    K: kube::Resource<Scope = NamespaceResourceScope>,
+    K: Clone + DeserializeOwned + fmt::Debug,
+    F: Fn(K) -> T,
+  {
+    let api: Api<K> = self.get_namespaced_api().await;
+    let lp = ListParams::default();
+    match api.list(&lp).await {
+      Ok(list) => list.into_iter().map(map_fn).collect::<Vec<_>>(),
+      Err(e) => {
+        self
+          .handle_error(anyhow!(
+            "Failed to get namespaced resource {}. {:?}",
+            std::any::type_name::<T>(),
+            e
+          ))
+          .await;
+        vec![]
+      }
+    }
+  }
+
+  /// calls the kubernetes API to list the given resource for all namespaces
+  pub async fn get_resources<K: ApiResource, T, F>(&self, map_fn: F) -> Vec<T>
+  where
+    <K as ApiResource>::DynamicType: Default,
+    K: Clone + DeserializeOwned + fmt::Debug,
+    F: Fn(K) -> T,
+  {
+    let api: Api<K> = Api::all(self.client.clone());
+    let lp = ListParams::default();
+    match api.list(&lp).await {
+      Ok(list) => list.into_iter().map(map_fn).collect::<Vec<_>>(),
+      Err(e) => {
+        self
+          .handle_error(anyhow!(
+            "Failed to get resource {}. {:?}",
+            std::any::type_name::<T>(),
+            e
+          ))
+          .await;
+        vec![]
+      }
+    }
+  }
+
+  pub async fn get_namespaced_api<K: ApiResource>(&self) -> Api<K>
+  where
+    <K as ApiResource>::DynamicType: Default,
+    K: kube::Resource<Scope = NamespaceResourceScope>,
+  {
+    let app = self.app.lock().await;
+    match &app.data.selected.ns {
+      Some(ns) => Api::namespaced(self.client.clone(), ns),
+      None => Api::all(self.client.clone()),
+    }
+  }
+
+  /// Discover and cache custom resources on the cluster
+  pub async fn discover_dynamic_resources(&self) {
+    let discovery = match Discovery::new(self.client.clone()).run().await {
+      Ok(d) => d,
+      Err(e) => {
+        self
+          .handle_error(anyhow!("Failed to get dynamic resources. {:?}", e))
+          .await;
+        return;
+      }
+    };
+
+    let mut dynamic_resources = vec![];
+    let mut dynamic_menu = vec![];
+
+    let excluded = vec![
+      "Namespace",
+      "Pod",
+      "Service",
+      "Node",
+      "ConfigMap",
+      "StatefulSet",
+      "ReplicaSet",
+      "Deployment",
+      "Job",
+      "DaemonSet",
+      "CronJob",
+      "Secret",
+      "ReplicationController",
+      "PersistentVolumeClaim",
+      "PersistentVolume",
+      "StorageClass",
+      "Role",
+      "RoleBinding",
+      "ClusterRole",
+      "ClusterRoleBinding",
+      "ServiceAccount",
+      "Ingress",
+      "NetworkPolicy",
+    ];
+
+    for group in discovery.groups() {
+      for (ar, caps) in group.recommended_resources() {
+        if !caps.supports_operation(verbs::LIST) || excluded.contains(&ar.kind.as_str()) {
+          continue;
+        }
+
+        dynamic_menu.push((ar.kind.to_string(), ActiveBlock::DynamicResource));
+        dynamic_resources.push(KubeDynamicKind::new(ar, caps.scope));
+      }
+    }
+    let mut app = self.app.lock().await;
+    // sort dynamic_menu alphabetically using the first element of the tuple
+    dynamic_menu.sort_by(|a, b| a.0.cmp(&b.0));
+    app.dynamic_resources_menu = StatefulList::with_items(dynamic_menu);
+    app.data.dynamic_kinds = dynamic_resources.clone();
   }
 }
