@@ -222,11 +222,4 @@ MIT
 
 - [Deepu K Sasidharan](https://deepu.tech/)
 
-## Contributors
-
-- [Asha Somayajula](https://github.com/somayaj)
-- [Tobias de Bruijn](https://github.com/TheDutchMC)
-- [Omid Rad](https://github.com/omid)
-- [Shinu Suresh](https://github.com/shinusuresh)
-- [Andrew Alsup](https://github.com/aalsup)
-- [Eirik A](https://github.com/clux)
+## [Contributors](https://github.com/kdash-rs/kdash/graphs/contributors)
