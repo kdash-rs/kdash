@@ -3,3 +3,4 @@
 .vscode/*
 !.vscode/launch.json
 .idea/*
+rustc-ice-*

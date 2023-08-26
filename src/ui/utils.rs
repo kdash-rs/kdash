@@ -10,9 +10,8 @@ use tui::{
   Frame,
 };
 
-use crate::app::{models::StatefulTable, ActiveBlock, App};
-
 use super::HIGHLIGHT;
+use crate::app::{models::StatefulTable, ActiveBlock, App};
 // Utils
 
 pub static COPY_HINT: &str = "| copy <c>";

@@ -1,9 +1,8 @@
+use async_trait::async_trait;
 use k8s_openapi::{
   api::networking::v1::{Ingress, IngressBackend, IngressRule, IngressStatus},
   chrono::Utc,
 };
-
-use async_trait::async_trait;
 use tui::{
   backend::Backend,
   layout::{Constraint, Rect},

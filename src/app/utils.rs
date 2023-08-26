@@ -2,7 +2,6 @@ use k8s_openapi::{
   apimachinery::pkg::apis::meta::v1::Time,
   chrono::{DateTime, Duration, Utc},
 };
-
 use kube::{Resource, ResourceExt};
 
 pub fn sanitize_obj<K: Resource>(mut obj: K) -> K {

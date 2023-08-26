@@ -1,9 +1,8 @@
+use async_trait::async_trait;
 use k8s_openapi::{
   api::rbac::v1::{ClusterRole, ClusterRoleBinding, Role, RoleBinding},
   chrono::Utc,
 };
-
-use async_trait::async_trait;
 use tui::{
   backend::Backend,
   layout::{Constraint, Rect},

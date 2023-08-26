@@ -1,7 +1,6 @@
-use k8s_openapi::api::core::v1::Namespace;
-
 use anyhow::anyhow;
 use async_trait::async_trait;
+use k8s_openapi::api::core::v1::Namespace;
 use kube::{api::ListParams, Api};
 use tui::{
   backend::Backend,

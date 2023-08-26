@@ -1,6 +1,5 @@
-use k8s_openapi::{api::storage::v1::StorageClass, chrono::Utc};
-
 use async_trait::async_trait;
+use k8s_openapi::{api::storage::v1::StorageClass, chrono::Utc};
 use tui::{
   backend::Backend,
   layout::{Constraint, Rect},

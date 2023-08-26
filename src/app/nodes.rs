@@ -1,3 +1,5 @@
+use anyhow::anyhow;
+use async_trait::async_trait;
 use k8s_openapi::{
   api::core::v1::{Node, Pod},
   chrono::Utc,
@@ -8,9 +10,6 @@ use kube::{
   Api,
 };
 use tokio::sync::MutexGuard;
-
-use anyhow::anyhow;
-use async_trait::async_trait;
 use tui::{
   backend::Backend,
   layout::{Constraint, Rect},

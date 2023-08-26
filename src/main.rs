@@ -15,7 +15,6 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-
 use app::App;
 use banner::BANNER;
 use clap::Parser;

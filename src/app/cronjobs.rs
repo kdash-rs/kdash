@@ -1,6 +1,5 @@
-use k8s_openapi::{api::batch::v1::CronJob, chrono::Utc};
-
 use async_trait::async_trait;
+use k8s_openapi::{api::batch::v1::CronJob, chrono::Utc};
 use tui::{
   backend::Backend,
   layout::{Constraint, Rect},

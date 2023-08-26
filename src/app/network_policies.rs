@@ -1,8 +1,7 @@
 use std::vec;
 
-use k8s_openapi::{api::networking::v1::NetworkPolicy, chrono::Utc};
-
 use async_trait::async_trait;
+use k8s_openapi::{api::networking::v1::NetworkPolicy, chrono::Utc};
 use tui::{
   backend::Backend,
   layout::{Constraint, Rect},

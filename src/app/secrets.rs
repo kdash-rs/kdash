@@ -1,8 +1,7 @@
 use std::collections::BTreeMap;
 
-use k8s_openapi::{api::core::v1::Secret, chrono::Utc, ByteString};
-
 use async_trait::async_trait;
+use k8s_openapi::{api::core::v1::Secret, chrono::Utc, ByteString};
 use tui::{
   backend::Backend,
   layout::{Constraint, Rect},

@@ -11,9 +11,8 @@ use tui::{
   Frame,
 };
 
-use crate::network::Network;
-
 use super::{ActiveBlock, App, Route};
+use crate::network::Network;
 
 #[async_trait]
 pub trait AppResource {

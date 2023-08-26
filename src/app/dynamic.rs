@@ -1,12 +1,11 @@
+use anyhow::anyhow;
+use async_trait::async_trait;
 use k8s_openapi::chrono::Utc;
 use kube::{
   core::DynamicObject,
   discovery::{ApiResource, Scope},
   Api, ResourceExt,
 };
-
-use anyhow::anyhow;
-use async_trait::async_trait;
 use tui::{
   backend::Backend,
   layout::{Constraint, Rect},

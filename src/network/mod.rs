@@ -3,6 +3,15 @@ pub(crate) mod stream;
 use core::convert::TryFrom;
 use std::{fmt, sync::Arc};
 
+use anyhow::{anyhow, Result};
+use k8s_openapi::NamespaceResourceScope;
+use kube::{
+  api::ListParams, config::Kubeconfig, discovery::verbs, Api, Client, Discovery,
+  Resource as ApiResource,
+};
+use serde::de::DeserializeOwned;
+use tokio::sync::Mutex;
+
 use crate::app::{
   configmaps::ConfigMapResource,
   contexts,
@@ -30,14 +39,6 @@ use crate::app::{
   svcs::SvcResource,
   ActiveBlock, App,
 };
-use anyhow::{anyhow, Result};
-use k8s_openapi::NamespaceResourceScope;
-use kube::{
-  api::ListParams, config::Kubeconfig, discovery::verbs, Api, Client, Discovery,
-  Resource as ApiResource,
-};
-use serde::de::DeserializeOwned;
-use tokio::sync::Mutex;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum IoEvent {

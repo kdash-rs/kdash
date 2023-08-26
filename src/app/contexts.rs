@@ -7,6 +7,7 @@ use tui::{
   Frame,
 };
 
+use super::{models::AppResource, ActiveBlock, App};
 use crate::{
   network::Network,
   ui::{
@@ -17,8 +18,6 @@ use crate::{
     HIGHLIGHT,
   },
 };
-
-use super::{models::AppResource, ActiveBlock, App};
 
 #[derive(Clone, Default)]
 pub struct KubeContext {

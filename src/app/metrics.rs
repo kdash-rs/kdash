@@ -7,9 +7,12 @@ use kube::{
 };
 use kubectl_view_allocations::{
   extract_allocatable_from_nodes, extract_allocatable_from_pods,
-  extract_utilizations_from_pod_metrics, make_qualifiers, metrics::PodMetrics, Resource,
+  extract_utilizations_from_pod_metrics, make_qualifiers,
+  metrics::{PodMetrics, Usage},
+  qty::Qty,
+  tree::provide_prefix,
+  Resource,
 };
-use kubectl_view_allocations::{metrics::Usage, qty::Qty, tree::provide_prefix};
 use serde::{Deserialize, Serialize};
 use tokio::sync::MutexGuard;
 use tui::{
@@ -19,6 +22,7 @@ use tui::{
   Frame,
 };
 
+use super::{models::AppResource, utils, ActiveBlock, App};
 use crate::{
   network::Network,
   ui::utils::{
@@ -26,8 +30,6 @@ use crate::{
     table_header_style,
   },
 };
-
-use super::{models::AppResource, utils, ActiveBlock, App};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeMetrics {
