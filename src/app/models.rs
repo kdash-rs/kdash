@@ -21,6 +21,8 @@ pub trait AppResource {
   async fn get_resource(network: &Network<'_>);
 }
 pub trait KubeResource<T: Serialize> {
+  fn get_name(&self) -> &String;
+
   fn get_k8s_obj(&self) -> &T;
 
   /// generate YAML from the original kubernetes resource
@@ -407,14 +409,19 @@ mod tests {
   #[test]
   fn test_kube_resource() {
     struct TestStruct {
+      name: String,
       k8s_obj: Namespace,
     }
     impl KubeResource<Namespace> for TestStruct {
+      fn get_name(&self) -> &String {
+        &self.name
+      }
       fn get_k8s_obj(&self) -> &Namespace {
         &self.k8s_obj
       }
     }
     let ts = TestStruct {
+      name: "test".into(),
       k8s_obj: Namespace {
         metadata: ObjectMeta {
           name: Some("test".into()),

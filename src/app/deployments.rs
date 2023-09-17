@@ -59,6 +59,9 @@ impl From<Deployment> for KubeDeployment {
 }
 
 impl KubeResource<Deployment> for KubeDeployment {
+  fn get_name(&self) -> &String {
+    &self.name
+  }
   fn get_k8s_obj(&self) -> &Deployment {
     &self.k8s_obj
   }
@@ -131,6 +134,7 @@ fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
     },
     app.light_theme,
     app.is_loading,
+    app.data.selected.filter.to_owned(),
   );
 }
 

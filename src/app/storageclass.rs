@@ -54,6 +54,9 @@ impl From<StorageClass> for KubeStorageClass {
 }
 
 impl KubeResource<StorageClass> for KubeStorageClass {
+  fn get_name(&self) -> &String {
+    &self.name
+  }
   fn get_k8s_obj(&self) -> &StorageClass {
     &self.k8s_obj
   }
@@ -130,6 +133,7 @@ fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
     },
     app.light_theme,
     app.is_loading,
+    app.data.selected.filter.to_owned(),
   );
 }
 

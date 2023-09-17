@@ -168,6 +168,7 @@ pub struct Data {
 /// selected data items
 pub struct Selected {
   pub ns: Option<String>,
+  pub filter: Option<String>,
   pub pod: Option<String>,
   pub container: Option<String>,
   pub context: Option<String>,
@@ -216,6 +217,7 @@ impl Default for Data {
       node_metrics: vec![],
       namespaces: StatefulTable::new(),
       selected: Selected {
+        filter: None,
         ns: None,
         pod: None,
         container: None,

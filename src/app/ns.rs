@@ -52,6 +52,9 @@ impl From<Namespace> for KubeNs {
 }
 
 impl KubeResource<Namespace> for KubeNs {
+  fn get_name(&self) -> &String {
+    &self.name
+  }
   fn get_k8s_obj(&self) -> &Namespace {
     &self.k8s_obj
   }

@@ -62,6 +62,9 @@ impl From<CronJob> for KubeCronJob {
 }
 
 impl KubeResource<CronJob> for KubeCronJob {
+  fn get_name(&self) -> &String {
+    &self.name
+  }
   fn get_k8s_obj(&self) -> &CronJob {
     &self.k8s_obj
   }
@@ -137,6 +140,7 @@ fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
     },
     app.light_theme,
     app.is_loading,
+    app.data.selected.filter.to_owned(),
   );
 }
 
