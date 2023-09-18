@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use async_trait::async_trait;
 use k8s_openapi::{api::core::v1::ReplicationController, chrono::Utc};
-use tui::{
+use ratatui::{
   backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row},

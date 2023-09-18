@@ -6,7 +6,7 @@ use kube::{
   discovery::{ApiResource, Scope},
   Api, ResourceExt,
 };
-use tui::{
+use ratatui::{
   backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row},

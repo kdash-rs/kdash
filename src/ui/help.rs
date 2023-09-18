@@ -1,4 +1,4 @@
-use tui::{
+use ratatui::{
   backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Row, Table},
@@ -54,7 +54,7 @@ pub fn draw_help<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
 
 #[cfg(test)]
 mod tests {
-  use tui::{
+  use ratatui::{
     backend::TestBackend,
     buffer::Buffer,
     style::{Modifier, Style},

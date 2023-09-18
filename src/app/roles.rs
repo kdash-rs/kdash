@@ -3,7 +3,7 @@ use k8s_openapi::{
   api::rbac::v1::{ClusterRole, ClusterRoleBinding, Role, RoleBinding},
   chrono::Utc,
 };
-use tui::{
+use ratatui::{
   backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row},

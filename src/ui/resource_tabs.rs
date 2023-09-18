@@ -1,7 +1,7 @@
-use tui::{
+use ratatui::{
   backend::Backend,
   layout::{Constraint, Rect},
-  text::{Span, Spans},
+  text::{Line, Span},
   widgets::{List, ListItem, Tabs},
   Frame,
 };
@@ -51,7 +51,7 @@ pub fn draw_resource_tabs_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App,
     .context_tabs
     .items
     .iter()
-    .map(|t| Spans::from(Span::styled(&t.title, style_default(app.light_theme))))
+    .map(|t| Line::from(Span::styled(&t.title, style_default(app.light_theme))))
     .collect();
   let tabs = Tabs::new(titles)
     .block(block)
@@ -148,7 +148,7 @@ fn draw_menu<B: Backend>(
 
 #[cfg(test)]
 mod tests {
-  use tui::{
+  use ratatui::{
     backend::TestBackend,
     buffer::Buffer,
     style::{Modifier, Style},
@@ -186,8 +186,8 @@ mod tests {
         "│ Pods <1> │ Services <2> │ Nodes <3> │ ConfigMaps <4> │ StatefulSets <5> │ ReplicaSets <6> │ Deplo│",
         "│                                                                                                  │",
         "│ Pods (ns: all) [1] | Containers <enter> | describe <d> | yaml <y> ───────────────────────────────│",
-        "│   Namespace                Name                               Ready     Status    Restarts  A    │",
-        "│=> pod namespace test       pod name test                      0/2       Failed    0         6    │",
+        "│   Namespace                 Name                               Ready      Status    Restarts   Ag│",
+        "│=> pod namespace test        pod name test                      0/2        Failed    0          6h│",
         "└──────────────────────────────────────────────────────────────────────────────────────────────────┘",
       ]);
     // set row styles

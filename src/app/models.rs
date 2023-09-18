@@ -1,8 +1,7 @@
 use std::collections::VecDeque;
 
 use async_trait::async_trait;
-use serde::Serialize;
-use tui::{
+use ratatui::{
   backend::Backend,
   layout::Rect,
   style::{Modifier, Style},
@@ -10,6 +9,7 @@ use tui::{
   widgets::{Block, List, ListItem, ListState, TableState},
   Frame,
 };
+use serde::Serialize;
 
 use super::{ActiveBlock, App, Route};
 use crate::network::Network;
@@ -401,7 +401,7 @@ impl Scrollable for LogsState {
 mod tests {
   use k8s_openapi::api::core::v1::Namespace;
   use kube::api::ObjectMeta;
-  use tui::{backend::TestBackend, buffer::Buffer, Terminal};
+  use ratatui::{backend::TestBackend, buffer::Buffer, Terminal};
 
   use super::*;
   use crate::app::{ns::KubeNs, ActiveBlock, RouteId};

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use k8s_openapi::{api::batch::v1::Job, chrono::Utc};
-use tui::{
+use ratatui::{
   backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row},

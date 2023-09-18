@@ -9,13 +9,13 @@ use kube::{
   core::ListMeta,
   Api,
 };
-use tokio::sync::MutexGuard;
-use tui::{
+use ratatui::{
   backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
   Frame,
 };
+use tokio::sync::MutexGuard;
 
 use super::{
   metrics::{self, KubeNodeMetrics},

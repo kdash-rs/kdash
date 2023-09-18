@@ -1,15 +1,15 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, rc::Rc};
 
-use serde::Serialize;
-use tui::{
+use ratatui::{
   backend::Backend,
   layout::{Constraint, Direction, Layout, Rect},
   style::{Color, Modifier, Style},
   symbols,
-  text::{Span, Spans, Text},
+  text::{Line, Span, Text},
   widgets::{Block, Borders, Paragraph, Row, Table, Wrap},
   Frame,
 };
+use serde::Serialize;
 
 use super::HIGHLIGHT;
 use crate::app::{
@@ -151,7 +151,7 @@ pub fn table_header_style(cells: Vec<&str>, light: bool) -> Row<'_> {
   Row::new(cells).style(style_default(light)).bottom_margin(0)
 }
 
-pub fn horizontal_chunks(constraints: Vec<Constraint>, size: Rect) -> Vec<Rect> {
+pub fn horizontal_chunks(constraints: Vec<Constraint>, size: Rect) -> Rc<[Rect]> {
   Layout::default()
     .constraints(<Vec<Constraint> as AsRef<[Constraint]>>::as_ref(
       &constraints,
@@ -164,7 +164,7 @@ pub fn horizontal_chunks_with_margin(
   constraints: Vec<Constraint>,
   size: Rect,
   margin: u16,
-) -> Vec<Rect> {
+) -> Rc<[Rect]> {
   Layout::default()
     .constraints(<Vec<Constraint> as AsRef<[Constraint]>>::as_ref(
       &constraints,
@@ -174,7 +174,7 @@ pub fn horizontal_chunks_with_margin(
     .split(size)
 }
 
-pub fn vertical_chunks(constraints: Vec<Constraint>, size: Rect) -> Vec<Rect> {
+pub fn vertical_chunks(constraints: Vec<Constraint>, size: Rect) -> Rc<[Rect]> {
   Layout::default()
     .constraints(<Vec<Constraint> as AsRef<[Constraint]>>::as_ref(
       &constraints,
@@ -187,7 +187,7 @@ pub fn vertical_chunks_with_margin(
   constraints: Vec<Constraint>,
   size: Rect,
   margin: u16,
-) -> Vec<Rect> {
+) -> Rc<[Rect]> {
   Layout::default()
     .constraints(<Vec<Constraint> as AsRef<[Constraint]>>::as_ref(
       &constraints,
@@ -209,19 +209,19 @@ pub fn layout_block_active(title: &str, light: bool) -> Block<'_> {
   layout_block(title_style(title)).style(style_secondary(light))
 }
 
-pub fn layout_block_active_span(title: Spans<'_>, light: bool) -> Block<'_> {
+pub fn layout_block_active_span(title: Line<'_>, light: bool) -> Block<'_> {
   Block::default()
     .borders(Borders::ALL)
     .title(title)
     .style(style_secondary(light))
 }
 
-pub fn layout_block_top_border(title: Spans<'_>) -> Block<'_> {
+pub fn layout_block_top_border(title: Line<'_>) -> Block<'_> {
   Block::default().borders(Borders::TOP).title(title)
 }
 
-pub fn title_with_dual_style<'a>(part_1: String, part_2: String, light: bool) -> Spans<'a> {
-  Spans::from(vec![
+pub fn title_with_dual_style<'a>(part_1: String, part_2: String, light: bool) -> Line<'a> {
+  Line::from(vec![
     Span::styled(part_1, style_secondary(light).add_modifier(Modifier::BOLD)),
     Span::styled(part_2, style_default(light).add_modifier(Modifier::BOLD)),
   ])
@@ -319,7 +319,7 @@ pub fn draw_describe_block<B: Backend>(
   f: &mut Frame<'_, B>,
   app: &mut App,
   area: Rect,
-  title: Spans<'_>,
+  title: Line<'_>,
 ) {
   let block = layout_block_top_border(title);
 
@@ -357,7 +357,7 @@ pub fn draw_resource_block<'a, B, T: KubeResource<U>, F, U: Serialize>(
   if !table_props.resource.items.is_empty() {
     let rows = table_props.resource.items.iter().filter_map(|c| {
       // return only rows that match filter if filter is set
-      if filter.is_some() {
+      if filter.is_some() && !filter.as_ref().unwrap().is_empty() {
         if c
           .get_name()
           .to_lowercase()
@@ -431,7 +431,7 @@ pub fn title_with_ns(title: &str, ns: &str, length: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-  use tui::{backend::TestBackend, buffer::Buffer, style::Modifier, widgets::Cell, Terminal};
+  use ratatui::{backend::TestBackend, buffer::Buffer, style::Modifier, widgets::Cell, Terminal};
 
   use super::*;
   use crate::ui::utils::{COLOR_CYAN, COLOR_WHITE, COLOR_YELLOW};

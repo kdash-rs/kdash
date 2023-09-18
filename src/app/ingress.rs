@@ -3,7 +3,7 @@ use k8s_openapi::{
   api::networking::v1::{Ingress, IngressBackend, IngressRule, IngressStatus},
   chrono::Utc,
 };
-use tui::{
+use ratatui::{
   backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row},

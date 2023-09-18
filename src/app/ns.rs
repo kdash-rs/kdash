@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use k8s_openapi::api::core::v1::Namespace;
 use kube::{api::ListParams, Api};
-use tui::{
+use ratatui::{
   backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row, Table},
@@ -83,8 +83,8 @@ impl AppResource for NamespaceResource {
           style_primary(app.light_theme)
         };
         Row::new(vec![
-          Cell::from(s.name.as_ref()),
-          Cell::from(s.status.as_ref()),
+          Cell::from(s.name.to_owned()),
+          Cell::from(s.status.to_owned()),
         ])
         .style(style)
       });

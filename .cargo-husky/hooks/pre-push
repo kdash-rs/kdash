@@ -4,8 +4,8 @@ set -e
 
 echo "Running pre-push hook:"
 
-echo "Executing: cargo clippy --all-targets --workspace -- -D warnings"
-find . | grep "\.\/src\/.*\.rs$" | xargs touch ; cargo clippy --all-targets --workspace -- -D warnings
+echo "Executing: make lint"
+make lint
 
 echo "Executing: cargo test"
 cargo test

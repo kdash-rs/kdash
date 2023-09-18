@@ -6,7 +6,7 @@ use k8s_openapi::{
   },
   chrono::Utc,
 };
-use tui::{
+use ratatui::{
   backend::Backend,
   layout::{Constraint, Rect},
   style::Style,

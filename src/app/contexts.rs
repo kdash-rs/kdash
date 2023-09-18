@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use kube::config::{Context, Kubeconfig, NamedContext};
-use tui::{
+use ratatui::{
   backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row, Table},
@@ -85,9 +85,9 @@ impl AppResource for ContextResource {
           style_primary(app.light_theme)
         };
         Row::new(vec![
-          Cell::from(c.name.as_ref()),
-          Cell::from(c.cluster.as_ref()),
-          Cell::from(c.user.as_ref()),
+          Cell::from(c.name.to_owned()),
+          Cell::from(c.cluster.to_owned()),
+          Cell::from(c.user.to_owned()),
         ])
         .style(style)
       });

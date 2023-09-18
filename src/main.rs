@@ -29,11 +29,11 @@ use network::{
   stream::{IoStreamEvent, NetworkStream},
   IoEvent, Network,
 };
-use tokio::sync::{mpsc, Mutex};
-use tui::{
+use ratatui::{
   backend::{Backend, CrosstermBackend},
   Terminal,
 };
+use tokio::sync::{mpsc, Mutex};
 
 /// kdash CLI
 #[derive(Parser, Debug)]
