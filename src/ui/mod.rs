@@ -65,7 +65,7 @@ pub fn draw<B: Backend>(f: &mut Frame<'_, B>, app: &mut App) {
   }
 }
 
-fn draw_app_header<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_app_header<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect) {
   let chunks =
     horizontal_chunks_with_margin(vec![Constraint::Length(75), Constraint::Min(0)], area, 1);
 
@@ -84,7 +84,7 @@ fn draw_app_header<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) 
   draw_header_text(f, app, chunks[1]);
 }
 
-fn draw_header_text<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_header_text<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect) {
   let text = match app.get_current_route().id {
     RouteId::Contexts => vec![Line::from("<↑↓> scroll | <enter> select | <?> help ")],
     RouteId::Home => vec![Line::from(
@@ -102,7 +102,7 @@ fn draw_header_text<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect)
   f.render_widget(paragraph, area);
 }
 
-fn draw_app_error<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, size: Rect) {
+fn draw_app_error<B: Backend>(f: &mut Frame<'_, B>, app: &App, size: Rect) {
   let block = Block::default()
     .title(" Error | close <esc> ")
     .style(style_failure(app.light_theme))

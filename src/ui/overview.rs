@@ -1,7 +1,7 @@
-use tui::{
+use ratatui::{
   backend::Backend,
   layout::{Constraint, Rect},
-  text::{Span, Spans, Text},
+  text::{Line, Span, Text},
   widgets::{Block, Borders, Cell, LineGauge, Paragraph, Row, Table},
   Frame,
 };
@@ -41,11 +41,13 @@ fn draw_status_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect
 
   NamespaceResource::render(ActiveBlock::Namespaces, f, app, chunks[0]);
   draw_context_info_block(f, app, chunks[1]);
-  draw_cli_version_block(f, app, chunks[2]);
+    draw_cli_version_block(f, app, chunks[2]);
   draw_logo_block(f, app, chunks[3])
 }
 
 fn draw_logo_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+
+fn draw_logo_block<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect) {
   // Banner text with correct styling
   let text = format!(
     "{}\n v{} with ♥ in Rust {}",
@@ -61,8 +63,8 @@ fn draw_logo_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) 
   f.render_widget(paragraph, area);
 }
 
-fn draw_cli_version_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
-  let block = layout_block_default(" CLI Info ");
+fn draw_cli_version_block<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect) {
+  let block = layout_block_default(" CLI Info (filter <f>)");
   if !app.data.clis.is_empty() {
     let rows = app.data.clis.iter().map(|s| {
       let style = if s.status {
@@ -71,8 +73,8 @@ fn draw_cli_version_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area:
         style_failure(app.light_theme)
       };
       Row::new(vec![
-        Cell::from(s.name.as_ref()),
-        Cell::from(s.version.as_ref()),
+        Cell::from(s.name.to_owned()),
+        Cell::from(s.version.to_owned()),
       ])
       .style(style)
     });
@@ -86,7 +88,7 @@ fn draw_cli_version_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area:
   }
 }
 
-fn draw_context_info_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_context_info_block<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect) {
   let chunks = vertical_chunks_with_margin(
     vec![
       Constraint::Length(3),
@@ -104,22 +106,22 @@ fn draw_context_info_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area
   let text = match &app.data.active_context {
     Some(active_context) => {
       vec![
-        Spans::from(vec![
+        Line::from(vec![
           Span::styled("Context: ", style_default(app.light_theme)),
           Span::styled(&active_context.name, style_primary(app.light_theme)),
         ]),
-        Spans::from(vec![
+        Line::from(vec![
           Span::styled("Cluster: ", style_default(app.light_theme)),
           Span::styled(&active_context.cluster, style_primary(app.light_theme)),
         ]),
-        Spans::from(vec![
+        Line::from(vec![
           Span::styled("User: ", style_default(app.light_theme)),
           Span::styled(&active_context.user, style_primary(app.light_theme)),
         ]),
       ]
     }
     None => {
-      vec![Spans::from(Span::styled(
+      vec![Line::from(Span::styled(
         "Context information not found",
         style_failure(app.light_theme),
       ))]
@@ -137,7 +139,7 @@ fn draw_context_info_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area
     .gauge_style(style_primary(app.light_theme))
     .line_set(get_gauge_style(app.enhanced_graphics))
     .ratio(limited_ratio)
-    .label(Spans::from(format!("{:.0}%", ratio * 100.0)));
+    .label(Line::from(format!("{:.0}%", ratio * 100.0)));
   f.render_widget(cpu_gauge, chunks[1]);
 
   let ratio = get_nm_ratio(app.data.node_metrics.as_ref(), |nm| nm.mem_percent);
@@ -148,7 +150,7 @@ fn draw_context_info_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area
     .gauge_style(style_primary(app.light_theme))
     .line_set(get_gauge_style(app.enhanced_graphics))
     .ratio(limited_ratio)
-    .label(Spans::from(format!("{:.0}%", ratio * 100.0)));
+    .label(Line::from(format!("{:.0}%", ratio * 100.0)));
   f.render_widget(mem_gauge, chunks[2]);
 }
 

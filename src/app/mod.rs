@@ -28,8 +28,8 @@ mod utils;
 use anyhow::anyhow;
 use kube::config::Kubeconfig;
 use kubectl_view_allocations::{GroupBy, QtyByQualifier};
+use ratatui::layout::Rect;
 use tokio::sync::mpsc::Sender;
-use tui::layout::Rect;
 
 use self::{
   configmaps::KubeConfigMap,

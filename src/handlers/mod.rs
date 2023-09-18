@@ -230,14 +230,14 @@ async fn handle_route_events(key: Key, app: &mut App) {
       // handle block specific stuff
       match app.get_current_route().active_block {
         ActiveBlock::Namespaces => {
-          if let Some(ns) = handle_block_action(key, &mut app.data.namespaces) {
+          if let Some(ns) = handle_block_action(key, &app.data.namespaces) {
             app.data.selected.ns = Some(ns.name);
             app.cache_all_resource_data().await;
             app.pop_navigation_stack();
           }
         }
         ActiveBlock::Nodes => {
-          if let Some(node) = handle_block_action(key, &mut app.data.nodes) {
+          if let Some(node) = handle_block_action(key, &app.data.nodes) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -252,7 +252,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Pods => {
-          if let Some(pod) = handle_block_action(key, &mut app.data.pods) {
+          if let Some(pod) = handle_block_action(key, &app.data.pods) {
             let ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -272,7 +272,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Containers => {
-          if let Some(c) = handle_block_action(key, &mut app.data.containers) {
+          if let Some(c) = handle_block_action(key, &app.data.containers) {
             app.data.selected.container = Some(c.name.clone());
             app.dispatch_container_logs(c.name).await;
           }
@@ -290,7 +290,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Services => {
-          if let Some(res) = handle_block_action(key, &mut app.data.services) {
+          if let Some(res) = handle_block_action(key, &app.data.services) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -305,7 +305,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Deployments => {
-          if let Some(res) = handle_block_action(key, &mut app.data.deployments) {
+          if let Some(res) = handle_block_action(key, &app.data.deployments) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -320,7 +320,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::ConfigMaps => {
-          if let Some(res) = handle_block_action(key, &mut app.data.config_maps) {
+          if let Some(res) = handle_block_action(key, &app.data.config_maps) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -335,7 +335,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::StatefulSets => {
-          if let Some(res) = handle_block_action(key, &mut app.data.stateful_sets) {
+          if let Some(res) = handle_block_action(key, &app.data.stateful_sets) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -350,7 +350,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::ReplicaSets => {
-          if let Some(res) = handle_block_action(key, &mut app.data.replica_sets) {
+          if let Some(res) = handle_block_action(key, &app.data.replica_sets) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -365,7 +365,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Jobs => {
-          if let Some(res) = handle_block_action(key, &mut app.data.jobs) {
+          if let Some(res) = handle_block_action(key, &app.data.jobs) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -380,7 +380,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::DaemonSets => {
-          if let Some(res) = handle_block_action(key, &mut app.data.daemon_sets) {
+          if let Some(res) = handle_block_action(key, &app.data.daemon_sets) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -429,7 +429,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::DynamicResource => {
           if let Some(dynamic_res) = app.data.selected.dynamic_kind.as_ref() {
-            if let Some(res) = handle_block_action(key, &mut app.data.dynamic_resources) {
+            if let Some(res) = handle_block_action(key, &app.data.dynamic_resources) {
               let _ok = handle_describe_decode_or_yaml_action(
                 key,
                 app,
@@ -445,7 +445,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::CronJobs => {
-          if let Some(res) = handle_block_action(key, &mut app.data.cronjobs) {
+          if let Some(res) = handle_block_action(key, &app.data.cronjobs) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -460,7 +460,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Secrets => {
-          if let Some(res) = handle_block_action(key, &mut app.data.secrets) {
+          if let Some(res) = handle_block_action(key, &app.data.secrets) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -475,7 +475,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::RplCtrl => {
-          if let Some(res) = handle_block_action(key, &mut app.data.rpl_ctrls) {
+          if let Some(res) = handle_block_action(key, &app.data.rpl_ctrls) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -490,7 +490,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::StorageClasses => {
-          if let Some(res) = handle_block_action(key, &mut app.data.storage_classes) {
+          if let Some(res) = handle_block_action(key, &app.data.storage_classes) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -505,7 +505,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Roles => {
-          if let Some(res) = handle_block_action(key, &mut app.data.roles) {
+          if let Some(res) = handle_block_action(key, &app.data.roles) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -520,7 +520,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::RoleBindings => {
-          if let Some(res) = handle_block_action(key, &mut app.data.role_bindings) {
+          if let Some(res) = handle_block_action(key, &app.data.role_bindings) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -535,7 +535,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::ClusterRoles => {
-          if let Some(res) = handle_block_action(key, &mut app.data.cluster_roles) {
+          if let Some(res) = handle_block_action(key, &app.data.cluster_roles) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -550,7 +550,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::ClusterRoleBinding => {
-          if let Some(res) = handle_block_action(key, &mut app.data.cluster_role_bindings) {
+          if let Some(res) = handle_block_action(key, &app.data.cluster_role_bindings) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -565,7 +565,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Ingress => {
-          if let Some(res) = handle_block_action(key, &mut app.data.ingress) {
+          if let Some(res) = handle_block_action(key, &app.data.ingress) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -580,7 +580,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Pvc => {
-          if let Some(res) = handle_block_action(key, &mut app.data.pvcs) {
+          if let Some(res) = handle_block_action(key, &app.data.pvcs) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -595,7 +595,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Pv => {
-          if let Some(res) = handle_block_action(key, &mut app.data.pvs) {
+          if let Some(res) = handle_block_action(key, &app.data.pvs) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -610,7 +610,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::ServiceAccounts => {
-          if let Some(res) = handle_block_action(key, &mut app.data.service_accounts) {
+          if let Some(res) = handle_block_action(key, &app.data.service_accounts) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -625,7 +625,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::NetworkPolicies => {
-          if let Some(res) = handle_block_action(key, &mut app.data.nw_policies) {
+          if let Some(res) = handle_block_action(key, &app.data.nw_policies) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -643,7 +643,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
       }
     }
     RouteId::Contexts => {
-      if let Some(ctx) = handle_block_action(key, &mut app.data.contexts) {
+      if let Some(ctx) = handle_block_action(key, &app.data.contexts) {
         app.data.selected.context = Some(ctx.name);
         app.refresh();
       }
@@ -672,7 +672,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
   }
 }
 
-fn handle_block_action<T: Clone>(key: Key, item: &mut StatefulTable<T>) -> Option<T> {
+fn handle_block_action<T: Clone>(key: Key, item: &StatefulTable<T>) -> Option<T> {
   match key {
     _ if key == DEFAULT_KEYBINDING.submit.key
       || key == DEFAULT_KEYBINDING.describe_resource.key
