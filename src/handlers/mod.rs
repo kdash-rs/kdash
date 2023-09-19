@@ -1,64 +1,75 @@
 use base64::{engine::general_purpose, Engine as _};
-use crossterm::event::{MouseEvent, MouseEventKind};
+use crossterm::event::{Event, KeyEvent, MouseEvent, MouseEventKind};
 use kubectl_view_allocations::GroupBy;
 use serde::Serialize;
+use tui_input::backend::crossterm::EventHandler;
 
 use crate::{
   app::{
     key_binding::DEFAULT_KEYBINDING,
     models::{KubeResource, Scrollable, ScrollableTxt, StatefulTable},
     secrets::KubeSecret,
-    ActiveBlock, App, Route, RouteId,
+    ActiveBlock, App, InputMode, Route, RouteId,
   },
   cmd::IoCmdEvent,
   event::Key,
 };
 
-pub async fn handle_key_events(key: Key, app: &mut App) {
-  // First handle any global event and then move to route event
-  match key {
-    _ if key == DEFAULT_KEYBINDING.esc.key => {
-      handle_escape(app);
+pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
+  // if input is enabled capture keystrokes
+  if app.app_input.input_mode == InputMode::Editing {
+    if key == DEFAULT_KEYBINDING.esc.key {
+      app.app_input.input_mode = InputMode::Normal;
+    } else {
+      app.app_input.input.handle_event(&Event::Key(key_event));
+      app.data.selected.filter = Some(app.app_input.input.value().into());
     }
-    _ if key == DEFAULT_KEYBINDING.quit.key || key == DEFAULT_KEYBINDING.quit.alt.unwrap() => {
-      app.should_quit = true;
-    }
-    _ if key == DEFAULT_KEYBINDING.up.key || key == DEFAULT_KEYBINDING.up.alt.unwrap() => {
-      handle_block_scroll(app, true, false, false).await;
-    }
-    _ if key == DEFAULT_KEYBINDING.down.key || key == DEFAULT_KEYBINDING.down.alt.unwrap() => {
-      handle_block_scroll(app, false, false, false).await;
-    }
-    _ if key == DEFAULT_KEYBINDING.pg_up.key => {
-      handle_block_scroll(app, true, false, true).await;
-    }
-    _ if key == DEFAULT_KEYBINDING.pg_down.key => {
-      handle_block_scroll(app, false, false, true).await;
-    }
-    _ if key == DEFAULT_KEYBINDING.toggle_theme.key => {
-      app.light_theme = !app.light_theme;
-    }
-    _ if key == DEFAULT_KEYBINDING.refresh.key => {
-      app.refresh();
-    }
-    _ if key == DEFAULT_KEYBINDING.help.key => {
-      if app.get_current_route().active_block != ActiveBlock::Help {
-        app.push_navigation_stack(RouteId::HelpMenu, ActiveBlock::Help);
+  } else {
+    // First handle any global event and then move to route event
+    match key {
+      _ if key == DEFAULT_KEYBINDING.esc.key => {
+        handle_escape(app);
       }
+      _ if key == DEFAULT_KEYBINDING.quit.key || key == DEFAULT_KEYBINDING.quit.alt.unwrap() => {
+        app.should_quit = true;
+      }
+      _ if key == DEFAULT_KEYBINDING.up.key || key == DEFAULT_KEYBINDING.up.alt.unwrap() => {
+        handle_block_scroll(app, true, false, false).await;
+      }
+      _ if key == DEFAULT_KEYBINDING.down.key || key == DEFAULT_KEYBINDING.down.alt.unwrap() => {
+        handle_block_scroll(app, false, false, false).await;
+      }
+      _ if key == DEFAULT_KEYBINDING.pg_up.key => {
+        handle_block_scroll(app, true, false, true).await;
+      }
+      _ if key == DEFAULT_KEYBINDING.pg_down.key => {
+        handle_block_scroll(app, false, false, true).await;
+      }
+      _ if key == DEFAULT_KEYBINDING.toggle_theme.key => {
+        app.light_theme = !app.light_theme;
+      }
+      _ if key == DEFAULT_KEYBINDING.refresh.key => {
+        app.refresh();
+      }
+      _ if key == DEFAULT_KEYBINDING.help.key => {
+        if app.get_current_route().active_block != ActiveBlock::Help {
+          app.push_navigation_stack(RouteId::HelpMenu, ActiveBlock::Help);
+        }
+      }
+      _ if key == DEFAULT_KEYBINDING.jump_to_all_context.key => {
+        app.route_contexts();
+      }
+      _ if key == DEFAULT_KEYBINDING.jump_to_current_context.key => {
+        app.route_home();
+      }
+      _ if key == DEFAULT_KEYBINDING.jump_to_utilization.key => {
+        app.route_utilization();
+      }
+      _ if key == DEFAULT_KEYBINDING.cycle_main_views.key => {
+        app.cycle_main_routes();
+      }
+      _ => handle_route_events(key, app).await,
     }
-    _ if key == DEFAULT_KEYBINDING.jump_to_all_context.key => {
-      app.route_contexts();
-    }
-    _ if key == DEFAULT_KEYBINDING.jump_to_current_context.key => {
-      app.route_home();
-    }
-    _ if key == DEFAULT_KEYBINDING.jump_to_utilization.key => {
-      app.route_utilization();
-    }
-    _ if key == DEFAULT_KEYBINDING.cycle_main_views.key => {
-      app.cycle_main_routes();
-    }
-    _ => handle_route_events(key, app).await,
   }
 }
 
@@ -76,6 +87,7 @@ fn handle_escape(app: &mut App) {
   if !app.api_error.is_empty() {
     app.api_error = String::default();
   }
+
   match app.get_current_route().id {
     RouteId::HelpMenu => {
       app.pop_navigation_stack();
@@ -173,6 +185,21 @@ async fn handle_route_events(key: Key, app: &mut App) {
         _ if key == DEFAULT_KEYBINDING.toggle_info.key => {
           app.show_info_bar = !app.show_info_bar;
         }
+        _ if key == DEFAULT_KEYBINDING.toggle_global_filter.key => {
+          if app.show_filter_bar {
+            app.app_input.input_mode = InputMode::Normal;
+            app.app_input.input.reset();
+            app.data.selected.filter = None;
+          } else {
+            app.app_input.input_mode = InputMode::Editing;
+          }
+          app.show_filter_bar = !app.show_filter_bar;
+        }
+        _ if key == DEFAULT_KEYBINDING.toggle_global_filter_edit.key => {
+          if app.show_filter_bar {
+            app.app_input.input_mode = InputMode::Editing;
+          }
+        }
         _ if key == DEFAULT_KEYBINDING.select_all_namespace.key => app.data.selected.ns = None,
         _ if key == DEFAULT_KEYBINDING.jump_to_namespace.key => {
           if app.get_current_route().active_block != ActiveBlock::Namespaces {
@@ -230,14 +257,14 @@ async fn handle_route_events(key: Key, app: &mut App) {
       // handle block specific stuff
       match app.get_current_route().active_block {
         ActiveBlock::Namespaces => {
-          if let Some(ns) = handle_block_action(key, &mut app.data.namespaces) {
+          if let Some(ns) = handle_block_action(key, &app.data.namespaces) {
             app.data.selected.ns = Some(ns.name);
             app.cache_all_resource_data().await;
             app.pop_navigation_stack();
           }
         }
         ActiveBlock::Nodes => {
-          if let Some(node) = handle_block_action(key, &mut app.data.nodes) {
+          if let Some(node) = handle_block_action(key, &app.data.nodes) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -252,7 +279,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Pods => {
-          if let Some(pod) = handle_block_action(key, &mut app.data.pods) {
+          if let Some(pod) = handle_block_action(key, &app.data.pods) {
             let ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -272,7 +299,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Containers => {
-          if let Some(c) = handle_block_action(key, &mut app.data.containers) {
+          if let Some(c) = handle_block_action(key, &app.data.containers) {
             app.data.selected.container = Some(c.name.clone());
             app.dispatch_container_logs(c.name).await;
           }
@@ -290,7 +317,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Services => {
-          if let Some(res) = handle_block_action(key, &mut app.data.services) {
+          if let Some(res) = handle_block_action(key, &app.data.services) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -305,7 +332,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Deployments => {
-          if let Some(res) = handle_block_action(key, &mut app.data.deployments) {
+          if let Some(res) = handle_block_action(key, &app.data.deployments) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -320,7 +347,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::ConfigMaps => {
-          if let Some(res) = handle_block_action(key, &mut app.data.config_maps) {
+          if let Some(res) = handle_block_action(key, &app.data.config_maps) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -335,7 +362,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::StatefulSets => {
-          if let Some(res) = handle_block_action(key, &mut app.data.stateful_sets) {
+          if let Some(res) = handle_block_action(key, &app.data.stateful_sets) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -350,7 +377,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::ReplicaSets => {
-          if let Some(res) = handle_block_action(key, &mut app.data.replica_sets) {
+          if let Some(res) = handle_block_action(key, &app.data.replica_sets) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -365,7 +392,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Jobs => {
-          if let Some(res) = handle_block_action(key, &mut app.data.jobs) {
+          if let Some(res) = handle_block_action(key, &app.data.jobs) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -380,7 +407,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::DaemonSets => {
-          if let Some(res) = handle_block_action(key, &mut app.data.daemon_sets) {
+          if let Some(res) = handle_block_action(key, &app.data.daemon_sets) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -429,7 +456,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::DynamicResource => {
           if let Some(dynamic_res) = app.data.selected.dynamic_kind.as_ref() {
-            if let Some(res) = handle_block_action(key, &mut app.data.dynamic_resources) {
+            if let Some(res) = handle_block_action(key, &app.data.dynamic_resources) {
               let _ok = handle_describe_decode_or_yaml_action(
                 key,
                 app,
@@ -445,7 +472,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::CronJobs => {
-          if let Some(res) = handle_block_action(key, &mut app.data.cronjobs) {
+          if let Some(res) = handle_block_action(key, &app.data.cronjobs) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -460,7 +487,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Secrets => {
-          if let Some(res) = handle_block_action(key, &mut app.data.secrets) {
+          if let Some(res) = handle_block_action(key, &app.data.secrets) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -475,7 +502,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::RplCtrl => {
-          if let Some(res) = handle_block_action(key, &mut app.data.rpl_ctrls) {
+          if let Some(res) = handle_block_action(key, &app.data.rpl_ctrls) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -490,7 +517,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::StorageClasses => {
-          if let Some(res) = handle_block_action(key, &mut app.data.storage_classes) {
+          if let Some(res) = handle_block_action(key, &app.data.storage_classes) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -505,7 +532,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Roles => {
-          if let Some(res) = handle_block_action(key, &mut app.data.roles) {
+          if let Some(res) = handle_block_action(key, &app.data.roles) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -520,7 +547,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::RoleBindings => {
-          if let Some(res) = handle_block_action(key, &mut app.data.role_bindings) {
+          if let Some(res) = handle_block_action(key, &app.data.role_bindings) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -535,7 +562,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::ClusterRoles => {
-          if let Some(res) = handle_block_action(key, &mut app.data.cluster_roles) {
+          if let Some(res) = handle_block_action(key, &app.data.cluster_roles) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -550,7 +577,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::ClusterRoleBinding => {
-          if let Some(res) = handle_block_action(key, &mut app.data.cluster_role_bindings) {
+          if let Some(res) = handle_block_action(key, &app.data.cluster_role_bindings) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -565,7 +592,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Ingress => {
-          if let Some(res) = handle_block_action(key, &mut app.data.ingress) {
+          if let Some(res) = handle_block_action(key, &app.data.ingress) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -580,7 +607,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Pvc => {
-          if let Some(res) = handle_block_action(key, &mut app.data.pvcs) {
+          if let Some(res) = handle_block_action(key, &app.data.pvcs) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -595,7 +622,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::Pv => {
-          if let Some(res) = handle_block_action(key, &mut app.data.pvs) {
+          if let Some(res) = handle_block_action(key, &app.data.pvs) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -610,7 +637,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::ServiceAccounts => {
-          if let Some(res) = handle_block_action(key, &mut app.data.service_accounts) {
+          if let Some(res) = handle_block_action(key, &app.data.service_accounts) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -625,7 +652,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::NetworkPolicies => {
-          if let Some(res) = handle_block_action(key, &mut app.data.nw_policies) {
+          if let Some(res) = handle_block_action(key, &app.data.nw_policies) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -643,7 +670,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
       }
     }
     RouteId::Contexts => {
-      if let Some(ctx) = handle_block_action(key, &mut app.data.contexts) {
+      if let Some(ctx) = handle_block_action(key, &app.data.contexts) {
         app.data.selected.context = Some(ctx.name);
         app.refresh();
       }
@@ -672,7 +699,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
   }
 }
 
-fn handle_block_action<T: Clone>(key: Key, item: &mut StatefulTable<T>) -> Option<T> {
+fn handle_block_action<T: Clone>(key: Key, item: &StatefulTable<T>) -> Option<T> {
   match key {
     _ if key == DEFAULT_KEYBINDING.submit.key
       || key == DEFAULT_KEYBINDING.describe_resource.key
@@ -754,6 +781,7 @@ fn inverse_dir(up: bool, is_mouse: bool) -> bool {
 
 #[cfg(test)]
 mod tests {
+  use crossterm::event::KeyCode;
   use k8s_openapi::ByteString;
 
   use super::*;
@@ -763,6 +791,41 @@ mod tests {
   fn test_inverse_dir() {
     assert!(inverse_dir(true, false));
     assert!(!inverse_dir(true, true));
+  }
+
+  #[tokio::test]
+
+  async fn test_handle_key_events_for_filter() {
+    let mut app = App::default();
+
+    app.route_home();
+    assert_eq!(app.app_input.input_mode, InputMode::Normal);
+
+    let key_evt = KeyEvent::from(KeyCode::Char('f'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert!(app.show_filter_bar);
+    assert_eq!(app.app_input.input_mode, InputMode::Editing);
+
+    let key_evt = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert_eq!(app.app_input.input_mode, InputMode::Normal);
+
+    let key_evt = KeyEvent::from(KeyCode::Char('e'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert_eq!(app.app_input.input_mode, InputMode::Editing);
+
+    let key_evt = KeyEvent::from(KeyCode::Char('f'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert_eq!(app.app_input.input_mode, InputMode::Editing);
+    assert!(app.show_filter_bar);
+
+    let key_evt = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert_eq!(app.app_input.input_mode, InputMode::Normal);
+    let key_evt = KeyEvent::from(KeyCode::Char('f'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert_eq!(app.app_input.input_mode, InputMode::Normal);
+    assert!(!app.show_filter_bar);
   }
 
   #[tokio::test]

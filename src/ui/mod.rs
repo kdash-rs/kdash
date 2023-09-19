@@ -3,10 +3,10 @@ mod overview;
 pub mod resource_tabs;
 pub mod utils;
 
-use tui::{
+use ratatui::{
   backend::Backend,
   layout::{Alignment, Constraint, Rect},
-  text::{Span, Spans, Text},
+  text::{Line, Span, Text},
   widgets::{Block, Borders, Paragraph, Tabs, Wrap},
   Frame,
 };
@@ -65,7 +65,7 @@ pub fn draw<B: Backend>(f: &mut Frame<'_, B>, app: &mut App) {
   }
 }
 
-fn draw_app_header<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_app_header<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect) {
   let chunks =
     horizontal_chunks_with_margin(vec![Constraint::Length(75), Constraint::Min(0)], area, 1);
 
@@ -73,7 +73,7 @@ fn draw_app_header<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) 
     .main_tabs
     .items
     .iter()
-    .map(|t| Spans::from(Span::styled(&t.title, style_default(app.light_theme))))
+    .map(|t| Line::from(Span::styled(&t.title, style_default(app.light_theme))))
     .collect();
   let tabs = Tabs::new(titles)
     .block(layout_block(title_style_logo(app.title, app.light_theme)))
@@ -84,13 +84,13 @@ fn draw_app_header<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) 
   draw_header_text(f, app, chunks[1]);
 }
 
-fn draw_header_text<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_header_text<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect) {
   let text = match app.get_current_route().id {
-    RouteId::Contexts => vec![Spans::from("<↑↓> scroll | <enter> select | <?> help ")],
-    RouteId::Home => vec![Spans::from(
+    RouteId::Contexts => vec![Line::from("<↑↓> scroll | <enter> select | <?> help ")],
+    RouteId::Home => vec![Line::from(
       "<←→> switch tabs | <char> select block | <↑↓> scroll | <enter> select | <?> help ",
     )],
-    RouteId::Utilization => vec![Spans::from(
+    RouteId::Utilization => vec![Line::from(
       "<↑↓> scroll | <g> cycle through grouping | <?> help ",
     )],
     RouteId::HelpMenu => vec![],
@@ -102,7 +102,7 @@ fn draw_header_text<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect)
   f.render_widget(paragraph, area);
 }
 
-fn draw_app_error<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, size: Rect) {
+fn draw_app_error<B: Backend>(f: &mut Frame<'_, B>, app: &App, size: Rect) {
   let block = Block::default()
     .title(" Error | close <esc> ")
     .style(style_failure(app.light_theme))

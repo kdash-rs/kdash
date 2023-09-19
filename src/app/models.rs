@@ -1,8 +1,7 @@
 use std::collections::VecDeque;
 
 use async_trait::async_trait;
-use serde::Serialize;
-use tui::{
+use ratatui::{
   backend::Backend,
   layout::Rect,
   style::{Modifier, Style},
@@ -10,6 +9,7 @@ use tui::{
   widgets::{Block, List, ListItem, ListState, TableState},
   Frame,
 };
+use serde::Serialize;
 
 use super::{ActiveBlock, App, Route};
 use crate::network::Network;
@@ -21,6 +21,8 @@ pub trait AppResource {
   async fn get_resource(network: &Network<'_>);
 }
 pub trait KubeResource<T: Serialize> {
+  fn get_name(&self) -> &String;
+
   fn get_k8s_obj(&self) -> &T;
 
   /// generate YAML from the original kubernetes resource
@@ -399,7 +401,7 @@ impl Scrollable for LogsState {
 mod tests {
   use k8s_openapi::api::core::v1::Namespace;
   use kube::api::ObjectMeta;
-  use tui::{backend::TestBackend, buffer::Buffer, Terminal};
+  use ratatui::{backend::TestBackend, buffer::Buffer, Terminal};
 
   use super::*;
   use crate::app::{ns::KubeNs, ActiveBlock, RouteId};
@@ -407,14 +409,19 @@ mod tests {
   #[test]
   fn test_kube_resource() {
     struct TestStruct {
+      name: String,
       k8s_obj: Namespace,
     }
     impl KubeResource<Namespace> for TestStruct {
+      fn get_name(&self) -> &String {
+        &self.name
+      }
       fn get_k8s_obj(&self) -> &Namespace {
         &self.k8s_obj
       }
     }
     let ts = TestStruct {
+      name: "test".into(),
       k8s_obj: Namespace {
         metadata: ObjectMeta {
           name: Some("test".into()),

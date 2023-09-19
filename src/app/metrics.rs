@@ -13,14 +13,14 @@ use kubectl_view_allocations::{
   tree::provide_prefix,
   Resource,
 };
-use serde::{Deserialize, Serialize};
-use tokio::sync::MutexGuard;
-use tui::{
+use ratatui::{
   backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row, Table},
   Frame,
 };
+use serde::{Deserialize, Serialize};
+use tokio::sync::MutexGuard;
 
 use super::{models::AppResource, utils, ActiveBlock, App};
 use crate::{

@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use k8s_openapi::api::core::v1::Namespace;
 use kube::{api::ListParams, Api};
-use tui::{
+use ratatui::{
   backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row, Table},
@@ -19,8 +19,8 @@ use crate::{
   network::Network,
   ui::{
     utils::{
-      layout_block_default, loading, style_highlight, style_primary, style_secondary,
-      table_header_style,
+      filter_by_resource_name, layout_block_default, loading, style_highlight, style_primary,
+      style_secondary, table_header_style,
     },
     HIGHLIGHT,
   },
@@ -52,6 +52,9 @@ impl From<Namespace> for KubeNs {
 }
 
 impl KubeResource<Namespace> for KubeNs {
+  fn get_name(&self) -> &String {
+    &self.name
+  }
   fn get_k8s_obj(&self) -> &Namespace {
     &self.k8s_obj
   }
@@ -73,17 +76,16 @@ impl AppResource for NamespaceResource {
     }
 
     if !app.data.namespaces.items.is_empty() {
-      let rows = app.data.namespaces.items.iter().map(|s| {
+      let rows = app.data.namespaces.items.iter().filter_map(|s| {
         let style = if Some(s.name.clone()) == app.data.selected.ns {
           style_secondary(app.light_theme)
         } else {
           style_primary(app.light_theme)
         };
-        Row::new(vec![
-          Cell::from(s.name.as_ref()),
-          Cell::from(s.status.as_ref()),
-        ])
-        .style(style)
+
+        let mapper = row_cell_mapper(s).style(style);
+        // return only rows that match filter if filter is set
+        filter_by_resource_name(app.data.selected.filter.clone(), s, mapper)
       });
 
       let table = Table::new(rows)
@@ -115,6 +117,13 @@ impl AppResource for NamespaceResource {
       }
     }
   }
+}
+
+fn row_cell_mapper(s: &KubeNs) -> Row<'static> {
+  Row::new(vec![
+    Cell::from(s.name.to_owned()),
+    Cell::from(s.status.to_owned()),
+  ])
 }
 
 #[cfg(test)]

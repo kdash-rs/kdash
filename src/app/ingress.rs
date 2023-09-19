@@ -3,7 +3,7 @@ use k8s_openapi::{
   api::networking::v1::{Ingress, IngressBackend, IngressRule, IngressStatus},
   chrono::Utc,
 };
-use tui::{
+use ratatui::{
   backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
@@ -79,6 +79,9 @@ impl From<Ingress> for KubeIngress {
 }
 
 impl KubeResource<Ingress> for KubeIngress {
+  fn get_name(&self) -> &String {
+    &self.name
+  }
   fn get_k8s_obj(&self) -> &Ingress {
     &self.k8s_obj
   }
@@ -229,6 +232,7 @@ fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
     },
     app.light_theme,
     app.is_loading,
+    app.data.selected.filter.to_owned(),
   );
 }
 

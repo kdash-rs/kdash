@@ -2,7 +2,7 @@ use std::vec;
 
 use async_trait::async_trait;
 use k8s_openapi::{api::networking::v1::NetworkPolicy, chrono::Utc};
-use tui::{
+use ratatui::{
   backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
@@ -63,6 +63,9 @@ impl From<NetworkPolicy> for KubeNetworkPolicy {
 }
 
 impl KubeResource<NetworkPolicy> for KubeNetworkPolicy {
+  fn get_name(&self) -> &String {
+    &self.name
+  }
   fn get_k8s_obj(&self) -> &NetworkPolicy {
     &self.k8s_obj
   }
@@ -126,6 +129,7 @@ fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
     },
     app.light_theme,
     app.is_loading,
+    app.data.selected.filter.to_owned(),
   );
 }
 

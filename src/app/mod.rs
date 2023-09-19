@@ -28,8 +28,9 @@ mod utils;
 use anyhow::anyhow;
 use kube::config::Kubeconfig;
 use kubectl_view_allocations::{GroupBy, QtyByQualifier};
+use ratatui::layout::Rect;
 use tokio::sync::mpsc::Sender;
-use tui::layout::Rect;
+use tui_input::Input;
 
 use self::{
   configmaps::KubeConfigMap,
@@ -168,10 +169,23 @@ pub struct Data {
 /// selected data items
 pub struct Selected {
   pub ns: Option<String>,
+  pub filter: Option<String>,
   pub pod: Option<String>,
   pub container: Option<String>,
   pub context: Option<String>,
   pub dynamic_kind: Option<KubeDynamicKind>,
+}
+
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub enum InputMode {
+  Normal,
+  Editing,
+}
+pub struct AppInput {
+  /// Current value of the input box
+  pub input: Input,
+  /// Current input mode
+  pub input_mode: InputMode,
 }
 
 /// Holds main application state
@@ -187,6 +201,7 @@ pub struct App {
   pub more_resources_menu: StatefulList<(String, ActiveBlock)>,
   pub dynamic_resources_menu: StatefulList<(String, ActiveBlock)>,
   pub show_info_bar: bool,
+  pub show_filter_bar: bool,
   pub is_loading: bool,
   pub is_streaming: bool,
   pub is_routing: bool,
@@ -197,6 +212,7 @@ pub struct App {
   pub size: Rect,
   pub api_error: String,
   pub dialog: Option<String>,
+  pub app_input: AppInput,
   pub confirm: bool,
   pub light_theme: bool,
   pub refresh: bool,
@@ -216,6 +232,7 @@ impl Default for Data {
       node_metrics: vec![],
       namespaces: StatefulTable::new(),
       selected: Selected {
+        filter: None,
         ns: None,
         pod: None,
         container: None,
@@ -397,6 +414,7 @@ impl Default for App {
       ]),
       dynamic_resources_menu: StatefulList::new(),
       show_info_bar: true,
+      show_filter_bar: false,
       is_loading: false,
       is_streaming: false,
       is_routing: false,
@@ -407,6 +425,10 @@ impl Default for App {
       size: Rect::default(),
       api_error: String::new(),
       dialog: None,
+      app_input: AppInput {
+        input: Input::default(),
+        input_mode: InputMode::Normal,
+      },
       confirm: false,
       light_theme: false,
       refresh: true,

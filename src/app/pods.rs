@@ -6,7 +6,7 @@ use k8s_openapi::{
   },
   chrono::Utc,
 };
-use tui::{
+use ratatui::{
   backend::Backend,
   layout::{Constraint, Rect},
   style::Style,
@@ -42,7 +42,7 @@ pub struct KubePod {
   k8s_obj: Pod,
 }
 
-#[derive(Clone, Default, Debug, Eq, PartialEq)]
+#[derive(Clone, Default, Debug, PartialEq)]
 pub struct KubeContainer {
   pub name: String,
   pub image: String,
@@ -55,6 +55,16 @@ pub struct KubeContainer {
   pub age: String,
   pub pod_name: String,
   pub init: bool,
+  k8s_obj: Option<Container>,
+}
+
+impl KubeResource<Option<Container>> for KubeContainer {
+  fn get_name(&self) -> &String {
+    &self.name
+  }
+  fn get_k8s_obj(&self) -> &Option<Container> {
+    &None
+  }
 }
 
 impl From<Pod> for KubePod {
@@ -138,6 +148,9 @@ impl From<Pod> for KubePod {
 }
 
 impl KubeResource<Pod> for KubePod {
+  fn get_name(&self) -> &String {
+    &self.name
+  }
   fn get_k8s_obj(&self) -> &Pod {
     &self.k8s_obj
   }
@@ -226,6 +239,7 @@ fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
     },
     app.light_theme,
     app.is_loading,
+    app.data.selected.filter.to_owned(),
   );
 }
 
@@ -279,6 +293,7 @@ fn draw_containers_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: 
     },
     app.light_theme,
     app.is_loading,
+    app.data.selected.filter.to_owned(),
   );
 }
 
@@ -369,6 +384,7 @@ impl KubeContainer {
       ports: get_container_ports(&container.ports).unwrap_or_default(),
       age,
       init,
+      k8s_obj: None,
     }
   }
 }
@@ -577,6 +593,7 @@ mod tests {
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
           pod_name: "adservice-f787c8dcd-tb6x2".into(),
           init: false,
+          k8s_obj: None,
         }],
         k8s_obj: pods_list[0].clone()
       }
@@ -604,6 +621,7 @@ mod tests {
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
           pod_name: "cartservice-67b89ffc69-s5qp8".into(),
           init: false,
+          k8s_obj: None,
         }],
         k8s_obj: pods_list[1].clone()
       }
@@ -631,6 +649,7 @@ mod tests {
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
           pod_name: "emailservice-5f8fc7dbb4-5lqdb".into(),
           init: false,
+          k8s_obj: None,
         }],
         k8s_obj: pods_list[3].clone()
       }
@@ -657,6 +676,7 @@ mod tests {
           ports: "8080".into(),
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
           pod_name: "frontend-5c4745dfdb-6k8wf".into(),
+          k8s_obj: None,
           init: false,
         }],
         k8s_obj: pods_list[4].clone()
@@ -684,6 +704,7 @@ mod tests {
           ports: "8080/HTTP".into(),
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
           pod_name: "frontend-5c4745dfdb-qz7fg".into(),
+          k8s_obj: None,
           init: false,
         }],
         k8s_obj: pods_list[5].clone()
@@ -711,6 +732,7 @@ mod tests {
           ports: "8080, 8081/UDP, Foo:8082/UDP, 8083".into(),
           age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
           pod_name: "frontend-5c4745dfdb-6k8wf".into(),
+          k8s_obj: None,
           init: false,
         }],
         k8s_obj: pods_list[6].clone()
@@ -739,6 +761,7 @@ mod tests {
             ports: "".into(),
             age: utils::to_age(Some(&get_time("2021-06-18T08:57:56Z")), Utc::now()),
             pod_name: "pod-init-container".into(),
+            k8s_obj: None,
             init: false,
           },
           KubeContainer {
@@ -752,6 +775,7 @@ mod tests {
             ports: "".into(),
             age: utils::to_age(Some(&get_time("2021-06-18T08:57:56Z")), Utc::now()),
             pod_name: "pod-init-container".into(),
+            k8s_obj: None,
             init: true,
           },
           KubeContainer {
@@ -765,6 +789,7 @@ mod tests {
             ports: "".into(),
             age: utils::to_age(Some(&get_time("2021-06-18T08:57:56Z")), Utc::now()),
             pod_name: "pod-init-container".into(),
+            k8s_obj: None,
             init: true,
           }
         ],
@@ -794,6 +819,7 @@ mod tests {
             ports: "".into(),
             age: utils::to_age(Some(&get_time("2021-06-18T09:26:11Z")), Utc::now()),
             pod_name: "pod-init-container-2".into(),
+            k8s_obj: None,
             init: false,
           },
           KubeContainer {
@@ -807,6 +833,7 @@ mod tests {
             ports: "".into(),
             age: utils::to_age(Some(&get_time("2021-06-18T09:26:11Z")), Utc::now()),
             pod_name: "pod-init-container-2".into(),
+            k8s_obj: None,
             init: true,
           },
           KubeContainer {
@@ -820,6 +847,7 @@ mod tests {
             ports: "".into(),
             age: utils::to_age(Some(&get_time("2021-06-18T09:26:11Z")), Utc::now()),
             pod_name: "pod-init-container-2".into(),
+            k8s_obj: None,
             init: true,
           }
         ],

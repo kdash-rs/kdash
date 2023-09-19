@@ -196,7 +196,7 @@ Press `?` while running the app to see keybindings
 
 ## Libraries used
 
-- [tui-rs](https://github.com/fdehau/tui-rs)
+- [ratatui](https://github.com/ratatui-org/ratatui)
 - [crossterm](https://github.com/crossterm-rs/crossterm)
 - [clap](https://github.com/clap-rs/clap)
 - [tokio](https://github.com/tokio-rs/tokio)

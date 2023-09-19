@@ -18,11 +18,11 @@ build:
 
 ## Runs the app
 run:  
-	@CARGO_INCREMENTAL=1 cargo fmt && make lint && cargo run
+	@cargo fmt && make lint && CARGO_INCREMENTAL=1 cargo run
 
 ## Run clippy
 lint:  
-	cargo clippy --all --all-features --all-targets --workspace -- -D warnings
+	@CARGO_INCREMENTAL=0 cargo clippy --all --all-features --all-targets --workspace -- -D warnings
 
 ## Fix lint
 lint-fix:  

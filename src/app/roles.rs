@@ -3,7 +3,7 @@ use k8s_openapi::{
   api::rbac::v1::{ClusterRole, ClusterRoleBinding, Role, RoleBinding},
   chrono::Utc,
 };
-use tui::{
+use ratatui::{
   backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
@@ -69,6 +69,9 @@ impl From<Role> for KubeRole {
 }
 
 impl KubeResource<Role> for KubeRole {
+  fn get_name(&self) -> &String {
+    &self.name
+  }
   fn get_k8s_obj(&self) -> &Role {
     &self.k8s_obj
   }
@@ -128,6 +131,7 @@ fn draw_roles_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect)
     },
     app.light_theme,
     app.is_loading,
+    app.data.selected.filter.to_owned(),
   );
 }
 
@@ -145,6 +149,9 @@ impl From<ClusterRole> for KubeClusterRole {
 }
 
 impl KubeResource<ClusterRole> for KubeClusterRole {
+  fn get_name(&self) -> &String {
+    &self.name
+  }
   fn get_k8s_obj(&self) -> &ClusterRole {
     &self.k8s_obj
   }
@@ -204,6 +211,7 @@ fn draw_cluster_roles_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, are
     },
     app.light_theme,
     app.is_loading,
+    app.data.selected.filter.to_owned(),
   );
 }
 
@@ -222,6 +230,9 @@ impl From<RoleBinding> for KubeRoleBinding {
   }
 }
 impl KubeResource<RoleBinding> for KubeRoleBinding {
+  fn get_name(&self) -> &String {
+    &self.name
+  }
   fn get_k8s_obj(&self) -> &RoleBinding {
     &self.k8s_obj
   }
@@ -288,6 +299,7 @@ fn draw_role_bindings_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, are
     },
     app.light_theme,
     app.is_loading,
+    app.data.selected.filter.to_owned(),
   );
 }
 
@@ -303,6 +315,9 @@ impl From<ClusterRoleBinding> for KubeClusterRoleBinding {
 }
 
 impl KubeResource<ClusterRoleBinding> for KubeClusterRoleBinding {
+  fn get_name(&self) -> &String {
+    &self.name
+  }
   fn get_k8s_obj(&self) -> &ClusterRoleBinding {
     &self.k8s_obj
   }
@@ -367,6 +382,7 @@ fn draw_cluster_role_binding_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut A
     },
     app.light_theme,
     app.is_loading,
+    app.data.selected.filter.to_owned(),
   );
 }
 

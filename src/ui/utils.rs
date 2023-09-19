@@ -1,17 +1,22 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, rc::Rc};
 
-use tui::{
+use glob_match::glob_match;
+use ratatui::{
   backend::Backend,
   layout::{Constraint, Direction, Layout, Rect},
   style::{Color, Modifier, Style},
   symbols,
-  text::{Span, Spans, Text},
+  text::{Line, Span, Text},
   widgets::{Block, Borders, Paragraph, Row, Table, Wrap},
   Frame,
 };
+use serde::Serialize;
 
 use super::HIGHLIGHT;
-use crate::app::{models::StatefulTable, ActiveBlock, App};
+use crate::app::{
+  models::{KubeResource, StatefulTable},
+  ActiveBlock, App,
+};
 // Utils
 
 pub static COPY_HINT: &str = "| copy <c>";
@@ -147,7 +152,7 @@ pub fn table_header_style(cells: Vec<&str>, light: bool) -> Row<'_> {
   Row::new(cells).style(style_default(light)).bottom_margin(0)
 }
 
-pub fn horizontal_chunks(constraints: Vec<Constraint>, size: Rect) -> Vec<Rect> {
+pub fn horizontal_chunks(constraints: Vec<Constraint>, size: Rect) -> Rc<[Rect]> {
   Layout::default()
     .constraints(<Vec<Constraint> as AsRef<[Constraint]>>::as_ref(
       &constraints,
@@ -160,7 +165,7 @@ pub fn horizontal_chunks_with_margin(
   constraints: Vec<Constraint>,
   size: Rect,
   margin: u16,
-) -> Vec<Rect> {
+) -> Rc<[Rect]> {
   Layout::default()
     .constraints(<Vec<Constraint> as AsRef<[Constraint]>>::as_ref(
       &constraints,
@@ -170,7 +175,7 @@ pub fn horizontal_chunks_with_margin(
     .split(size)
 }
 
-pub fn vertical_chunks(constraints: Vec<Constraint>, size: Rect) -> Vec<Rect> {
+pub fn vertical_chunks(constraints: Vec<Constraint>, size: Rect) -> Rc<[Rect]> {
   Layout::default()
     .constraints(<Vec<Constraint> as AsRef<[Constraint]>>::as_ref(
       &constraints,
@@ -183,7 +188,7 @@ pub fn vertical_chunks_with_margin(
   constraints: Vec<Constraint>,
   size: Rect,
   margin: u16,
-) -> Vec<Rect> {
+) -> Rc<[Rect]> {
   Layout::default()
     .constraints(<Vec<Constraint> as AsRef<[Constraint]>>::as_ref(
       &constraints,
@@ -205,19 +210,19 @@ pub fn layout_block_active(title: &str, light: bool) -> Block<'_> {
   layout_block(title_style(title)).style(style_secondary(light))
 }
 
-pub fn layout_block_active_span(title: Spans<'_>, light: bool) -> Block<'_> {
+pub fn layout_block_active_span(title: Line<'_>, light: bool) -> Block<'_> {
   Block::default()
     .borders(Borders::ALL)
     .title(title)
     .style(style_secondary(light))
 }
 
-pub fn layout_block_top_border(title: Spans<'_>) -> Block<'_> {
+pub fn layout_block_top_border(title: Line<'_>) -> Block<'_> {
   Block::default().borders(Borders::TOP).title(title)
 }
 
-pub fn title_with_dual_style<'a>(part_1: String, part_2: String, light: bool) -> Spans<'a> {
-  Spans::from(vec![
+pub fn title_with_dual_style<'a>(part_1: String, part_2: String, light: bool) -> Line<'a> {
+  Line::from(vec![
     Span::styled(part_1, style_secondary(light).add_modifier(Modifier::BOLD)),
     Span::styled(part_2, style_default(light).add_modifier(Modifier::BOLD)),
   ])
@@ -313,9 +318,9 @@ pub struct ResourceTableProps<'a, T> {
 /// common for all resources
 pub fn draw_describe_block<B: Backend>(
   f: &mut Frame<'_, B>,
-  app: &mut App,
+  app: &App,
   area: Rect,
-  title: Spans<'_>,
+  title: Line<'_>,
 ) {
   let block = layout_block_top_border(title);
 
@@ -335,13 +340,14 @@ pub fn draw_describe_block<B: Backend>(
 }
 
 /// Draw a kubernetes resource overview tab
-pub fn draw_resource_block<'a, B, T, F>(
+pub fn draw_resource_block<'a, B, T: KubeResource<U>, F, U: Serialize>(
   f: &mut Frame<'_, B>,
   area: Rect,
   table_props: ResourceTableProps<'a, T>,
   row_cell_mapper: F,
   light_theme: bool,
   is_loading: bool,
+  filter: Option<String>,
 ) where
   B: Backend,
   F: Fn(&T) -> Row<'a>,
@@ -350,12 +356,15 @@ pub fn draw_resource_block<'a, B, T, F>(
   let block = layout_block_top_border(title);
 
   if !table_props.resource.items.is_empty() {
-    let rows = table_props
-      .resource
-      .items
-      .iter()
-      //   .map(|c| { Row::new(row_cell_mapper(c)) }.style(style_primary()));
-      .map(row_cell_mapper);
+    let rows = table_props.resource.items.iter().filter_map(|c| {
+      let mapper = row_cell_mapper(c);
+      // return only rows that match filter if filter is set
+      match filter.as_ref() {
+        None => Some(mapper),
+        Some(ft) if filter_by_name(ft, c) => Some(mapper),
+        _ => None,
+      }
+    });
 
     let table = Table::new(rows)
       .header(table_header_style(table_props.table_headers, light_theme))
@@ -368,6 +377,24 @@ pub fn draw_resource_block<'a, B, T, F>(
   } else {
     loading(f, block, area, is_loading, light_theme);
   }
+}
+
+pub fn filter_by_resource_name<T: KubeResource<U>, U: Serialize>(
+  filter: Option<String>,
+  res: &T,
+  row_cell_mapper: Row<'static>,
+) -> Option<Row<'static>> {
+  match filter.as_ref() {
+    None => Some(row_cell_mapper),
+    Some(ft) if filter_by_name(ft, res) => Some(row_cell_mapper),
+    _ => None,
+  }
+}
+
+fn filter_by_name<T: KubeResource<U>, U: Serialize>(ft: &String, res: &T) -> bool {
+  ft.is_empty()
+    || glob_match(&ft.to_lowercase(), &res.get_name().to_lowercase())
+    || res.get_name().to_lowercase().contains(&ft.to_lowercase())
 }
 
 pub fn get_cluster_wide_resource_title<S: AsRef<str>>(
@@ -416,7 +443,7 @@ pub fn title_with_ns(title: &str, ns: &str, length: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-  use tui::{backend::TestBackend, buffer::Buffer, style::Modifier, widgets::Cell, Terminal};
+  use ratatui::{backend::TestBackend, buffer::Buffer, style::Modifier, widgets::Cell, Terminal};
 
   use super::*;
   use crate::ui::utils::{COLOR_CYAN, COLOR_WHITE, COLOR_YELLOW};
@@ -431,6 +458,15 @@ mod tests {
       pub namespace: String,
       pub data: i32,
       pub age: String,
+    }
+
+    impl KubeResource<Option<String>> for RenderTest {
+      fn get_name(&self) -> &String {
+        &self.name
+      }
+      fn get_k8s_obj(&self) -> &Option<String> {
+        &None
+      }
     }
     terminal
       .draw(|f| {
@@ -482,6 +518,7 @@ mod tests {
           },
           false,
           false,
+          None,
         );
       })
       .unwrap();
@@ -532,6 +569,268 @@ mod tests {
     }
     // remaining table data row style
     for row in 3..=4 {
+      for col in 0..=99 {
+        expected
+          .get_mut(col, row)
+          .set_style(Style::default().fg(COLOR_CYAN));
+      }
+    }
+
+    terminal.backend().assert_buffer(&expected);
+  }
+
+  #[test]
+  fn test_draw_resource_block_filter() {
+    let backend = TestBackend::new(100, 6);
+    let mut terminal = Terminal::new(backend).unwrap();
+
+    struct RenderTest {
+      pub name: String,
+      pub namespace: String,
+      pub data: i32,
+      pub age: String,
+    }
+    impl KubeResource<Option<String>> for RenderTest {
+      fn get_name(&self) -> &String {
+        &self.name
+      }
+      fn get_k8s_obj(&self) -> &Option<String> {
+        &None
+      }
+    }
+
+    terminal
+      .draw(|f| {
+        let size = f.size();
+        let mut resource: StatefulTable<RenderTest> = StatefulTable::new();
+        resource.set_items(vec![
+          RenderTest {
+            name: "Test 1".into(),
+            namespace: "Test ns".into(),
+            age: "65h3m".into(),
+            data: 5,
+          },
+          RenderTest {
+            name: "Test long name that should be truncated from view".into(),
+            namespace: "Test ns".into(),
+            age: "65h3m".into(),
+            data: 3,
+          },
+          RenderTest {
+            name: "test_long_name_that_should_be_truncated_from_view".into(),
+            namespace: "Test ns long value check that should be truncated".into(),
+            age: "65h3m".into(),
+            data: 6,
+          },
+        ]);
+        draw_resource_block(
+          f,
+          size,
+          ResourceTableProps {
+            title: "Test".into(),
+            inline_help: "-> yaml <y>".into(),
+            resource: &mut resource,
+            table_headers: vec!["Namespace", "Name", "Data", "Age"],
+            column_widths: vec![
+              Constraint::Percentage(30),
+              Constraint::Percentage(40),
+              Constraint::Percentage(15),
+              Constraint::Percentage(15),
+            ],
+          },
+          |c| {
+            Row::new(vec![
+              Cell::from(c.namespace.to_owned()),
+              Cell::from(c.name.to_owned()),
+              Cell::from(c.data.to_string()),
+              Cell::from(c.age.to_owned()),
+            ])
+            .style(style_primary(false))
+          },
+          false,
+          false,
+          Some("truncated".to_string()),
+        );
+      })
+      .unwrap();
+
+    let mut expected = Buffer::with_lines(vec![
+        "Test-> yaml <y>─────────────────────────────────────────────────────────────────────────────────────",
+        "   Namespace                      Name                                     Data            Age      ",
+        "=> Test ns                        Test long name that should be truncated  3               65h3m    ",
+        "   Test ns long value check that  test_long_name_that_should_be_truncated_ 6               65h3m    ",
+        "                                                                                                    ",
+        "                                                                                                    ",
+      ]);
+    // set row styles
+    // First row heading style
+    for col in 0..=99 {
+      match col {
+        0..=3 => {
+          expected.get_mut(col, 0).set_style(
+            Style::default()
+              .fg(COLOR_YELLOW)
+              .add_modifier(Modifier::BOLD),
+          );
+        }
+        4..=14 => {
+          expected.get_mut(col, 0).set_style(
+            Style::default()
+              .fg(COLOR_WHITE)
+              .add_modifier(Modifier::BOLD),
+          );
+        }
+        _ => {}
+      }
+    }
+
+    // Second row table header style
+    for col in 0..=99 {
+      expected
+        .get_mut(col, 1)
+        .set_style(Style::default().fg(COLOR_WHITE));
+    }
+    // first table data row style
+    for col in 0..=99 {
+      expected.get_mut(col, 2).set_style(
+        Style::default()
+          .fg(COLOR_CYAN)
+          .add_modifier(Modifier::REVERSED),
+      );
+    }
+    // remaining table data row style
+    for row in 3..=3 {
+      for col in 0..=99 {
+        expected
+          .get_mut(col, row)
+          .set_style(Style::default().fg(COLOR_CYAN));
+      }
+    }
+
+    terminal.backend().assert_buffer(&expected);
+  }
+
+  #[test]
+  fn test_draw_resource_block_filter_glob() {
+    let backend = TestBackend::new(100, 6);
+    let mut terminal = Terminal::new(backend).unwrap();
+
+    struct RenderTest {
+      pub name: String,
+      pub namespace: String,
+      pub data: i32,
+      pub age: String,
+    }
+    impl KubeResource<Option<String>> for RenderTest {
+      fn get_name(&self) -> &String {
+        &self.name
+      }
+      fn get_k8s_obj(&self) -> &Option<String> {
+        &None
+      }
+    }
+
+    terminal
+      .draw(|f| {
+        let size = f.size();
+        let mut resource: StatefulTable<RenderTest> = StatefulTable::new();
+        resource.set_items(vec![
+          RenderTest {
+            name: "Test 1".into(),
+            namespace: "Test ns".into(),
+            age: "65h3m".into(),
+            data: 5,
+          },
+          RenderTest {
+            name: "Test long name that should be truncated from view".into(),
+            namespace: "Test ns".into(),
+            age: "65h3m".into(),
+            data: 3,
+          },
+          RenderTest {
+            name: "test_long_name_that_should_be_truncated_from_view".into(),
+            namespace: "Test ns long value check that should be truncated".into(),
+            age: "65h3m".into(),
+            data: 6,
+          },
+        ]);
+        draw_resource_block(
+          f,
+          size,
+          ResourceTableProps {
+            title: "Test".into(),
+            inline_help: "-> yaml <y>".into(),
+            resource: &mut resource,
+            table_headers: vec!["Namespace", "Name", "Data", "Age"],
+            column_widths: vec![
+              Constraint::Percentage(30),
+              Constraint::Percentage(40),
+              Constraint::Percentage(15),
+              Constraint::Percentage(15),
+            ],
+          },
+          |c| {
+            Row::new(vec![
+              Cell::from(c.namespace.to_owned()),
+              Cell::from(c.name.to_owned()),
+              Cell::from(c.data.to_string()),
+              Cell::from(c.age.to_owned()),
+            ])
+            .style(style_primary(false))
+          },
+          false,
+          false,
+          Some("*long*truncated*".to_string()),
+        );
+      })
+      .unwrap();
+
+    let mut expected = Buffer::with_lines(vec![
+        "Test-> yaml <y>─────────────────────────────────────────────────────────────────────────────────────",
+        "   Namespace                      Name                                     Data            Age      ",
+        "=> Test ns                        Test long name that should be truncated  3               65h3m    ",
+        "   Test ns long value check that  test_long_name_that_should_be_truncated_ 6               65h3m    ",
+        "                                                                                                    ",
+        "                                                                                                    ",
+      ]);
+    // set row styles
+    // First row heading style
+    for col in 0..=99 {
+      match col {
+        0..=3 => {
+          expected.get_mut(col, 0).set_style(
+            Style::default()
+              .fg(COLOR_YELLOW)
+              .add_modifier(Modifier::BOLD),
+          );
+        }
+        4..=14 => {
+          expected.get_mut(col, 0).set_style(
+            Style::default()
+              .fg(COLOR_WHITE)
+              .add_modifier(Modifier::BOLD),
+          );
+        }
+        _ => {}
+      }
+    }
+
+    // Second row table header style
+    for col in 0..=99 {
+      expected
+        .get_mut(col, 1)
+        .set_style(Style::default().fg(COLOR_WHITE));
+    }
+    // first table data row style
+    for col in 0..=99 {
+      expected.get_mut(col, 2).set_style(
+        Style::default()
+          .fg(COLOR_CYAN)
+          .add_modifier(Modifier::REVERSED),
+      );
+    }
+    // remaining table data row style
+    for row in 3..=3 {
       for col in 0..=99 {
         expected
           .get_mut(col, row)
