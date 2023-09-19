@@ -69,13 +69,13 @@ Since validation of the package takes forever, it may take a long while to becom
 choco install kdash
 
 # Version number may be required for newer releases, if available:
-choco install kdash --version=0.2.7
+choco install kdash --version=0.4.3
 ```
 
 To upgrade
 
 ```bash
-choco upgrade kdash --version=0.2.7
+choco upgrade kdash --version=0.4.3
 ```
 
 ### Nix
@@ -171,6 +171,7 @@ Press `?` while running the app to see keybindings
 - Resources utilizations for nodes, pods and namespaces based on metrics server. Requires [metrics-server](https://kubernetes.io/docs/tasks/debug-application-cluster/resource-metrics-pipeline/#metrics-server) to be deployed on the cluster.
 - Dark/Light themes
 - Sensible keyboard shortcuts
+- Global glob filtering for resource names
 
 ## Screenshots
 
