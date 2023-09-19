@@ -299,7 +299,7 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
   toggle_global_filter: KeyBinding {
     key: Key::Char('f'),
     alt: None,
-    desc: "Toggle global filtering pane",
+    desc: "Toggle global filtering by resource name (supports glob patterns)",
     context: HContext::Overview,
   },
   toggle_global_filter_edit: KeyBinding {

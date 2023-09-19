@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, rc::Rc};
 
+use glob_match::glob_match;
 use ratatui::{
   backend::Backend,
   layout::{Constraint, Direction, Layout, Rect},
@@ -356,12 +357,11 @@ pub fn draw_resource_block<'a, B, T: KubeResource<U>, F, U: Serialize>(
 
   if !table_props.resource.items.is_empty() {
     let rows = table_props.resource.items.iter().filter_map(|c| {
+      let mapper = row_cell_mapper(c);
       // return only rows that match filter if filter is set
       match filter.as_ref() {
-        None => Some(row_cell_mapper(c)),
-        Some(ft) if ft.is_empty() || c.get_name().to_lowercase().contains(&ft.to_lowercase()) => {
-          Some(row_cell_mapper(c))
-        }
+        None => Some(mapper),
+        Some(ft) if filter_by_name(ft, c) => Some(mapper),
         _ => None,
       }
     });
@@ -377,6 +377,24 @@ pub fn draw_resource_block<'a, B, T: KubeResource<U>, F, U: Serialize>(
   } else {
     loading(f, block, area, is_loading, light_theme);
   }
+}
+
+pub fn filter_by_resource_name<T: KubeResource<U>, U: Serialize>(
+  filter: Option<String>,
+  res: &T,
+  row_cell_mapper: Row<'static>,
+) -> Option<Row<'static>> {
+  match filter.as_ref() {
+    None => Some(row_cell_mapper),
+    Some(ft) if filter_by_name(ft, res) => Some(row_cell_mapper),
+    _ => None,
+  }
+}
+
+fn filter_by_name<T: KubeResource<U>, U: Serialize>(ft: &String, res: &T) -> bool {
+  ft.is_empty()
+    || glob_match(&ft.to_lowercase(), &res.get_name().to_lowercase())
+    || res.get_name().to_lowercase().contains(&ft.to_lowercase())
 }
 
 pub fn get_cluster_wide_resource_title<S: AsRef<str>>(
@@ -632,6 +650,137 @@ mod tests {
           false,
           false,
           Some("truncated".to_string()),
+        );
+      })
+      .unwrap();
+
+    let mut expected = Buffer::with_lines(vec![
+        "Test-> yaml <y>─────────────────────────────────────────────────────────────────────────────────────",
+        "   Namespace                      Name                                     Data            Age      ",
+        "=> Test ns                        Test long name that should be truncated  3               65h3m    ",
+        "   Test ns long value check that  test_long_name_that_should_be_truncated_ 6               65h3m    ",
+        "                                                                                                    ",
+        "                                                                                                    ",
+      ]);
+    // set row styles
+    // First row heading style
+    for col in 0..=99 {
+      match col {
+        0..=3 => {
+          expected.get_mut(col, 0).set_style(
+            Style::default()
+              .fg(COLOR_YELLOW)
+              .add_modifier(Modifier::BOLD),
+          );
+        }
+        4..=14 => {
+          expected.get_mut(col, 0).set_style(
+            Style::default()
+              .fg(COLOR_WHITE)
+              .add_modifier(Modifier::BOLD),
+          );
+        }
+        _ => {}
+      }
+    }
+
+    // Second row table header style
+    for col in 0..=99 {
+      expected
+        .get_mut(col, 1)
+        .set_style(Style::default().fg(COLOR_WHITE));
+    }
+    // first table data row style
+    for col in 0..=99 {
+      expected.get_mut(col, 2).set_style(
+        Style::default()
+          .fg(COLOR_CYAN)
+          .add_modifier(Modifier::REVERSED),
+      );
+    }
+    // remaining table data row style
+    for row in 3..=3 {
+      for col in 0..=99 {
+        expected
+          .get_mut(col, row)
+          .set_style(Style::default().fg(COLOR_CYAN));
+      }
+    }
+
+    terminal.backend().assert_buffer(&expected);
+  }
+
+  #[test]
+  fn test_draw_resource_block_filter_glob() {
+    let backend = TestBackend::new(100, 6);
+    let mut terminal = Terminal::new(backend).unwrap();
+
+    struct RenderTest {
+      pub name: String,
+      pub namespace: String,
+      pub data: i32,
+      pub age: String,
+    }
+    impl KubeResource<Option<String>> for RenderTest {
+      fn get_name(&self) -> &String {
+        &self.name
+      }
+      fn get_k8s_obj(&self) -> &Option<String> {
+        &None
+      }
+    }
+
+    terminal
+      .draw(|f| {
+        let size = f.size();
+        let mut resource: StatefulTable<RenderTest> = StatefulTable::new();
+        resource.set_items(vec![
+          RenderTest {
+            name: "Test 1".into(),
+            namespace: "Test ns".into(),
+            age: "65h3m".into(),
+            data: 5,
+          },
+          RenderTest {
+            name: "Test long name that should be truncated from view".into(),
+            namespace: "Test ns".into(),
+            age: "65h3m".into(),
+            data: 3,
+          },
+          RenderTest {
+            name: "test_long_name_that_should_be_truncated_from_view".into(),
+            namespace: "Test ns long value check that should be truncated".into(),
+            age: "65h3m".into(),
+            data: 6,
+          },
+        ]);
+        draw_resource_block(
+          f,
+          size,
+          ResourceTableProps {
+            title: "Test".into(),
+            inline_help: "-> yaml <y>".into(),
+            resource: &mut resource,
+            table_headers: vec!["Namespace", "Name", "Data", "Age"],
+            column_widths: vec![
+              Constraint::Percentage(30),
+              Constraint::Percentage(40),
+              Constraint::Percentage(15),
+              Constraint::Percentage(15),
+            ],
+          },
+          |c| {
+            Row::new(vec![
+              Cell::from(c.namespace.to_owned()),
+              Cell::from(c.name.to_owned()),
+              Cell::from(c.data.to_string()),
+              Cell::from(c.age.to_owned()),
+            ])
+            .style(style_primary(false))
+          },
+          false,
+          false,
+          Some("*long*truncated*".to_string()),
         );
       })
       .unwrap();
