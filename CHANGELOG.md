@@ -2,7 +2,7 @@
 
 ## Unreleased - 2022-XX-YY
 
-## [0.4.3] - 2023-08-24
+## [0.4.3] - 2023-09-19
 
 - Global Filtering support (https://github.com/kdash-rs/kdash/pull/383)
 
