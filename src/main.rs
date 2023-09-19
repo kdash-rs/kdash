@@ -150,12 +150,12 @@ async fn start_cmd_runner(mut io_rx: mpsc::Receiver<IoCmdEvent>, app: &Arc<Mutex
 }
 
 async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
+  // see https://docs.rs/crossterm/0.17.7/crossterm/terminal/#raw-mode
+  enable_raw_mode()?;
   // Terminal initialization
   let mut stdout = stdout();
   // not capturing mouse to make text select/copy possible
   execute!(stdout, EnterAlternateScreen)?;
-  // see https://docs.rs/crossterm/0.17.7/crossterm/terminal/#raw-mode
-  enable_raw_mode()?;
   // terminal backend for cross platform support
   let backend = CrosstermBackend::new(stdout);
   let mut terminal = Terminal::new(backend)?;
@@ -188,13 +188,15 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
 
     // handle key events
     match events.next()? {
-      event::Event::Input(key) => {
+      event::Event::Input(key_event) => {
         // quit on CTRL + C
+        let key = Key::from(key_event);
+
         if key == Key::Ctrl('c') {
           break;
         }
         // handle all other keys
-        handlers::handle_key_events(key, &mut app).await
+        handlers::handle_key_events(key, key_event, &mut app).await
       }
       // handle mouse events
       event::Event::MouseInput(mouse) => handlers::handle_mouse_events(mouse, &mut app).await,

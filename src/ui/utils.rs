@@ -317,7 +317,7 @@ pub struct ResourceTableProps<'a, T> {
 /// common for all resources
 pub fn draw_describe_block<B: Backend>(
   f: &mut Frame<'_, B>,
-  app: &mut App,
+  app: &App,
   area: Rect,
   title: Line<'_>,
 ) {
@@ -357,18 +357,12 @@ pub fn draw_resource_block<'a, B, T: KubeResource<U>, F, U: Serialize>(
   if !table_props.resource.items.is_empty() {
     let rows = table_props.resource.items.iter().filter_map(|c| {
       // return only rows that match filter if filter is set
-      if filter.is_some() && !filter.as_ref().unwrap().is_empty() {
-        if c
-          .get_name()
-          .to_lowercase()
-          .contains(&filter.as_ref().unwrap().to_lowercase())
-        {
+      match filter.as_ref() {
+        None => Some(row_cell_mapper(c)),
+        Some(ft) if ft.is_empty() || c.get_name().to_lowercase().contains(&ft.to_lowercase()) => {
           Some(row_cell_mapper(c))
-        } else {
-          None
         }
-      } else {
-        Some(row_cell_mapper(c))
+        _ => None,
       }
     });
 

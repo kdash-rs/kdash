@@ -5,7 +5,7 @@ use std::{
   time::{Duration, Instant},
 };
 
-use crossterm::event::{self, Event as CEvent, MouseEvent};
+use crossterm::event::{self, Event as CEvent, KeyEvent, MouseEvent};
 
 use super::Key;
 
@@ -38,9 +38,9 @@ pub enum Event<I, J> {
 /// A small event handler that wrap crossterm input and tick event. Each event
 /// type is handled in its own thread and returned to a common `Receiver`
 pub struct Events {
-  rx: mpsc::Receiver<Event<Key, MouseEvent>>,
+  rx: mpsc::Receiver<Event<KeyEvent, MouseEvent>>,
   // Need to be kept around to prevent disposing the sender side.
-  _tx: mpsc::Sender<Event<Key, MouseEvent>>,
+  _tx: mpsc::Sender<Event<KeyEvent, MouseEvent>>,
 }
 
 impl Events {
@@ -68,12 +68,11 @@ impl Events {
         // poll for tick rate duration, if no event, sent tick event.
         if event::poll(timeout).unwrap() {
           match event::read().unwrap() {
-            CEvent::Key(key) => {
-              let key = Key::from(key);
-              event_tx.send(Event::Input(key)).unwrap();
+            CEvent::Key(key_event) => {
+              event_tx.send(Event::Input(key_event)).unwrap();
             }
-            CEvent::Mouse(mouse) => {
-              event_tx.send(Event::MouseInput(mouse)).unwrap();
+            CEvent::Mouse(mouse_event) => {
+              event_tx.send(Event::MouseInput(mouse_event)).unwrap();
             }
             _ => {}
           }
@@ -90,7 +89,7 @@ impl Events {
 
   /// Attempts to read an event.
   /// This function will block the current thread.
-  pub fn next(&self) -> Result<Event<Key, MouseEvent>, mpsc::RecvError> {
+  pub fn next(&self) -> Result<Event<KeyEvent, MouseEvent>, mpsc::RecvError> {
     self.rx.recv()
   }
 }

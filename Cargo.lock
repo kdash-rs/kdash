@@ -896,6 +896,7 @@ dependencies = [
  "textwrap",
  "tokio",
  "tokio-stream",
+ "tui-input",
 ]
 
 [[package]]
@@ -1996,6 +1997,16 @@ name = "try-lock"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59547bce71d9c38b83d9c0e92b6066c4253371f15005def0c30d9657f50c7642"
+
+[[package]]
+name = "tui-input"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3e785f863a3af4c800a2a669d0b64c879b538738e352607e2624d03f868dc01"
+dependencies = [
+ "crossterm",
+ "unicode-width",
+]
 
 [[package]]
 name = "twox-hash"

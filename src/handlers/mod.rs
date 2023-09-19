@@ -1,64 +1,75 @@
 use base64::{engine::general_purpose, Engine as _};
-use crossterm::event::{MouseEvent, MouseEventKind};
+use crossterm::event::{Event, KeyEvent, MouseEvent, MouseEventKind};
 use kubectl_view_allocations::GroupBy;
 use serde::Serialize;
+use tui_input::backend::crossterm::EventHandler;
 
 use crate::{
   app::{
     key_binding::DEFAULT_KEYBINDING,
     models::{KubeResource, Scrollable, ScrollableTxt, StatefulTable},
     secrets::KubeSecret,
-    ActiveBlock, App, Route, RouteId,
+    ActiveBlock, App, InputMode, Route, RouteId,
   },
   cmd::IoCmdEvent,
   event::Key,
 };
 
-pub async fn handle_key_events(key: Key, app: &mut App) {
-  // First handle any global event and then move to route event
-  match key {
-    _ if key == DEFAULT_KEYBINDING.esc.key => {
-      handle_escape(app);
+pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
+  // if input is enabled capture keystrokes
+  if app.app_input.input_mode == InputMode::Editing {
+    if key == DEFAULT_KEYBINDING.esc.key {
+      app.app_input.input_mode = InputMode::Normal;
+    } else {
+      app.app_input.input.handle_event(&Event::Key(key_event));
+      app.data.selected.filter = Some(app.app_input.input.value().into());
     }
-    _ if key == DEFAULT_KEYBINDING.quit.key || key == DEFAULT_KEYBINDING.quit.alt.unwrap() => {
-      app.should_quit = true;
-    }
-    _ if key == DEFAULT_KEYBINDING.up.key || key == DEFAULT_KEYBINDING.up.alt.unwrap() => {
-      handle_block_scroll(app, true, false, false).await;
-    }
-    _ if key == DEFAULT_KEYBINDING.down.key || key == DEFAULT_KEYBINDING.down.alt.unwrap() => {
-      handle_block_scroll(app, false, false, false).await;
-    }
-    _ if key == DEFAULT_KEYBINDING.pg_up.key => {
-      handle_block_scroll(app, true, false, true).await;
-    }
-    _ if key == DEFAULT_KEYBINDING.pg_down.key => {
-      handle_block_scroll(app, false, false, true).await;
-    }
-    _ if key == DEFAULT_KEYBINDING.toggle_theme.key => {
-      app.light_theme = !app.light_theme;
-    }
-    _ if key == DEFAULT_KEYBINDING.refresh.key => {
-      app.refresh();
-    }
-    _ if key == DEFAULT_KEYBINDING.help.key => {
-      if app.get_current_route().active_block != ActiveBlock::Help {
-        app.push_navigation_stack(RouteId::HelpMenu, ActiveBlock::Help);
+  } else {
+    // First handle any global event and then move to route event
+    match key {
+      _ if key == DEFAULT_KEYBINDING.esc.key => {
+        handle_escape(app);
       }
+      _ if key == DEFAULT_KEYBINDING.quit.key || key == DEFAULT_KEYBINDING.quit.alt.unwrap() => {
+        app.should_quit = true;
+      }
+      _ if key == DEFAULT_KEYBINDING.up.key || key == DEFAULT_KEYBINDING.up.alt.unwrap() => {
+        handle_block_scroll(app, true, false, false).await;
+      }
+      _ if key == DEFAULT_KEYBINDING.down.key || key == DEFAULT_KEYBINDING.down.alt.unwrap() => {
+        handle_block_scroll(app, false, false, false).await;
+      }
+      _ if key == DEFAULT_KEYBINDING.pg_up.key => {
+        handle_block_scroll(app, true, false, true).await;
+      }
+      _ if key == DEFAULT_KEYBINDING.pg_down.key => {
+        handle_block_scroll(app, false, false, true).await;
+      }
+      _ if key == DEFAULT_KEYBINDING.toggle_theme.key => {
+        app.light_theme = !app.light_theme;
+      }
+      _ if key == DEFAULT_KEYBINDING.refresh.key => {
+        app.refresh();
+      }
+      _ if key == DEFAULT_KEYBINDING.help.key => {
+        if app.get_current_route().active_block != ActiveBlock::Help {
+          app.push_navigation_stack(RouteId::HelpMenu, ActiveBlock::Help);
+        }
+      }
+      _ if key == DEFAULT_KEYBINDING.jump_to_all_context.key => {
+        app.route_contexts();
+      }
+      _ if key == DEFAULT_KEYBINDING.jump_to_current_context.key => {
+        app.route_home();
+      }
+      _ if key == DEFAULT_KEYBINDING.jump_to_utilization.key => {
+        app.route_utilization();
+      }
+      _ if key == DEFAULT_KEYBINDING.cycle_main_views.key => {
+        app.cycle_main_routes();
+      }
+      _ => handle_route_events(key, app).await,
     }
-    _ if key == DEFAULT_KEYBINDING.jump_to_all_context.key => {
-      app.route_contexts();
-    }
-    _ if key == DEFAULT_KEYBINDING.jump_to_current_context.key => {
-      app.route_home();
-    }
-    _ if key == DEFAULT_KEYBINDING.jump_to_utilization.key => {
-      app.route_utilization();
-    }
-    _ if key == DEFAULT_KEYBINDING.cycle_main_views.key => {
-      app.cycle_main_routes();
-    }
-    _ => handle_route_events(key, app).await,
   }
 }
 
@@ -76,6 +87,7 @@ fn handle_escape(app: &mut App) {
   if !app.api_error.is_empty() {
     app.api_error = String::default();
   }
+
   match app.get_current_route().id {
     RouteId::HelpMenu => {
       app.pop_navigation_stack();
@@ -172,6 +184,21 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         _ if key == DEFAULT_KEYBINDING.toggle_info.key => {
           app.show_info_bar = !app.show_info_bar;
+        }
+        _ if key == DEFAULT_KEYBINDING.toggle_global_filter.key => {
+          if app.show_filter_bar {
+            app.app_input.input_mode = InputMode::Normal;
+            app.app_input.input.reset();
+            app.data.selected.filter = None;
+          } else {
+            app.app_input.input_mode = InputMode::Editing;
+          }
+          app.show_filter_bar = !app.show_filter_bar;
+        }
+        _ if key == DEFAULT_KEYBINDING.toggle_global_filter_edit.key => {
+          if app.show_filter_bar {
+            app.app_input.input_mode = InputMode::Editing;
+          }
         }
         _ if key == DEFAULT_KEYBINDING.select_all_namespace.key => app.data.selected.ns = None,
         _ if key == DEFAULT_KEYBINDING.jump_to_namespace.key => {
@@ -754,6 +781,7 @@ fn inverse_dir(up: bool, is_mouse: bool) -> bool {
 
 #[cfg(test)]
 mod tests {
+  use crossterm::event::KeyCode;
   use k8s_openapi::ByteString;
 
   use super::*;
@@ -763,6 +791,41 @@ mod tests {
   fn test_inverse_dir() {
     assert!(inverse_dir(true, false));
     assert!(!inverse_dir(true, true));
+  }
+
+  #[tokio::test]
+
+  async fn test_handle_key_events_for_filter() {
+    let mut app = App::default();
+
+    app.route_home();
+    assert_eq!(app.app_input.input_mode, InputMode::Normal);
+
+    let key_evt = KeyEvent::from(KeyCode::Char('f'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert!(app.show_filter_bar);
+    assert_eq!(app.app_input.input_mode, InputMode::Editing);
+
+    let key_evt = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert_eq!(app.app_input.input_mode, InputMode::Normal);
+
+    let key_evt = KeyEvent::from(KeyCode::Char('e'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert_eq!(app.app_input.input_mode, InputMode::Editing);
+
+    let key_evt = KeyEvent::from(KeyCode::Char('f'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert_eq!(app.app_input.input_mode, InputMode::Editing);
+    assert!(app.show_filter_bar);
+
+    let key_evt = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert_eq!(app.app_input.input_mode, InputMode::Normal);
+    let key_evt = KeyEvent::from(KeyCode::Char('f'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert_eq!(app.app_input.input_mode, InputMode::Normal);
+    assert!(!app.show_filter_bar);
   }
 
   #[tokio::test]

@@ -36,6 +36,8 @@ generate_keybindings! {
   left,
   right,
   toggle_info,
+  toggle_global_filter,
+  toggle_global_filter_edit,
   log_auto_scroll,
   select_all_namespace,
   jump_to_namespace,
@@ -293,6 +295,18 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
     alt: None,
     desc: "Cycle through grouping",
     context: HContext::Utilization,
+  },
+  toggle_global_filter: KeyBinding {
+    key: Key::Char('f'),
+    alt: None,
+    desc: "Toggle global filtering pane",
+    context: HContext::Overview,
+  },
+  toggle_global_filter_edit: KeyBinding {
+    key: Key::Char('e'),
+    alt: None,
+    desc: "Enable global filtering edit mode",
+    context: HContext::Overview,
   },
 };
 
