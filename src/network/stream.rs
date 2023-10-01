@@ -1,6 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use anyhow::anyhow;
+use futures::AsyncBufReadExt;
 use k8s_openapi::api::core::v1::Pod;
 use kube::{api::LogParams, Api, Client};
 use tokio::sync::Mutex;
@@ -106,6 +107,7 @@ impl<'a> NetworkStream<'a> {
     match api.log_stream(&pod_name, &lp).await {
       Ok(logs) => {
         // set a timeout so we dont wait for next item and block the thread
+        let logs = logs.lines();
         let logs = logs.timeout(Duration::from_secs(2));
         tokio::pin!(logs);
 
@@ -118,7 +120,7 @@ impl<'a> NetworkStream<'a> {
           },
           logs.try_next().await,
         ) {
-          let line = String::from_utf8_lossy(&line).trim().to_string();
+          let line = line.trim().to_string();
           if !line.is_empty() {
             let mut app = self.app.lock().await;
             app.data.logs.add_record(line);
