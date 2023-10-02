@@ -22,11 +22,12 @@ RUN rm -r src
 
 # Copy actual source files and Build the app binary
 COPY src ./src
-# due to cargo bug https://github.com/rust-lang/rust/issues/25289
-RUN apt-get update && \
-    apt-get install -y pkg-config libssl-dev libxcb-composite0-dev
 # remove previous deps
 RUN rm ./target/x86_64-unknown-linux-musl/release/deps/kdash*
+# due to cargo bug https://github.com/rust-lang/rust/issues/25289
+RUN apt-get install -y -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev xauth musl-tools
+        #   sudo apt-get -y install -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev musl-tools
+
 RUN cargo build --release --target x86_64-unknown-linux-musl
 
 # -----------------------------
