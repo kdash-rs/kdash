@@ -2,14 +2,16 @@
 # Build Kdash base image
 # -----------------------------
 
-FROM rust as builder
+# force older version due to https://github.com/rust-lang/rust/issues/116348
+FROM rust:1.71 as builder
 WORKDIR /usr/src
 
 # Prepare for static linking with musl
 RUN apt-get update && \
     apt-get dist-upgrade -y && \
     apt-get install -y musl-tools && \
-    rustup target add x86_64-unknown-linux-musl
+    # rustup default nightly && \
+    rustup target add x86_64-unknown-linux-musl 
 
 # Download and compile Rust dependencies in an empty project and cache as a separate Docker layer
 RUN USER=root cargo new --bin kdash-temp
@@ -25,10 +27,9 @@ COPY src ./src
 # remove previous deps
 RUN rm ./target/x86_64-unknown-linux-musl/release/deps/kdash*
 # due to cargo bug https://github.com/rust-lang/rust/issues/25289
-RUN apt-get install -y -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev xauth musl-tools
-        #   sudo apt-get -y install -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev musl-tools
+RUN apt-get install -y -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
 
-RUN cargo build --release --target x86_64-unknown-linux-musl
+RUN RUST_BACKTRACE=1 cargo build --release --target x86_64-unknown-linux-musl
 
 # -----------------------------
 # build final Kdash image
