@@ -109,6 +109,8 @@ Run KDash as a Docker container by mounting your `KUBECONFIG`. For example the b
 
 ```bash
 docker run --rm -it -v ~/.kube/config:/root/.kube/config deepu105/kdash
+# If you want localhost access from the container
+docker run --network host --rm -it -v ~/.kube/config:/root/.kube/config deepu105/kdash
 ```
 
 You can also clone this repo and run `make docker` to build a docker image locally and run it using the above command

@@ -46,7 +46,7 @@ jobs:
       fail-fast: false
       matrix:
         # force older version due to https://github.com/rust-lang/rust/issues/116348
-        rust: [1.71.1]
+        rust: [stable]
         job:
           - { os: "macOS-latest",   target: "x86_64-apple-darwin",          artifact_prefix: "macos"                                                  }
           - { os: "windows-latest", target: "x86_64-pc-windows-msvc",       artifact_prefix: "windows"                                                }
