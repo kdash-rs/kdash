@@ -232,15 +232,7 @@ fn panic_hook(info: &PanicInfo<'_>) {
   use backtrace::Backtrace;
   use crossterm::style::Print;
 
-  let location = info.location().unwrap();
-
-  let msg = match info.payload().downcast_ref::<&'static str>() {
-    Some(s) => *s,
-    None => match info.payload().downcast_ref::<String>() {
-      Some(s) => &s[..],
-      None => "Box<Any>",
-    },
-  };
+  let (msg, location) = get_panic_info(info);
 
   let stacktrace: String = format!("{:?}", Backtrace::new()).replace('\n', "\n\r");
 
@@ -258,6 +250,7 @@ fn panic_hook(info: &PanicInfo<'_>) {
 
 #[cfg(not(debug_assertions))]
 fn panic_hook(info: &PanicInfo<'_>) {
+  use crossterm::style::Print;
   use human_panic::{handle_dump, print_msg, Metadata};
 
   let meta = Metadata {
@@ -267,7 +260,28 @@ fn panic_hook(info: &PanicInfo<'_>) {
     homepage: env!("CARGO_PKG_HOMEPAGE").into(),
   };
   let file_path = handle_dump(&meta, info);
+  let (msg, location) = get_panic_info(info);
+
   disable_raw_mode().unwrap();
-  execute!(io::stdout(), LeaveAlternateScreen).unwrap();
+  execute!(
+    io::stdout(),
+    LeaveAlternateScreen,
+    Print(format!("Error: '{}' at {}\n", msg, location)),
+  )
+  .unwrap();
   print_msg(file_path, &meta).expect("human-panic: printing error message to console failed");
+}
+
+fn get_panic_info(info: &PanicInfo<'_>) -> (String, String) {
+  let location = info.location().unwrap();
+
+  let msg = match info.payload().downcast_ref::<&'static str>() {
+    Some(s) => *s,
+    None => match info.payload().downcast_ref::<String>() {
+      Some(s) => &s[..],
+      None => "Box<Any>",
+    },
+  };
+
+  (msg.to_string(), format!("{}", location))
 }
