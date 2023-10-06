@@ -8,7 +8,7 @@ class Kdash < Formula
     url "https://github.com/kdash-rs/kdash/releases/download/$version/kdash-macos.tar.gz"
     sha256 "$hash_mac"
   else
-    url "https://github.com/kdash-rs/kdash/releases/download/$version/kdash-linux-musl.tar.gz"
+    url "https://github.com/kdash-rs/kdash/releases/download/$version/kdash-linux.tar.gz"
     sha256 "$hash_linux"
   end
   version "$version"

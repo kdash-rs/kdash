@@ -34,11 +34,11 @@ fmt:
 
 ## Build a Docker Image
 docker:    
-	@DOCKER_BUILDKIT=1 docker build --rm -t ${IMAGE} .
+	@DOCKER_BUILDKIT=1 docker build --progress=plain --rm -t ${IMAGE} .
 
 ## Run Docker Image locally
 docker-run:    
-	@docker run --rm ${IMAGE}
+	@docker run --network host --rm -it -v ~/.kube/config:/root/.kube/config ${IMAGE}
 
 ## Analyse for unsafe usage - `cargo install cargo-geiger`
 analyse:  

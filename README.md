@@ -151,7 +151,8 @@ Press `?` while running the app to see keybindings
 
 ## Limitations/Known issues
 
-- [Windows] KDash looks better on CMD since Powershell's default theme makes the colours look weird.
+- [Linux/Docker] Copy to clipboard feature is OS/arch dependent and might crash in some linux distros
+- [Windows] KDash looks better on CMD since Powershell's default theme makes the colors look weird.
 - [Windows] If using k3d for local clusters, set the server URL to 127.0.0.1 as 0.0.0.0 doesn't work with kube-rs. You can use `k3d cluster create --api-port 127.0.0.1:6550` or change the `cluster.server` value in your `.kube/config` for the k3d cluster to `127.0.0.1:<port>`
 
 ## Features
