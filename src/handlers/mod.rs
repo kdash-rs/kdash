@@ -1,4 +1,3 @@
-use base64::{engine::general_purpose, Engine as _};
 use crossterm::event::{Event, KeyEvent, MouseEvent, MouseEventKind};
 use kubectl_view_allocations::GroupBy;
 use serde::Serialize;
@@ -136,23 +135,7 @@ where
     // make sure the resources is of type 'KubeSecret'
     let of_any = res as &dyn std::any::Any;
     if let Some(secret) = of_any.downcast_ref::<KubeSecret>() {
-      let mut display_output = String::new();
-      display_output.push_str(format!("Name:         {}\n", secret.name).as_str());
-      display_output.push_str(format!("Namespace:    {}\n", secret.namespace).as_str());
-      display_output.push_str("\nData\n====\n\n");
-
-      // decode each of the key/values in the secret
-      for (key_name, encoded_bytes) in secret.data.iter() {
-        let decoded_str = match serde_yaml::to_string(encoded_bytes) {
-          Ok(encoded_str) => match general_purpose::STANDARD.decode(encoded_str.trim()) {
-            Ok(decoded_bytes) => String::from_utf8(decoded_bytes).unwrap(),
-            Err(_) => format!("cannot decode value: {}", encoded_str.trim()),
-          },
-          Err(_) => String::from("cannot deserialize value"),
-        };
-        let decoded_kv = format!("{}: {}\n", key_name, decoded_str);
-        display_output.push_str(decoded_kv.as_str());
-      }
+      let display_output = secret.decode_secret();
       app.data.describe_out = ScrollableTxt::with_string(display_output);
       app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
       true
