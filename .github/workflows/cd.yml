@@ -191,7 +191,7 @@ jobs:
         run: |
           macos_sha="$(cat ./artifacts/kdash-macos.sha256 | awk '{print $1}')"
           echo "MACOS_SHA=$macos_sha" >> $GITHUB_ENV
-          linux_sha="$(cat ./artifacts/kdash-linux-musl.sha256 | awk '{print $1}')"
+          linux_sha="$(cat ./artifacts/kdash-linux.sha256 | awk '{print $1}')"
           echo "LINUX_SHA=$linux_sha" >> $GITHUB_ENV          
           windows_sha="$(cat ./artifacts/kdash-windows.sha256 | awk '{print $1}')"
           echo "WINDOWS_SHA=$windows_sha" >> $GITHUB_ENV
