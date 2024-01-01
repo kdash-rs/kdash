@@ -16,7 +16,7 @@ use crate::{
   draw_resource_tab,
   network::Network,
   ui::utils::{
-    draw_describe_block, draw_resource_block, get_cluster_wide_resource_title, get_describe_active,
+    draw_describe_block, draw_yaml_block, draw_resource_block, get_cluster_wide_resource_title, get_describe_active,
     get_resource_title, style_primary, title_with_dual_style, ResourceTableProps, COPY_HINT,
     DESCRIBE_YAML_AND_ESC_HINT,
   },
