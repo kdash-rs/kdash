@@ -36,7 +36,7 @@ serde_json = "1.0"
 serde_yaml = "0.9"
 syntect = "5.1.0"
 syntect-tui = "2.0.0"
-clap = { version = "4.3.24", features = [
+clap = { version = "4.4.8", features = [
     "help",
     "usage",
     "error-context",
@@ -55,7 +55,7 @@ kube = "0.86.0"
 k8s-openapi = { version = "0.20.0", default-features = false, features = [
     "v1_22",
 ] }
-base64 = "0.21.2"
+base64 = "0.21.5"
 openssl = { version = "0.10", features = ["vendored"] }
 human-panic = "1.1"
 kubectl-view-allocations = { version = "0.17.2", default-features = false }
