@@ -50,15 +50,15 @@ const YAML_BACKGROUND_DARK: syntect::highlighting::Color = syntect::highlighting
   a: 255,
 }; // corresponds to TEAL
 
-fn get_yaml_syntax_set() -> &'static syntect::parsing::SyntaxSet {
-  static YAML_SYNTAX_SET: OnceLock<syntect::parsing::SyntaxSet> = OnceLock::new();
-  YAML_SYNTAX_SET.get_or_init(syntect::parsing::SyntaxSet::load_defaults_newlines)
+fn get_syntax_set() -> &'static syntect::parsing::SyntaxSet {
+  static SYNTAX_SET: OnceLock<syntect::parsing::SyntaxSet> = OnceLock::new();
+  SYNTAX_SET.get_or_init(syntect::parsing::SyntaxSet::load_defaults_newlines)
 }
 
 fn get_yaml_syntax_reference() -> &'static syntect::parsing::SyntaxReference {
   static YAML_SYNTAX_REFERENCE: OnceLock<syntect::parsing::SyntaxReference> = OnceLock::new();
   YAML_SYNTAX_REFERENCE.get_or_init(|| {
-    get_yaml_syntax_set()
+    get_syntax_set()
       .find_syntax_by_extension("yaml")
       .unwrap()
       .clone()
@@ -395,7 +395,7 @@ pub fn draw_yaml_block<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect, 
 
   let txt = &app.data.describe_out.get_txt();
   if !txt.is_empty() {
-    let ps = get_yaml_syntax_set();
+    let ss = get_syntax_set();
     let syntax = get_yaml_syntax_reference();
     let theme = if app.light_theme {
       &get_yaml_themes().light
@@ -406,7 +406,7 @@ pub fn draw_yaml_block<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect, 
     let lines: Vec<_> = syntect::util::LinesWithEndings::from(txt)
       .map(|line| {
         let line_spans: Vec<_> = h
-          .highlight_line(line, ps)
+          .highlight_line(line, ss)
           .expect("Something went wrong styling yaml resource code")
           .into_iter()
           .filter_map(|segment| syntect_tui::into_span(segment).ok())
