@@ -14,7 +14,6 @@ use kubectl_view_allocations::{
   Resource,
 };
 use ratatui::{
-  backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row, Table},
   Frame,
@@ -93,7 +92,7 @@ pub struct UtilizationResource {}
 
 #[async_trait]
 impl AppResource for UtilizationResource {
-  fn render<B: Backend>(_block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  fn render(_block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     let title = format!(
       " Resource Utilization (ns: [{}], group by <g>: {:?}) ",
       app
@@ -141,28 +140,30 @@ impl AppResource for UtilizationResource {
         }
       }
 
-      let table = Table::new(rows)
-        .header(table_header_style(
-          vec![
-            "Resource",
-            "Utilization",
-            "Requested",
-            "Limit",
-            "Allocatable",
-            "Free",
-          ],
-          app.light_theme,
-        ))
-        .block(block)
-        .widths(&[
+      let table = Table::new(
+        rows,
+        &[
           Constraint::Percentage(50),
           Constraint::Percentage(10),
           Constraint::Percentage(10),
           Constraint::Percentage(10),
           Constraint::Percentage(10),
           Constraint::Percentage(10),
-        ])
-        .highlight_style(style_highlight());
+        ],
+      )
+      .header(table_header_style(
+        vec![
+          "Resource",
+          "Utilization",
+          "Requested",
+          "Limit",
+          "Allocatable",
+          "Free",
+        ],
+        app.light_theme,
+      ))
+      .block(block)
+      .highlight_style(style_highlight());
 
       f.render_stateful_widget(table, area, &mut app.data.metrics.state);
     } else {

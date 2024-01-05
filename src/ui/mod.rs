@@ -1,10 +1,10 @@
 mod help;
 mod overview;
 pub mod resource_tabs;
+mod syntect_tui;
 pub mod utils;
 
 use ratatui::{
-  backend::Backend,
   layout::{Alignment, Constraint, Rect},
   text::{Line, Span, Text},
   widgets::{Block, Borders, Paragraph, Tabs, Wrap},
@@ -26,7 +26,7 @@ use crate::app::{
 
 pub static HIGHLIGHT: &str = "=> ";
 
-pub fn draw<B: Backend>(f: &mut Frame<'_, B>, app: &mut App) {
+pub fn draw(f: &mut Frame<'_>, app: &mut App) {
   let block = Block::default().style(style_main_background(app.light_theme));
   f.render_widget(block, f.size());
 
@@ -65,7 +65,7 @@ pub fn draw<B: Backend>(f: &mut Frame<'_, B>, app: &mut App) {
   }
 }
 
-fn draw_app_header<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect) {
+fn draw_app_header(f: &mut Frame<'_>, app: &App, area: Rect) {
   let chunks =
     horizontal_chunks_with_margin(vec![Constraint::Length(60), Constraint::Min(0)], area, 1);
 
@@ -84,7 +84,7 @@ fn draw_app_header<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect) {
   draw_header_text(f, app, chunks[1]);
 }
 
-fn draw_header_text<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect) {
+fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
   let text = match app.get_current_route().id {
     RouteId::Contexts => vec![Line::from("<↑↓> scroll | <enter> select | <?> help ")],
     RouteId::Home => vec![Line::from(
@@ -102,7 +102,7 @@ fn draw_header_text<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect) {
   f.render_widget(paragraph, area);
 }
 
-fn draw_app_error<B: Backend>(f: &mut Frame<'_, B>, app: &App, size: Rect) {
+fn draw_app_error(f: &mut Frame<'_>, app: &App, size: Rect) {
   let block = Block::default()
     .title(" Error | close <esc> ")
     .style(style_failure(app.light_theme))

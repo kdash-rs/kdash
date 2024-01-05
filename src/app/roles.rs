@@ -4,7 +4,6 @@ use k8s_openapi::{
   chrono::Utc,
 };
 use ratatui::{
-  backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
   Frame,
@@ -83,7 +82,7 @@ pub struct RoleResource {}
 
 #[async_trait]
 impl AppResource for RoleResource {
-  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  fn render(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     draw_resource_tab!(
       ROLES_TITLE,
       block,
@@ -104,7 +103,7 @@ impl AppResource for RoleResource {
   }
 }
 
-fn draw_roles_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_roles_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, ROLES_TITLE, "", app.data.roles.items.len());
 
   draw_resource_block(
@@ -163,7 +162,7 @@ pub struct ClusterRoleResource {}
 
 #[async_trait]
 impl AppResource for ClusterRoleResource {
-  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  fn render(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     draw_resource_tab!(
       CLUSTER_ROLES_TITLE,
       block,
@@ -184,7 +183,7 @@ impl AppResource for ClusterRoleResource {
   }
 }
 
-fn draw_cluster_roles_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_cluster_roles_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let title = get_resource_title(
     app,
     CLUSTER_ROLES_TITLE,
@@ -244,7 +243,7 @@ pub struct RoleBindingResource {}
 
 #[async_trait]
 impl AppResource for RoleBindingResource {
-  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  fn render(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     draw_resource_tab!(
       ROLE_BINDINGS_TITLE,
       block,
@@ -265,7 +264,7 @@ impl AppResource for RoleBindingResource {
   }
 }
 
-fn draw_role_bindings_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_role_bindings_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let title = get_resource_title(
     app,
     ROLE_BINDINGS_TITLE,
@@ -329,7 +328,7 @@ pub struct ClusterRoleBindingResource {}
 
 #[async_trait]
 impl AppResource for ClusterRoleBindingResource {
-  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  fn render(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     draw_resource_tab!(
       CLUSTER_ROLES_BINDING_TITLE,
       block,
@@ -350,7 +349,7 @@ impl AppResource for ClusterRoleBindingResource {
   }
 }
 
-fn draw_cluster_role_binding_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_cluster_role_binding_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let title = get_resource_title(
     app,
     CLUSTER_ROLES_BINDING_TITLE,

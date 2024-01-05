@@ -1,5 +1,4 @@
 use ratatui::{
-  backend::Backend,
   layout::{Constraint, Rect},
   style::Style,
   text::{Line, Span, Text},
@@ -23,7 +22,7 @@ use crate::{
   banner::BANNER,
 };
 
-pub fn draw_overview<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+pub fn draw_overview(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   if app.show_info_bar {
     let chunks = vertical_chunks(vec![Constraint::Length(9), Constraint::Min(10)], area);
     draw_status_block(f, app, chunks[0]);
@@ -33,7 +32,7 @@ pub fn draw_overview<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect
   }
 }
 
-fn draw_status_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_status_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let chunks = horizontal_chunks(
     vec![
       Constraint::Length(35),
@@ -54,7 +53,7 @@ fn draw_status_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect
   draw_logo_block(f, app, chunks[3]);
 }
 
-fn draw_filter_block<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect) {
+fn draw_filter_block(f: &mut Frame<'_>, app: &App, area: Rect) {
   let block = layout_block_default(" Global Filter (toggle <f>) ");
 
   f.render_widget(block, area);
@@ -104,7 +103,7 @@ fn draw_filter_block<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect) {
   }
 }
 
-fn draw_logo_block<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect) {
+fn draw_logo_block(f: &mut Frame<'_>, app: &App, area: Rect) {
   // Banner text with correct styling
   let text = format!(
     "{}\n v{} with ♥ in Rust {}",
@@ -120,7 +119,7 @@ fn draw_logo_block<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect) {
   f.render_widget(paragraph, area);
 }
 
-fn draw_cli_version_block<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect) {
+fn draw_cli_version_block(f: &mut Frame<'_>, app: &App, area: Rect) {
   let block = layout_block_default(" CLI Info (filter <f>)");
   if !app.data.clis.is_empty() {
     let rows = app.data.clis.iter().map(|s| {
@@ -136,16 +135,18 @@ fn draw_cli_version_block<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rec
       .style(style)
     });
 
-    let table = Table::new(rows)
-      .block(block)
-      .widths(&[Constraint::Percentage(50), Constraint::Percentage(50)]);
+    let table = Table::new(
+      rows,
+      &[Constraint::Percentage(50), Constraint::Percentage(50)],
+    )
+    .block(block);
     f.render_widget(table, area);
   } else {
     loading(f, block, area, app.is_loading, app.light_theme);
   }
 }
 
-fn draw_context_info_block<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect) {
+fn draw_context_info_block(f: &mut Frame<'_>, app: &App, area: Rect) {
   let chunks = vertical_chunks_with_margin(
     vec![
       Constraint::Length(3),

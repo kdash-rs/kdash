@@ -1,5 +1,4 @@
 use ratatui::{
-  backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Row, Table},
   Frame,
@@ -14,7 +13,7 @@ use super::{
 };
 use crate::app::App;
 
-pub fn draw_help<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+pub fn draw_help(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let chunks = vertical_chunks(vec![Constraint::Percentage(100)], area);
 
   // Create a one-column table to avoid flickering due to non-determinism when
@@ -39,7 +38,7 @@ pub fn draw_help<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
 
   let title = title_with_dual_style(" Help ".into(), "| close <esc> ".into(), app.light_theme);
 
-  let help_menu = Table::new(rows)
+  let help_menu = Table::new(rows, &[Constraint::Percentage(100)])
     .header(
       Row::new(header)
         .style(style_secondary(app.light_theme))
@@ -47,8 +46,7 @@ pub fn draw_help<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
     )
     .block(layout_block_active_span(title, app.light_theme))
     .highlight_style(style_highlight())
-    .highlight_symbol(HIGHLIGHT)
-    .widths(&[Constraint::Percentage(100)]);
+    .highlight_symbol(HIGHLIGHT);
   f.render_stateful_widget(help_menu, chunks[0], &mut app.help_docs.state);
 }
 

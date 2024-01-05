@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use k8s_openapi::{api::core::v1::ServiceAccount, chrono::Utc};
 use ratatui::{
-  backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
   Frame,
@@ -59,7 +58,7 @@ pub struct SvcAcctResource {}
 
 #[async_trait]
 impl AppResource for SvcAcctResource {
-  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  fn render(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     draw_resource_tab!(
       SVC_ACCT_TITLE,
       block,
@@ -80,7 +79,7 @@ impl AppResource for SvcAcctResource {
   }
 }
 
-fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let title = get_resource_title(
     app,
     SVC_ACCT_TITLE,

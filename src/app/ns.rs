@@ -3,7 +3,6 @@ use async_trait::async_trait;
 use k8s_openapi::api::core::v1::Namespace;
 use kube::{api::ListParams, Api};
 use ratatui::{
-  backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row, Table},
   Frame,
@@ -64,7 +63,7 @@ pub struct NamespaceResource {}
 
 #[async_trait]
 impl AppResource for NamespaceResource {
-  fn render<B: Backend>(_block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  fn render(_block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     let title = format!(
       " Namespaces {} (all: {}) ",
       DEFAULT_KEYBINDING.jump_to_namespace.key, DEFAULT_KEYBINDING.select_all_namespace.key
@@ -88,12 +87,11 @@ impl AppResource for NamespaceResource {
         filter_by_resource_name(app.data.selected.filter.clone(), s, mapper)
       });
 
-      let table = Table::new(rows)
+      let table = Table::new(rows, &[Constraint::Length(22), Constraint::Length(6)])
         .header(table_header_style(vec!["Name", "Status"], app.light_theme))
         .block(block)
         .highlight_style(style_highlight())
-        .highlight_symbol(HIGHLIGHT)
-        .widths(&[Constraint::Length(22), Constraint::Length(6)]);
+        .highlight_symbol(HIGHLIGHT);
 
       f.render_stateful_widget(table, area, &mut app.data.namespaces.state);
     } else {

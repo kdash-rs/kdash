@@ -3,7 +3,6 @@ use std::collections::BTreeMap;
 use async_trait::async_trait;
 use k8s_openapi::{api::core::v1::ReplicationController, chrono::Utc};
 use ratatui::{
-  backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
   Frame,
@@ -110,7 +109,7 @@ pub struct ReplicationControllerResource {}
 
 #[async_trait]
 impl AppResource for ReplicationControllerResource {
-  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  fn render(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     draw_resource_tab!(
       RPL_CTRL_TITLE,
       block,
@@ -133,7 +132,7 @@ impl AppResource for ReplicationControllerResource {
   }
 }
 
-fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, RPL_CTRL_TITLE, "", app.data.rpl_ctrls.items.len());
 
   draw_resource_block(

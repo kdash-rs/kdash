@@ -3,7 +3,6 @@ use std::vec;
 use async_trait::async_trait;
 use k8s_openapi::{api::networking::v1::NetworkPolicy, chrono::Utc};
 use ratatui::{
-  backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
   Frame,
@@ -77,7 +76,7 @@ pub struct NetworkPolicyResource {}
 
 #[async_trait]
 impl AppResource for NetworkPolicyResource {
-  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  fn render(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     draw_resource_tab!(
       NW_POLICY_TITLE,
       block,
@@ -98,7 +97,7 @@ impl AppResource for NetworkPolicyResource {
   }
 }
 
-fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, NW_POLICY_TITLE, "", app.data.nw_policies.items.len());
 
   draw_resource_block(
