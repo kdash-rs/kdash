@@ -26,9 +26,9 @@ use super::{
 use crate::{
   network::Network,
   ui::utils::{
-    draw_describe_block, draw_resource_block, get_cluster_wide_resource_title, get_describe_active,
-    style_failure, style_primary, title_with_dual_style, ResourceTableProps, COPY_HINT,
-    DESCRIBE_AND_YAML_HINT,
+    draw_describe_block, draw_resource_block, draw_yaml_block, get_cluster_wide_resource_title,
+    get_describe_active, style_failure, style_primary, title_with_dual_style, ResourceTableProps,
+    COPY_HINT, DESCRIBE_AND_YAML_HINT,
   },
 };
 
@@ -190,7 +190,21 @@ pub struct NodeResource {}
 impl AppResource for NodeResource {
   fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
     match block {
-      ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
+      ActiveBlock::Describe => draw_describe_block(
+        f,
+        app,
+        area,
+        title_with_dual_style(
+          get_cluster_wide_resource_title(
+            NODES_TITLE,
+            app.data.nodes.items.len(),
+            get_describe_active(block),
+          ),
+          format!("{} | {} <esc> ", COPY_HINT, NODES_TITLE),
+          app.light_theme,
+        ),
+      ),
+      ActiveBlock::Yaml => draw_yaml_block(
         f,
         app,
         area,
