@@ -22,9 +22,10 @@ use super::{
 use crate::{
   network::Network,
   ui::utils::{
-    draw_describe_block, draw_yaml_block, draw_resource_block, get_describe_active, get_resource_title,
-    layout_block_top_border, loading, style_failure, style_primary, style_secondary, style_success,
-    title_with_dual_style, ResourceTableProps, COPY_HINT, DESCRIBE_AND_YAML_HINT,
+    draw_describe_block, draw_resource_block, draw_yaml_block, get_describe_active,
+    get_resource_title, layout_block_top_border, loading, style_failure, style_primary,
+    style_secondary, style_success, title_with_dual_style, ResourceTableProps, COPY_HINT,
+    DESCRIBE_AND_YAML_HINT,
   },
 };
 

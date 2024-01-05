@@ -477,7 +477,7 @@ pub fn filter_by_resource_name<T: KubeResource<U>, U: Serialize>(
   }
 }
 
-fn filter_by_name<T: KubeResource<U>, U: Serialize>(ft: &String, res: &T) -> bool {
+fn filter_by_name<T: KubeResource<U>, U: Serialize>(ft: &str, res: &T) -> bool {
   ft.is_empty()
     || glob_match(&ft.to_lowercase(), &res.get_name().to_lowercase())
     || res.get_name().to_lowercase().contains(&ft.to_lowercase())
