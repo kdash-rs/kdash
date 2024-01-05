@@ -2,6 +2,12 @@
 
 ## Unreleased - 2023-XX-YY
 
+
+## [0.4.5] - 2024-01-05
+
+- YAML syntax highlighting
+- Upgrade libraries
+
 ## [0.4.4] - 2023-10-02
 
 - Patch release for missing MUSL builds
