@@ -69,13 +69,13 @@ Since validation of the package takes forever, it may take a long while to becom
 choco install kdash
 
 # Version number may be required for newer releases, if available:
-choco install kdash --version=0.2.7
+choco install kdash --version=0.4.3
 ```
 
 To upgrade
 
 ```bash
-choco upgrade kdash --version=0.2.7
+choco upgrade kdash --version=0.4.3
 ```
 
 ### Nix
@@ -109,6 +109,8 @@ Run KDash as a Docker container by mounting your `KUBECONFIG`. For example the b
 
 ```bash
 docker run --rm -it -v ~/.kube/config:/root/.kube/config deepu105/kdash
+# If you want localhost access from the container
+docker run --network host --rm -it -v ~/.kube/config:/root/.kube/config deepu105/kdash
 ```
 
 You can also clone this repo and run `make docker` to build a docker image locally and run it using the above command
@@ -151,7 +153,8 @@ Press `?` while running the app to see keybindings
 
 ## Limitations/Known issues
 
-- [Windows] KDash looks better on CMD since Powershell's default theme makes the colours look weird.
+- [Linux/Docker] Copy to clipboard feature is OS/arch dependent and might crash in some linux distros
+- [Windows] KDash looks better on CMD since Powershell's default theme makes the colors look weird.
 - [Windows] If using k3d for local clusters, set the server URL to 127.0.0.1 as 0.0.0.0 doesn't work with kube-rs. You can use `k3d cluster create --api-port 127.0.0.1:6550` or change the `cluster.server` value in your `.kube/config` for the k3d cluster to `127.0.0.1:<port>`
 
 ## Features
@@ -171,6 +174,7 @@ Press `?` while running the app to see keybindings
 - Resources utilizations for nodes, pods and namespaces based on metrics server. Requires [metrics-server](https://kubernetes.io/docs/tasks/debug-application-cluster/resource-metrics-pipeline/#metrics-server) to be deployed on the cluster.
 - Dark/Light themes
 - Sensible keyboard shortcuts
+- Global glob filtering for resource names
 
 ## Screenshots
 

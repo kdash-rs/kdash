@@ -67,7 +67,7 @@ pub fn draw<B: Backend>(f: &mut Frame<'_, B>, app: &mut App) {
 
 fn draw_app_header<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect) {
   let chunks =
-    horizontal_chunks_with_margin(vec![Constraint::Length(75), Constraint::Min(0)], area, 1);
+    horizontal_chunks_with_margin(vec![Constraint::Length(60), Constraint::Min(0)], area, 1);
 
   let titles = app
     .main_tabs

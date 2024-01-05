@@ -50,7 +50,8 @@ jobs:
           - { os: "macOS-latest",   target: "x86_64-apple-darwin",          artifact_prefix: "macos"                                                  }
           - { os: "windows-latest", target: "x86_64-pc-windows-msvc",       artifact_prefix: "windows"                                                }
           - { os: "ubuntu-latest",  target: "x86_64-unknown-linux-gnu",     artifact_prefix: "linux",                                                 }
-          - { os: "ubuntu-latest",  target: "x86_64-unknown-linux-musl",    artifact_prefix: "linux-musl",                                            }
+        #   seems impossible to build static musl binaries due to XCB dependency. See https://github.com/rust-lang/rust/issues/116348
+        #   - { os: "ubuntu-latest",  target: "x86_64-unknown-linux-musl",    artifact_prefix: "linux-musl",                                            }
           - { os: "ubuntu-latest",  target: "aarch64-unknown-linux-gnu",    artifact_prefix: "aarch64-gnu",  use-cross: true, test-bin: "--bin kdash" }
           - { os: "ubuntu-latest",  target: "aarch64-unknown-linux-musl",   artifact_prefix: "aarch64-musl", use-cross: true, test-bin: "--bin kdash" }
           - { os: "ubuntu-latest",  target: "arm-unknown-linux-gnueabihf",  artifact_prefix: "arm-gnu",      use-cross: true, test-bin: "--bin kdash" }
@@ -190,7 +191,7 @@ jobs:
         run: |
           macos_sha="$(cat ./artifacts/kdash-macos.sha256 | awk '{print $1}')"
           echo "MACOS_SHA=$macos_sha" >> $GITHUB_ENV
-          linux_sha="$(cat ./artifacts/kdash-linux-musl.sha256 | awk '{print $1}')"
+          linux_sha="$(cat ./artifacts/kdash-linux.sha256 | awk '{print $1}')"
           echo "LINUX_SHA=$linux_sha" >> $GITHUB_ENV          
           windows_sha="$(cat ./artifacts/kdash-windows.sha256 | awk '{print $1}')"
           echo "WINDOWS_SHA=$windows_sha" >> $GITHUB_ENV

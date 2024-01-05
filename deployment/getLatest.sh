@@ -63,11 +63,11 @@ find_os() {
 find_suffix() {
   local OS=$2
   local SUFFIX="$OS.tar.gz"
-  case "$OS" in
-  "linux") SUFFIX='linux-musl.tar.gz' ;;
+#   case "$OS" in
+#   "linux") SUFFIX='linux-musl.tar.gz' ;;
 #   "darwin") SUFFIX='macos.tar.gz' ;;
 #   "windows") SUFFIX='windows.tar.gz';;
-  esac
+#   esac
   echo $SUFFIX
 }
 

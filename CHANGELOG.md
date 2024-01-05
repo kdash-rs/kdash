@@ -1,8 +1,12 @@
 # Changelog
 
-## Unreleased - 2022-XX-YY
+## Unreleased - 2023-XX-YY
 
-## [0.4.3] - 2023-08-24
+## [0.4.4] - 2023-10-02
+
+- Patch release for missing MUSL builds
+
+## [0.4.3] - 2023-09-19
 
 - Global Filtering support (https://github.com/kdash-rs/kdash/pull/383)
 

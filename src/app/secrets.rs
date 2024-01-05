@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use base64::{engine::general_purpose, Engine};
 use k8s_openapi::{api::core::v1::Secret, chrono::Utc, ByteString};
 use ratatui::{
   backend::Backend,
@@ -18,8 +19,8 @@ use crate::{
   draw_resource_tab,
   network::Network,
   ui::utils::{
-    draw_describe_block, draw_resource_block, get_describe_active, get_resource_title,
-    style_primary, title_with_dual_style, ResourceTableProps, COPY_HINT,
+    draw_describe_block, draw_resource_block, draw_yaml_block, get_describe_active,
+    get_resource_title, style_primary, title_with_dual_style, ResourceTableProps, COPY_HINT,
     DESCRIBE_YAML_DECODE_AND_ESC_HINT,
   },
 };
@@ -32,6 +33,29 @@ pub struct KubeSecret {
   pub data: BTreeMap<String, ByteString>,
   pub age: String,
   k8s_obj: Secret,
+}
+
+impl KubeSecret {
+  pub fn decode_secret(&self) -> String {
+    let mut out = String::new();
+    out.push_str(format!("Name:         {}\n", self.name).as_str());
+    out.push_str(format!("Namespace:    {}\n", self.namespace).as_str());
+    out.push_str("\nData\n====\n\n");
+
+    // decode each of the key/values in the secret
+    for (key_name, encoded_bytes) in self.data.iter() {
+      let decoded_str = match serde_yaml::to_string(encoded_bytes) {
+        Ok(encoded_str) => match general_purpose::STANDARD.decode(encoded_str.trim()) {
+          Ok(decoded_bytes) => String::from_utf8(decoded_bytes).unwrap(),
+          Err(_) => format!("cannot decode value: {}", encoded_str.trim()),
+        },
+        Err(_) => String::from("cannot deserialize value"),
+      };
+      let decoded_kv = format!("{}: {}\n", key_name, decoded_str);
+      out.push_str(decoded_kv.as_str());
+    }
+    out
+  }
 }
 
 impl From<Secret> for KubeSecret {
