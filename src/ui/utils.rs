@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, rc::Rc};
+use std::{collections::BTreeMap, rc::Rc, sync::OnceLock};
 
 use glob_match::glob_match;
 use ratatui::{
@@ -41,6 +41,46 @@ pub const COLOR_BLUE: Color = Color::Rgb(0, 82, 163);
 pub const COLOR_GREEN_DARK: Color = Color::Rgb(20, 97, 73);
 pub const COLOR_RED_DARK: Color = Color::Rgb(173, 25, 20);
 pub const COLOR_ORANGE_DARK: Color = Color::Rgb(184, 49, 15);
+// YAML background colors
+const YAML_BACKGROUND_LIGHT: syntect::highlighting::Color = syntect::highlighting::Color::WHITE;
+const YAML_BACKGROUND_DARK: syntect::highlighting::Color = syntect::highlighting::Color {
+  r: 35,
+  g: 50,
+  b: 55,
+  a: 255,
+}; // corresponds to TEAL
+
+fn get_yaml_syntax_set() -> &'static syntect::parsing::SyntaxSet {
+  static YAML_SYNTAX_SET: OnceLock<syntect::parsing::SyntaxSet> = OnceLock::new();
+  YAML_SYNTAX_SET.get_or_init(syntect::parsing::SyntaxSet::load_defaults_newlines)
+}
+
+fn get_yaml_syntax_reference() -> &'static syntect::parsing::SyntaxReference {
+  static YAML_SYNTAX_REFERENCE: OnceLock<syntect::parsing::SyntaxReference> = OnceLock::new();
+  YAML_SYNTAX_REFERENCE.get_or_init(|| {
+    get_yaml_syntax_set()
+      .find_syntax_by_extension("yaml")
+      .unwrap()
+      .clone()
+  })
+}
+
+struct YamlThemes {
+  dark: syntect::highlighting::Theme,
+  light: syntect::highlighting::Theme,
+}
+
+fn get_yaml_themes() -> &'static YamlThemes {
+  static YAML_THEMES: OnceLock<YamlThemes> = OnceLock::new();
+  YAML_THEMES.get_or_init(|| {
+    let ts = syntect::highlighting::ThemeSet::load_defaults();
+    let mut dark = ts.themes["Solarized (dark)"].clone();
+    dark.settings.background = Some(YAML_BACKGROUND_DARK);
+    let mut light = ts.themes["Solarized (light)"].clone();
+    light.settings.background = Some(YAML_BACKGROUND_LIGHT);
+    YamlThemes { dark, light }
+  })
+}
 
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Styles {
@@ -292,7 +332,17 @@ pub fn loading<B: Backend>(
 macro_rules! draw_resource_tab {
   ($title:expr, $block:expr, $f:expr, $app:expr, $area:expr, $fn1:expr, $fn2:expr, $res:expr) => {
     match $block {
-      ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
+      ActiveBlock::Describe => draw_describe_block(
+        $f,
+        $app,
+        $area,
+        title_with_dual_style(
+          get_resource_title($app, $title, get_describe_active($block), $res.items.len()),
+          format!("{} | {} <esc> ", COPY_HINT, $title),
+          $app.light_theme,
+        ),
+      ),
+      ActiveBlock::Yaml => draw_yaml_block(
         $f,
         $app,
         $area,
@@ -330,6 +380,42 @@ pub fn draw_describe_block<B: Backend>(
     txt.patch_style(style_primary(app.light_theme));
 
     let paragraph = Paragraph::new(txt)
+      .block(block)
+      .wrap(Wrap { trim: false })
+      .scroll((app.data.describe_out.offset, 0));
+    f.render_widget(paragraph, area);
+  } else {
+    loading(f, block, area, app.is_loading, app.light_theme);
+  }
+}
+
+/// common for all resources
+pub fn draw_yaml_block<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect, title: Line<'_>) {
+  let block = layout_block_top_border(title);
+
+  let txt = &app.data.describe_out.get_txt();
+  if !txt.is_empty() {
+    let ps = get_yaml_syntax_set();
+    let syntax = get_yaml_syntax_reference();
+    let theme = if app.light_theme {
+      &get_yaml_themes().light
+    } else {
+      &get_yaml_themes().dark
+    };
+    let mut h = syntect::easy::HighlightLines::new(syntax, theme);
+    let lines: Vec<_> = syntect::util::LinesWithEndings::from(txt)
+      .map(|line| {
+        let line_spans: Vec<_> = h
+          .highlight_line(line, ps)
+          .expect("Something went wrong styling yaml resource code")
+          .into_iter()
+          .filter_map(|segment| syntect_tui::into_span(segment).ok())
+          .collect();
+        ratatui::text::Line::from(line_spans)
+      })
+      .collect();
+
+    let paragraph = Paragraph::new(lines)
       .block(block)
       .wrap(Wrap { trim: false })
       .scroll((app.data.describe_out.offset, 0));

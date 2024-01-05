@@ -22,7 +22,7 @@ use super::{
 use crate::{
   network::Network,
   ui::utils::{
-    draw_describe_block, draw_resource_block, get_describe_active, get_resource_title,
+    draw_describe_block, draw_yaml_block, draw_resource_block, get_describe_active, get_resource_title,
     layout_block_top_border, loading, style_failure, style_primary, style_secondary, style_success,
     title_with_dual_style, ResourceTableProps, COPY_HINT, DESCRIBE_AND_YAML_HINT,
   },
@@ -164,7 +164,22 @@ impl AppResource for PodResource {
   fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
     match block {
       ActiveBlock::Containers => draw_containers_block(f, app, area),
-      ActiveBlock::Describe | ActiveBlock::Yaml => draw_describe_block(
+      ActiveBlock::Describe => draw_describe_block(
+        f,
+        app,
+        area,
+        title_with_dual_style(
+          get_resource_title(
+            app,
+            PODS_TITLE,
+            get_describe_active(block),
+            app.data.pods.items.len(),
+          ),
+          format!("{} | {} <esc> ", COPY_HINT, PODS_TITLE),
+          app.light_theme,
+        ),
+      ),
+      ActiveBlock::Yaml => draw_yaml_block(
         f,
         app,
         area,
