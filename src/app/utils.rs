@@ -120,7 +120,7 @@ pub fn convert_to_f64(s: &str) -> f64 {
 mod tests {
   use k8s_openapi::{
     apimachinery::pkg::apis::meta::v1::Time,
-    chrono::{DateTime, TimeZone, Utc},
+    chrono::{DateTime, Utc},
   };
 
   #[test]
@@ -165,7 +165,9 @@ mod tests {
   }
 
   fn to_utc(s: &str) -> DateTime<Utc> {
-    Utc.datetime_from_str(s, "%d-%m-%Y %H:%M:%S").unwrap()
+    DateTime::parse_from_str(s, "%d-%m-%Y %H:%M:%S")
+      .unwrap()
+      .into()
   }
 
   #[test]

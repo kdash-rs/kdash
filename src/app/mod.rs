@@ -745,7 +745,7 @@ mod test_utils {
 
   use k8s_openapi::{
     apimachinery::pkg::apis::meta::v1::Time,
-    chrono::{DateTime, TimeZone, Utc},
+    chrono::{DateTime, Utc},
   };
   use kube::{api::ObjectList, Resource};
   use serde::{de::DeserializeOwned, Serialize};
@@ -785,7 +785,9 @@ mod test_utils {
   }
 
   fn to_utc(s: &str) -> DateTime<Utc> {
-    Utc.datetime_from_str(s, "%Y-%m-%dT%H:%M:%SZ").unwrap()
+    DateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%SZ")
+      .unwrap()
+      .into()
   }
 
   #[macro_export]
