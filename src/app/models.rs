@@ -2,7 +2,6 @@ use std::collections::VecDeque;
 
 use async_trait::async_trait;
 use ratatui::{
-  backend::Backend,
   layout::Rect,
   style::{Modifier, Style},
   text::Span,
@@ -16,7 +15,7 @@ use crate::network::Network;
 
 #[async_trait]
 pub trait AppResource {
-  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect);
+  fn render(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect);
 
   async fn get_resource(network: &Network<'_>);
 }
@@ -282,9 +281,9 @@ impl LogsState {
   }
 
   /// Render the current state as a list widget
-  pub fn render_list<B: Backend>(
+  pub fn render_list(
     &mut self,
-    f: &mut Frame<'_, B>,
+    f: &mut Frame<'_>,
     logs_area: Rect,
     block: Block<'_>,
     style: Style,

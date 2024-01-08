@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use k8s_openapi::{api::storage::v1::StorageClass, chrono::Utc};
 use ratatui::{
-  backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
   Frame,
@@ -68,7 +67,7 @@ pub struct StorageClassResource {}
 
 #[async_trait]
 impl AppResource for StorageClassResource {
-  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  fn render(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     draw_resource_tab!(
       STORAGE_CLASSES_LABEL,
       block,
@@ -89,7 +88,7 @@ impl AppResource for StorageClassResource {
   }
 }
 
-fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let title = get_cluster_wide_resource_title(
     STORAGE_CLASSES_LABEL,
     app.data.storage_classes.items.len(),

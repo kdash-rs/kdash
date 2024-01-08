@@ -1,5 +1,4 @@
 use ratatui::{
-  backend::Backend,
   layout::{Constraint, Rect},
   text::{Line, Span},
   widgets::{List, ListItem, Tabs},
@@ -38,7 +37,7 @@ use crate::app::{
   ActiveBlock, App,
 };
 
-pub fn draw_resource_tabs_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+pub fn draw_resource_tabs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let chunks =
     vertical_chunks_with_margin(vec![Constraint::Length(2), Constraint::Min(0)], area, 1);
 
@@ -77,7 +76,7 @@ pub fn draw_resource_tabs_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App,
 }
 
 /// more resources tab
-fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_more(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
   match block {
     ActiveBlock::More => draw_menu(f, &mut app.more_resources_menu, area),
     ActiveBlock::DynamicView => draw_menu(f, &mut app.dynamic_resources_menu, area),
@@ -124,8 +123,8 @@ fn draw_more<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App
 }
 
 /// more resources menu
-fn draw_menu<B: Backend>(
-  f: &mut Frame<'_, B>,
+fn draw_menu(
+  f: &mut Frame<'_>,
   more_resources_menu: &mut StatefulList<(String, ActiveBlock)>,
   area: Rect,
 ) {

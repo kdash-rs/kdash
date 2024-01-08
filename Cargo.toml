@@ -28,14 +28,14 @@ edition = "2021"
 [dependencies]
 openssl-probe = "0.1.2"
 crossterm = "0.27.0"
-ratatui = { version = "0.23.0", default-features = false, features = [
+ratatui = { version = "0.25.0", default-features = false, features = [
     'crossterm',
 ] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
 syntect = "5.1.0"
-syntect-tui = "2.0.0"
+syntect-tui = "3.0.1"
 clap = { version = "4.4.8", features = [
     "help",
     "usage",

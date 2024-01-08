@@ -4,7 +4,6 @@ use async_trait::async_trait;
 use base64::{engine::general_purpose, Engine};
 use k8s_openapi::{api::core::v1::Secret, chrono::Utc, ByteString};
 use ratatui::{
-  backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
   Frame,
@@ -86,7 +85,7 @@ pub struct SecretResource {}
 
 #[async_trait]
 impl AppResource for SecretResource {
-  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  fn render(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     draw_resource_tab!(
       SECRETS_TITLE,
       block,
@@ -107,7 +106,7 @@ impl AppResource for SecretResource {
   }
 }
 
-fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, SECRETS_TITLE, "", app.data.secrets.items.len());
 
   draw_resource_block(

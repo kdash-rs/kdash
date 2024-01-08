@@ -2,7 +2,6 @@ use std::{collections::BTreeMap, rc::Rc, sync::OnceLock};
 
 use glob_match::glob_match;
 use ratatui::{
-  backend::Backend,
   layout::{Constraint, Direction, Layout, Rect},
   style::{Color, Modifier, Style},
   symbols,
@@ -305,13 +304,7 @@ pub fn centered_rect(width: u16, height: u16, r: Rect) -> Rect {
     .split(popup_layout[1])[1]
 }
 
-pub fn loading<B: Backend>(
-  f: &mut Frame<'_, B>,
-  block: Block<'_>,
-  area: Rect,
-  is_loading: bool,
-  light: bool,
-) {
+pub fn loading(f: &mut Frame<'_>, block: Block<'_>, area: Rect, is_loading: bool, light: bool) {
   if is_loading {
     let text = "\n\n Loading ...\n\n".to_owned();
     let mut text = Text::from(text);
@@ -366,12 +359,7 @@ pub struct ResourceTableProps<'a, T> {
   pub column_widths: Vec<Constraint>,
 }
 /// common for all resources
-pub fn draw_describe_block<B: Backend>(
-  f: &mut Frame<'_, B>,
-  app: &App,
-  area: Rect,
-  title: Line<'_>,
-) {
+pub fn draw_describe_block(f: &mut Frame<'_>, app: &App, area: Rect, title: Line<'_>) {
   let block = layout_block_top_border(title);
 
   let txt = &app.data.describe_out.get_txt();
@@ -390,7 +378,7 @@ pub fn draw_describe_block<B: Backend>(
 }
 
 /// common for all resources
-pub fn draw_yaml_block<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect, title: Line<'_>) {
+pub fn draw_yaml_block(f: &mut Frame<'_>, app: &App, area: Rect, title: Line<'_>) {
   let block = layout_block_top_border(title);
 
   let txt = &app.data.describe_out.get_txt();
@@ -411,7 +399,7 @@ pub fn draw_yaml_block<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect, 
           .into_iter()
           .filter_map(|segment| syntect_tui::into_span(segment).ok())
           .collect();
-        ratatui::text::Line::from(line_spans)
+        ratatui::text::Line::from(line_spans.into_iter().collect::<Vec<_>>())
       })
       .collect();
 
@@ -426,8 +414,8 @@ pub fn draw_yaml_block<B: Backend>(f: &mut Frame<'_, B>, app: &App, area: Rect, 
 }
 
 /// Draw a kubernetes resource overview tab
-pub fn draw_resource_block<'a, B, T: KubeResource<U>, F, U: Serialize>(
-  f: &mut Frame<'_, B>,
+pub fn draw_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
+  f: &mut Frame<'_>,
   area: Rect,
   table_props: ResourceTableProps<'a, T>,
   row_cell_mapper: F,
@@ -435,7 +423,6 @@ pub fn draw_resource_block<'a, B, T: KubeResource<U>, F, U: Serialize>(
   is_loading: bool,
   filter: Option<String>,
 ) where
-  B: Backend,
   F: Fn(&T) -> Row<'a>,
 {
   let title = title_with_dual_style(table_props.title, table_props.inline_help, light_theme);
@@ -452,12 +439,11 @@ pub fn draw_resource_block<'a, B, T: KubeResource<U>, F, U: Serialize>(
       }
     });
 
-    let table = Table::new(rows)
+    let table = Table::new(rows, &table_props.column_widths)
       .header(table_header_style(table_props.table_headers, light_theme))
       .block(block)
       .highlight_style(style_highlight())
-      .highlight_symbol(HIGHLIGHT)
-      .widths(&table_props.column_widths);
+      .highlight_symbol(HIGHLIGHT);
 
     f.render_stateful_widget(table, area, &mut table_props.resource.state);
   } else {

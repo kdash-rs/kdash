@@ -4,7 +4,6 @@ use k8s_openapi::{
   chrono::Utc,
 };
 use ratatui::{
-  backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
   Frame,
@@ -96,7 +95,7 @@ pub struct SvcResource {}
 
 #[async_trait]
 impl AppResource for SvcResource {
-  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  fn render(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     draw_resource_tab!(
       SERVICES_TITLE,
       block,
@@ -116,7 +115,7 @@ impl AppResource for SvcResource {
   }
 }
 
-fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, SERVICES_TITLE, "", app.data.services.items.len());
 
   draw_resource_block(

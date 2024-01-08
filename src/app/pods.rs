@@ -7,7 +7,6 @@ use k8s_openapi::{
   chrono::Utc,
 };
 use ratatui::{
-  backend::Backend,
   layout::{Constraint, Rect},
   style::Style,
   widgets::{Cell, Row},
@@ -162,7 +161,7 @@ pub struct PodResource {}
 
 #[async_trait]
 impl AppResource for PodResource {
-  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  fn render(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     match block {
       ActiveBlock::Containers => draw_containers_block(f, app, area),
       ActiveBlock::Describe => draw_describe_block(
@@ -221,7 +220,7 @@ impl AppResource for PodResource {
   }
 }
 
-fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, PODS_TITLE, "", app.data.pods.items.len());
 
   draw_resource_block(
@@ -259,7 +258,7 @@ fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
   );
 }
 
-fn draw_containers_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_containers_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let title = get_container_title(app, app.data.containers.items.len(), "");
 
   draw_resource_block(
@@ -323,7 +322,7 @@ fn get_container_title<S: AsRef<str>>(app: &App, container_len: usize, suffix: S
   title
 }
 
-fn draw_logs_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_logs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let selected_container = app.data.selected.container.clone();
   let container_name = selected_container.unwrap_or_default();
 

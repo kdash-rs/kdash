@@ -3,7 +3,6 @@ use k8s_openapi::{
   api::core::v1::PersistentVolume, apimachinery::pkg::api::resource::Quantity, chrono::Utc,
 };
 use ratatui::{
-  backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
   Frame,
@@ -117,7 +116,7 @@ pub struct PvResource {}
 
 #[async_trait]
 impl AppResource for PvResource {
-  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  fn render(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     draw_resource_tab!(
       PV_TITLE,
       block,
@@ -138,7 +137,7 @@ impl AppResource for PvResource {
   }
 }
 
-fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let title = get_resource_title(app, PV_TITLE, "", app.data.pvs.items.len());
 
   draw_resource_block(

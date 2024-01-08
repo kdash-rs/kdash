@@ -10,7 +10,6 @@ use kube::{
   Api,
 };
 use ratatui::{
-  backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
   Frame,
@@ -188,7 +187,7 @@ pub struct NodeResource {}
 
 #[async_trait]
 impl AppResource for NodeResource {
-  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  fn render(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     match block {
       ActiveBlock::Describe => draw_describe_block(
         f,
@@ -280,7 +279,7 @@ async fn get_node_metrics(nw: &Network<'_>) {
   };
 }
 
-fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let title = get_cluster_wide_resource_title(NODES_TITLE, app.data.nodes.items.len(), "");
 
   draw_resource_block(

@@ -7,7 +7,6 @@ use kube::{
   Api, ResourceExt,
 };
 use ratatui::{
-  backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
   Frame,
@@ -84,7 +83,7 @@ pub struct DynamicResource {}
 
 #[async_trait]
 impl AppResource for DynamicResource {
-  fn render<B: Backend>(block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  fn render(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     let title = if let Some(res) = &app.data.selected.dynamic_kind {
       res.kind.as_str()
     } else {
@@ -133,7 +132,7 @@ impl AppResource for DynamicResource {
   }
 }
 
-fn draw_block<B: Backend>(f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let (title, scope) = if let Some(res) = &app.data.selected.dynamic_kind {
     (res.kind.as_str(), res.scope.clone())
   } else {

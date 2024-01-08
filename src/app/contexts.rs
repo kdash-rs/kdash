@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use kube::config::{Context, Kubeconfig, NamedContext};
 use ratatui::{
-  backend::Backend,
   layout::{Constraint, Rect},
   widgets::{Cell, Row, Table},
   Frame,
@@ -73,7 +72,7 @@ pub struct ContextResource {}
 
 #[async_trait]
 impl AppResource for ContextResource {
-  fn render<B: Backend>(_block: ActiveBlock, f: &mut Frame<'_, B>, app: &mut App, area: Rect) {
+  fn render(_block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     let title = format!(" Contexts [{}] ", app.data.contexts.items.len());
     let block = layout_block_active(title.as_str(), app.light_theme);
 
@@ -92,19 +91,21 @@ impl AppResource for ContextResource {
         .style(style)
       });
 
-      let table = Table::new(rows)
-        .header(table_header_style(
-          vec!["Context", "Cluster", "User"],
-          app.light_theme,
-        ))
-        .block(block)
-        .widths(&[
+      let table = Table::new(
+        rows,
+        [
           Constraint::Percentage(34),
           Constraint::Percentage(33),
           Constraint::Percentage(33),
-        ])
-        .highlight_style(style_highlight())
-        .highlight_symbol(HIGHLIGHT);
+        ],
+      )
+      .header(table_header_style(
+        vec!["Context", "Cluster", "User"],
+        app.light_theme,
+      ))
+      .block(block)
+      .highlight_style(style_highlight())
+      .highlight_symbol(HIGHLIGHT);
 
       f.render_stateful_widget(table, area, &mut app.data.contexts.state);
     } else {
