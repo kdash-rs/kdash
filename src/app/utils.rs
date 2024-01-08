@@ -165,7 +165,7 @@ mod tests {
   }
 
   fn to_utc(s: &str) -> DateTime<Utc> {
-    DateTime::parse_from_str(s, "%d-%m-%Y %H:%M:%S")
+    DateTime::parse_from_str(&format!("{} +0000", s), "%d-%m-%Y %H:%M:%S %z")
       .unwrap()
       .into()
   }

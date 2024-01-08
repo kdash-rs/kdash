@@ -785,7 +785,7 @@ mod test_utils {
   }
 
   fn to_utc(s: &str) -> DateTime<Utc> {
-    DateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%SZ")
+    DateTime::parse_from_str(&format!("{} +0000", s), "%Y-%m-%dT%H:%M:%SZ %z")
       .unwrap()
       .into()
   }
