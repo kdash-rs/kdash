@@ -891,7 +891,7 @@ dependencies = [
 
 [[package]]
 name = "kdash"
-version = "0.4.5"
+version = "0.4.6"
 dependencies = [
  "anyhow",
  "async-trait",
