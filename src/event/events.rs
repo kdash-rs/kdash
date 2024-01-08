@@ -68,9 +68,7 @@ impl Events {
         // poll for tick rate duration, if no event, sent tick event.
         if event::poll(timeout).unwrap() {
           match event::read().unwrap() {
-            CEvent::Key(key_event) => {
-              event_tx.send(Event::Input(key_event)).unwrap();
-            }
+            CEvent::Key(key_event) => handle_key_event(&event_tx, key_event),
             CEvent::Mouse(mouse_event) => {
               event_tx.send(Event::MouseInput(mouse_event)).unwrap();
             }
@@ -92,4 +90,16 @@ impl Events {
   pub fn next(&self) -> Result<Event<KeyEvent, MouseEvent>, mpsc::RecvError> {
     self.rx.recv()
   }
+}
+
+#[cfg(target_os = "windows")]
+fn handle_key_event(event_tx: &mpsc::Sender<Event<KeyEvent, MouseEvent>>, key_event: KeyEvent) {
+  if key_event.kind == event::KeyEventKind::Press {
+    event_tx.send(Event::Input(key_event)).unwrap();
+  }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn handle_key_event(event_tx: &mpsc::Sender<Event<KeyEvent, MouseEvent>>, key_event: KeyEvent) {
+  event_tx.send(Event::Input(key_event)).unwrap();
 }
