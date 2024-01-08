@@ -93,7 +93,7 @@ impl AppResource for ContextResource {
 
       let table = Table::new(
         rows,
-        &[
+        [
           Constraint::Percentage(34),
           Constraint::Percentage(33),
           Constraint::Percentage(33),

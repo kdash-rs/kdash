@@ -87,7 +87,7 @@ impl AppResource for NamespaceResource {
         filter_by_resource_name(app.data.selected.filter.clone(), s, mapper)
       });
 
-      let table = Table::new(rows, &[Constraint::Length(22), Constraint::Length(6)])
+      let table = Table::new(rows, [Constraint::Length(22), Constraint::Length(6)])
         .header(table_header_style(vec!["Name", "Status"], app.light_theme))
         .block(block)
         .highlight_style(style_highlight())

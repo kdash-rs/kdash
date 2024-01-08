@@ -38,7 +38,7 @@ pub fn draw_help(f: &mut Frame<'_>, app: &mut App, area: Rect) {
 
   let title = title_with_dual_style(" Help ".into(), "| close <esc> ".into(), app.light_theme);
 
-  let help_menu = Table::new(rows, &[Constraint::Percentage(100)])
+  let help_menu = Table::new(rows, [Constraint::Percentage(100)])
     .header(
       Row::new(header)
         .style(style_secondary(app.light_theme))

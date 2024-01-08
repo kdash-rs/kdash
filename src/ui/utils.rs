@@ -397,7 +397,7 @@ pub fn draw_yaml_block(f: &mut Frame<'_>, app: &App, area: Rect, title: Line<'_>
           .highlight_line(line, ss)
           .expect("Something went wrong styling yaml resource code")
           .into_iter()
-          .filter_map(|segment| into_span(segment).ok())
+          .filter_map(|segment| syntect_tui::into_span(segment).ok())
           .collect();
         ratatui::text::Line::from(line_spans.into_iter().collect::<Vec<_>>())
       })

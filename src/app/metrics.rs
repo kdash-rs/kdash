@@ -142,7 +142,7 @@ impl AppResource for UtilizationResource {
 
       let table = Table::new(
         rows,
-        &[
+        [
           Constraint::Percentage(50),
           Constraint::Percentage(10),
           Constraint::Percentage(10),

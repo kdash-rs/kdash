@@ -1,7 +1,6 @@
 mod help;
 mod overview;
 pub mod resource_tabs;
-mod syntect_tui;
 pub mod utils;
 
 use ratatui::{

@@ -137,7 +137,7 @@ fn draw_cli_version_block(f: &mut Frame<'_>, app: &App, area: Rect) {
 
     let table = Table::new(
       rows,
-      &[Constraint::Percentage(50), Constraint::Percentage(50)],
+      [Constraint::Percentage(50), Constraint::Percentage(50)],
     )
     .block(block);
     f.render_widget(table, area);
