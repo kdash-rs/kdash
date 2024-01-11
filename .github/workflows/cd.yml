@@ -213,7 +213,7 @@ jobs:
           # push to Git
           git config --global user.email "d4udts@gmail.com"
           git config --global user.name "deepu105"
-          git clone https://deepu105:${{ secrets.TAP_GITHUB_TOKEN }}@github.com/kdash-rs/homebrew-kdash.git --branch=main brew
+          git clone https://deepu105:${{ secrets.KDASH_RS_GITHUB_TOKEN }}@github.com/kdash-rs/homebrew-kdash.git --branch=main brew
           rm brew/Formula/kdash.rb
           cp kdash.rb brew/Formula
           cd brew
@@ -230,7 +230,7 @@ jobs:
           # push to Git
           git config --global user.email "d4udts@gmail.com"
           git config --global user.name "deepu105"
-          git clone https://deepu105:${{ secrets.CHOCO_GITHUB_TOKEN }}@github.com/kdash-rs/choco-kdash --branch=main choco
+          git clone https://deepu105:${{ secrets.KDASH_RS_GITHUB_TOKEN }}@github.com/kdash-rs/choco-kdash --branch=main choco
           rm choco/kdash.nuspec
           rm choco/tools/chocolateyinstall.ps1
           cp kdash.nuspec choco/kdash.nuspec
@@ -248,7 +248,7 @@ jobs:
           # push to Git
           git config --global user.email "d4udts@gmail.com"
           git config --global user.name "deepu105"
-          git clone https://deepu105:${{ secrets.CHOCO_GITHUB_TOKEN }}@github.com/kdash-rs/scoop-kdash --branch=main scoop
+          git clone https://deepu105:${{ secrets.KDASH_RS_GITHUB_TOKEN }}@github.com/kdash-rs/scoop-kdash --branch=main scoop
           rm scoop/kdash.json
           cp kdash.json scoop/kdash.json
           cd scoop
