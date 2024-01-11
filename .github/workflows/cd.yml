@@ -275,6 +275,7 @@ jobs:
           args: --token ${{ secrets.CARGO_API_KEY }} --allow-dirty
 
   publish-docker-image:
+    needs: [build-release]
     name: Publishing Docker image to Docker Hub
     runs-on: ubuntu-latest
     steps:
