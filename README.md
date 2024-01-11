@@ -78,6 +78,19 @@ To upgrade
 choco upgrade kdash --version=0.4.3
 ```
 
+### Cargo
+
+If you have Cargo installed then you install KDash from crates.io
+
+```bash
+cargo install kdash
+
+# if you face issues with k8s-openapi crate try the below
+cargo install --locked kdash
+```
+
+You can also clone the repo and run `cargo run` or `make` to build and run the app
+
 ### Nix
 
 Try out kdash via `nix run nixpkgs#kdash` or add `kdash` to your
@@ -115,26 +128,15 @@ docker run --network host --rm -it -v ~/.kube/config:/root/.kube/config deepu105
 
 You can also clone this repo and run `make docker` to build a docker image locally and run it using the above command
 
+## Troubleshooting
+
 **Note**: This may not work properly if you run Kubernetes locally using Minikube or Kind
-
-### Cargo
-
-If you have Cargo installed then you install KDash from crates.io
-
-```bash
-cargo install kdash
-
-# if you face issues with k8s-openapi crate try the below
-cargo install --locked kdash
-```
 
 > Note: On Debian/Ubuntu you might need to install `libxcb-xfixes0-dev` and `libxcb-shape0-dev`. On Fedora `libxcb` and `libxcb-devel` would be needed.
 
 > Note: On Linux you might need to have package `xorg-dev` (Debian/Ubuntu) or `xorg-x11-server-devel` (Fedora) or equivalent installed for the copy to clipboard features to work
 
 > Note: If you are getting compilation error from openSSL. Make sure perl and perl-core are installed for your OS.
-
-You can also clone the repo and run `cargo run` or `make` to build and run the app
 
 ## USAGE:
 
