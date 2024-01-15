@@ -1,3 +1,4 @@
+use rand::Rng;
 mod help;
 mod overview;
 pub mod resource_tabs;
@@ -85,7 +86,7 @@ fn draw_app_title(f: &mut Frame<'_>, app: &App, area: Rect) {
   f.render_widget(title, area);
 
   let text = format!(
-    "v{} with ♥ in Rust {}",
+    "v{} with ♥ in Rust {} ",
     env!("CARGO_PKG_VERSION"),
     nw_loading_indicator(app.is_loading)
   );
@@ -97,9 +98,12 @@ fn draw_app_title(f: &mut Frame<'_>, app: &App, area: Rect) {
   f.render_widget(meta, area);
 }
 
+// loading animation frames
+const FRAMES: &[&str] = &["⠋⠴", "⠦⠙", "⠏⠼", "⠧⠹", "⠯⠽"];
+
 fn nw_loading_indicator<'a>(loading: bool) -> &'a str {
   if loading {
-    "..."
+    FRAMES[rand::thread_rng().gen_range(0..FRAMES.len())]
   } else {
     ""
   }

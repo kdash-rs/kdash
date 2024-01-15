@@ -6,7 +6,7 @@ default: run
 
  ## Run all tests
 test:  
-	@cargo test
+	@make lint && cargo test
 
  ## Run all tests with coverage- `cargo install cargo-tarpaulin`
 test-cov:  

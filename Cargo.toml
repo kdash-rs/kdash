@@ -61,6 +61,7 @@ human-panic = "1.1"
 kubectl-view-allocations = { version = "0.18.1", default-features = false }
 async-trait = "0.1.73"
 glob-match = "0.2.1"
+rand = "0.8"
 
 # XCB is a PITA to compile for ARM so disabling the copy feature on ARM for now
 [target.'cfg(target_arch = "x86_64")'.dependencies]
