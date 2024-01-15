@@ -2,6 +2,10 @@
 
 ## Unreleased - 2023-XX-YY
 
+## [0.4.7] - 2024-01-15
+
+- UI improvements
+
 ## [0.4.6] - 2024-01-08
 
 - Fix keypress issues on windows (https://github.com/kdash-rs/kdash/issues/390)
