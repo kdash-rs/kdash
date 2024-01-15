@@ -33,8 +33,10 @@ pub const COLOR_GREEN: Color = Color::Rgb(72, 213, 150);
 pub const COLOR_RED: Color = Color::Rgb(249, 167, 164);
 pub const COLOR_ORANGE: Color = Color::Rgb(255, 170, 66);
 pub const COLOR_WHITE: Color = Color::Rgb(255, 255, 255);
+pub const COLOR_MAGENTA: Color = Color::Rgb(199, 146, 234);
+pub const COLOR_DARK_GRAY: Color = Color::Rgb(50, 50, 50);
 // light theme colors
-pub const COLOR_MAGENTA: Color = Color::Rgb(139, 0, 139);
+pub const COLOR_MAGENTA_DARK: Color = Color::Rgb(153, 26, 237);
 pub const COLOR_GRAY: Color = Color::Rgb(91, 87, 87);
 pub const COLOR_BLUE: Color = Color::Rgb(0, 82, 163);
 pub const COLOR_GREEN_DARK: Color = Color::Rgb(20, 97, 73);
@@ -84,6 +86,7 @@ fn get_yaml_themes() -> &'static YamlThemes {
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Styles {
   Default,
+  Header,
   Logo,
   Failure,
   Warning,
@@ -98,12 +101,13 @@ pub fn theme_styles(light: bool) -> BTreeMap<Styles, Style> {
   if light {
     BTreeMap::from([
       (Styles::Default, Style::default().fg(COLOR_GRAY)),
+      (Styles::Header, Style::default().fg(COLOR_DARK_GRAY)),
       (Styles::Logo, Style::default().fg(COLOR_GREEN_DARK)),
       (Styles::Failure, Style::default().fg(COLOR_RED_DARK)),
       (Styles::Warning, Style::default().fg(COLOR_ORANGE_DARK)),
       (Styles::Success, Style::default().fg(COLOR_GREEN_DARK)),
       (Styles::Primary, Style::default().fg(COLOR_BLUE)),
-      (Styles::Secondary, Style::default().fg(COLOR_MAGENTA)),
+      (Styles::Secondary, Style::default().fg(COLOR_MAGENTA_DARK)),
       (Styles::Help, Style::default().fg(COLOR_BLUE)),
       (
         Styles::Background,
@@ -113,6 +117,7 @@ pub fn theme_styles(light: bool) -> BTreeMap<Styles, Style> {
   } else {
     BTreeMap::from([
       (Styles::Default, Style::default().fg(COLOR_WHITE)),
+      (Styles::Header, Style::default().fg(COLOR_DARK_GRAY)),
       (Styles::Logo, Style::default().fg(COLOR_GREEN)),
       (Styles::Failure, Style::default().fg(COLOR_RED)),
       (Styles::Warning, Style::default().fg(COLOR_ORANGE)),
@@ -132,13 +137,12 @@ pub fn title_style(txt: &str) -> Span<'_> {
   Span::styled(txt, style_bold())
 }
 
-pub fn title_style_logo(txt: &str, light: bool) -> Span<'_> {
-  Span::styled(
-    txt,
-    style_logo(light)
-      .add_modifier(Modifier::BOLD)
-      .add_modifier(Modifier::ITALIC),
-  )
+pub fn style_header_text(light: bool) -> Style {
+  *theme_styles(light).get(&Styles::Header).unwrap()
+}
+
+pub fn style_header() -> Style {
+  Style::default().bg(COLOR_MAGENTA)
 }
 
 pub fn style_bold() -> Style {

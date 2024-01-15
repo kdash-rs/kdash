@@ -5,6 +5,7 @@ pub mod utils;
 
 use ratatui::{
   layout::{Alignment, Constraint, Rect},
+  style::Modifier,
   text::{Line, Span, Text},
   widgets::{Block, Borders, Paragraph, Tabs, Wrap},
   Frame,
@@ -14,8 +15,8 @@ use self::{
   help::draw_help,
   overview::draw_overview,
   utils::{
-    horizontal_chunks_with_margin, layout_block, style_default, style_failure, style_help,
-    style_main_background, style_primary, style_secondary, title_style_logo, vertical_chunks,
+    horizontal_chunks_with_margin, style_default, style_failure, style_header, style_header_text,
+    style_help, style_main_background, style_primary, style_secondary, vertical_chunks,
   },
 };
 use crate::app::{
@@ -32,20 +33,29 @@ pub fn draw(f: &mut Frame<'_>, app: &mut App) {
   let chunks = if !app.api_error.is_empty() {
     let chunks = vertical_chunks(
       vec![
-        Constraint::Length(3),
-        Constraint::Length(3),
-        Constraint::Min(0),
+        Constraint::Length(1), // title
+        Constraint::Length(3), // header tabs
+        Constraint::Length(3), // error
+        Constraint::Min(0),    // main tabs
       ],
       f.size(),
     );
-    draw_app_error(f, app, chunks[1]);
+    draw_app_error(f, app, chunks[2]);
     chunks
   } else {
-    vertical_chunks(vec![Constraint::Length(3), Constraint::Min(0)], f.size())
+    vertical_chunks(
+      vec![
+        Constraint::Length(1), // title
+        Constraint::Length(3), // header tabs
+        Constraint::Min(0),    // main tabs
+      ],
+      f.size(),
+    )
   };
 
-  // draw header and logo
-  draw_app_header(f, app, chunks[0]);
+  draw_app_title(f, app, chunks[0]);
+  // draw header tabs amd text
+  draw_app_header(f, app, chunks[1]);
 
   let last_chunk = chunks[chunks.len() - 1];
   match app.get_current_route().id {
@@ -64,6 +74,37 @@ pub fn draw(f: &mut Frame<'_>, app: &mut App) {
   }
 }
 
+fn draw_app_title(f: &mut Frame<'_>, app: &App, area: Rect) {
+  let title = Paragraph::new(Span::styled(
+    app.title,
+    style_header_text(app.light_theme).add_modifier(Modifier::BOLD),
+  ))
+  .style(style_header())
+  .block(Block::default())
+  .alignment(Alignment::Left);
+  f.render_widget(title, area);
+
+  let text = format!(
+    "v{} with ♥ in Rust {}",
+    env!("CARGO_PKG_VERSION"),
+    nw_loading_indicator(app.is_loading)
+  );
+
+  let meta = Paragraph::new(Span::styled(text, style_header_text(app.light_theme)))
+    .style(style_header())
+    .block(Block::default())
+    .alignment(Alignment::Right);
+  f.render_widget(meta, area);
+}
+
+fn nw_loading_indicator<'a>(loading: bool) -> &'a str {
+  if loading {
+    "..."
+  } else {
+    ""
+  }
+}
+
 fn draw_app_header(f: &mut Frame<'_>, app: &App, area: Rect) {
   let chunks =
     horizontal_chunks_with_margin(vec![Constraint::Length(60), Constraint::Min(0)], area, 1);
@@ -75,7 +116,7 @@ fn draw_app_header(f: &mut Frame<'_>, app: &App, area: Rect) {
     .map(|t| Line::from(Span::styled(&t.title, style_default(app.light_theme))))
     .collect();
   let tabs = Tabs::new(titles)
-    .block(layout_block(title_style_logo(app.title, app.light_theme)))
+    .block(Block::default().borders(Borders::ALL))
     .highlight_style(style_secondary(app.light_theme))
     .select(app.main_tabs.index);
 

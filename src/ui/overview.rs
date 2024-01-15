@@ -35,10 +35,10 @@ pub fn draw_overview(f: &mut Frame<'_>, app: &mut App, area: Rect) {
 fn draw_status_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let chunks = horizontal_chunks(
     vec![
-      Constraint::Length(35),
+      Constraint::Length(45),
       Constraint::Min(10),
       Constraint::Length(30),
-      Constraint::Length(32),
+      Constraint::Length(15),
     ],
     area,
   );
@@ -105,15 +105,8 @@ fn draw_filter_block(f: &mut Frame<'_>, app: &App, area: Rect) {
 
 fn draw_logo_block(f: &mut Frame<'_>, app: &App, area: Rect) {
   // Banner text with correct styling
-  let text = format!(
-    "{}\n v{} with ♥ in Rust {}",
-    BANNER,
-    env!("CARGO_PKG_VERSION"),
-    nw_loading_indicator(app.is_loading)
-  );
-  let mut text = Text::from(text);
+  let mut text = Text::from(BANNER);
   text.patch_style(style_logo(app.light_theme));
-
   // Contains the banner
   let paragraph = Paragraph::new(text).block(Block::default().borders(Borders::ALL));
   f.render_widget(paragraph, area);
@@ -228,14 +221,6 @@ fn get_nm_ratio(node_metrics: &[KubeNodeMetrics], f: fn(b: &KubeNodeMetrics) -> 
     (sum / node_metrics.len() as f64) / 100f64
   } else {
     0f64
-  }
-}
-
-fn nw_loading_indicator<'a>(loading: bool) -> &'a str {
-  if loading {
-    "..."
-  } else {
-    ""
   }
 }
 
