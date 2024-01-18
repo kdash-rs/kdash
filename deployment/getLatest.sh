@@ -63,17 +63,21 @@ find_suffix() {
     local OS=$2
     local SUFFIX="$OS.tar.gz"
 
-    case "$ARCH" in
-    "arm") SUFFIX="arm-gnu.tar.gz" ;;
-    "arm64") SUFFIX="macos-arm64.tar.gz" ;;
-    "amd64")
-        case "$OS" in
-        "darwin") SUFFIX='macos.tar.gz' ;;
-        "windows") SUFFIX='windows.tar.gz' ;;
+    case "$OS" in
+    "darwin")
+        case "$ARCH" in
+        "arm64") SUFFIX="macos-arm64.tar.gz" ;;
+        *) SUFFIX='macos.tar.gz' ;;
+        esac
+        ;;
+    "windows") SUFFIX='windows.tar.gz' ;;
+    *)
+        case "$ARCH" in
+        "arm") SUFFIX="arm-gnu.tar.gz" ;;
+        "aarch64") SUFFIX="aarch64-gnu.tar.gz" ;;
         *) SUFFIX='linux.tar.gz' ;;
         esac
         ;;
-    "aarch64") SUFFIX="aarch64-gnu.tar.gz" ;;
     esac
 
     echo $SUFFIX
