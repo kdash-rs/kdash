@@ -45,17 +45,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [stable]
         job:
-          - { os: "macOS-latest",   target: "x86_64-apple-darwin",          artifact_prefix: "macos"                                                  }
-          - { os: "windows-latest", target: "x86_64-pc-windows-msvc",       artifact_prefix: "windows"                                                }
-          - { os: "ubuntu-latest",  target: "x86_64-unknown-linux-gnu",     artifact_prefix: "linux",                                                 }
+          - { name: "macOS-arm64",   os: "macOS-latest",   target: "aarch64-apple-darwin",         artifact_prefix: "macos-arm64",  use-cross: true, test-bin: "--bin kdash" }
+          - { name: "macOS-amd64",   os: "macOS-latest",   target: "x86_64-apple-darwin",          artifact_prefix: "macos"                                                  }
+          - { name: "windows-amd64", os: "windows-latest", target: "x86_64-pc-windows-msvc",       artifact_prefix: "windows"                                                }
+          - { name: "linux-gnu",     os: "ubuntu-latest",  target: "x86_64-unknown-linux-gnu",     artifact_prefix: "linux",                                                 }
         #   seems impossible to build static musl binaries due to XCB dependency. See https://github.com/rust-lang/rust/issues/116348
-        #   - { os: "ubuntu-latest",  target: "x86_64-unknown-linux-musl",    artifact_prefix: "linux-musl",                                          }
-          - { os: "ubuntu-latest",  target: "aarch64-unknown-linux-gnu",    artifact_prefix: "aarch64-gnu",  use-cross: true, test-bin: "--bin kdash" }
-          - { os: "ubuntu-latest",  target: "aarch64-unknown-linux-musl",   artifact_prefix: "aarch64-musl", use-cross: true, test-bin: "--bin kdash" }
-          - { os: "ubuntu-latest",  target: "arm-unknown-linux-gnueabihf",  artifact_prefix: "arm-gnu",      use-cross: true, test-bin: "--bin kdash" }
-          - { os: "ubuntu-latest",  target: "arm-unknown-linux-musleabihf", artifact_prefix: "arm-musl",     use-cross: true, test-bin: "--bin kdash" }
+        #   - { name: "linux-musl",  os: "ubuntu-latest",  target: "x86_64-unknown-linux-musl",    artifact_prefix: "linux-musl",                                          }
+          - { name: "aarch64-gnu",   os: "ubuntu-latest",  target: "aarch64-unknown-linux-gnu",    artifact_prefix: "aarch64-gnu",  use-cross: true, test-bin: "--bin kdash" }
+          - { name: "aarch64-musl",  os: "ubuntu-latest",  target: "aarch64-unknown-linux-musl",   artifact_prefix: "aarch64-musl", use-cross: true, test-bin: "--bin kdash" }
+          - { name: "arm-gnu",       os: "ubuntu-latest",  target: "arm-unknown-linux-gnueabihf",  artifact_prefix: "arm-gnu",      use-cross: true, test-bin: "--bin kdash" }
+          - { name: "arm-musl",      os: "ubuntu-latest",  target: "arm-unknown-linux-musleabihf", artifact_prefix: "arm-musl",     use-cross: true, test-bin: "--bin kdash" }
+        rust: [stable]
 
     steps:
       - name: Checkout repository
@@ -191,6 +192,8 @@ jobs:
         run: |
           macos_sha="$(cat ./artifacts/kdash-macos.sha256 | awk '{print $1}')"
           echo "MACOS_SHA=$macos_sha" >> $GITHUB_ENV
+          macos_sha_arm="$(cat ./artifacts/kdash-macos-arm64.sha256 | awk '{print $1}')"
+          echo "MACOS_SHA_ARM=$macos_sha_arm" >> $GITHUB_ENV
           linux_sha="$(cat ./artifacts/kdash-linux.sha256 | awk '{print $1}')"
           echo "LINUX_SHA=$linux_sha" >> $GITHUB_ENV          
           windows_sha="$(cat ./artifacts/kdash-windows.sha256 | awk '{print $1}')"
@@ -201,6 +204,7 @@ jobs:
       - name: Validate release environment variables
         run: |
           echo "Release SHA macos: ${{ env.MACOS_SHA }}"
+          echo "Release SHA macos-arm: ${{ env.MACOS_SHA_ARM }}"
           echo "Release SHA linux: ${{ env.LINUX_SHA }}"
           echo "Release SHA windows: ${{ env.WINDOWS_SHA }}"
           echo "Release version: ${{ env.RELEASE_VERSION }}"
@@ -208,7 +212,7 @@ jobs:
       - name: Execute Homebrew packaging script
         run: |
           # run packaging script
-          python "./deployment/homebrew/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/homebrew/kdash.rb.template" "./kdash.rb" ${{ env.MACOS_SHA }} ${{ env.LINUX_SHA }}
+          python "./deployment/homebrew/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/homebrew/kdash.rb.template" "./kdash.rb" ${{ env.MACOS_SHA }} ${{ env.MACOS_SHA_ARM }} ${{ env.LINUX_SHA }}
           
           # push to Git
           git config --global user.email "d4udts@gmail.com"

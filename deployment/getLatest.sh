@@ -37,7 +37,7 @@ find_arch() {
 
     case $ARCH in
     armv*) ARCH="arm" ;;
-    arm64) ARCH="aarch64" ;;
+    arm64) ARCH="arm64" ;;
     aarch64) ARCH="aarch64" ;;
     x86_64) ARCH="amd64" ;;
     *) fail "Your system architecture is not supported: $ARCH" ;;
@@ -65,6 +65,7 @@ find_suffix() {
 
     case "$ARCH" in
     "arm") SUFFIX="arm-gnu.tar.gz" ;;
+    "arm64") SUFFIX="macos-arm64.tar.gz" ;;
     "amd64")
         case "$OS" in
         "darwin") SUFFIX='macos.tar.gz' ;;

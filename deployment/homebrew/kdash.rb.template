@@ -4,7 +4,10 @@
 class Kdash < Formula
   desc "A fast and simple dashboard for Kubernetes written in Rust"
   homepage "https://github.com/kdash-rs/kdash"
-  if OS.mac?
+  if OS.mac? and Hardware::CPU.arm?
+    url "https://github.com/kdash-rs/kdash/releases/download/$version/kdash-macos-arm64.tar.gz"
+    sha256 "$hash_mac_arm"
+  elsif OS.mac? and Hardware::CPU.intel?
     url "https://github.com/kdash-rs/kdash/releases/download/$version/kdash-macos.tar.gz"
     sha256 "$hash_mac"
   else
