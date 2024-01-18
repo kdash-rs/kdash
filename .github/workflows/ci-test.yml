@@ -1,0 +1,54 @@
+on:
+  push:
+    branches: [main]
+
+name: Continuous Integration test
+
+jobs:
+  build-release:
+    name: build-release
+    runs-on: ${{ matrix.job.os }}
+    env:
+      RUST_BACKTRACE: 1
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [stable]
+        job:
+          - {
+              os: "macOS-latest",   target: "aarch64-apple-darwin",
+              artifact_prefix: "macos-arm64",  use-cross: true, test-bin: "--bin kdash"
+            }
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+          target: ${{ matrix.job.target }}
+          profile: minimal # minimal component installation (ie, no documentation)
+
+      - name: Installing needed macOS dependencies
+        if: matrix.job.os == 'macos-latest'
+        run: brew install openssl@1.1
+
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+        #   use-cross: ${{ matrix.job.use-cross }}
+          command: build
+          args: --release --verbose --target=${{ matrix.job.target }}
+          toolchain: ${{ matrix.rust }}
+
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+        #   use-cross: ${{ matrix.job.use-cross }}
+          command: test
+          args: --target=${{ matrix.job.target }}
