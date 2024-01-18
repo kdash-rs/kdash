@@ -186,7 +186,7 @@ jobs:
           path: artifacts
 
   publish-homebrew-formula:
-    needs: [build-release]
+    needs: [build-release-artifacts]
     name: Update Homebrew formulas
     runs-on: ubuntu-latest
     steps:
@@ -237,7 +237,7 @@ jobs:
           git push origin main
 
   publish-windows-packages:
-    needs: [build-release]
+    needs: [build-release-artifacts]
     name: Update scoop & choco formulas
     runs-on: ubuntu-latest
     steps:
@@ -302,7 +302,7 @@ jobs:
 
 #   publish-cargo:
 #     name: Publishing to Cargo
-#     needs: [build-release]
+#     needs: [build-release-artifacts]
 #     runs-on: ubuntu-latest
 #     steps:
 #       - uses: actions/checkout@v2
@@ -320,7 +320,7 @@ jobs:
 #           args: --token ${{ secrets.CARGO_API_KEY }} --allow-dirty
 
   publish-docker-image:
-    needs: [build-release]
+    needs: [build-release-artifacts]
     name: Publishing Docker image to Docker Hub
     runs-on: ubuntu-latest
     steps:
