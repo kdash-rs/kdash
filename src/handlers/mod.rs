@@ -738,7 +738,10 @@ async fn handle_block_scroll(app: &mut App, up: bool, is_mouse: bool, page: bool
   }
 }
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(
+  target_arch = "x86_64",
+  all(target_os = "macos", target_arch = "aarch64")
+))]
 fn copy_to_clipboard(content: String) {
   use clipboard::{ClipboardContext, ClipboardProvider};
 
@@ -748,7 +751,10 @@ fn copy_to_clipboard(content: String) {
     .expect("Unable to set content to clipboard");
 }
 
-#[cfg(any(target_arch = "aarch64", target_arch = "arm"))]
+#[cfg(not(any(
+  target_arch = "x86_64",
+  all(target_os = "macos", target_arch = "aarch64")
+)))]
 fn copy_to_clipboard(_content: String) {
   // do nothing as its a PITA to compile for ARM with XCB and this feature is not that important
 }

@@ -64,7 +64,7 @@ glob-match = "0.2.1"
 rand = "0.8"
 
 # XCB is a PITA to compile for ARM so disabling the copy feature on ARM for now
-[target.'cfg(target_arch = "x86_64")'.dependencies]
+[target.'cfg(any(target_arch = "x86_64", all(target_os = "macos", target_arch = "aarch64")))'.dependencies]
 clipboard = "0.5"
 
 [dev-dependencies.cargo-husky]
