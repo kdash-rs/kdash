@@ -2,6 +2,10 @@
 
 ## Unreleased - 2023-XX-YY
 
+## [0.4.8] - 2024-01-18
+
+- macOS ARM64 release
+
 ## [0.4.7] - 2024-01-15
 
 - UI improvements
