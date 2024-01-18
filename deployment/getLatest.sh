@@ -28,9 +28,7 @@ fail() {
 find_download_url() {
   local SUFFIX=$1
   local LATEST_URL="https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/releases/latest"
-  local URL=$(curl -s "${LATEST_URL}" | grep "browser_download_url.*${SUFFIX}" | cut -d : -f 2,3 |
-    tr -d \" |
-    head -n 1)
+  local URL=$(curl -s "${LATEST_URL}" | grep "browser_download_url.*${SUFFIX}" | cut -d : -f 2,3 | tr -d \" | head -n 1)
   echo "${URL//[[:space:]]/}"
 }
 
@@ -40,7 +38,8 @@ find_arch() {
   armv5*) ARCH="armv5" ;;
   armv6*) ARCH="armv6" ;;
   armv7*) ARCH="armv7" ;;
-  aarch64) ARCH="arm64" ;;
+  arm64) ARCH="aarch64" ;;
+  aarch64) ARCH="aarch64" ;;
   x86) ARCH="386" ;;
   # x86_64) ARCH="amd64";;
   i686) ARCH="386" ;;
@@ -61,6 +60,7 @@ find_os() {
 }
 
 find_suffix() {
+  local ARCH=$1
   local OS=$2
   local SUFFIX="$OS.tar.gz"
 #   case "$OS" in
@@ -68,6 +68,10 @@ find_suffix() {
 #   "darwin") SUFFIX='macos.tar.gz' ;;
 #   "windows") SUFFIX='windows.tar.gz';;
 #   esac
+  case "$ARCH" in
+  "aarch64") SUFFIX="aarch64-gnu.tar.gz" ;;
+  "arm64") SUFFIX="aarch64-gnu.tar.gz" ;;
+  esac
   echo $SUFFIX
 }
 
