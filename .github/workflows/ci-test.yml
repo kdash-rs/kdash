@@ -46,9 +46,15 @@ jobs:
           args: --release --verbose --target=${{ matrix.job.target }}
           toolchain: ${{ matrix.rust }}
 
+      - name: Packaging final binary (Windows)
+        shell: bash
+        run: |
+          cd target/${{ matrix.job.target }}/release
+          ./kdash --version
+          ./kdash --help
       - name: Test
         uses: actions-rs/cargo@v1
         with:
         #   use-cross: ${{ matrix.job.use-cross }}
           command: test
-          args: --target=${{ matrix.job.target }}
+          args: --target=${{ matrix.job.target }} --bins

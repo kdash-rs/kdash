@@ -36,7 +36,7 @@ jobs:
           name: artifacts
           path: artifacts
 
-  build-release:
+  build-release-artifacts:
     name: build-release
     needs: [create-github-release]
     runs-on: ${{ matrix.job.os }}
@@ -171,9 +171,9 @@ jobs:
           name: artifacts
           path: artifacts
 
-  publish-package-formula:
+  publish-homebrew-formula:
     needs: [build-release]
-    name: Update homebrew & choco formulas
+    name: Update Homebrew formulas
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -196,8 +196,6 @@ jobs:
           echo "MACOS_SHA_ARM=$macos_sha_arm" >> $GITHUB_ENV
           linux_sha="$(cat ./artifacts/kdash-linux.sha256 | awk '{print $1}')"
           echo "LINUX_SHA=$linux_sha" >> $GITHUB_ENV          
-          windows_sha="$(cat ./artifacts/kdash-windows.sha256 | awk '{print $1}')"
-          echo "WINDOWS_SHA=$windows_sha" >> $GITHUB_ENV
           release_version="$(cat ./artifacts/release-version)"
           echo "RELEASE_VERSION=$release_version" >> $GITHUB_ENV
 
@@ -206,7 +204,6 @@ jobs:
           echo "Release SHA macos: ${{ env.MACOS_SHA }}"
           echo "Release SHA macos-arm: ${{ env.MACOS_SHA_ARM }}"
           echo "Release SHA linux: ${{ env.LINUX_SHA }}"
-          echo "Release SHA windows: ${{ env.WINDOWS_SHA }}"
           echo "Release version: ${{ env.RELEASE_VERSION }}"
 
       - name: Execute Homebrew packaging script
@@ -224,6 +221,35 @@ jobs:
           git add .
           git diff-index --quiet HEAD || git commit -am "Update formula for KDash release ${{ env.RELEASE_VERSION }}"
           git push origin main
+
+  publish-windows-packages:
+    needs: [build-release]
+    name: Update scoop & choco formulas
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - name: Get release artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: artifacts
+          path: artifacts
+
+      - name: Set release assets and version
+        shell: bash
+        run: |
+          windows_sha="$(cat ./artifacts/kdash-windows.sha256 | awk '{print $1}')"
+          echo "WINDOWS_SHA=$windows_sha" >> $GITHUB_ENV
+          release_version="$(cat ./artifacts/release-version)"
+          echo "RELEASE_VERSION=$release_version" >> $GITHUB_ENV
+
+      - name: Validate release environment variables
+        run: |
+          echo "Release SHA windows: ${{ env.WINDOWS_SHA }}"
+          echo "Release version: ${{ env.RELEASE_VERSION }}"
 
       - name: Execute chocolatey packaging script
         run: |
@@ -262,6 +288,7 @@ jobs:
 
   publish-cargo:
     name: Publishing to Cargo
+    needs: [build-release]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
