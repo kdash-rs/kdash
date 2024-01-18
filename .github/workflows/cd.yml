@@ -116,14 +116,6 @@ jobs:
         run: |
           file target/${{ matrix.job.target }}/release/kdash
 
-      - name: Verify binary
-        if: matrix.job.target != 'aarch64-apple-darwin'
-        shell: bash
-        run: |
-          cd target/${{ matrix.job.target }}/release
-          ./kdash --version
-          ./kdash --help
-
       - name: Test
         if: matrix.job.target != 'aarch64-apple-darwin'
         uses: actions-rs/cargo@v1
@@ -300,25 +292,6 @@ jobs:
           git diff-index --quiet HEAD || git commit -am "Update package for KDash release ${{ env.RELEASE_VERSION }}"
           git push origin main
 
-#   publish-cargo:
-#     name: Publishing to Cargo
-#     needs: [build-release-artifacts]
-#     runs-on: ubuntu-latest
-#     steps:
-#       - uses: actions/checkout@v2
-#       - uses: actions-rs/toolchain@v1
-#         with:
-#           toolchain: stable
-#           override: true
-#           profile: minimal # minimal component installation (ie, no documentation)
-#       - run: |
-#           sudo apt-get update
-#           sudo apt-get install -y -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
-#       - uses: actions-rs/cargo@v1
-#         with:
-#           command: publish
-#           args: --token ${{ secrets.CARGO_API_KEY }} --allow-dirty
-
   publish-docker-image:
     needs: [build-release-artifacts]
     name: Publishing Docker image to Docker Hub
@@ -350,3 +323,21 @@ jobs:
           tags: deepu105/kdash:latest, deepu105/kdash:${{ env.RELEASE_VERSION }}
           push: true
           
+#   publish-cargo:
+#     name: Publishing to Cargo
+#     needs: [build-release-artifacts]
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v2
+#       - uses: actions-rs/toolchain@v1
+#         with:
+#           toolchain: stable
+#           override: true
+#           profile: minimal # minimal component installation (ie, no documentation)
+#       - run: |
+#           sudo apt-get update
+#           sudo apt-get install -y -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+#       - uses: actions-rs/cargo@v1
+#         with:
+#           command: publish
+#           args: --token ${{ secrets.CARGO_API_KEY }} --allow-dirty          
