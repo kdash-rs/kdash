@@ -16,7 +16,7 @@
 
 ![logo](artwork/logo.png)
 
-A simple terminal dashboard for Kubernetes built with Rust
+A simple terminal dashboard for Kubernetes built with Rust [![Follow @kdashrs](https://img.shields.io/twitter/follow/kdashrs?label=Follow%20kdashrs&style=social)](https://twitter.com/intent/follow?screen_name=kdashrs)
 
 ![UI](screenshots/ui.gif)
 
