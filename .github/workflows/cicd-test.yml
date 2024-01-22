@@ -24,7 +24,7 @@ jobs:
           - { name: "linux-musl",         os: "ubuntu-latest",  target: "x86_64-unknown-linux-musl",      artifact_prefix: "linux-musl",      use-cross: true,                         }
           - { name: "linux-aarch64-gnu",  os: "ubuntu-latest",  target: "aarch64-unknown-linux-gnu",      artifact_prefix: "aarch64-gnu",     use-cross: true, test-bin: "--bin kdash" }
           - { name: "linux-aarch64-musl", os: "ubuntu-latest",  target: "aarch64-unknown-linux-musl",     artifact_prefix: "aarch64-musl",    use-cross: true, test-bin: "--bin kdash" }
-          - { name: "linux-arm-gnu",      os: "ubuntu-latest",  target: "arm-unknown-linux-gnueabihf",    artifact_prefix: "armv6-gnu",       use-cross: true, test-bin: "--bin kdash" }
+          - { name: "linux-arm-gnu",      os: "ubuntu-latest",  target: "arm-unknown-linux-gnueabi",      artifact_prefix: "armv6-gnu",       use-cross: true, test-bin: "--bin kdash" }
           - { name: "linux-arm-musl",     os: "ubuntu-latest",  target: "arm-unknown-linux-musleabihf",   artifact_prefix: "armv6-musl",      use-cross: true, test-bin: "--bin kdash" }
           - { name: "linux-armv7-gnu",    os: "ubuntu-latest",  target: "armv7-unknown-linux-gnueabihf",  artifact_prefix: "armv7-gnu",       use-cross: true, test-bin: "--bin kdash" }
           - { name: "linux-armv7-musl",   os: "ubuntu-latest",  target: "armv7-unknown-linux-musleabihf", artifact_prefix: "armv7-musl",      use-cross: true, test-bin: "--bin kdash" }
@@ -55,7 +55,7 @@ jobs:
           # NB: sets CARGO_BUILD_TARGET evar - do not need --target flag in build
           target: ${{ matrix.job.target }}
       - uses: taiki-e/install-action@cross
-        if: ${{ matrix.job.cross }}
+        if: ${{ matrix.job.use-cross }}
       - name: Installing needed macOS dependencies
         if: matrix.job.os == 'macos-latest'
         run: brew install openssl@1.1
@@ -66,8 +66,8 @@ jobs:
           sudo apt-get -y update
           sudo apt-get -y install -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev musl-tools
           case ${{ matrix.job.target }} in
-            arm-unknown-linux-*) sudo apt-get -y install gcc-arm-linux-gnueabihf ;;
-            aarch64-unknown-linux-*) sudo apt-get -y install gcc-aarch64-linux-gnu ;;
+            arm*-linux-*) sudo apt-get -y install gcc-arm-linux-gnueabihf ;;
+            aarch64-*-linux-*) sudo apt-get -y install gcc-aarch64-linux-gnu ;;
           esac
 
       - name: Build
@@ -77,7 +77,7 @@ jobs:
         run: |
           file target/${{ matrix.job.target }}/release/kdash
       - name: Test
-        if: matrix.job.target != 'aarch64-apple-darwin'
+        if: matrix.job.target != 'aarch64-apple-darwin' && matrix.job.target != 'aarch64-pc-windows-msvc'
         run: cargo test --release --verbose --target=${{ matrix.job.target }} ${{ matrix.job.test-bin }}
 
       - name: Packaging final binary (Windows)
