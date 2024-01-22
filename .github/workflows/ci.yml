@@ -47,7 +47,6 @@ jobs:
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('Cargo.lock') }}
       - uses: dtolnay/rust-toolchain@nightly
         name: Set Rust toolchain
-      # These dependencies are required for `clipboard`
       - run: cargo test
         env:
           CARGO_INCREMENTAL: '0'
