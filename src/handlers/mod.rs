@@ -291,12 +291,12 @@ async fn handle_route_events(key: Key, app: &mut App) {
           if key == DEFAULT_KEYBINDING.log_auto_scroll.key {
             app.log_auto_scroll = !app.log_auto_scroll;
           } else if key == DEFAULT_KEYBINDING.copy_to_clipboard.key {
-            copy_to_clipboard(app.data.logs.get_plain_text());
+            copy_to_clipboard(app.data.logs.get_plain_text(), app);
           }
         }
         ActiveBlock::Describe | ActiveBlock::Yaml => {
           if key == DEFAULT_KEYBINDING.copy_to_clipboard.key {
-            copy_to_clipboard(app.data.describe_out.get_txt());
+            copy_to_clipboard(app.data.describe_out.get_txt(), app);
           }
         }
         ActiveBlock::Services => {
@@ -742,20 +742,28 @@ async fn handle_block_scroll(app: &mut App, up: bool, is_mouse: bool, page: bool
   target_arch = "x86_64",
   all(target_os = "macos", target_arch = "aarch64")
 ))]
-fn copy_to_clipboard(content: String) {
-  use clipboard::{ClipboardContext, ClipboardProvider};
+fn copy_to_clipboard(content: String, app: &mut App) {
+  use anyhow::anyhow;
+  use copypasta::{ClipboardContext, ClipboardProvider};
+  use std::thread;
 
-  let mut ctx: ClipboardContext = ClipboardProvider::new().expect("Unable to obtain clipboard");
-  ctx
-    .set_contents(content)
-    .expect("Unable to set content to clipboard");
+  match ClipboardContext::new() {
+    Ok(mut ctx) => match ctx.set_contents(content) {
+      // without this sleep the clipboard is not set in some OSes
+      Ok(_) => thread::sleep(std::time::Duration::from_millis(100)),
+      Err(_) => app.handle_error(anyhow!("Unable to set clipboard contents".to_string())),
+    },
+    Err(err) => {
+      app.handle_error(anyhow!("Unable to obtain clipboard: {}", err));
+    }
+  };
 }
 
 #[cfg(not(any(
   target_arch = "x86_64",
   all(target_os = "macos", target_arch = "aarch64")
 )))]
-fn copy_to_clipboard(_content: String) {
+fn copy_to_clipboard(_content: String, _app: &mut App) {
   // do nothing as its a PITA to compile for ARM with XCB and this feature is not that important
 }
 
