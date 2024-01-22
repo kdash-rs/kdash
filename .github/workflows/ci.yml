@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: prepare
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v4
       - uses: actions/cache@v3
         name: Cache Cargo registry
         with:
@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: prepare
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
       - uses: actions/cache@v3
         name: Cache Cargo registry
         with:
@@ -48,7 +48,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@nightly
         name: Set Rust toolchain
       # These dependencies are required for `clipboard`
-      - run: sudo apt-get install -y -qq libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
       - run: cargo test
         env:
           CARGO_INCREMENTAL: '0'
@@ -69,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: prepare
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v4
       - uses: actions/cache@v3
         name: Cache Cargo registry
         with:
@@ -86,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: prepare
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v4
       - uses: actions/cache@v3
         name: Cache Cargo registry
         with:

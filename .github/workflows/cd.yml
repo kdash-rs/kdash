@@ -26,7 +26,7 @@ jobs:
       - name: Save version number to artifact
         run: echo "${{ env.VERSION }}" > artifacts/release-version
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: artifacts
           path: artifacts
@@ -72,7 +72,7 @@ jobs:
           path: ~/.cargo/bin
           key: ${{ runner.os }}-cargo-bin-${{ hashFiles('.github/workflows/cd.yml') }}
       - name: Get shared artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v3
         with:
           name: artifacts
           path: artifacts
@@ -94,15 +94,12 @@ jobs:
           target: ${{ matrix.job.target }}
       - uses: taiki-e/install-action@cross
         if: ${{ matrix.job.use-cross }}
-      - name: Installing needed macOS dependencies
-        if: matrix.job.os == 'macos-latest'
-        run: brew install openssl@1.1
+
       - name: Installing needed Ubuntu dependencies
         if: matrix.job.os == 'ubuntu-latest'
         shell: bash
         run: |
           sudo apt-get -y update
-          sudo apt-get -y install -qq pkg-config libssl-dev
           case ${{ matrix.job.target }} in
             arm*-linux-*) sudo apt-get -y install gcc-arm-linux-gnueabihf ;;
             aarch64-*-linux-*) sudo apt-get -y install gcc-aarch64-linux-gnu ;;
@@ -168,7 +165,7 @@ jobs:
           cp target/${{ matrix.job.target }}/release/${{ env.RELEASE_NAME }}.sha256 artifacts/
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: artifacts
           path: artifacts
@@ -184,7 +181,7 @@ jobs:
           fetch-depth: 1
 
       - name: Get release artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v3
         with:
           name: artifacts
           path: artifacts
@@ -235,7 +232,7 @@ jobs:
           fetch-depth: 1
 
       - name: Get release artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v3
         with:
           name: artifacts
           path: artifacts
@@ -294,7 +291,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Get release artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v3
         with:
           name: artifacts
           path: artifacts
@@ -335,7 +332,4 @@ jobs:
           path: ~/.cargo/bin
           key: ${{ runner.os }}-cargo-bin-${{ hashFiles('.github/workflows/cd.yml') }}
       - uses: dtolnay/rust-toolchain@stable
-      - run: |
-          sudo apt-get update
-          sudo apt-get install -y -qq pkg-config libssl-dev
       - run: cargo publish --token ${{ secrets.CARGO_API_KEY }} --allow-dirty
