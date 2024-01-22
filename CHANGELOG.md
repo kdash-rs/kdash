@@ -2,6 +2,12 @@
 
 ## Unreleased - 2023-XX-YY
 
+## [0.5.0] - 2024-01-22
+
+- Linux musl builds as default
+- Aarch64 build for windows
+- ARM v7 builds for Linux
+
 ## [0.4.9] - 2024-01-22
 
 - bug fixes
