@@ -25,14 +25,14 @@ jobs:
     needs: prepare
     steps:
       - uses: actions/checkout@master
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/cache@v3
+        name: Cache Cargo registry
         with:
-          toolchain: stable
-          profile: minimal
-          override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: check
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('Cargo.lock') }}
+      - uses: dtolnay/rust-toolchain@stable
+        name: Set Rust toolchain
+      - run: cargo check --all --all-targets --workspace
 
   test:
     name: Test Suite
@@ -40,16 +40,16 @@ jobs:
     needs: prepare
     steps:
       - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/cache@v3
+        name: Cache Cargo registry
         with:
-          toolchain: nightly
-          profile: minimal
-          override: true
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('Cargo.lock') }}
+      - uses: dtolnay/rust-toolchain@stable
+        name: Set Rust toolchain
       # These dependencies are required for `clipboard`
       - run: sudo apt-get install -y -qq libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
+      - run: cargo test
         env:
           CARGO_INCREMENTAL: '0'
           RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
@@ -70,16 +70,16 @@ jobs:
     needs: prepare
     steps:
       - uses: actions/checkout@master
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/cache@v3
+        name: Cache Cargo registry
         with:
-          toolchain: stable
-          profile: minimal
-          override: true
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('Cargo.lock') }}
+      - uses: dtolnay/rust-toolchain@stable
+        name: Set Rust toolchain
+        with:
           components: rustfmt
-      - uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+      - run: cargo fmt --all -- --check
 
   clippy:
     name: Clippy
@@ -87,15 +87,15 @@ jobs:
     needs: prepare
     steps:
       - uses: actions/checkout@master
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/cache@v3
+        name: Cache Cargo registry
         with:
-          toolchain: stable
-          profile: minimal
-          override: true
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('Cargo.lock') }}
+      - uses: dtolnay/rust-toolchain@stable
+        name: Set Rust toolchain
+        with:
           components: clippy
-      - uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --all --all-features --all-targets --workspace -- -D warnings
+      - run: cargo clippy --all --all-features --all-targets --workspace -- -D warnings
         env:
           CARGO_INCREMENTAL: '0'

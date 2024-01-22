@@ -106,7 +106,7 @@ curl https://raw.githubusercontent.com/kdash-rs/kdash/main/deployment/getLatest.
 
 ### Manual
 
-Binaries for macOS, Linux and Windows are available on the [releases](https://github.com/kdash-rs/kdash/releases) page
+Binaries for macOS (x86_64, arm64), Linux GNU/MUSL(x86_64, armv6, armv7, aarch64) and Windows (x86_64, aarch64) are available on the [releases](https://github.com/kdash-rs/kdash/releases) page
 
 1. Download the latest [binary](https://github.com/kdash-rs/kdash/releases) for your OS.
 1. For Linux/macOS:
