@@ -364,21 +364,7 @@ pub struct ResourceTableProps<'a, T> {
 }
 /// common for all resources
 pub fn draw_describe_block(f: &mut Frame<'_>, app: &App, area: Rect, title: Line<'_>) {
-  let block = layout_block_top_border(title);
-
-  let txt = &app.data.describe_out.get_txt();
-  if !txt.is_empty() {
-    let mut txt = Text::from(txt.clone());
-    txt.patch_style(style_primary(app.light_theme));
-
-    let paragraph = Paragraph::new(txt)
-      .block(block)
-      .wrap(Wrap { trim: false })
-      .scroll((app.data.describe_out.offset, 0));
-    f.render_widget(paragraph, area);
-  } else {
-    loading(f, block, area, app.is_loading, app.light_theme);
-  }
+  draw_yaml_block(f, app, area, title);
 }
 
 /// common for all resources
