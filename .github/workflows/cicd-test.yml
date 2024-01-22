@@ -16,18 +16,18 @@ jobs:
       matrix:
         # prettier-ignore
         job:
-          - { name: "macOS-arm64",        os: "macOS-latest",   target: "aarch64-apple-darwin",           artifact_prefix: "macos-arm64",     use-cross: true                          }
-          - { name: "macOS-amd64",        os: "macOS-latest",   target: "x86_64-apple-darwin",            artifact_prefix: "macos"                                                     }
-          - { name: "windows-amd64",      os: "windows-latest", target: "x86_64-pc-windows-msvc",         artifact_prefix: "windows"                                                   }
-          - { name: "windows-aarch64",    os: "windows-latest", target: "aarch64-pc-windows-msvc",        artifact_prefix: "windows-aarch64", use-cross: true                          }
-          - { name: "linux-gnu",          os: "ubuntu-latest",  target: "x86_64-unknown-linux-gnu",       artifact_prefix: "linux"                                                     }
-          - { name: "linux-musl",         os: "ubuntu-latest",  target: "x86_64-unknown-linux-musl",      artifact_prefix: "linux-musl",      use-cross: true,                         }
-          - { name: "linux-aarch64-gnu",  os: "ubuntu-latest",  target: "aarch64-unknown-linux-gnu",      artifact_prefix: "aarch64-gnu",     use-cross: true, test-bin: "--bin kdash" }
-          - { name: "linux-aarch64-musl", os: "ubuntu-latest",  target: "aarch64-unknown-linux-musl",     artifact_prefix: "aarch64-musl",    use-cross: true, test-bin: "--bin kdash" }
-          - { name: "linux-arm-gnu",      os: "ubuntu-latest",  target: "arm-unknown-linux-gnueabi",      artifact_prefix: "armv6-gnu",       use-cross: true, test-bin: "--bin kdash" }
-          - { name: "linux-arm-musl",     os: "ubuntu-latest",  target: "arm-unknown-linux-musleabihf",   artifact_prefix: "armv6-musl",      use-cross: true, test-bin: "--bin kdash" }
-          - { name: "linux-armv7-gnu",    os: "ubuntu-latest",  target: "armv7-unknown-linux-gnueabihf",  artifact_prefix: "armv7-gnu",       use-cross: true, test-bin: "--bin kdash" }
-          - { name: "linux-armv7-musl",   os: "ubuntu-latest",  target: "armv7-unknown-linux-musleabihf", artifact_prefix: "armv7-musl",      use-cross: true, test-bin: "--bin kdash" }
+          - { name: "macOS-arm64",        os: "macOS-latest",   target: "aarch64-apple-darwin",           artifact_suffix: "macos-arm64",     use-cross: true                          }
+          - { name: "macOS-amd64",        os: "macOS-latest",   target: "x86_64-apple-darwin",            artifact_suffix: "macos"                                                     }
+          - { name: "windows-amd64",      os: "windows-latest", target: "x86_64-pc-windows-msvc",         artifact_suffix: "windows"                                                   }
+          - { name: "windows-aarch64",    os: "windows-latest", target: "aarch64-pc-windows-msvc",        artifact_suffix: "windows-aarch64", use-cross: true                          }
+          - { name: "linux-gnu",          os: "ubuntu-latest",  target: "x86_64-unknown-linux-gnu",       artifact_suffix: "linux"                                                     }
+          - { name: "linux-musl",         os: "ubuntu-latest",  target: "x86_64-unknown-linux-musl",      artifact_suffix: "linux-musl",      use-cross: true,                         }
+          - { name: "linux-aarch64-gnu",  os: "ubuntu-latest",  target: "aarch64-unknown-linux-gnu",      artifact_suffix: "aarch64-gnu",     use-cross: true, test-bin: "--bin kdash" }
+          - { name: "linux-aarch64-musl", os: "ubuntu-latest",  target: "aarch64-unknown-linux-musl",     artifact_suffix: "aarch64-musl",    use-cross: true, test-bin: "--bin kdash" }
+          - { name: "linux-arm-gnu",      os: "ubuntu-latest",  target: "arm-unknown-linux-gnueabi",      artifact_suffix: "armv6-gnu",       use-cross: true, test-bin: "--bin kdash" }
+          - { name: "linux-arm-musl",     os: "ubuntu-latest",  target: "arm-unknown-linux-musleabihf",   artifact_suffix: "armv6-musl",      use-cross: true, test-bin: "--bin kdash" }
+          - { name: "linux-armv7-gnu",    os: "ubuntu-latest",  target: "armv7-unknown-linux-gnueabihf",  artifact_suffix: "armv7-gnu",       use-cross: true, test-bin: "--bin kdash" }
+          - { name: "linux-armv7-musl",   os: "ubuntu-latest",  target: "armv7-unknown-linux-musleabihf", artifact_suffix: "armv7-musl",      use-cross: true, test-bin: "--bin kdash" }
         rust: [stable]
 
     steps:
@@ -64,7 +64,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get -y update
-          sudo apt-get -y install -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev musl-tools
+          sudo apt-get -y install -qq pkg-config libssl-dev
           case ${{ matrix.job.target }} in
             arm*-linux-*) sudo apt-get -y install gcc-arm-linux-gnueabihf ;;
             aarch64-*-linux-*) sudo apt-get -y install gcc-aarch64-linux-gnu ;;
@@ -86,9 +86,11 @@ jobs:
         run: |
           cd target/${{ matrix.job.target }}/release
           BINARY_NAME=kdash.exe
-          # strip the binary
-          strip $BINARY_NAME
-          RELEASE_NAME=kdash-${{ matrix.job.artifact_prefix }}
+          if [ "${{ matrix.job.target }}" != "aarch64-pc-windows-msvc" ]; then
+            # strip the binary
+            strip $BINARY_NAME
+          fi
+          RELEASE_NAME=kdash-${{ matrix.job.artifact_suffix }}
           tar czvf $RELEASE_NAME.tar.gz $BINARY_NAME
           # create sha checksum files
           certutil -hashfile $RELEASE_NAME.tar.gz sha256 | grep -E [A-Fa-f0-9]{64} > $RELEASE_NAME.sha256
@@ -108,7 +110,7 @@ jobs:
           BINARY_NAME=kdash
           # strip the binary
           "$STRIP" "$BINARY_NAME"
-          RELEASE_NAME=kdash-${{ matrix.job.artifact_prefix }}
+          RELEASE_NAME=kdash-${{ matrix.job.artifact_suffix }}
           tar czvf $RELEASE_NAME.tar.gz $BINARY_NAME
           # create sha checksum files
           shasum -a 256 $RELEASE_NAME.tar.gz > $RELEASE_NAME.sha256
@@ -131,6 +133,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: |
           sudo apt-get update
-          sudo apt-get install -y -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+          sudo apt-get install -y -qq pkg-config libssl-dev
       - run: cargo publish --token ${{ secrets.CARGO_API_KEY }} --allow-dirty --dry-run
 
