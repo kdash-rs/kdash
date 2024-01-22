@@ -5,7 +5,6 @@ on:
 name: CICD test
 
 jobs:
-
   build-release-artifacts:
     name: build-release
     runs-on: ${{ matrix.job.os }}
@@ -15,16 +14,19 @@ jobs:
       fail-fast: false
       matrix:
         job:
-          - { name: "macOS-arm64",   os: "macOS-latest",   target: "aarch64-apple-darwin",         artifact_prefix: "macos-arm64",  use-cross: true                          }
-          - { name: "macOS-amd64",   os: "macOS-latest",   target: "x86_64-apple-darwin",          artifact_prefix: "macos"                                                  }
-          - { name: "windows-amd64", os: "windows-latest", target: "x86_64-pc-windows-msvc",       artifact_prefix: "windows"                                                }
-          - { name: "linux-gnu",     os: "ubuntu-latest",  target: "x86_64-unknown-linux-gnu",     artifact_prefix: "linux"                                                  }
-        # seems impossible to build static musl binaries due to XCB dependency. See https://github.com/rust-lang/rust/issues/116348
-          - { name: "linux-musl",    os: "ubuntu-latest",  target: "x86_64-unknown-linux-musl",    artifact_prefix: "linux-musl",                                            }
-          - { name: "aarch64-gnu",   os: "ubuntu-latest",  target: "aarch64-unknown-linux-gnu",    artifact_prefix: "aarch64-gnu",  use-cross: true, test-bin: "--bin kdash" }
-          - { name: "aarch64-musl",  os: "ubuntu-latest",  target: "aarch64-unknown-linux-musl",   artifact_prefix: "aarch64-musl", use-cross: true, test-bin: "--bin kdash" }
-          - { name: "arm-gnu",       os: "ubuntu-latest",  target: "arm-unknown-linux-gnueabihf",  artifact_prefix: "arm-gnu",      use-cross: true, test-bin: "--bin kdash" }
-          - { name: "arm-musl",      os: "ubuntu-latest",  target: "arm-unknown-linux-musleabihf", artifact_prefix: "arm-musl",     use-cross: true, test-bin: "--bin kdash" }
+          # prettier-ignore
+          - { name: "macOS-arm64",     os: "macOS-latest",   target: "aarch64-apple-darwin",           artifact_prefix: "macos-arm64",     use-cross: true                          }
+          - { name: "macOS-amd64",     os: "macOS-latest",   target: "x86_64-apple-darwin",            artifact_prefix: "macos"                                                     }
+          - { name: "windows-amd64",   os: "windows-latest", target: "x86_64-pc-windows-msvc",         artifact_prefix: "windows"                                                   }
+          - { name: "windows-aarch64", os: "windows-latest", target: "aarch64-pc-windows-msvc",        artifact_prefix: "windows-aarch64", use-cross: true                          }
+          - { name: "linux-gnu",       os: "ubuntu-latest",  target: "x86_64-unknown-linux-gnu",       artifact_prefix: "linux"                                                     }
+          - { name: "linux-musl",      os: "ubuntu-latest",  target: "x86_64-unknown-linux-musl",      artifact_prefix: "linux-musl",      use-cross: true,                         }
+          - { name: "aarch64-gnu",     os: "ubuntu-latest",  target: "aarch64-unknown-linux-gnu",      artifact_prefix: "aarch64-gnu",     use-cross: true, test-bin: "--bin kdash" }
+          - { name: "aarch64-musl",    os: "ubuntu-latest",  target: "aarch64-unknown-linux-musl",     artifact_prefix: "aarch64-musl",    use-cross: true, test-bin: "--bin kdash" }
+          - { name: "arm-gnu",         os: "ubuntu-latest",  target: "arm-unknown-linux-gnueabihf",    artifact_prefix: "armv6-gnu",       use-cross: true, test-bin: "--bin kdash" }
+          - { name: "arm-musl",        os: "ubuntu-latest",  target: "arm-unknown-linux-musleabihf",   artifact_prefix: "armv6-musl",      use-cross: true, test-bin: "--bin kdash" }
+          - { name: "armv7-gnu",       os: "ubuntu-latest",  target: "armv7-unknown-linux-gnueabihf",  artifact_prefix: "armv7-gnu",       use-cross: true, test-bin: "--bin kdash" }
+          - { name: "armv7-musl",      os: "ubuntu-latest",  target: "armv7-unknown-linux-musleabihf", artifact_prefix: "armv7-musl",      use-cross: true, test-bin: "--bin kdash" }
         rust: [stable]
 
     steps:
@@ -68,6 +70,7 @@ jobs:
         shell: bash
         run: |
           file target/${{ matrix.job.target }}/release/kdash
+          ldd target/${{ matrix.job.target }}/release/kdash
 
       - name: Test
         if: matrix.job.target != 'aarch64-apple-darwin'
@@ -75,7 +78,4 @@ jobs:
         with:
           use-cross: ${{ matrix.job.use-cross }}
           command: test
-          args: --target=${{ matrix.job.target }} ${{ matrix.job.test-bin }}          
-  
-          
-
+          args: --target=${{ matrix.job.target }} ${{ matrix.job.test-bin }}
