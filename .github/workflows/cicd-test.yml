@@ -1,0 +1,81 @@
+on:
+  push:
+    branches: [cdtest]
+
+name: CICD test
+
+jobs:
+
+  build-release-artifacts:
+    name: build-release
+    runs-on: ${{ matrix.job.os }}
+    env:
+      RUST_BACKTRACE: 1
+    strategy:
+      fail-fast: false
+      matrix:
+        job:
+          - { name: "macOS-arm64",   os: "macOS-latest",   target: "aarch64-apple-darwin",         artifact_prefix: "macos-arm64",  use-cross: true                          }
+          - { name: "macOS-amd64",   os: "macOS-latest",   target: "x86_64-apple-darwin",          artifact_prefix: "macos"                                                  }
+          - { name: "windows-amd64", os: "windows-latest", target: "x86_64-pc-windows-msvc",       artifact_prefix: "windows"                                                }
+          - { name: "linux-gnu",     os: "ubuntu-latest",  target: "x86_64-unknown-linux-gnu",     artifact_prefix: "linux"                                                  }
+        # seems impossible to build static musl binaries due to XCB dependency. See https://github.com/rust-lang/rust/issues/116348
+          - { name: "linux-musl",    os: "ubuntu-latest",  target: "x86_64-unknown-linux-musl",    artifact_prefix: "linux-musl",                                            }
+          - { name: "aarch64-gnu",   os: "ubuntu-latest",  target: "aarch64-unknown-linux-gnu",    artifact_prefix: "aarch64-gnu",  use-cross: true, test-bin: "--bin kdash" }
+          - { name: "aarch64-musl",  os: "ubuntu-latest",  target: "aarch64-unknown-linux-musl",   artifact_prefix: "aarch64-musl", use-cross: true, test-bin: "--bin kdash" }
+          - { name: "arm-gnu",       os: "ubuntu-latest",  target: "arm-unknown-linux-gnueabihf",  artifact_prefix: "arm-gnu",      use-cross: true, test-bin: "--bin kdash" }
+          - { name: "arm-musl",      os: "ubuntu-latest",  target: "arm-unknown-linux-musleabihf", artifact_prefix: "arm-musl",     use-cross: true, test-bin: "--bin kdash" }
+        rust: [stable]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+          target: ${{ matrix.job.target }}
+          profile: minimal # minimal component installation (ie, no documentation)
+
+      - name: Installing needed macOS dependencies
+        if: matrix.job.os == 'macos-latest'
+        run: brew install openssl@1.1
+
+      - name: Installing needed Ubuntu dependencies
+        if: matrix.job.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          sudo apt-get -y update
+          sudo apt-get -y install -qq pkg-config libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev musl-tools
+          case ${{ matrix.job.target }} in
+            arm-unknown-linux-*) sudo apt-get -y install gcc-arm-linux-gnueabihf ;;
+            aarch64-unknown-linux-*) sudo apt-get -y install gcc-aarch64-linux-gnu ;;
+          esac
+
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: ${{ matrix.job.use-cross }}
+          command: build
+          args: --release --verbose --target=${{ matrix.job.target }}
+          toolchain: ${{ matrix.rust }}
+
+      - name: Verify file
+        shell: bash
+        run: |
+          file target/${{ matrix.job.target }}/release/kdash
+
+      - name: Test
+        if: matrix.job.target != 'aarch64-apple-darwin'
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: ${{ matrix.job.use-cross }}
+          command: test
+          args: --target=${{ matrix.job.target }} ${{ matrix.job.test-bin }}          
+  
+          
+
