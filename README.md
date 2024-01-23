@@ -211,7 +211,7 @@ Press `?` while running the app to see keybindings
 - [kube-rs](https://github.com/clux/kube-rs)
 - [serde](https://github.com/serde-rs/serde)
 - [kubectl-view-allocations](https://github.com/davidB/kubectl-view-allocations)
-- [rust-clipboard](https://github.com/aweinstock314/rust-clipboard)
+- [copypasta](https://github.com/alacritty/copypasta)
 
 ## How does this compare to K9S?
 

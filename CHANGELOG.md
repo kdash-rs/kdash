@@ -2,6 +2,8 @@
 
 ## Unreleased - 2023-XX-YY
 
+- Describe syntax highlighting
+
 ## [0.5.0] - 2024-01-22
 
 - Linux musl builds as default
