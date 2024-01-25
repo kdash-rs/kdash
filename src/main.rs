@@ -7,6 +7,7 @@ mod event;
 mod handlers;
 mod network;
 mod ui;
+mod utils; // Assuming utils.rs exists and contains the setup_logging function
 
 use std::{
   io::{self, stdout, Stdout},
@@ -24,6 +25,7 @@ use crossterm::{
   terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use event::Key;
+use log::{debug, error, info}; // Added for logging
 use network::{
   get_client,
   stream::{IoStreamEvent, NetworkStream},
@@ -49,6 +51,9 @@ pub struct Cli {
   /// whether unicode symbols are used to improve the overall look of the app
   #[arg(short, long, value_parser, default_value_t = true)]
   pub enhanced_graphics: bool,
+  /// Enable debug mode
+  #[arg(long, action)]
+  pub debug: bool,
 }
 
 #[tokio::main]
@@ -60,6 +65,12 @@ async fn main() -> Result<()> {
 
   // parse CLI arguments
   let cli = Cli::parse();
+
+  // Setup logging if debug flag is set
+  if cli.debug {
+    utils::setup_logging()?;
+    debug!("Debug mode is enabled");
+  }
 
   if cli.tick_rate >= 1000 {
     panic!("Tick rate must be below 1000");
@@ -119,6 +130,7 @@ async fn start_network(mut io_rx: mpsc::Receiver<IoEvent>, app: &Arc<Mutex<App>>
     Err(e) => {
       let mut app = app.lock().await;
       app.handle_error(anyhow!("Unable to obtain Kubernetes client. {:?}", e));
+      error!("Unable to obtain Kubernetes client: {:?}", e); // Added debug statement
     }
   }
 }
@@ -136,6 +148,7 @@ async fn start_stream_network(mut io_rx: mpsc::Receiver<IoStreamEvent>, app: &Ar
     Err(e) => {
       let mut app = app.lock().await;
       app.handle_error(anyhow!("Unable to obtain Kubernetes client. {:?}", e));
+      error!("Unable to obtain Kubernetes client: {:?}", e); // Added debug statement
     }
   }
 }
