@@ -9,6 +9,7 @@ use kube::{
   api::ListParams, config::Kubeconfig, discovery::verbs, Api, Client, Discovery,
   Resource as ApiResource,
 };
+use log::{error, info, warn};
 use serde::de::DeserializeOwned;
 use tokio::sync::Mutex;
 
@@ -87,22 +88,29 @@ async fn refresh_kube_config(context: &Option<String>) -> Result<kube::Client> {
     .read();
 
   if out.is_err() {
+    error!("Running `kubectl cluster-info` failed");
     return Err(anyhow!("Running `kubectl cluster-info` failed",));
   }
   get_client(context.to_owned()).await
 }
 
 pub async fn get_client(context: Option<String>) -> Result<kube::Client> {
+  info!("env KUBECONFIG: {:?}", std::env::var_os("KUBECONFIG"));
   let client_config = match context.as_ref() {
     Some(context) => {
+      info!("Getting kubernetes client. Context: {}", context);
       kube::Config::from_kubeconfig(&kube::config::KubeConfigOptions {
         context: Some(context.to_owned()),
         ..Default::default()
       })
       .await?
     }
-    None => kube::Config::infer().await?,
+    None => {
+      warn!("Getting kubernetes client by inference. No context given");
+      kube::Config::infer().await?
+    }
   };
+  info!("Kubernetes client config: {:?}", client_config);
   Ok(kube::Client::try_from(client_config)?)
 }
 
@@ -238,6 +246,7 @@ impl<'a> Network<'a> {
   }
 
   pub async fn handle_error(&self, e: anyhow::Error) {
+    error!("{:?}", e);
     let mut app = self.app.lock().await;
     app.handle_error(e);
   }
@@ -245,6 +254,7 @@ impl<'a> Network<'a> {
   pub async fn get_kube_config(&self) {
     match Kubeconfig::read() {
       Ok(config) => {
+        info!("Using Kubeconfig: {:?}", config);
         let mut app = self.app.lock().await;
         let selected_ctx = app.data.selected.context.to_owned();
         app.set_contexts(contexts::get_contexts(&config, selected_ctx));

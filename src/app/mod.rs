@@ -28,6 +28,7 @@ mod utils;
 use anyhow::anyhow;
 use kube::config::Kubeconfig;
 use kubectl_view_allocations::{GroupBy, QtyByQualifier};
+use log::{error, info};
 use ratatui::layout::Rect;
 use tokio::sync::mpsc::Sender;
 use tui_input::Input;
@@ -518,6 +519,7 @@ impl App {
   }
 
   pub fn handle_error(&mut self, e: anyhow::Error) {
+    error!("{:?}", e);
     self.api_error = e.to_string();
   }
 
@@ -591,6 +593,7 @@ impl App {
   }
 
   pub async fn cache_all_resource_data(&mut self) {
+    info!("Caching all resource data");
     self.dispatch(IoEvent::GetNamespaces).await;
     self.dispatch(IoEvent::GetPods).await;
     self.dispatch(IoEvent::DiscoverDynamicRes).await;

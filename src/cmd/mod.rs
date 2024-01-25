@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use duct::cmd;
+use log::{error, info};
 use regex::Regex;
 use serde_json::Value as JValue;
 use tokio::sync::Mutex;
@@ -45,6 +46,7 @@ impl<'a> CmdRunner<'a> {
   }
 
   async fn handle_error(&self, e: anyhow::Error) {
+    error!("{:?}", e);
     let mut app = self.app.lock().await;
     app.handle_error(e);
   }
@@ -57,6 +59,7 @@ impl<'a> CmdRunner<'a> {
       .read()
     {
       Ok(out) => {
+        info!("kubectl version: {}", out);
         let v: serde_json::Result<JValue> = serde_json::from_str(&out);
         match v {
           Ok(val) => (

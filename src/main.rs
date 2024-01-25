@@ -7,9 +7,9 @@ mod event;
 mod handlers;
 mod network;
 mod ui;
-mod utils; // Assuming utils.rs exists and contains the setup_logging function
 
 use std::{
+  fs::File,
   io::{self, stdout, Stdout},
   panic::{self, PanicInfo},
   sync::Arc,
@@ -18,14 +18,15 @@ use std::{
 use anyhow::{anyhow, Result};
 use app::App;
 use banner::BANNER;
-use clap::Parser;
+use clap::{builder::PossibleValuesParser, Parser};
 use cmd::{CmdRunner, IoCmdEvent};
 use crossterm::{
   execute,
   terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use event::Key;
-use log::{debug, error, info}; // Added for logging
+use k8s_openapi::chrono::{self};
+use log::{info, warn, LevelFilter, SetLoggerError};
 use network::{
   get_client,
   stream::{IoStreamEvent, NetworkStream},
@@ -35,6 +36,7 @@ use ratatui::{
   backend::{Backend, CrosstermBackend},
   Terminal,
 };
+use simplelog::{Config, WriteLogger};
 use tokio::sync::{mpsc, Mutex};
 
 /// kdash CLI
@@ -51,9 +53,19 @@ pub struct Cli {
   /// whether unicode symbols are used to improve the overall look of the app
   #[arg(short, long, value_parser, default_value_t = true)]
   pub enhanced_graphics: bool,
-  /// Enable debug mode
-  #[arg(long, action)]
-  pub debug: bool,
+  /// Enables debug mode and writes logs to 'kdash-debug-<timestamp>.log' file in the current directory.
+  /// Default behavior is to write INFO logs. Pass a log level to overwrite the default.
+  #[arg(
+    name = "debug",
+    short,
+    long,
+    default_missing_value = "Info",
+    require_equals = true,
+    num_args = 0..=1,
+    ignore_case = true,
+    value_parser = PossibleValuesParser::new(&["info", "debug", "trace", "warn", "error"])
+  )]
+  pub debug: Option<String>,
 }
 
 #[tokio::main]
@@ -67,9 +79,13 @@ async fn main() -> Result<()> {
   let cli = Cli::parse();
 
   // Setup logging if debug flag is set
-  if cli.debug {
-    utils::setup_logging()?;
-    debug!("Debug mode is enabled");
+  if cli.debug.is_some() {
+    setup_logging(cli.debug.clone())?;
+    info!(
+      "Debug mode is enabled. Level: {}, KDash version: {}",
+      cli.debug.clone().unwrap(),
+      env!("CARGO_PKG_VERSION")
+    );
   }
 
   if cli.tick_rate >= 1000 {
@@ -100,14 +116,17 @@ async fn main() -> Result<()> {
 
   // Launch network thread
   std::thread::spawn(move || {
+    info!("Starting network thread");
     start_network(sync_io_rx, &app_nw);
   });
   // Launch network thread for streams
   std::thread::spawn(move || {
+    info!("Starting network stream thread");
     start_stream_network(sync_io_stream_rx, &app_stream);
   });
   // Launch thread for cmd runner
   std::thread::spawn(move || {
+    info!("Starting cmd runner thread");
     start_cmd_runner(sync_io_cmd_rx, &app_cli);
   });
   // Launch the UI asynchronously
@@ -124,13 +143,13 @@ async fn start_network(mut io_rx: mpsc::Receiver<IoEvent>, app: &Arc<Mutex<App>>
       let mut network = Network::new(client, app);
 
       while let Some(io_event) = io_rx.recv().await {
+        info!("Network event received: {:?}", io_event);
         network.handle_network_event(io_event).await;
       }
     }
     Err(e) => {
       let mut app = app.lock().await;
       app.handle_error(anyhow!("Unable to obtain Kubernetes client. {:?}", e));
-      error!("Unable to obtain Kubernetes client: {:?}", e); // Added debug statement
     }
   }
 }
@@ -142,13 +161,13 @@ async fn start_stream_network(mut io_rx: mpsc::Receiver<IoStreamEvent>, app: &Ar
       let mut network = NetworkStream::new(client, app);
 
       while let Some(io_event) = io_rx.recv().await {
+        info!("Network stream event received: {:?}", io_event);
         network.handle_network_stream_event(io_event).await;
       }
     }
     Err(e) => {
       let mut app = app.lock().await;
       app.handle_error(anyhow!("Unable to obtain Kubernetes client. {:?}", e));
-      error!("Unable to obtain Kubernetes client: {:?}", e); // Added debug statement
     }
   }
 }
@@ -158,11 +177,13 @@ async fn start_cmd_runner(mut io_rx: mpsc::Receiver<IoCmdEvent>, app: &Arc<Mutex
   let mut cmd = CmdRunner::new(app);
 
   while let Some(io_event) = io_rx.recv().await {
+    info!("Cmd event received: {:?}", io_event);
     cmd.handle_cmd_event(io_event).await;
   }
 }
 
 async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
+  info!("Starting UI");
   // see https://docs.rs/crossterm/0.17.7/crossterm/terminal/#raw-mode
   enable_raw_mode()?;
   // Terminal initialization
@@ -185,14 +206,6 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
       // Reset the help menu if the terminal was resized
       if app.refresh || app.size != size {
         app.size = size;
-
-        // Based on the size of the terminal, adjust how many cols are
-        // displayed in the tables
-        if app.size.width > 8 {
-          app.table_cols = app.size.width - 1;
-        } else {
-          app.table_cols = 2;
-        }
       }
     };
 
@@ -202,6 +215,7 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
     // handle key events
     match events.next()? {
       event::Event::Input(key_event) => {
+        info!("Input event received: {:?}", key_event);
         // quit on CTRL + C
         let key = Key::from(key_event);
 
@@ -228,16 +242,38 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
 
   terminal.show_cursor()?;
   shutdown(terminal)?;
-
   Ok(())
 }
 
 // shutdown the CLI and show terminal
 fn shutdown(mut terminal: Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
+  info!("Shutting down");
   disable_raw_mode()?;
-  execute!(terminal.backend_mut(), LeaveAlternateScreen,)?;
+  execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
   terminal.show_cursor()?;
   Ok(())
+}
+
+fn setup_logging(debug: Option<String>) -> Result<(), SetLoggerError> {
+  let log_file = format!(
+    "./kdash-debug-{}.log",
+    chrono::Local::now().format("%Y%m%d%H%M%S")
+  );
+  let log_level = debug
+    .map(|level| match level.to_lowercase().as_str() {
+      "debug" => LevelFilter::Debug,
+      "trace" => LevelFilter::Trace,
+      "warn" => LevelFilter::Warn,
+      "error" => LevelFilter::Error,
+      _ => LevelFilter::Info,
+    })
+    .unwrap_or_else(|| LevelFilter::Info);
+
+  WriteLogger::init(
+    log_level,
+    Config::default(),
+    File::create(log_file).unwrap(),
+  )
 }
 
 #[cfg(debug_assertions)]
@@ -274,6 +310,11 @@ fn panic_hook(info: &PanicInfo<'_>) {
   };
   let file_path = handle_dump(&meta, info);
   let (msg, location) = get_panic_info(info);
+
+  error!(
+    "thread '<unnamed>' panicked at '{}', {}\n\r{}",
+    msg, location, stacktrace
+  );
 
   disable_raw_mode().unwrap();
   execute!(
