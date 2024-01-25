@@ -2,6 +2,19 @@
 
 ## Unreleased - 2023-XX-YY
 
+- Describe syntax highlighting
+
+## [0.5.0] - 2024-01-22
+
+- Linux musl builds as default
+- Aarch64 build for windows
+- ARM v7 builds for Linux
+
+## [0.4.9] - 2024-01-22
+
+- bug fixes
+- library updates
+
 ## [0.4.8] - 2024-01-18
 
 - macOS ARM64 release

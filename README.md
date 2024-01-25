@@ -16,7 +16,7 @@
 
 ![logo](artwork/logo.png)
 
-A simple terminal dashboard for Kubernetes built with Rust
+A simple terminal dashboard for Kubernetes built with Rust [![Follow @kdashrs](https://img.shields.io/twitter/follow/kdashrs?label=Follow%20kdashrs&style=social)](https://twitter.com/intent/follow?screen_name=kdashrs)
 
 ![UI](screenshots/ui.gif)
 
@@ -106,7 +106,7 @@ curl https://raw.githubusercontent.com/kdash-rs/kdash/main/deployment/getLatest.
 
 ### Manual
 
-Binaries for macOS, Linux and Windows are available on the [releases](https://github.com/kdash-rs/kdash/releases) page
+Binaries for macOS (x86_64, arm64), Linux GNU/MUSL(x86_64, armv6, armv7, aarch64) and Windows (x86_64, aarch64) are available on the [releases](https://github.com/kdash-rs/kdash/releases) page
 
 1. Download the latest [binary](https://github.com/kdash-rs/kdash/releases) for your OS.
 1. For Linux/macOS:
@@ -155,10 +155,10 @@ Press `?` while running the app to see keybindings
 
 ## Limitations/Known issues
 
-- [Linux/Docker] Copy to clipboard feature is OS/arch dependent and might crash in some Linux distros.
-- [macOS] KDash looks better on iTerm2 since macOS's default Terminal app makes the colors render weird.
-- [Windows] KDash looks better on CMD since Powershell's default theme makes the colors look weird.
-- [Windows] If using k3d for local clusters, set the server URL to 127.0.0.1 as 0.0.0.0 doesn't work with kube-rs. You can use `k3d cluster create --api-port 127.0.0.1:6550` or change the `cluster.server` value in your `.kube/config` for the k3d cluster to `127.0.0.1:<port>`.
+- **[Linux/Docker]** Copy to clipboard feature is OS/arch dependent and might crash in some Linux distros and is not supported on `aarch64` and `arm` machines.
+- **[macOS]** KDash looks better on iTerm2 since macOS's default Terminal app makes the colors render weird.
+- **[Windows]** KDash looks better on CMD since Powershell's default theme makes the colors look weird.
+- **[Windows]** If using k3d for local clusters, set the server URL to 127.0.0.1 as 0.0.0.0 doesn't work with kube-rs. You can use `k3d cluster create --api-port 127.0.0.1:6550` or change the `cluster.server` value in your `.kube/config` for the k3d cluster to `127.0.0.1:<port>`.
 
 ## Features
 
@@ -211,7 +211,7 @@ Press `?` while running the app to see keybindings
 - [kube-rs](https://github.com/clux/kube-rs)
 - [serde](https://github.com/serde-rs/serde)
 - [kubectl-view-allocations](https://github.com/davidB/kubectl-view-allocations)
-- [rust-clipboard](https://github.com/aweinstock314/rust-clipboard)
+- [copypasta](https://github.com/alacritty/copypasta)
 
 ## How does this compare to K9S?
 

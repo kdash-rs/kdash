@@ -1,0 +1,132 @@
+on:
+  push:
+    branches: [cdtest]
+
+name: CICD test
+
+jobs:
+
+  build-release-artifacts:
+    name: build-release
+    runs-on: ${{ matrix.job.os }}
+    env:
+      RUST_BACKTRACE: 1
+    strategy:
+      fail-fast: false
+      matrix:
+        # prettier-ignore
+        job:
+          - { name: "macOS-arm64",        os: "macOS-latest",   target: "aarch64-apple-darwin",           artifact_suffix: "macos-arm64",     use-cross: true                          }
+          - { name: "macOS-amd64",        os: "macOS-latest",   target: "x86_64-apple-darwin",            artifact_suffix: "macos"                                                     }
+          - { name: "windows-amd64",      os: "windows-latest", target: "x86_64-pc-windows-msvc",         artifact_suffix: "windows"                                                   }
+          - { name: "windows-aarch64",    os: "windows-latest", target: "aarch64-pc-windows-msvc",        artifact_suffix: "windows-aarch64", use-cross: true                          }
+          - { name: "linux-gnu",          os: "ubuntu-latest",  target: "x86_64-unknown-linux-gnu",       artifact_suffix: "linux"                                                     }
+          - { name: "linux-musl",         os: "ubuntu-latest",  target: "x86_64-unknown-linux-musl",      artifact_suffix: "linux-musl",      use-cross: true,                         }
+          - { name: "linux-aarch64-gnu",  os: "ubuntu-latest",  target: "aarch64-unknown-linux-gnu",      artifact_suffix: "aarch64-gnu",     use-cross: true, test-bin: "--bin kdash" }
+          - { name: "linux-aarch64-musl", os: "ubuntu-latest",  target: "aarch64-unknown-linux-musl",     artifact_suffix: "aarch64-musl",    use-cross: true, test-bin: "--bin kdash" }
+          - { name: "linux-arm-gnu",      os: "ubuntu-latest",  target: "arm-unknown-linux-gnueabi",      artifact_suffix: "armv6-gnu",       use-cross: true, test-bin: "--bin kdash" }
+          - { name: "linux-arm-musl",     os: "ubuntu-latest",  target: "arm-unknown-linux-musleabihf",   artifact_suffix: "armv6-musl",      use-cross: true, test-bin: "--bin kdash" }
+          - { name: "linux-armv7-gnu",    os: "ubuntu-latest",  target: "armv7-unknown-linux-gnueabihf",  artifact_suffix: "armv7-gnu",       use-cross: true, test-bin: "--bin kdash" }
+          - { name: "linux-armv7-musl",   os: "ubuntu-latest",  target: "armv7-unknown-linux-musleabihf", artifact_suffix: "armv7-musl",      use-cross: true, test-bin: "--bin kdash" }
+        rust: [stable]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/cache@v3
+        name: Cache Cargo registry
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('Cargo.lock') }}
+      - uses: actions/cache@v3
+        if: startsWith(matrix.job.name, 'linux-')
+        with:
+          path: ~/.cargo/bin
+          key: ${{ runner.os }}-cargo-bin-${{ hashFiles('.github/workflows/cd.yml') }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        name: Set Rust toolchain
+        with:
+          targets: ${{ matrix.job.target }}
+      - uses: taiki-e/setup-cross-toolchain-action@v1
+        with:
+          # NB: sets CARGO_BUILD_TARGET evar - do not need --target flag in build
+          target: ${{ matrix.job.target }}
+      - uses: taiki-e/install-action@cross
+        if: ${{ matrix.job.use-cross }}
+
+      - name: Installing needed Ubuntu dependencies
+        if: matrix.job.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          sudo apt-get -y update
+          case ${{ matrix.job.target }} in
+            arm*-linux-*) sudo apt-get -y install gcc-arm-linux-gnueabihf ;;
+            aarch64-*-linux-*) sudo apt-get -y install gcc-aarch64-linux-gnu ;;
+          esac
+
+      - name: Build
+        run: cargo build --release --verbose --target=${{ matrix.job.target }} --locked
+      - name: Verify file
+        shell: bash
+        run: |
+          file target/${{ matrix.job.target }}/release/kdash
+      - name: Test
+        if: matrix.job.target != 'aarch64-apple-darwin' && matrix.job.target != 'aarch64-pc-windows-msvc'
+        run: cargo test --release --verbose --target=${{ matrix.job.target }} ${{ matrix.job.test-bin }}
+
+      - name: Packaging final binary (Windows)
+        if: matrix.job.os == 'windows-latest'
+        shell: bash
+        run: |
+          cd target/${{ matrix.job.target }}/release
+          BINARY_NAME=kdash.exe
+          if [ "${{ matrix.job.target }}" != "aarch64-pc-windows-msvc" ]; then
+            # strip the binary
+            strip $BINARY_NAME
+          fi
+          RELEASE_NAME=kdash-${{ matrix.job.artifact_suffix }}
+          tar czvf $RELEASE_NAME.tar.gz $BINARY_NAME
+          # create sha checksum files
+          certutil -hashfile $RELEASE_NAME.tar.gz sha256 | grep -E [A-Fa-f0-9]{64} > $RELEASE_NAME.sha256
+          echo "RELEASE_NAME=$RELEASE_NAME" >> $GITHUB_ENV
+
+      - name: Packaging final binary (macOS and Linux)
+        if: matrix.job.os != 'windows-latest'
+        shell: bash
+        run: |
+          # set the right strip executable
+          STRIP="strip"; 
+          case ${{ matrix.job.target }} in 
+            arm*-linux-*) STRIP="arm-linux-gnueabihf-strip" ;; 
+            aarch64-*-linux-*) STRIP="aarch64-linux-gnu-strip" ;;
+          esac;
+          cd target/${{ matrix.job.target }}/release
+          BINARY_NAME=kdash
+          # strip the binary
+          "$STRIP" "$BINARY_NAME"
+          RELEASE_NAME=kdash-${{ matrix.job.artifact_suffix }}
+          tar czvf $RELEASE_NAME.tar.gz $BINARY_NAME
+          # create sha checksum files
+          shasum -a 256 $RELEASE_NAME.tar.gz > $RELEASE_NAME.sha256
+          echo "RELEASE_NAME=$RELEASE_NAME" >> $GITHUB_ENV
+
+  publish-cargo:
+    name: Publishing to Cargo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v3
+        name: Cache Cargo registry
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('Cargo.lock') }}
+      - uses: actions/cache@v3
+        with:
+          path: ~/.cargo/bin
+          key: ${{ runner.os }}-cargo-bin-${{ hashFiles('.github/workflows/cd.yml') }}
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo publish --token ${{ secrets.CARGO_API_KEY }} --allow-dirty --dry-run
+

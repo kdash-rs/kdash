@@ -1,6 +1,6 @@
 [package]
 name = "kdash"
-version = "0.4.8"
+version = "0.5.0"
 authors = ["Deepu K Sasidharan <d4udts@gmail.com>"]
 description = """
 A fast and simple dashboard for Kubernetes
@@ -62,10 +62,7 @@ kubectl-view-allocations = { version = "0.18.1", default-features = false }
 async-trait = "0.1.73"
 glob-match = "0.2.1"
 rand = "0.8"
-
-# XCB is a PITA to compile for ARM so disabling the copy feature on ARM for now
-[target.'cfg(any(target_arch = "x86_64", all(target_os = "macos", target_arch = "aarch64")))'.dependencies]
-clipboard = "0.5"
+copypasta = "0.10.0"
 
 [dev-dependencies.cargo-husky]
 version = "1"

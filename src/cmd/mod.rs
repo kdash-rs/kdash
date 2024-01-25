@@ -98,7 +98,16 @@ impl<'a> CmdRunner<'a> {
       .read()
       .map_or(None, |out| {
         if out.is_empty() {
-          None
+          cmd!("docker", "compose", "version", "--short")
+            .stderr_null()
+            .read()
+            .map_or(None, |out| {
+              if out.is_empty() {
+                None
+              } else {
+                Some(format!("v{}", out.replace('\'', "")))
+              }
+            })
         } else {
           Some(format!("v{}", out.replace('\'', "")))
         }
