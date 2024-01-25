@@ -4,6 +4,7 @@ use anyhow::anyhow;
 use futures::AsyncBufReadExt;
 use k8s_openapi::api::core::v1::Pod;
 use kube::{api::LogParams, Api, Client};
+use log::error;
 use tokio::sync::Mutex;
 use tokio_stream::StreamExt;
 
@@ -59,6 +60,7 @@ impl<'a> NetworkStream<'a> {
   }
 
   async fn handle_error(&self, e: anyhow::Error) {
+    error!("{:?}", e);
     let mut app = self.app.lock().await;
     app.handle_error(e);
   }

@@ -1008,6 +1008,7 @@ dependencies = [
  "k8s-openapi",
  "kube",
  "kubectl-view-allocations",
+ "log",
  "openssl-probe",
  "rand",
  "ratatui",
@@ -1015,6 +1016,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "simplelog",
  "syntect",
  "syntect-tui",
  "textwrap",
@@ -1979,6 +1981,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8229b473baa5980ac72ef434c4415e70c4b5e71b423043adb4ba059f89c99a1"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "simplelog"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "acee08041c5de3d5048c8b3f6f13fafb3026b24ba43c6a695a0c76179b844369"
+dependencies = [
+ "log",
+ "time",
 ]
 
 [[package]]
