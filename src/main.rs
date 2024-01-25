@@ -299,6 +299,7 @@ fn panic_hook(info: &PanicInfo<'_>) {
 
 #[cfg(not(debug_assertions))]
 fn panic_hook(info: &PanicInfo<'_>) {
+  use backtrace::Backtrace;
   use crossterm::style::Print;
   use human_panic::{handle_dump, print_msg, Metadata};
   use log::error;
@@ -306,11 +307,12 @@ fn panic_hook(info: &PanicInfo<'_>) {
   let meta = Metadata {
     version: env!("CARGO_PKG_VERSION").into(),
     name: env!("CARGO_PKG_NAME").into(),
-    authors: env!("CARGO_PKG_AUTHORS").replace(":", ", ").into(),
+    authors: env!("CARGO_PKG_AUTHORS").replace(':', ", ").into(),
     homepage: env!("CARGO_PKG_HOMEPAGE").into(),
   };
   let file_path = handle_dump(&meta, info);
   let (msg, location) = get_panic_info(info);
+  let stacktrace: String = format!("{:?}", Backtrace::new()).replace('\n', "\n\r");
 
   error!(
     "thread '<unnamed>' panicked at '{}', {}\n\r{}",
