@@ -2,7 +2,12 @@
 
 ## Unreleased - 2023-XX-YY
 
+## [0.6.0] - 2024-01-25
+
 - Describe syntax highlighting
+- Library updates
+- Add debug mode
+- Sock5 proxy support
 
 ## [0.5.0] - 2024-01-22
 
