@@ -301,6 +301,7 @@ fn panic_hook(info: &PanicInfo<'_>) {
 fn panic_hook(info: &PanicInfo<'_>) {
   use crossterm::style::Print;
   use human_panic::{handle_dump, print_msg, Metadata};
+  use log::error;
 
   let meta = Metadata {
     version: env!("CARGO_PKG_VERSION").into(),
