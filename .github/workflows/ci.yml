@@ -57,11 +57,18 @@ jobs:
         name: Set Rust toolchain
         with:
             toolchain: ${{ matrix.rust }}
-      - run: cargo test
+      - run: cargo test nightly
+        if: matrix.rust == 'nightly'
         env:
           CARGO_INCREMENTAL: "0"
           RUSTFLAGS: "-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests"
           RUSTDOCFLAGS: "-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests"
+      - run: cargo test stable
+        if: matrix.rust == 'stable'
+        env:
+          CARGO_INCREMENTAL: "0"
+          RUSTFLAGS: "-Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Cpanic=abort"
+          RUSTDOCFLAGS: "-Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Cpanic=abort"
       - id: coverage
         if: matrix.os == 'ubuntu-latest'
         uses: actions-rs/grcov@v0.1
