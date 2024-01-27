@@ -152,7 +152,7 @@ Press `?` while running the app to see keybindings
 - `-V, --version`: Prints version information
 - `-t, --tick-rate <tick-rate>`: Set the tick rate (milliseconds): the lower the number the higher the FPS.
 - `-p, --poll-rate <poll-rate>`: Set the network call polling rate (milliseconds, should be multiples of tick-rate): the lower the number the higher the network calls.
-- `-d, --debug[=<debug>]`: Enables debug mode and writes logs to 'kdash-debug-<timestamp>.log' file in the current directory. Default behavior is to write INFO logs. Pass a log level to overwrite the default [possible values: info, debug, trace, warn, error]
+- `-d, --debug[=<debug>]`: Enables debug mode and writes logs to `kdash-debug-<timestamp>.log` file in the current directory. Default behavior is to write INFO logs. Pass a log level to overwrite the default [possible values: info, debug, trace, warn, error]
 
 ## Limitations/Known issues
 
