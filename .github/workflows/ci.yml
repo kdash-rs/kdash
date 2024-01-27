@@ -36,7 +36,16 @@ jobs:
 
   test:
     name: Test Suite
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.job.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # prettier-ignore
+        job:
+          - { name: "macOS",   os: "macOS-latest"  }
+          - { name: "windows", os: "windows-latest"}
+          - { name: "linux",   os: "ubuntu-latest" }
+        rust: [stable, nightly]
     needs: prepare
     steps:
       - uses: actions/checkout@v4
@@ -45,7 +54,7 @@ jobs:
         with:
           path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('Cargo.lock') }}
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/rust-toolchain@${{ matrix.rust }}
         name: Set Rust toolchain
       - run: cargo test
         env:
@@ -53,10 +62,12 @@ jobs:
           RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
           RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
       - id: coverage 
+        if: matrix.job.name == 'linux'
         uses: actions-rs/grcov@v0.1
         with:
           config: .github/grcov.yml
       - name: Push grcov results to Coveralls
+        if: matrix.job.name == 'linux'
         uses: coverallsapp/github-action@master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
