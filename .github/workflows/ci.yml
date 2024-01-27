@@ -36,16 +36,15 @@ jobs:
 
   test:
     name: Test Suite
-    runs-on: ${{ matrix.job.os }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        # prettier-ignore
-        job:
-          - { name: "macOS",   os: "macOS-latest"  }
-          - { name: "windows", os: "windows-latest"}
-          - { name: "linux",   os: "ubuntu-latest" }
-        rust: ["stable", "nightly"]
+        os:
+          - "macOS-latest"
+          - "windows-latest"
+          - "ubuntu-latest"
+        rust: [stable, nightly]
     needs: prepare
     steps:
       - uses: actions/checkout@v4
@@ -54,20 +53,22 @@ jobs:
         with:
           path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('Cargo.lock') }}
-      - uses: dtolnay/rust-toolchain@${{ matrix.rust }}
+      - uses: dtolnay/rust-toolchain@master
         name: Set Rust toolchain
+        with:
+            toolchain: ${{ matrix.rust }}
       - run: cargo test
         env:
-          CARGO_INCREMENTAL: '0'
-          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-          RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-      - id: coverage 
-        if: matrix.job.name == 'linux'
+          CARGO_INCREMENTAL: "0"
+          RUSTFLAGS: "-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests"
+          RUSTDOCFLAGS: "-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests"
+      - id: coverage
+        if: matrix.os == 'ubuntu-latest'
         uses: actions-rs/grcov@v0.1
         with:
           config: .github/grcov.yml
       - name: Push grcov results to Coveralls
-        if: matrix.job.name == 'linux'
+        if: matrix.os == 'ubuntu-latest'
         uses: coverallsapp/github-action@master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -107,4 +108,4 @@ jobs:
           components: clippy
       - run: cargo clippy --all --all-features --all-targets --workspace -- -D warnings
         env:
-          CARGO_INCREMENTAL: '0'
+          CARGO_INCREMENTAL: "0"

@@ -38,7 +38,7 @@ jobs:
     env:
       RUST_BACKTRACE: 1
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         # prettier-ignore
         job:
