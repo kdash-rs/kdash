@@ -45,7 +45,7 @@ jobs:
           - { name: "macOS",   os: "macOS-latest"  }
           - { name: "windows", os: "windows-latest"}
           - { name: "linux",   os: "ubuntu-latest" }
-        rust: [stable, nightly]
+        rust: ["stable", "nightly"]
     needs: prepare
     steps:
       - uses: actions/checkout@v4
