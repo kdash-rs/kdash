@@ -91,7 +91,7 @@ cargo install --locked kdash
 
 You can also clone the repo and run `cargo run` or `make` to build and run the app
 
-### Nix
+### Nix (Maintained by third party)
 
 Try out kdash via `nix run nixpkgs#kdash` or add `kdash` to your
 `configuration.nix` for permanent installation.
