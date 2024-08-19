@@ -28,10 +28,10 @@ use crate::{
 
 #[derive(Clone, Debug)]
 pub struct KubeDynamicKind {
-  pub name: String,
-  pub group: String,
-  pub version: String,
-  pub api_version: String,
+  //   pub name: String,
+  //   pub group: String,
+  //   pub version: String,
+  //   pub api_version: String,
   pub kind: String,
   pub scope: Scope,
   pub api_resource: ApiResource,
@@ -41,10 +41,10 @@ impl KubeDynamicKind {
   pub fn new(ar: ApiResource, scope: Scope) -> Self {
     KubeDynamicKind {
       api_resource: ar.clone(),
-      name: ar.plural,
-      group: ar.group,
-      version: ar.version,
-      api_version: ar.api_version,
+      //   name: ar.plural,
+      //   group: ar.group,
+      //   version: ar.version,
+      //   api_version: ar.api_version,
       kind: ar.kind,
       scope,
     }

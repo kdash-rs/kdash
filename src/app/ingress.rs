@@ -60,10 +60,7 @@ impl From<Ingress> for KubeIngress {
       Some(n) => n.clone(),
       None => UNKNOWN.into(),
     };
-    let paths = match rules {
-      Some(r) => r,
-      None => String::default(),
-    };
+    let paths = rules.unwrap_or_default();
     Self {
       name,
       namespace,

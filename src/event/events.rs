@@ -7,12 +7,9 @@ use std::{
 
 use crossterm::event::{self, Event as CEvent, KeyEvent, MouseEvent};
 
-use super::Key;
-
 #[derive(Debug, Clone, Copy)]
 /// Configuration for event handling.
 pub struct EventConfig {
-  pub exit_key: Key,
   /// The tick rate at which the application will sent an tick event.
   pub tick_rate: Duration,
 }
@@ -20,7 +17,6 @@ pub struct EventConfig {
 impl Default for EventConfig {
   fn default() -> EventConfig {
     EventConfig {
-      exit_key: Key::Ctrl('c'),
       tick_rate: Duration::from_millis(250),
     }
   }
@@ -48,7 +44,6 @@ impl Events {
   pub fn new(tick_rate: u64) -> Events {
     Events::with_config(EventConfig {
       tick_rate: Duration::from_millis(tick_rate),
-      ..EventConfig::default()
     })
   }
 

@@ -209,12 +209,12 @@ pub struct App {
   pub tick_until_poll: u64,
   pub tick_count: u64,
   pub enhanced_graphics: bool,
-  pub table_cols: u16,
+  //   pub table_cols: u16,
+  //   pub dialog: Option<String>,
+  //   pub confirm: bool,
   pub size: Rect,
   pub api_error: String,
-  pub dialog: Option<String>,
   pub app_input: AppInput,
-  pub confirm: bool,
   pub light_theme: bool,
   pub refresh: bool,
   pub log_auto_scroll: bool,
@@ -422,15 +422,15 @@ impl Default for App {
       tick_until_poll: 0,
       tick_count: 0,
       enhanced_graphics: false,
-      table_cols: 0,
+      //   table_cols: 0,
+      //   dialog: None,
+      //   confirm: false,
       size: Rect::default(),
       api_error: String::new(),
-      dialog: None,
       app_input: AppInput {
         input: Input::default(),
         input_mode: InputMode::Normal,
       },
-      confirm: false,
       light_theme: false,
       refresh: true,
       log_auto_scroll: true,
@@ -755,10 +755,9 @@ mod test_utils {
 
   use super::models::KubeResource;
 
-  pub fn convert_resource_from_file<K: Serialize, T>(filename: &str) -> (Vec<T>, Vec<K>)
+  pub fn convert_resource_from_file<K, T>(filename: &str) -> (Vec<T>, Vec<K>)
   where
-    K: Clone + DeserializeOwned + fmt::Debug,
-    K: Resource,
+    K: Serialize + Resource + Clone + DeserializeOwned + fmt::Debug,
     T: KubeResource<K> + From<K>,
   {
     let res_list = load_resource_from_file(filename);

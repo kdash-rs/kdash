@@ -739,9 +739,10 @@ async fn handle_block_scroll(app: &mut App, up: bool, is_mouse: bool, page: bool
 }
 
 fn copy_to_clipboard(content: String, app: &mut App) {
+  use std::thread;
+
   use anyhow::anyhow;
   use copypasta::{ClipboardContext, ClipboardProvider};
-  use std::thread;
 
   match ClipboardContext::new() {
     Ok(mut ctx) => match ctx.set_contents(content) {

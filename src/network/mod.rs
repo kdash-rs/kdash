@@ -269,7 +269,7 @@ impl<'a> Network<'a> {
   }
 
   /// calls the kubernetes API to list the given resource for either selected namespace or all namespaces
-  pub async fn get_namespaced_resources<K: ApiResource, T, F>(&self, map_fn: F) -> Vec<T>
+  pub async fn get_namespaced_resources<K, T, F>(&self, map_fn: F) -> Vec<T>
   where
     <K as ApiResource>::DynamicType: Default,
     K: kube::Resource<Scope = NamespaceResourceScope>,
@@ -294,10 +294,10 @@ impl<'a> Network<'a> {
   }
 
   /// calls the kubernetes API to list the given resource for all namespaces
-  pub async fn get_resources<K: ApiResource, T, F>(&self, map_fn: F) -> Vec<T>
+  pub async fn get_resources<K, T, F>(&self, map_fn: F) -> Vec<T>
   where
     <K as ApiResource>::DynamicType: Default,
-    K: Clone + DeserializeOwned + fmt::Debug,
+    K: ApiResource + Clone + DeserializeOwned + fmt::Debug,
     F: Fn(K) -> T,
   {
     let api: Api<K> = Api::all(self.client.clone());
@@ -317,10 +317,10 @@ impl<'a> Network<'a> {
     }
   }
 
-  pub async fn get_namespaced_api<K: ApiResource>(&self) -> Api<K>
+  pub async fn get_namespaced_api<K>(&self) -> Api<K>
   where
     <K as ApiResource>::DynamicType: Default,
-    K: kube::Resource<Scope = NamespaceResourceScope>,
+    K: ApiResource + kube::Resource<Scope = NamespaceResourceScope>,
   {
     let app = self.app.lock().await;
     match &app.data.selected.ns {

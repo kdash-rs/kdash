@@ -23,7 +23,7 @@ pub struct KubeContext {
   pub name: String,
   pub cluster: String,
   pub user: String,
-  pub namespace: Option<String>,
+  //   pub namespace: Option<String>,
   pub is_active: bool,
 }
 
@@ -35,7 +35,7 @@ impl KubeContext {
       name: ctx.name.clone(),
       cluster: context.cluster.clone(),
       user: context.user.clone(),
-      namespace: context.namespace.clone(),
+      //   namespace: context.namespace.clone(),
       is_active,
     }
   }
