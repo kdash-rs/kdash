@@ -592,10 +592,10 @@ mod tests {
 
     let mut expected = Buffer::with_lines(vec![
         "Test-> yaml <y>─────────────────────────────────────────────────────────────────────────────────────",
-        "   Namespace                      Name                                     Data            Age      ",
-        "=> Test ns                        Test 1                                   5               65h3m    ",
-        "   Test ns                        Test long name that should be truncated  3               65h3m    ",
-        "   Test ns long value check that  test_long_name_that_should_be_truncated_ 6               65h3m    ",
+        "   Namespace                     Name                                 Data           Age            ",
+        "=> Test ns                       Test 1                               5              65h3m          ",
+        "   Test ns                       Test long name that should be trunca 3              65h3m          ",
+        "   Test ns long value check that test_long_name_that_should_be_trunca 6              65h3m          ",
         "                                                                                                    ",
       ]);
     // set row styles
@@ -723,9 +723,9 @@ mod tests {
 
     let mut expected = Buffer::with_lines(vec![
         "Test-> yaml <y>─────────────────────────────────────────────────────────────────────────────────────",
-        "   Namespace                      Name                                     Data            Age      ",
-        "=> Test ns                        Test long name that should be truncated  3               65h3m    ",
-        "   Test ns long value check that  test_long_name_that_should_be_truncated_ 6               65h3m    ",
+        "   Namespace                     Name                                 Data           Age            ",
+        "=> Test ns                       Test long name that should be trunca 3              65h3m          ",
+        "   Test ns long value check that test_long_name_that_should_be_trunca 6              65h3m          ",
         "                                                                                                    ",
         "                                                                                                    ",
       ]);
@@ -854,9 +854,9 @@ mod tests {
 
     let mut expected = Buffer::with_lines(vec![
         "Test-> yaml <y>─────────────────────────────────────────────────────────────────────────────────────",
-        "   Namespace                      Name                                     Data            Age      ",
-        "=> Test ns                        Test long name that should be truncated  3               65h3m    ",
-        "   Test ns long value check that  test_long_name_that_should_be_truncated_ 6               65h3m    ",
+        "   Namespace                     Name                                 Data           Age            ",
+        "=> Test ns                       Test long name that should be trunca 3              65h3m          ",
+        "   Test ns long value check that test_long_name_that_should_be_trunca 6              65h3m          ",
         "                                                                                                    ",
         "                                                                                                    ",
       ]);
