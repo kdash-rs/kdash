@@ -5,7 +5,7 @@ use k8s_openapi::{
   chrono::Utc,
 };
 use kube::{
-  api::{ListParams, ObjectList},
+  api::{ListParams, ObjectList, TypeMeta},
   core::ListMeta,
   Api,
 };
@@ -234,6 +234,7 @@ impl AppResource for NodeResource {
         let pods_list = match api_pods.list(&lp).await {
           Ok(list) => list,
           Err(_) => ObjectList {
+            types: TypeMeta::default(),
             metadata: ListMeta::default(),
             items: vec![],
           },

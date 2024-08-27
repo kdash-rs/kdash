@@ -27,36 +27,36 @@ edition = "2021"
 
 [dependencies]
 openssl-probe = "0.1.5"
-crossterm = "0.27.0"
-ratatui = { version = "0.25.0", default-features = false, features = [
+crossterm = "0.27"
+ratatui = { version = "0.27", default-features = false, features = [
     'crossterm',
 ] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
-syntect = "5.1.0"
-syntect-tui = "3.0.1"
-clap = { version = "4.4.18", default-features = false, features = [
+syntect = "5.2.0"
+syntect-tui = "3.0.3"
+clap = { version = "4.5.16", default-features = false, features = [
     "help",
     "usage",
     "error-context",
     "derive",
 ] }
-tokio = { version = "1.37", default-features = false, features = [
+tokio = { version = "1.39.3", default-features = false, features = [
     "macros",
     "rt-multi-thread",
 ] }
-tokio-stream = { version = "0.1.14", default-features = false, features = [
+tokio-stream = { version = "0.1.15", default-features = false, features = [
     "time",
 ] }
 futures = "0.3"
-tui-input = "0.8"
+tui-input = "0.10.1"
 duct = "0.13"
-anyhow = "1.0"
-backtrace = "0.3"
-textwrap = "0.16.0"
-regex = "1"
-kube = { version = "0.87.2", default-features = false, features = [
+anyhow = "1.0.86"
+backtrace = { version = "0.3" }
+textwrap = "0.16.1"
+regex = "1.10.6"
+kube = { version = "0.90.0", default-features = false, features = [
     "socks5",
     "client",
     "rustls-tls",
@@ -64,18 +64,18 @@ kube = { version = "0.87.2", default-features = false, features = [
     "oauth",
     "ws",
 ] }
-k8s-openapi = { version = "0.20.0", default-features = false, features = [
-    "v1_22",
+k8s-openapi = { version = "0.21.1", default-features = false, features = [
+    "v1_29",
 ] }
-base64 = "0.21.7"
-human-panic = "1.2"
-kubectl-view-allocations = { version = "0.18.1", default-features = false }
-async-trait = "0.1.73"
+base64 = "0.22.1"
+human-panic = "2.0.1"
+kubectl-view-allocations = { version = "0.19.2", default-features = false }
+async-trait = "0.1.81"
 glob-match = "0.2.1"
 rand = "0.8"
-copypasta = "0.10.0"
-log = "0.4.14"
-simplelog = { version = "0.12.1", default-features = false }
+copypasta = "0.10.1"
+log = "0.4.22"
+simplelog = { version = "0.12.2", default-features = false }
 
 [dev-dependencies.cargo-husky]
 version = "1"
