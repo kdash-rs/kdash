@@ -2,6 +2,10 @@
 
 ## Unreleased - 2023-XX-YY
 
+## [0.6.1] - 2024-08-27
+
+- Dependency updates
+
 ## [0.6.0] - 2024-01-25
 
 - Describe syntax highlighting
