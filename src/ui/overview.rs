@@ -58,7 +58,7 @@ fn draw_filter_block(f: &mut Frame<'_>, app: &App, area: Rect) {
 
   f.render_widget(block, area);
 
-  let mut text = Text::from(vec![Line::from(vec![Span::styled(
+  let text = Text::from(vec![Line::from(vec![Span::styled(
     match app.app_input.input_mode {
       InputMode::Normal => "Press <e> to start editing",
       InputMode::Editing => "Press <esc> to stop editing",
@@ -66,7 +66,7 @@ fn draw_filter_block(f: &mut Frame<'_>, app: &App, area: Rect) {
     style_default(app.light_theme),
   )])]);
 
-  text.patch_style(style_default(app.light_theme));
+  let text = text.patch_style(style_default(app.light_theme));
 
   let paragraph = Paragraph::new(text).block(Block::default());
 
@@ -105,8 +105,8 @@ fn draw_filter_block(f: &mut Frame<'_>, app: &App, area: Rect) {
 
 fn draw_logo_block(f: &mut Frame<'_>, app: &App, area: Rect) {
   // Banner text with correct styling
-  let mut text = Text::from(BANNER);
-  text.patch_style(style_logo(app.light_theme));
+  let text = Text::from(BANNER);
+  let text = text.patch_style(style_logo(app.light_theme));
   // Contains the banner
   let paragraph = Paragraph::new(text).block(Block::default().borders(Borders::ALL));
   f.render_widget(paragraph, area);
@@ -187,7 +187,7 @@ fn draw_context_info_block(f: &mut Frame<'_>, app: &App, area: Rect) {
 
   let cpu_gauge = LineGauge::default()
     .block(Block::default().title("CPU:"))
-    .gauge_style(style_primary(app.light_theme))
+    .filled_style(style_primary(app.light_theme))
     .line_set(get_gauge_style(app.enhanced_graphics))
     .ratio(limited_ratio)
     .label(Line::from(format!("{:.0}%", ratio * 100.0)));
@@ -198,7 +198,7 @@ fn draw_context_info_block(f: &mut Frame<'_>, app: &App, area: Rect) {
 
   let mem_gauge = LineGauge::default()
     .block(Block::default().title("Memory:"))
-    .gauge_style(style_primary(app.light_theme))
+    .filled_style(style_primary(app.light_theme))
     .line_set(get_gauge_style(app.enhanced_graphics))
     .ratio(limited_ratio)
     .label(Line::from(format!("{:.0}%", ratio * 100.0)));

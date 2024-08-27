@@ -311,8 +311,8 @@ pub fn centered_rect(width: u16, height: u16, r: Rect) -> Rect {
 pub fn loading(f: &mut Frame<'_>, block: Block<'_>, area: Rect, is_loading: bool, light: bool) {
   if is_loading {
     let text = "\n\n Loading ...\n\n".to_owned();
-    let mut text = Text::from(text);
-    text.patch_style(style_secondary(light));
+    let text = Text::from(text);
+    let text = text.patch_style(style_secondary(light));
 
     // Contains the text
     let paragraph = Paragraph::new(text)
@@ -382,14 +382,19 @@ pub fn draw_yaml_block(f: &mut Frame<'_>, app: &App, area: Rect, title: Line<'_>
     };
     let mut h = syntect::easy::HighlightLines::new(syntax, theme);
     let lines: Vec<_> = syntect::util::LinesWithEndings::from(txt)
-      .map(|line| {
-        let line_spans: Vec<_> = h
-          .highlight_line(line, ss)
-          .expect("Something went wrong styling yaml resource code")
-          .into_iter()
-          .filter_map(|segment| syntect_tui::into_span(segment).ok())
-          .collect();
-        ratatui::text::Line::from(line_spans.into_iter().collect::<Vec<_>>())
+      .filter_map(|line| {
+        match h.highlight_line(line, ss) {
+          Ok(segments) => {
+            let line_spans: Vec<_> = segments
+              .into_iter()
+              .filter_map(|segment| syntect_tui::into_span(segment).ok())
+              .collect();
+            Some(ratatui::text::Line::from(
+              line_spans.into_iter().collect::<Vec<_>>(),
+            ))
+          }
+          Err(_) => None, // Handle the error gracefully
+        }
       })
       .collect();
 

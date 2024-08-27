@@ -113,7 +113,7 @@ fn draw_app_header(f: &mut Frame<'_>, app: &App, area: Rect) {
   let chunks =
     horizontal_chunks_with_margin(vec![Constraint::Length(60), Constraint::Min(0)], area, 1);
 
-  let titles = app
+  let titles: Vec<_> = app
     .main_tabs
     .items
     .iter()
@@ -152,8 +152,8 @@ fn draw_app_error(f: &mut Frame<'_>, app: &App, size: Rect) {
     .style(style_failure(app.light_theme))
     .borders(Borders::ALL);
 
-  let mut text = Text::from(app.api_error.clone());
-  text.patch_style(style_failure(app.light_theme));
+  let text = Text::from(app.api_error.clone());
+  let text = text.patch_style(style_failure(app.light_theme));
 
   let paragraph = Paragraph::new(text)
     .style(style_primary(app.light_theme))

@@ -46,7 +46,7 @@ pub fn draw_resource_tabs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     block = block.style(style_secondary(app.light_theme))
   }
 
-  let titles = app
+  let titles: Vec<_> = app
     .context_tabs
     .items
     .iter()

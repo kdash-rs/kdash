@@ -27,8 +27,8 @@ edition = "2021"
 
 [dependencies]
 openssl-probe = "0.1.5"
-crossterm = "0.27"
-ratatui = { version = "0.27", default-features = false, features = [
+crossterm = "0.27.0"
+ratatui = { version = "0.27.0", default-features = false, features = [
     'crossterm',
 ] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
