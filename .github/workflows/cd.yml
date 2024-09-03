@@ -72,7 +72,7 @@ jobs:
           path: ~/.cargo/bin
           key: ${{ runner.os }}-cargo-bin-${{ hashFiles('.github/workflows/cd.yml') }}
       - name: Get shared artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4.1.7
         with:
           name: artifacts
           path: artifacts
@@ -181,7 +181,7 @@ jobs:
           fetch-depth: 1
 
       - name: Get release artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4.1.7
         with:
           name: artifacts
           path: artifacts
@@ -232,7 +232,7 @@ jobs:
           fetch-depth: 1
 
       - name: Get release artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4.1.7
         with:
           name: artifacts
           path: artifacts
@@ -291,7 +291,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Get release artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4.1.7
         with:
           name: artifacts
           path: artifacts
