@@ -64,7 +64,7 @@ kube = { version = "0.90.0", default-features = false, features = [
     "oauth",
     "ws",
 ] }
-k8s-openapi = { version = "0.21.1", default-features = false, features = [
+k8s-openapi = { version = "0.22.0", default-features = false, features = [
     "v1_29",
 ] }
 base64 = "0.22.1"

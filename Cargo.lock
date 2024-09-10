@@ -1082,6 +1082,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "k8s-openapi"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19501afb943ae5806548bc3ebd7f3374153ca057a38f480ef30adfde5ef09755"
+dependencies = [
+ "base64 0.22.1",
+ "chrono",
+ "serde",
+ "serde-value",
+ "serde_json",
+]
+
+[[package]]
 name = "kdash"
 version = "0.6.1"
 dependencies = [
@@ -1097,7 +1110,7 @@ dependencies = [
  "futures",
  "glob-match",
  "human-panic",
- "k8s-openapi",
+ "k8s-openapi 0.22.0",
  "kube",
  "kubectl-view-allocations",
  "log",
@@ -1123,7 +1136,7 @@ version = "0.90.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "65bfada4e00dac93a7b94e454ae4cde04ff8786645ac1b98f31352272e2682b5"
 dependencies = [
- "k8s-openapi",
+ "k8s-openapi 0.21.1",
  "kube-client",
  "kube-core",
 ]
@@ -1150,7 +1163,7 @@ dependencies = [
  "hyper-timeout",
  "hyper-util",
  "jsonpath-rust",
- "k8s-openapi",
+ "k8s-openapi 0.21.1",
  "kube-core",
  "pem",
  "rand",
@@ -1179,7 +1192,7 @@ dependencies = [
  "chrono",
  "form_urlencoded",
  "http",
- "k8s-openapi",
+ "k8s-openapi 0.21.1",
  "serde",
  "serde_json",
  "thiserror",
@@ -1195,7 +1208,7 @@ dependencies = [
  "clap",
  "color-eyre",
  "itertools 0.12.0",
- "k8s-openapi",
+ "k8s-openapi 0.21.1",
  "kube",
  "serde",
  "serde_json",
