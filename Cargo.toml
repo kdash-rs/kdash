@@ -46,7 +46,7 @@ tokio = { version = "1.39.3", default-features = false, features = [
     "macros",
     "rt-multi-thread",
 ] }
-tokio-stream = { version = "0.1.15", default-features = false, features = [
+tokio-stream = { version = "0.1.16", default-features = false, features = [
     "time",
 ] }
 futures = "0.3"
