@@ -57,27 +57,38 @@ jobs:
         name: Set Rust toolchain
         with:
           toolchain: ${{ matrix.rust }}
+          components: rustc, rust-std, cargo, llvm-tools, llvm-tools-preview
+
+      - run: cargo clean
+        if: matrix.os == 'ubuntu-latest' && matrix.rust == 'nightly'
+      - run: mkdir -p ./target/debug/coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.rust == 'nightly'
+      - run: cargo install grcov
+        if: matrix.os == 'ubuntu-latest' && matrix.rust == 'nightly'
       - name: cargo test nightly
-        run: cargo test
+        run: cargo test --all-features
         if: matrix.rust == 'nightly'
         env:
           CARGO_INCREMENTAL: "0"
-          RUSTFLAGS: "-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests"
-          RUSTDOCFLAGS: "-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests"
+          LLVM_PROFILE_FILE: 'target/debug/coverage/dcaf-%p-%m.profraw'
+          RUSTFLAGS: '-Cinstrument-coverage -Cpanic=abort -Zpanic_abort_tests'
+          RUSTDOCFLAGS: '-C instrument-coverage -Cpanic=abort -Zpanic_abort_tests -Z unstable-options --persist-doctests target/debug/'
+      - run: zip ./target/debug/coverage/files.zip ./target/debug/coverage/dcaf-*.profraw
+        if: matrix.os == 'ubuntu-latest' && matrix.rust == 'nightly'
+
       - name: cargo test stable
         run: cargo test --all --all-features --all-targets --workspace
         if: matrix.rust == 'stable'
       - id: coverage
         if: matrix.os == 'ubuntu-latest' && matrix.rust == 'nightly'
-        uses: actions-rs/grcov@v0.1
-        with:
-          config: .github/grcov.yml
+        run: |
+          grcov ./target/debug/coverage/files.zip -s . --binary-path ./target/debug/ --service-job-id ${{ github.job }} --service-name 'Continuous Integration' --commit-sha ${{ github.sha }} -o ./target/debug/coverage/ --branch --ignore-not-existing --llvm --filter covered --ignore '/*' --ignore 'C:/*' --ignore '../*' -t coveralls
       - name: Push grcov results to Coveralls
         if: matrix.os == 'ubuntu-latest' && matrix.rust == 'nightly'
-        uses: coverallsapp/github-action@master
+        uses: coverallsapp/github-action@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          path-to-lcov: ${{ steps.coverage.outputs.report }}
+          file: ./target/debug/coverage/coveralls
 
   fmt:
     name: Rustfmt

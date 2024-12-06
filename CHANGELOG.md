@@ -2,6 +2,8 @@
 
 ## Unreleased - 2023-XX-YY
 
+- Dependency updates
+
 ## [0.6.1] - 2024-08-27
 
 - Dependency updates
