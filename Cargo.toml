@@ -28,35 +28,35 @@ edition = "2021"
 [dependencies]
 openssl-probe = "0.1.5"
 crossterm = "0.28.1"
-ratatui = { version = "0.27.0", default-features = false, features = [
+ratatui = { version = "0.29.0", default-features = false, features = [
     'crossterm',
 ] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
 syntect = "5.2.0"
-syntect-tui = "3.0.3"
-clap = { version = "4.5.16", default-features = false, features = [
+syntect-tui = "3.0.5"
+clap = { version = "4.5.23", default-features = false, features = [
     "help",
     "usage",
     "error-context",
     "derive",
 ] }
-tokio = { version = "1.39.3", default-features = false, features = [
+tokio = { version = "1.42.0", default-features = false, features = [
     "macros",
     "rt-multi-thread",
 ] }
-tokio-stream = { version = "0.1.15", default-features = false, features = [
+tokio-stream = { version = "0.1.17", default-features = false, features = [
     "time",
 ] }
-futures = "0.3"
-tui-input = "0.10.1"
+futures = "0.3.31"
+tui-input = "0.11.1"
 duct = "0.13"
-anyhow = "1.0.86"
-backtrace = { version = "0.3" }
+anyhow = "1.0.94"
+backtrace = { version = "0.3.69", features = ["gimli-symbolize"] }
 textwrap = "0.16.1"
-regex = "1.10.6"
-kube = { version = "0.90.0", default-features = false, features = [
+regex = "1.11.1"
+kube = { version = "0.96.0", default-features = false, features = [
     "socks5",
     "client",
     "rustls-tls",
@@ -64,13 +64,13 @@ kube = { version = "0.90.0", default-features = false, features = [
     "oauth",
     "ws",
 ] }
-k8s-openapi = { version = "0.21.1", default-features = false, features = [
+k8s-openapi = { version = "0.23.0", default-features = false, features = [
     "v1_29",
 ] }
 base64 = "0.22.1"
-human-panic = "2.0.1"
-kubectl-view-allocations = { version = "0.19.2", default-features = false }
-async-trait = "0.1.81"
+human-panic = "2.0.2"
+kubectl-view-allocations = { version = "0.20.1", default-features = false }
+async-trait = "0.1.83"
 glob-match = "0.2.1"
 rand = "0.8"
 copypasta = "0.10.1"

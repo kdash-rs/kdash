@@ -400,7 +400,7 @@ impl Scrollable for LogsState {
 mod tests {
   use k8s_openapi::api::core::v1::Namespace;
   use kube::api::ObjectMeta;
-  use ratatui::{backend::TestBackend, buffer::Buffer, Terminal};
+  use ratatui::{backend::TestBackend, buffer::Buffer, layout::Position, Terminal};
 
   use super::*;
   use crate::app::{ns::KubeNs, ActiveBlock, RouteId};
@@ -592,7 +592,7 @@ mod tests {
     log.add_record("record 8".into());
 
     terminal
-      .draw(|f| log.render_list(f, f.size(), Block::default(), Style::default(), true))
+      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), true))
       .unwrap();
 
     let expected = Buffer::with_lines(vec![
@@ -608,7 +608,7 @@ mod tests {
     terminal.backend().assert_buffer(&expected);
 
     terminal
-      .draw(|f| log.render_list(f, f.size(), Block::default(), Style::default(), false))
+      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), false))
       .unwrap();
 
     let expected2 = Buffer::with_lines(vec![
@@ -628,7 +628,7 @@ mod tests {
     log.add_record("record 11".into());
     // enabling follow should scroll back to bottom
     terminal
-      .draw(|f| log.render_list(f, f.size(), Block::default(), Style::default(), true))
+      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), true))
       .unwrap();
 
     let expected3 = Buffer::with_lines(vec![
@@ -644,7 +644,7 @@ mod tests {
     terminal.backend().assert_buffer(&expected3);
 
     terminal
-      .draw(|f| log.render_list(f, f.size(), Block::default(), Style::default(), false))
+      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), false))
       .unwrap();
 
     let expected4 = Buffer::with_lines(vec![
@@ -663,7 +663,7 @@ mod tests {
     log.scroll_down(11);
 
     terminal
-      .draw(|f| log.render_list(f, f.size(), Block::default(), Style::default(), false))
+      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), false))
       .unwrap();
 
     let mut expected5 = Buffer::with_lines(vec![
@@ -679,7 +679,8 @@ mod tests {
     // Second row table header style
     for col in 0..=19 {
       expected5
-        .get_mut(col, 6)
+        .cell_mut(Position::new(col, 6))
+        .unwrap()
         .set_style(Style::default().add_modifier(Modifier::BOLD));
     }
 

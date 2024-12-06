@@ -90,7 +90,7 @@ impl AppResource for NamespaceResource {
       let table = Table::new(rows, [Constraint::Length(22), Constraint::Length(6)])
         .header(table_header_style(vec!["Name", "Status"], app.light_theme))
         .block(block)
-        .highlight_style(style_highlight())
+        .row_highlight_style(style_highlight())
         .highlight_symbol(HIGHLIGHT);
 
       f.render_stateful_widget(table, area, &mut app.data.namespaces.state);

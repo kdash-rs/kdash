@@ -45,7 +45,7 @@ pub fn draw_help(f: &mut Frame<'_>, app: &mut App, area: Rect) {
         .bottom_margin(0),
     )
     .block(layout_block_active_span(title, app.light_theme))
-    .highlight_style(style_highlight())
+    .row_highlight_style(style_highlight())
     .highlight_symbol(HIGHLIGHT);
   f.render_stateful_widget(help_menu, chunks[0], &mut app.help_docs.state);
 }
@@ -55,6 +55,7 @@ mod tests {
   use ratatui::{
     backend::TestBackend,
     buffer::Buffer,
+    layout::Position,
     style::{Modifier, Style},
     Terminal,
   };
@@ -69,7 +70,7 @@ mod tests {
 
     terminal
       .draw(|f| {
-        let size = f.size();
+        let size = f.area();
         let mut app = App::default();
         draw_help(f, &mut app, size);
       })
@@ -90,18 +91,19 @@ mod tests {
       match col {
         0 | 21..=99 => {
           expected
-            .get_mut(col, 0)
+            .cell_mut(Position::new(col, 0))
+            .unwrap()
             .set_style(Style::default().fg(COLOR_YELLOW));
         }
         1..=6 => {
-          expected.get_mut(col, 0).set_style(
+          expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
               .fg(COLOR_YELLOW)
               .add_modifier(Modifier::BOLD),
           );
         }
         _ => {
-          expected.get_mut(col, 0).set_style(
+          expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
               .fg(COLOR_WHITE)
               .add_modifier(Modifier::BOLD),
@@ -113,7 +115,8 @@ mod tests {
     // second row table headings
     for col in 0..=99 {
       expected
-        .get_mut(col, 1)
+        .cell_mut(Position::new(col, 1))
+        .unwrap()
         .set_style(Style::default().fg(COLOR_YELLOW));
     }
 
@@ -121,7 +124,7 @@ mod tests {
     for col in 0..=99 {
       match col {
         1..=98 => {
-          expected.get_mut(col, 2).set_style(
+          expected.cell_mut(Position::new(col, 2)).unwrap().set_style(
             Style::default()
               .fg(COLOR_CYAN)
               .add_modifier(Modifier::REVERSED),
@@ -129,7 +132,8 @@ mod tests {
         }
         _ => {
           expected
-            .get_mut(col, 2)
+            .cell_mut(Position::new(col, 2))
+            .unwrap()
             .set_style(Style::default().fg(COLOR_YELLOW));
         }
       }
@@ -141,12 +145,14 @@ mod tests {
         match col {
           1..=98 => {
             expected
-              .get_mut(col, row)
+              .cell_mut(Position::new(col, row))
+              .unwrap()
               .set_style(Style::default().fg(COLOR_CYAN));
           }
           _ => {
             expected
-              .get_mut(col, row)
+              .cell_mut(Position::new(col, row))
+              .unwrap()
               .set_style(Style::default().fg(COLOR_YELLOW));
           }
         }
@@ -156,7 +162,8 @@ mod tests {
     // last row
     for col in 0..=99 {
       expected
-        .get_mut(col, 6)
+        .cell_mut(Position::new(col, 6))
+        .unwrap()
         .set_style(Style::default().fg(COLOR_YELLOW));
     }
 

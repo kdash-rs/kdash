@@ -163,7 +163,7 @@ impl AppResource for UtilizationResource {
         app.light_theme,
       ))
       .block(block)
-      .highlight_style(style_highlight());
+      .row_highlight_style(style_highlight());
 
       f.render_stateful_widget(table, area, &mut app.data.metrics.state);
     } else {

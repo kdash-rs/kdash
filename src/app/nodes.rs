@@ -106,13 +106,13 @@ impl KubeNode {
       Some(labels) => labels
         .iter()
         .filter_map(|(k, v)| {
-          return if k.starts_with(NODE_LABEL_PREFIX) {
+          if k.starts_with(NODE_LABEL_PREFIX) {
             Some(k.trim_start_matches(NODE_LABEL_PREFIX))
           } else if k == NODE_LABEL_ROLE && !v.is_empty() {
             Some(v)
           } else {
             None
-          };
+          }
         })
         .collect::<Vec<_>>()
         .join(","),

@@ -1,5 +1,5 @@
 use ratatui::{
-  layout::{Constraint, Rect},
+  layout::{Constraint, Position, Rect},
   style::Style,
   text::{Line, Span, Text},
   widgets::{Block, Borders, Cell, LineGauge, Paragraph, Row, Table},
@@ -93,12 +93,12 @@ fn draw_filter_block(f: &mut Frame<'_>, app: &App, area: Rect) {
 
     InputMode::Editing => {
       // Make the cursor visible and ask tui-rs to put it at the specified coordinates after rendering
-      f.set_cursor(
+      f.set_cursor_position(Position {
         // Put cursor past the end of the input text
-        chunks[1].x + ((app.app_input.input.visual_cursor()).max(scroll) - scroll) as u16 + 1,
+        x: chunks[1].x + ((app.app_input.input.visual_cursor()).max(scroll) - scroll) as u16 + 1,
         // Move one line down, from the border to the input line
-        chunks[1].y + 1,
-      )
+        y: chunks[1].y + 1,
+      })
     }
   }
 }

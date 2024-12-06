@@ -437,7 +437,7 @@ pub fn draw_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
     let table = Table::new(rows, &table_props.column_widths)
       .header(table_header_style(table_props.table_headers, light_theme))
       .block(block)
-      .highlight_style(style_highlight())
+      .row_highlight_style(style_highlight())
       .highlight_symbol(HIGHLIGHT);
 
     f.render_stateful_widget(table, area, &mut table_props.resource.state);
@@ -510,7 +510,10 @@ pub fn title_with_ns(title: &str, ns: &str, length: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-  use ratatui::{backend::TestBackend, buffer::Buffer, style::Modifier, widgets::Cell, Terminal};
+  use ratatui::{
+    backend::TestBackend, buffer::Buffer, layout::Position, style::Modifier, widgets::Cell,
+    Terminal,
+  };
 
   use super::*;
   use crate::ui::utils::{COLOR_CYAN, COLOR_WHITE, COLOR_YELLOW};
@@ -537,7 +540,7 @@ mod tests {
     }
     terminal
       .draw(|f| {
-        let size = f.size();
+        let size = f.area();
         let mut resource: StatefulTable<RenderTest> = StatefulTable::new();
         resource.set_items(vec![
           RenderTest {
@@ -603,14 +606,14 @@ mod tests {
     for col in 0..=99 {
       match col {
         0..=3 => {
-          expected.get_mut(col, 0).set_style(
+          expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
               .fg(COLOR_YELLOW)
               .add_modifier(Modifier::BOLD),
           );
         }
         4..=14 => {
-          expected.get_mut(col, 0).set_style(
+          expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
               .fg(COLOR_WHITE)
               .add_modifier(Modifier::BOLD),
@@ -623,12 +626,13 @@ mod tests {
     // Second row table header style
     for col in 0..=99 {
       expected
-        .get_mut(col, 1)
+        .cell_mut(Position::new(col, 1))
+        .unwrap()
         .set_style(Style::default().fg(COLOR_WHITE));
     }
     // first table data row style
     for col in 0..=99 {
-      expected.get_mut(col, 2).set_style(
+      expected.cell_mut(Position::new(col, 2)).unwrap().set_style(
         Style::default()
           .fg(COLOR_CYAN)
           .add_modifier(Modifier::REVERSED),
@@ -638,7 +642,8 @@ mod tests {
     for row in 3..=4 {
       for col in 0..=99 {
         expected
-          .get_mut(col, row)
+          .cell_mut(Position::new(col, row))
+          .unwrap()
           .set_style(Style::default().fg(COLOR_CYAN));
       }
     }
@@ -668,7 +673,7 @@ mod tests {
 
     terminal
       .draw(|f| {
-        let size = f.size();
+        let size = f.area();
         let mut resource: StatefulTable<RenderTest> = StatefulTable::new();
         resource.set_items(vec![
           RenderTest {
@@ -734,14 +739,14 @@ mod tests {
     for col in 0..=99 {
       match col {
         0..=3 => {
-          expected.get_mut(col, 0).set_style(
+          expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
               .fg(COLOR_YELLOW)
               .add_modifier(Modifier::BOLD),
           );
         }
         4..=14 => {
-          expected.get_mut(col, 0).set_style(
+          expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
               .fg(COLOR_WHITE)
               .add_modifier(Modifier::BOLD),
@@ -754,12 +759,13 @@ mod tests {
     // Second row table header style
     for col in 0..=99 {
       expected
-        .get_mut(col, 1)
+        .cell_mut(Position::new(col, 1))
+        .unwrap()
         .set_style(Style::default().fg(COLOR_WHITE));
     }
     // first table data row style
     for col in 0..=99 {
-      expected.get_mut(col, 2).set_style(
+      expected.cell_mut(Position::new(col, 2)).unwrap().set_style(
         Style::default()
           .fg(COLOR_CYAN)
           .add_modifier(Modifier::REVERSED),
@@ -769,7 +775,8 @@ mod tests {
     for row in 3..=3 {
       for col in 0..=99 {
         expected
-          .get_mut(col, row)
+          .cell_mut(Position::new(col, row))
+          .unwrap()
           .set_style(Style::default().fg(COLOR_CYAN));
       }
     }
@@ -799,7 +806,7 @@ mod tests {
 
     terminal
       .draw(|f| {
-        let size = f.size();
+        let size = f.area();
         let mut resource: StatefulTable<RenderTest> = StatefulTable::new();
         resource.set_items(vec![
           RenderTest {
@@ -865,14 +872,14 @@ mod tests {
     for col in 0..=99 {
       match col {
         0..=3 => {
-          expected.get_mut(col, 0).set_style(
+          expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
               .fg(COLOR_YELLOW)
               .add_modifier(Modifier::BOLD),
           );
         }
         4..=14 => {
-          expected.get_mut(col, 0).set_style(
+          expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
               .fg(COLOR_WHITE)
               .add_modifier(Modifier::BOLD),
@@ -885,12 +892,13 @@ mod tests {
     // Second row table header style
     for col in 0..=99 {
       expected
-        .get_mut(col, 1)
+        .cell_mut(Position::new(col, 1))
+        .unwrap()
         .set_style(Style::default().fg(COLOR_WHITE));
     }
     // first table data row style
     for col in 0..=99 {
-      expected.get_mut(col, 2).set_style(
+      expected.cell_mut(Position::new(col, 2)).unwrap().set_style(
         Style::default()
           .fg(COLOR_CYAN)
           .add_modifier(Modifier::REVERSED),
@@ -900,7 +908,8 @@ mod tests {
     for row in 3..=3 {
       for col in 0..=99 {
         expected
-          .get_mut(col, row)
+          .cell_mut(Position::new(col, row))
+          .unwrap()
           .set_style(Style::default().fg(COLOR_CYAN));
       }
     }

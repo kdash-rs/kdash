@@ -150,6 +150,7 @@ mod tests {
   use ratatui::{
     backend::TestBackend,
     buffer::Buffer,
+    layout::Position,
     style::{Modifier, Style},
     Terminal,
   };
@@ -167,7 +168,7 @@ mod tests {
 
     terminal
       .draw(|f| {
-        let size = f.size();
+        let size = f.area();
         let mut app = App::default();
         let mut pod = KubePod::default();
         pod.name = "pod name test".into();
@@ -195,11 +196,12 @@ mod tests {
       match col {
         0 | 12..=99 => {
           expected
-            .get_mut(col, 0)
+            .cell_mut(Position::new(col, 0))
+            .unwrap()
             .set_style(Style::default().fg(COLOR_YELLOW));
         }
         _ => {
-          expected.get_mut(col, 0).set_style(
+          expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
               .fg(COLOR_YELLOW)
               .add_modifier(Modifier::BOLD),
@@ -212,12 +214,14 @@ mod tests {
       match col {
         0..=12 | 25..=27 | 37..=39 | 54..=56 | 73..=75 | 91..=93 | 99 => {
           expected
-            .get_mut(col, 1)
+            .cell_mut(Position::new(col, 1))
+            .unwrap()
             .set_style(Style::default().fg(COLOR_YELLOW));
         }
         _ => {
           expected
-            .get_mut(col, 1)
+            .cell_mut(Position::new(col, 1))
+            .unwrap()
             .set_style(Style::default().fg(COLOR_WHITE));
         }
       }
@@ -225,7 +229,8 @@ mod tests {
     // third empty row
     for col in 0..=99 {
       expected
-        .get_mut(col, 2)
+        .cell_mut(Position::new(col, 2))
+        .unwrap()
         .set_style(Style::default().fg(COLOR_YELLOW));
     }
 
@@ -234,18 +239,19 @@ mod tests {
       match col {
         0 | 68..=99 => {
           expected
-            .get_mut(col, 3)
+            .cell_mut(Position::new(col, 3))
+            .unwrap()
             .set_style(Style::default().fg(COLOR_YELLOW));
         }
         1..=20 => {
-          expected.get_mut(col, 3).set_style(
+          expected.cell_mut(Position::new(col, 3)).unwrap().set_style(
             Style::default()
               .fg(COLOR_YELLOW)
               .add_modifier(Modifier::BOLD),
           );
         }
         _ => {
-          expected.get_mut(col, 3).set_style(
+          expected.cell_mut(Position::new(col, 3)).unwrap().set_style(
             Style::default()
               .fg(COLOR_WHITE)
               .add_modifier(Modifier::BOLD),
@@ -258,12 +264,14 @@ mod tests {
       match col {
         1..=98 => {
           expected
-            .get_mut(col, 4)
+            .cell_mut(Position::new(col, 4))
+            .unwrap()
             .set_style(Style::default().fg(COLOR_WHITE));
         }
         _ => {
           expected
-            .get_mut(col, 4)
+            .cell_mut(Position::new(col, 4))
+            .unwrap()
             .set_style(Style::default().fg(COLOR_YELLOW));
         }
       }
@@ -272,7 +280,7 @@ mod tests {
     for col in 0..=99 {
       match col {
         1..=98 => {
-          expected.get_mut(col, 5).set_style(
+          expected.cell_mut(Position::new(col, 5)).unwrap().set_style(
             Style::default()
               .fg(COLOR_RED)
               .add_modifier(Modifier::REVERSED),
@@ -280,7 +288,8 @@ mod tests {
         }
         _ => {
           expected
-            .get_mut(col, 5)
+            .cell_mut(Position::new(col, 5))
+            .unwrap()
             .set_style(Style::default().fg(COLOR_YELLOW));
         }
       }
@@ -289,7 +298,8 @@ mod tests {
     // last row
     for col in 0..=99 {
       expected
-        .get_mut(col, 6)
+        .cell_mut(Position::new(col, 6))
+        .unwrap()
         .set_style(Style::default().fg(COLOR_YELLOW));
     }
 

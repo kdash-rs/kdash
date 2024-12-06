@@ -104,7 +104,7 @@ impl AppResource for ContextResource {
         app.light_theme,
       ))
       .block(block)
-      .highlight_style(style_highlight())
+      .row_highlight_style(style_highlight())
       .highlight_symbol(HIGHLIGHT);
 
       f.render_stateful_widget(table, area, &mut app.data.contexts.state);

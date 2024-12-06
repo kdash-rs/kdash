@@ -11,7 +11,7 @@ mod ui;
 use std::{
   fs::File,
   io::{self, stdout, Stdout},
-  panic::{self, PanicInfo},
+  panic::{self, PanicHookInfo},
   sync::Arc,
 };
 
@@ -204,8 +204,9 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
     // Get the size of the screen on each loop to account for resize event
     if let Ok(size) = terminal.backend().size() {
       // Reset the help menu if the terminal was resized
-      if app.refresh || app.size != size {
-        app.size = size;
+      if app.refresh || app.size.as_size() != size {
+        app.size.width = size.width;
+        app.size.height = size.height;
       }
     };
 
@@ -277,7 +278,7 @@ fn setup_logging(debug: Option<String>) -> Result<(), SetLoggerError> {
 }
 
 #[cfg(debug_assertions)]
-fn panic_hook(info: &PanicInfo<'_>) {
+fn panic_hook(info: &PanicHookInfo<'_>) {
   use backtrace::Backtrace;
   use crossterm::style::Print;
 
@@ -327,7 +328,7 @@ fn panic_hook(info: &PanicInfo<'_>) {
   print_msg(file_path, &meta).expect("human-panic: printing error message to console failed");
 }
 
-fn get_panic_info(info: &PanicInfo<'_>) -> (String, String) {
+fn get_panic_info(info: &PanicHookInfo<'_>) -> (String, String) {
   let location = info.location().unwrap();
 
   let msg = match info.payload().downcast_ref::<&'static str>() {
