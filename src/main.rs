@@ -299,7 +299,7 @@ fn panic_hook(info: &PanicHookInfo<'_>) {
 }
 
 #[cfg(not(debug_assertions))]
-fn panic_hook(info: &PanicInfo<'_>) {
+fn panic_hook(info: &PanicHookInfo<'_>) {
   use backtrace::Backtrace;
   use crossterm::style::Print;
   use human_panic::{handle_dump, print_msg, Metadata};
