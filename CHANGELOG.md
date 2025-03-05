@@ -1,8 +1,9 @@
 # Changelog
 
-## Unreleased - 2023-XX-YY
+## [0.6.2] - 2025-03-05
 
 - Dependency updates
+- Minor fixes
 
 ## [0.6.1] - 2024-08-27
 
