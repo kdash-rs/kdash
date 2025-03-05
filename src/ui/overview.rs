@@ -156,20 +156,37 @@ fn draw_context_info_block(f: &mut Frame<'_>, app: &App, area: Rect) {
 
   let text = match &app.data.active_context {
     Some(active_context) => {
-      vec![
-        Line::from(vec![
-          Span::styled("Context: ", style_default(app.light_theme)),
-          Span::styled(&active_context.name, style_primary(app.light_theme)),
-        ]),
-        Line::from(vec![
-          Span::styled("Cluster: ", style_default(app.light_theme)),
-          Span::styled(&active_context.cluster, style_primary(app.light_theme)),
-        ]),
-        Line::from(vec![
-          Span::styled("User: ", style_default(app.light_theme)),
-          Span::styled(&active_context.user, style_primary(app.light_theme)),
-        ]),
-      ]
+      if let Some(user) = &active_context.user {
+        vec![
+          Line::from(vec![
+            Span::styled("Context: ", style_default(app.light_theme)),
+            Span::styled(&active_context.name, style_primary(app.light_theme)),
+          ]),
+          Line::from(vec![
+            Span::styled("Cluster: ", style_default(app.light_theme)),
+            Span::styled(&active_context.cluster, style_primary(app.light_theme)),
+          ]),
+          Line::from(vec![
+            Span::styled("User: ", style_default(app.light_theme)),
+            Span::styled(user, style_primary(app.light_theme)),
+          ]),
+        ]
+      } else {
+        vec![
+          Line::from(vec![
+            Span::styled("Context: ", style_default(app.light_theme)),
+            Span::styled(&active_context.name, style_primary(app.light_theme)),
+          ]),
+          Line::from(vec![
+            Span::styled("Cluster: ", style_default(app.light_theme)),
+            Span::styled(&active_context.cluster, style_primary(app.light_theme)),
+          ]),
+          Line::from(vec![
+            Span::styled("User: ", style_default(app.light_theme)),
+            Span::styled("<none>", style_primary(app.light_theme)),
+          ]),
+        ]
+      }
     }
     None => {
       vec![Line::from(Span::styled(

@@ -22,7 +22,7 @@ use crate::{
 pub struct KubeContext {
   pub name: String,
   pub cluster: String,
-  pub user: String,
+  pub user: Option<String>,
   //   pub namespace: Option<String>,
   pub is_active: bool,
 }
@@ -86,7 +86,7 @@ impl AppResource for ContextResource {
         Row::new(vec![
           Cell::from(c.name.to_owned()),
           Cell::from(c.cluster.to_owned()),
-          Cell::from(c.user.to_owned()),
+          Cell::from(c.user.clone().unwrap_or("<none>".to_string())),
         ])
         .style(style)
       });
