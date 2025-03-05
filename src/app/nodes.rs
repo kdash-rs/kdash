@@ -62,7 +62,7 @@ impl KubeNode {
     let unschedulable = &node
       .spec
       .as_ref()
-      .map_or(false, |s| s.unschedulable.unwrap_or(false));
+      .is_some_and(|s| s.unschedulable.unwrap_or(false));
 
     let (status, version, cpu_a, mem_a) = match &node.status {
       Some(node_status) => {
