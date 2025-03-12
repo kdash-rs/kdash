@@ -167,7 +167,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: "artifacts-${{ github.run_number }}"
+          name: "artifacts-${{ github.run_number }}-${{ matrix.job.artifact_suffix }}"
           path: artifacts
 
   publish-homebrew-formula:
@@ -183,7 +183,15 @@ jobs:
       - name: Get release artifacts
         uses: actions/download-artifact@v4.1.7
         with:
-          name: "artifacts-${{ github.run_number }}"
+          name: "artifacts-${{ github.run_number }}-macos"
+          path: artifacts
+      - uses: actions/download-artifact@v4.1.7
+        with:
+          name: "artifacts-${{ github.run_number }}-macos-arm64"
+          path: artifacts
+      - uses: actions/download-artifact@v4.1.7
+        with:
+          name: "artifacts-${{ github.run_number }}-linux-musl"
           path: artifacts
       - name: Get version artifact
         uses: actions/download-artifact@v4.1.7
@@ -239,7 +247,7 @@ jobs:
       - name: Get release artifacts
         uses: actions/download-artifact@v4.1.7
         with:
-          name: "artifacts-${{ github.run_number }}"
+          name: "artifacts-${{ github.run_number }}-windows"
           path: artifacts
 
       - name: Get version artifact
