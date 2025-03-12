@@ -28,7 +28,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: "artifacts-${{ github.run_number }}"
+          name: "artifacts-version-${{ github.run_number }}"
           path: artifacts
 
   build-release-artifacts:
@@ -74,7 +74,7 @@ jobs:
       - name: Get shared artifacts
         uses: actions/download-artifact@v4.1.7
         with:
-          name: "artifacts-${{ github.run_number }}"
+          name: "artifacts-version-${{ github.run_number }}"
           path: artifacts
       - name: Set release version
         shell: bash
@@ -185,6 +185,11 @@ jobs:
         with:
           name: "artifacts-${{ github.run_number }}"
           path: artifacts
+      - name: Get version artifact
+        uses: actions/download-artifact@v4.1.7
+        with:
+          name: "artifacts-version-${{ github.run_number }}"
+          path: artifacts
 
       - name: Set release assets and version
         shell: bash
@@ -235,6 +240,12 @@ jobs:
         uses: actions/download-artifact@v4.1.7
         with:
           name: "artifacts-${{ github.run_number }}"
+          path: artifacts
+
+      - name: Get version artifact
+        uses: actions/download-artifact@v4.1.7
+        with:
+          name: "artifacts-version-${{ github.run_number }}"
           path: artifacts
 
       - name: Set release assets and version
@@ -290,10 +301,10 @@ jobs:
     name: Publishing Docker image to Docker Hub
     runs-on: ubuntu-latest
     steps:
-      - name: Get release artifacts
+      - name: Get version artifact
         uses: actions/download-artifact@v4.1.7
         with:
-          name: "artifacts-${{ github.run_number }}"
+          name: "artifacts-version-${{ github.run_number }}"
           path: artifacts
 
       - name: Set release version
