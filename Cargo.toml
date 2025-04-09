@@ -42,7 +42,7 @@ clap = { version = "4.5.23", default-features = false, features = [
     "error-context",
     "derive",
 ] }
-tokio = { version = "1.42.0", default-features = false, features = [
+tokio = { version = "1.44.2", default-features = false, features = [
     "macros",
     "rt-multi-thread",
 ] }
