@@ -4,6 +4,7 @@ pub(crate) mod cronjobs;
 pub(crate) mod daemonsets;
 pub(crate) mod deployments;
 pub(crate) mod dynamic;
+pub(crate) mod events;
 pub(crate) mod ingress;
 pub(crate) mod jobs;
 pub(crate) mod key_binding;
@@ -43,6 +44,7 @@ use self::{
   daemonsets::KubeDaemonSet,
   deployments::KubeDeployment,
   dynamic::{DynamicResourceCache, KubeDynamicKind, KubeDynamicResource},
+  events::KubeEvent,
   ingress::KubeIngress,
   jobs::KubeJob,
   key_binding::DEFAULT_KEYBINDING,
@@ -163,6 +165,7 @@ pub enum ActiveBlock {
   PersistentVolumes,
   NetworkPolicies,
   ServiceAccounts,
+  Events,
   More,
   DynamicView,
 }
@@ -230,6 +233,7 @@ pub struct Data {
   pub persistent_volumes: StatefulTable<KubePV>,
   pub network_policies: StatefulTable<KubeNetworkPolicy>,
   pub service_accounts: StatefulTable<KubeSvcAcct>,
+  pub events: StatefulTable<KubeEvent>,
   pub dynamic_kinds: Vec<KubeDynamicKind>,
   pub dynamic_resources: StatefulTable<KubeDynamicResource>,
   pub dynamic_resource_cache: DynamicResourceCache,
@@ -335,6 +339,7 @@ impl Default for Data {
       persistent_volumes: StatefulTable::new(),
       network_policies: StatefulTable::new(),
       service_accounts: StatefulTable::new(),
+      events: StatefulTable::new(),
       dynamic_kinds: vec![],
       dynamic_resources: StatefulTable::new(),
       dynamic_resource_cache: DynamicResourceCache::default(),
@@ -499,6 +504,7 @@ impl Default for App {
         ),
         ("ServiceAccounts".into(), ActiveBlock::ServiceAccounts),
         ("Ingresses".into(), ActiveBlock::Ingresses),
+        ("Events".into(), ActiveBlock::Events),
         ("NetworkPolicies".into(), ActiveBlock::NetworkPolicies),
       ]),
       dynamic_resources_menu: StatefulList::new(),
@@ -1003,6 +1009,7 @@ impl App {
       IoEvent::GetPvcs,
       IoEvent::GetPvs,
       IoEvent::GetServiceAccounts,
+      IoEvent::GetEvents,
       IoEvent::GetNetworkPolicies,
     ]
   }
@@ -1038,6 +1045,7 @@ impl App {
       ActiveBlock::PersistentVolumeClaims => Some(IoEvent::GetPvcs),
       ActiveBlock::PersistentVolumes => Some(IoEvent::GetPvs),
       ActiveBlock::ServiceAccounts => Some(IoEvent::GetServiceAccounts),
+      ActiveBlock::Events => Some(IoEvent::GetEvents),
       ActiveBlock::NetworkPolicies => Some(IoEvent::GetNetworkPolicies),
       _ => None,
     }
@@ -1162,6 +1170,9 @@ impl App {
       }
       ActiveBlock::ServiceAccounts => {
         self.dispatch(IoEvent::GetServiceAccounts).await;
+      }
+      ActiveBlock::Events => {
+        self.dispatch(IoEvent::GetEvents).await;
       }
       ActiveBlock::DynamicResource => {
         self.dispatch(IoEvent::GetDynamicRes).await;
@@ -1478,6 +1489,7 @@ mod tests {
       sync_io_rx.recv().await.unwrap(),
       IoEvent::GetServiceAccounts
     );
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetEvents);
     assert_eq!(
       sync_io_rx.recv().await.unwrap(),
       IoEvent::GetNetworkPolicies
