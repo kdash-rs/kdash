@@ -23,6 +23,7 @@ pub(crate) mod serviceaccounts;
 pub(crate) mod statefulsets;
 pub(crate) mod storageclass;
 pub(crate) mod svcs;
+pub(crate) mod troubleshoot;
 mod utils;
 
 use anyhow::anyhow;
@@ -82,6 +83,7 @@ pub enum ActiveBlock {
   Yaml,
   Contexts,
   Utilization,
+  Troubleshoot,
   Jobs,
   DaemonSets,
   CronJobs,
@@ -107,6 +109,7 @@ pub enum RouteId {
   Home,
   Contexts,
   Utilization,
+  Troubleshoot,
   HelpMenu,
 }
 
@@ -139,6 +142,7 @@ pub struct Data {
   pub logs: LogsState,
   pub describe_out: ScrollableTxt,
   pub metrics: StatefulTable<(Vec<String>, Option<QtyByQualifier>)>,
+  pub troubleshoot_findings: StatefulTable<troubleshoot::DisplayFinding>,
   pub namespaces: StatefulTable<KubeNs>,
   pub nodes: StatefulTable<KubeNode>,
   pub pods: StatefulTable<KubePod>,
@@ -243,6 +247,7 @@ impl Default for Data {
       logs: LogsState::new(String::default()),
       describe_out: ScrollableTxt::new(),
       metrics: StatefulTable::new(),
+      troubleshoot_findings: StatefulTable::new(),
       nodes: StatefulTable::new(),
       pods: StatefulTable::new(),
       containers: StatefulTable::new(),
@@ -307,6 +312,16 @@ impl Default for App {
           route: Route {
             active_block: ActiveBlock::Utilization,
             id: RouteId::Utilization,
+          },
+        },
+        TabRoute {
+          title: format!(
+            "Troubleshoot {}",
+            DEFAULT_KEYBINDING.jump_to_troubleshoot.key
+          ),
+          route: Route {
+            active_block: ActiveBlock::Troubleshoot,
+            id: RouteId::Troubleshoot,
           },
         },
       ]),
@@ -582,6 +597,11 @@ impl App {
     self.push_navigation_route(route);
   }
 
+  pub fn route_troubleshoot(&mut self) {
+    let route = self.main_tabs.set_index(3).route.clone();
+    self.push_navigation_route(route);
+  }
+
   pub async fn dispatch_container_logs(&mut self, id: String) {
     self.data.logs = LogsState::new(id);
     self.push_navigation_stack(RouteId::Home, ActiveBlock::Logs);
@@ -708,6 +728,7 @@ impl App {
       self.cache_all_resource_data().await;
       self.refresh = false;
     }
+
     // make network requests only in intervals to avoid hogging up the network
     if self.tick_count % self.tick_until_poll == 0 || self.is_routing {
       // make periodic network calls based on active route and active block to avoid hogging
@@ -730,6 +751,9 @@ impl App {
         }
         RouteId::Utilization => {
           self.dispatch(IoEvent::GetMetrics).await;
+        }
+        RouteId::Troubleshoot => {
+          self.dispatch(IoEvent::GetTroubleshootFindings).await;
         }
         _ => {}
       }

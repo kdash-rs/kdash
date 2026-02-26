@@ -21,8 +21,8 @@ use self::{
   },
 };
 use crate::app::{
-  contexts::ContextResource, metrics::UtilizationResource, models::AppResource, ActiveBlock, App,
-  RouteId,
+  contexts::ContextResource, metrics::UtilizationResource, models::AppResource,
+  troubleshoot::TroubleshootResource, ActiveBlock, App, RouteId,
 };
 
 pub static HIGHLIGHT: &str = "=> ";
@@ -68,6 +68,9 @@ pub fn draw(f: &mut Frame<'_>, app: &mut App) {
     }
     RouteId::Utilization => {
       UtilizationResource::render(ActiveBlock::Utilization, f, app, last_chunk);
+    }
+    RouteId::Troubleshoot => {
+      TroubleshootResource::render(app.get_current_route().active_block, f, app, last_chunk);
     }
     _ => {
       draw_overview(f, app, last_chunk);
@@ -137,6 +140,7 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
     RouteId::Utilization => vec![Line::from(
       "<↑↓> scroll | <g> cycle through grouping | <?> help ",
     )],
+    RouteId::Troubleshoot => vec![Line::from("<↑↓> scroll | <?> help ")],
     RouteId::HelpMenu => vec![],
   };
   let paragraph = Paragraph::new(text)

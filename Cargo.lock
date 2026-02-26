@@ -1139,6 +1139,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "simplelog",
+ "strum",
  "syntect",
  "syntect-tui",
  "textwrap",
