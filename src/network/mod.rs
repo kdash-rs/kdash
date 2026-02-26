@@ -45,6 +45,7 @@ use crate::app::{
   statefulsets::StatefulSetResource,
   storageclass::StorageClassResource,
   svcs::SvcResource,
+  troubleshoot::TroubleshootResource,
   ActiveBlock, App,
 };
 
@@ -74,6 +75,7 @@ pub enum IoEvent {
   GetPvs,
   GetServiceAccounts,
   GetMetrics,
+  GetTroubleshootFindings,
   RefreshClient,
   DiscoverDynamicRes,
   GetDynamicRes,
@@ -322,6 +324,9 @@ impl<'a> Network<'a> {
       }
       IoEvent::GetMetrics => {
         UtilizationResource::get_resource(self).await;
+      }
+      IoEvent::GetTroubleshootFindings => {
+        TroubleshootResource::get_resource(self).await;
       }
       IoEvent::GetStorageClasses => {
         StorageClassResource::get_resource(self).await;

@@ -28,6 +28,7 @@ generate_keybindings! {
   jump_to_current_context,
   jump_to_all_context,
   jump_to_utilization,
+  jump_to_troubleshoot,
   copy_to_clipboard,
   pg_up,
   pg_down,
@@ -132,6 +133,12 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
     key: Key::Char('U'),
     alt: None,
     desc: "Switch to resource utilization view",
+    context: HContext::General,
+  },
+  jump_to_troubleshoot: KeyBinding {
+    key: Key::Char('T'),
+    alt: None,
+    desc: "Switch to troubleshoot view",
     context: HContext::General,
   },
   cycle_main_views: KeyBinding {
