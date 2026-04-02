@@ -14,6 +14,64 @@ use crate::{
   event::Key,
 };
 
+/// Dispatches block action (describe/yaml/decode) for standard resource types.
+/// Wraps the entire match expression. Special-case arms go in the `extra` block.
+macro_rules! handle_resource_action {
+  ($match_expr:expr, $key:expr, $app:expr,
+    namespaced: [ $(($block:path, $field:ident, $kind:expr)),* $(,)? ],
+    cluster: [ $(($cblock:path, $cfield:ident, $ckind:expr)),* $(,)? ],
+    extra: { $($extra_arms:tt)* }
+  ) => {
+    match $match_expr {
+      $(
+        $block => {
+          if let Some(res) = handle_block_action($key, &$app.data.$field) {
+            let _ok = handle_describe_decode_or_yaml_action(
+              $key, $app, &res,
+              IoCmdEvent::GetDescribe {
+                kind: $kind.to_owned(),
+                value: res.name.to_owned(),
+                ns: Some(res.namespace.to_owned()),
+              },
+            ).await;
+          }
+        }
+      )*
+      $(
+        $cblock => {
+          if let Some(res) = handle_block_action($key, &$app.data.$cfield) {
+            let _ok = handle_describe_decode_or_yaml_action(
+              $key, $app, &res,
+              IoCmdEvent::GetDescribe {
+                kind: $ckind.to_owned(),
+                value: res.name.to_owned(),
+                ns: None,
+              },
+            ).await;
+          }
+        }
+      )*
+      $($extra_arms)*
+    }
+  };
+}
+
+/// Dispatches scroll for standard resource types.
+/// Wraps the entire match expression. Special-case arms go in the `extra` block.
+macro_rules! handle_resource_scroll {
+  ($match_expr:expr, $app:expr, $up:expr, $page:expr,
+    [ $(($block:path, $field:ident)),* $(,)? ],
+    extra: { $($extra_arms:tt)* }
+  ) => {
+    match $match_expr {
+      $(
+        $block => $app.data.$field.handle_scroll($up, $page),
+      )*
+      $($extra_arms)*
+    }
+  };
+}
+
 pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
   // if input is enabled capture keystrokes
   if app.app_input.input_mode == InputMode::Editing {
@@ -238,419 +296,131 @@ async fn handle_route_events(key: Key, app: &mut App) {
       };
 
       // handle block specific stuff
-      match app.get_current_route().active_block {
-        ActiveBlock::Namespaces => {
-          if let Some(ns) = handle_block_action(key, &app.data.namespaces) {
-            app.data.selected.ns = Some(ns.name);
-            app.cache_all_resource_data().await;
-            app.pop_navigation_stack();
-          }
-        }
-        ActiveBlock::Nodes => {
-          if let Some(node) = handle_block_action(key, &app.data.nodes) {
-            let _ok = handle_describe_decode_or_yaml_action(
-              key,
-              app,
-              &node,
-              IoCmdEvent::GetDescribe {
-                kind: "node".to_owned(),
-                value: node.name.to_owned(),
-                ns: None,
-              },
-            )
-            .await;
-          }
-        }
-        ActiveBlock::Pods => {
-          if let Some(pod) = handle_block_action(key, &app.data.pods) {
-            let ok = handle_describe_decode_or_yaml_action(
-              key,
-              app,
-              &pod,
-              IoCmdEvent::GetDescribe {
-                kind: "pod".to_owned(),
-                value: pod.name.to_owned(),
-                ns: Some(pod.namespace.to_owned()),
-              },
-            )
-            .await;
-            if !ok {
-              app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
-              app.data.selected.pod = Some(pod.name);
-              app.data.containers.set_items(pod.containers);
+      handle_resource_action!(app.get_current_route().active_block, key, app,
+        namespaced: [
+          (ActiveBlock::Services, services, "service"),
+          (ActiveBlock::Deployments, deployments, "deployment"),
+          (ActiveBlock::ConfigMaps, config_maps, "configmap"),
+          (ActiveBlock::StatefulSets, stateful_sets, "statefulset"),
+          (ActiveBlock::ReplicaSets, replica_sets, "replicaset"),
+          (ActiveBlock::Jobs, jobs, "job"),
+          (ActiveBlock::DaemonSets, daemon_sets, "daemonset"),
+          (ActiveBlock::CronJobs, cronjobs, "cronjob"),
+          (ActiveBlock::Secrets, secrets, "secret"),
+          (ActiveBlock::ReplicationControllers, replication_controllers, "replicationcontroller"),
+          (ActiveBlock::Roles, roles, "roles"),
+          (ActiveBlock::RoleBindings, role_bindings, "rolebindings"),
+          (ActiveBlock::Ingresses, ingress, "ingress"),
+          (ActiveBlock::PersistentVolumeClaims, persistent_volume_claims, "persistentvolumeclaims"),
+          (ActiveBlock::ServiceAccounts, service_accounts, "serviceaccounts"),
+          (ActiveBlock::NetworkPolicies, network_policies, "networkpolicy"),
+        ],
+        cluster: [
+          (ActiveBlock::Nodes, nodes, "node"),
+          (ActiveBlock::StorageClasses, storage_classes, "storageclass"),
+          (ActiveBlock::ClusterRoles, cluster_roles, "clusterroles"),
+          (ActiveBlock::ClusterRoleBindings, cluster_role_bindings, "clusterrolebinding"),
+          (ActiveBlock::PersistentVolumes, persistent_volumes, "persistentvolumes"),
+        ],
+        extra: {
+          ActiveBlock::Namespaces => {
+            if let Some(ns) = handle_block_action(key, &app.data.namespaces) {
+              app.data.selected.ns = Some(ns.name);
+              app.cache_all_resource_data().await;
+              app.pop_navigation_stack();
             }
           }
-        }
-        ActiveBlock::Containers => {
-          if let Some(c) = handle_block_action(key, &app.data.containers) {
-            app.data.selected.container = Some(c.name.clone());
-            app.dispatch_container_logs(c.name).await;
-          }
-        }
-        ActiveBlock::Logs => {
-          if key == DEFAULT_KEYBINDING.log_auto_scroll.key {
-            app.log_auto_scroll = !app.log_auto_scroll;
-          } else if key == DEFAULT_KEYBINDING.copy_to_clipboard.key {
-            copy_to_clipboard(app.data.logs.get_plain_text());
-          }
-        }
-        ActiveBlock::Describe | ActiveBlock::Yaml => {
-          if key == DEFAULT_KEYBINDING.copy_to_clipboard.key {
-            copy_to_clipboard(app.data.describe_out.get_txt());
-          }
-        }
-        ActiveBlock::Services => {
-          if let Some(res) = handle_block_action(key, &app.data.services) {
-            let _ok = handle_describe_decode_or_yaml_action(
-              key,
-              app,
-              &res,
-              IoCmdEvent::GetDescribe {
-                kind: "service".to_owned(),
-                value: res.name.to_owned(),
-                ns: Some(res.namespace.to_owned()),
-              },
-            )
-            .await;
-          }
-        }
-        ActiveBlock::Deployments => {
-          if let Some(res) = handle_block_action(key, &app.data.deployments) {
-            let _ok = handle_describe_decode_or_yaml_action(
-              key,
-              app,
-              &res,
-              IoCmdEvent::GetDescribe {
-                kind: "deployment".to_owned(),
-                value: res.name.to_owned(),
-                ns: Some(res.namespace.to_owned()),
-              },
-            )
-            .await;
-          }
-        }
-        ActiveBlock::ConfigMaps => {
-          if let Some(res) = handle_block_action(key, &app.data.config_maps) {
-            let _ok = handle_describe_decode_or_yaml_action(
-              key,
-              app,
-              &res,
-              IoCmdEvent::GetDescribe {
-                kind: "configmap".to_owned(),
-                value: res.name.to_owned(),
-                ns: Some(res.namespace.to_owned()),
-              },
-            )
-            .await;
-          }
-        }
-        ActiveBlock::StatefulSets => {
-          if let Some(res) = handle_block_action(key, &app.data.stateful_sets) {
-            let _ok = handle_describe_decode_or_yaml_action(
-              key,
-              app,
-              &res,
-              IoCmdEvent::GetDescribe {
-                kind: "statefulset".to_owned(),
-                value: res.name.to_owned(),
-                ns: Some(res.namespace.to_owned()),
-              },
-            )
-            .await;
-          }
-        }
-        ActiveBlock::ReplicaSets => {
-          if let Some(res) = handle_block_action(key, &app.data.replica_sets) {
-            let _ok = handle_describe_decode_or_yaml_action(
-              key,
-              app,
-              &res,
-              IoCmdEvent::GetDescribe {
-                kind: "replicaset".to_owned(),
-                value: res.name.to_owned(),
-                ns: Some(res.namespace.to_owned()),
-              },
-            )
-            .await;
-          }
-        }
-        ActiveBlock::Jobs => {
-          if let Some(res) = handle_block_action(key, &app.data.jobs) {
-            let _ok = handle_describe_decode_or_yaml_action(
-              key,
-              app,
-              &res,
-              IoCmdEvent::GetDescribe {
-                kind: "job".to_owned(),
-                value: res.name.to_owned(),
-                ns: Some(res.namespace.to_owned()),
-              },
-            )
-            .await;
-          }
-        }
-        ActiveBlock::DaemonSets => {
-          if let Some(res) = handle_block_action(key, &app.data.daemon_sets) {
-            let _ok = handle_describe_decode_or_yaml_action(
-              key,
-              app,
-              &res,
-              IoCmdEvent::GetDescribe {
-                kind: "daemonset".to_owned(),
-                value: res.name.to_owned(),
-                ns: Some(res.namespace.to_owned()),
-              },
-            )
-            .await;
-          }
-        }
-        ActiveBlock::More => {
-          if key == DEFAULT_KEYBINDING.submit.key {
-            if let Some((_title, active_block)) = app
-              .more_resources_menu
-              .state
-              .selected()
-              .map(|i| app.more_resources_menu.items[i].clone())
-            {
-              app.push_navigation_route(Route {
-                id: RouteId::Home,
-                active_block,
-              });
-            }
-          }
-        }
-        ActiveBlock::DynamicView => {
-          if key == DEFAULT_KEYBINDING.submit.key {
-            if let Some((title, active_block)) = app
-              .dynamic_resources_menu
-              .state
-              .selected()
-              .map(|i| app.dynamic_resources_menu.items[i].clone())
-            {
-              app.push_navigation_route(Route {
-                id: RouteId::Home,
-                active_block,
-              });
-              let selected = app.data.dynamic_kinds.iter().find(|&it| it.kind == title);
-              app.data.selected.dynamic_kind = selected.cloned();
-              app.data.dynamic_resources.set_items(vec![]);
-            }
-          }
-        }
-        ActiveBlock::DynamicResource => {
-          if let Some(dynamic_res) = app.data.selected.dynamic_kind.as_ref() {
-            if let Some(res) = handle_block_action(key, &app.data.dynamic_resources) {
-              let _ok = handle_describe_decode_or_yaml_action(
+          ActiveBlock::Pods => {
+            if let Some(pod) = handle_block_action(key, &app.data.pods) {
+              let ok = handle_describe_decode_or_yaml_action(
                 key,
                 app,
-                &res,
+                &pod,
                 IoCmdEvent::GetDescribe {
-                  kind: dynamic_res.kind.to_owned(),
-                  value: res.name.to_owned(),
-                  ns: res.namespace.to_owned(),
+                  kind: "pod".to_owned(),
+                  value: pod.name.to_owned(),
+                  ns: Some(pod.namespace.to_owned()),
                 },
               )
               .await;
+              if !ok {
+                app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
+                app.data.selected.pod = Some(pod.name);
+                app.data.containers.set_items(pod.containers);
+              }
             }
           }
-        }
-        ActiveBlock::CronJobs => {
-          if let Some(res) = handle_block_action(key, &app.data.cronjobs) {
-            let _ok = handle_describe_decode_or_yaml_action(
-              key,
-              app,
-              &res,
-              IoCmdEvent::GetDescribe {
-                kind: "cronjob".to_owned(),
-                value: res.name.to_owned(),
-                ns: Some(res.namespace.to_owned()),
-              },
-            )
-            .await;
+          ActiveBlock::Containers => {
+            if let Some(c) = handle_block_action(key, &app.data.containers) {
+              app.data.selected.container = Some(c.name.clone());
+              app.dispatch_container_logs(c.name).await;
+            }
           }
-        }
-        ActiveBlock::Secrets => {
-          if let Some(res) = handle_block_action(key, &app.data.secrets) {
-            let _ok = handle_describe_decode_or_yaml_action(
-              key,
-              app,
-              &res,
-              IoCmdEvent::GetDescribe {
-                kind: "secret".to_owned(),
-                value: res.name.to_owned(),
-                ns: Some(res.namespace.to_owned()),
-              },
-            )
-            .await;
+          ActiveBlock::Logs => {
+            if key == DEFAULT_KEYBINDING.log_auto_scroll.key {
+              app.log_auto_scroll = !app.log_auto_scroll;
+            } else if key == DEFAULT_KEYBINDING.copy_to_clipboard.key {
+              copy_to_clipboard(app.data.logs.get_plain_text());
+            }
           }
-        }
-        ActiveBlock::ReplicationControllers => {
-          if let Some(res) = handle_block_action(key, &app.data.replication_controllers) {
-            let _ok = handle_describe_decode_or_yaml_action(
-              key,
-              app,
-              &res,
-              IoCmdEvent::GetDescribe {
-                kind: "replicationcontroller".to_owned(),
-                value: res.name.to_owned(),
-                ns: Some(res.namespace.to_owned()),
-              },
-            )
-            .await;
+          ActiveBlock::Describe | ActiveBlock::Yaml => {
+            if key == DEFAULT_KEYBINDING.copy_to_clipboard.key {
+              copy_to_clipboard(app.data.describe_out.get_txt());
+            }
           }
-        }
-        ActiveBlock::StorageClasses => {
-          if let Some(res) = handle_block_action(key, &app.data.storage_classes) {
-            let _ok = handle_describe_decode_or_yaml_action(
-              key,
-              app,
-              &res,
-              IoCmdEvent::GetDescribe {
-                kind: "storageclass".to_owned(),
-                value: res.name.to_owned(),
-                ns: None,
-              },
-            )
-            .await;
+          ActiveBlock::More => {
+            if key == DEFAULT_KEYBINDING.submit.key {
+              if let Some((_title, active_block)) = app
+                .more_resources_menu
+                .state
+                .selected()
+                .map(|i| app.more_resources_menu.items[i].clone())
+              {
+                app.push_navigation_route(Route {
+                  id: RouteId::Home,
+                  active_block,
+                });
+              }
+            }
           }
-        }
-        ActiveBlock::Roles => {
-          if let Some(res) = handle_block_action(key, &app.data.roles) {
-            let _ok = handle_describe_decode_or_yaml_action(
-              key,
-              app,
-              &res,
-              IoCmdEvent::GetDescribe {
-                kind: "roles".to_owned(),
-                value: res.name.to_owned(),
-                ns: Some(res.namespace.to_owned()),
-              },
-            )
-            .await;
+          ActiveBlock::DynamicView => {
+            if key == DEFAULT_KEYBINDING.submit.key {
+              if let Some((title, active_block)) = app
+                .dynamic_resources_menu
+                .state
+                .selected()
+                .map(|i| app.dynamic_resources_menu.items[i].clone())
+              {
+                app.push_navigation_route(Route {
+                  id: RouteId::Home,
+                  active_block,
+                });
+                let selected = app.data.dynamic_kinds.iter().find(|&it| it.kind == title);
+                app.data.selected.dynamic_kind = selected.cloned();
+                app.data.dynamic_resources.set_items(vec![]);
+              }
+            }
           }
-        }
-        ActiveBlock::RoleBindings => {
-          if let Some(res) = handle_block_action(key, &app.data.role_bindings) {
-            let _ok = handle_describe_decode_or_yaml_action(
-              key,
-              app,
-              &res,
-              IoCmdEvent::GetDescribe {
-                kind: "rolebindings".to_owned(),
-                value: res.name.to_owned(),
-                ns: Some(res.namespace.to_owned()),
-              },
-            )
-            .await;
+          ActiveBlock::DynamicResource => {
+            if let Some(dynamic_res) = app.data.selected.dynamic_kind.as_ref() {
+              if let Some(res) = handle_block_action(key, &app.data.dynamic_resources) {
+                let _ok = handle_describe_decode_or_yaml_action(
+                  key,
+                  app,
+                  &res,
+                  IoCmdEvent::GetDescribe {
+                    kind: dynamic_res.kind.to_owned(),
+                    value: res.name.to_owned(),
+                    ns: res.namespace.to_owned(),
+                  },
+                )
+                .await;
+              }
+            }
           }
+          ActiveBlock::Contexts | ActiveBlock::Utilization | ActiveBlock::Help => { /* Do nothing */ }
         }
-        ActiveBlock::ClusterRoles => {
-          if let Some(res) = handle_block_action(key, &app.data.cluster_roles) {
-            let _ok = handle_describe_decode_or_yaml_action(
-              key,
-              app,
-              &res,
-              IoCmdEvent::GetDescribe {
-                kind: "clusterroles".to_owned(),
-                value: res.name.to_owned(),
-                ns: None,
-              },
-            )
-            .await;
-          }
-        }
-        ActiveBlock::ClusterRoleBindings => {
-          if let Some(res) = handle_block_action(key, &app.data.cluster_role_bindings) {
-            let _ok = handle_describe_decode_or_yaml_action(
-              key,
-              app,
-              &res,
-              IoCmdEvent::GetDescribe {
-                kind: "clusterrolebinding".to_owned(),
-                value: res.name.to_owned(),
-                ns: None,
-              },
-            )
-            .await;
-          }
-        }
-        ActiveBlock::Ingresses => {
-          if let Some(res) = handle_block_action(key, &app.data.ingress) {
-            let _ok = handle_describe_decode_or_yaml_action(
-              key,
-              app,
-              &res,
-              IoCmdEvent::GetDescribe {
-                kind: "ingress".to_owned(),
-                value: res.name.to_owned(),
-                ns: Some(res.namespace.to_owned()),
-              },
-            )
-            .await;
-          }
-        }
-        ActiveBlock::PersistentVolumeClaims => {
-          if let Some(res) = handle_block_action(key, &app.data.persistent_volume_claims) {
-            let _ok = handle_describe_decode_or_yaml_action(
-              key,
-              app,
-              &res,
-              IoCmdEvent::GetDescribe {
-                kind: "persistentvolumeclaims".to_owned(),
-                value: res.name.to_owned(),
-                ns: Some(res.namespace.to_owned()),
-              },
-            )
-            .await;
-          }
-        }
-        ActiveBlock::PersistentVolumes => {
-          if let Some(res) = handle_block_action(key, &app.data.persistent_volumes) {
-            let _ok = handle_describe_decode_or_yaml_action(
-              key,
-              app,
-              &res,
-              IoCmdEvent::GetDescribe {
-                kind: "persistentvolumes".to_owned(),
-                value: res.name.to_owned(),
-                ns: None,
-              },
-            )
-            .await;
-          }
-        }
-        ActiveBlock::ServiceAccounts => {
-          if let Some(res) = handle_block_action(key, &app.data.service_accounts) {
-            let _ok = handle_describe_decode_or_yaml_action(
-              key,
-              app,
-              &res,
-              IoCmdEvent::GetDescribe {
-                kind: "serviceaccounts".to_owned(),
-                value: res.name.to_owned(),
-                ns: Some(res.namespace.to_owned()),
-              },
-            )
-            .await;
-          }
-        }
-        ActiveBlock::NetworkPolicies => {
-          if let Some(res) = handle_block_action(key, &app.data.network_policies) {
-            let _ok = handle_describe_decode_or_yaml_action(
-              key,
-              app,
-              &res,
-              IoCmdEvent::GetDescribe {
-                kind: "networkpolicy".to_owned(),
-                value: res.name.to_owned(),
-                ns: Some(res.namespace.to_owned()),
-              },
-            )
-            .await;
-          }
-        }
-        ActiveBlock::Contexts | ActiveBlock::Utilization | ActiveBlock::Help => { /* Do nothing */ }
-      }
+      )
     }
     RouteId::Contexts => {
       if let Some(ctx) = handle_block_action(key, &app.data.contexts) {
@@ -696,48 +466,50 @@ fn handle_block_action<T: Clone>(key: Key, item: &StatefulTable<T>) -> Option<T>
 }
 
 async fn handle_block_scroll(app: &mut App, up: bool, is_mouse: bool, page: bool) {
-  match app.get_current_route().active_block {
-    ActiveBlock::Namespaces => app.data.namespaces.handle_scroll(up, page),
-    ActiveBlock::Pods => app.data.pods.handle_scroll(up, page),
-    ActiveBlock::Containers => app.data.containers.handle_scroll(up, page),
-    ActiveBlock::Services => app.data.services.handle_scroll(up, page),
-    ActiveBlock::Nodes => app.data.nodes.handle_scroll(up, page),
-    ActiveBlock::ConfigMaps => app.data.config_maps.handle_scroll(up, page),
-    ActiveBlock::StatefulSets => app.data.stateful_sets.handle_scroll(up, page),
-    ActiveBlock::ReplicaSets => app.data.replica_sets.handle_scroll(up, page),
-    ActiveBlock::Deployments => app.data.deployments.handle_scroll(up, page),
-    ActiveBlock::Jobs => app.data.jobs.handle_scroll(up, page),
-    ActiveBlock::DaemonSets => app.data.daemon_sets.handle_scroll(up, page),
-    ActiveBlock::CronJobs => app.data.cronjobs.handle_scroll(up, page),
-    ActiveBlock::Secrets => app.data.secrets.handle_scroll(up, page),
-    ActiveBlock::ReplicationControllers => app.data.replication_controllers.handle_scroll(up, page),
-    ActiveBlock::StorageClasses => app.data.storage_classes.handle_scroll(up, page),
-    ActiveBlock::Roles => app.data.roles.handle_scroll(up, page),
-    ActiveBlock::RoleBindings => app.data.role_bindings.handle_scroll(up, page),
-    ActiveBlock::ClusterRoles => app.data.cluster_roles.handle_scroll(up, page),
-    ActiveBlock::ClusterRoleBindings => app.data.cluster_role_bindings.handle_scroll(up, page),
-    ActiveBlock::PersistentVolumeClaims => {
-      app.data.persistent_volume_claims.handle_scroll(up, page)
+  handle_resource_scroll!(app.get_current_route().active_block, app, up, page,
+    [
+      (ActiveBlock::Namespaces, namespaces),
+      (ActiveBlock::Pods, pods),
+      (ActiveBlock::Containers, containers),
+      (ActiveBlock::Services, services),
+      (ActiveBlock::Nodes, nodes),
+      (ActiveBlock::ConfigMaps, config_maps),
+      (ActiveBlock::StatefulSets, stateful_sets),
+      (ActiveBlock::ReplicaSets, replica_sets),
+      (ActiveBlock::Deployments, deployments),
+      (ActiveBlock::Jobs, jobs),
+      (ActiveBlock::DaemonSets, daemon_sets),
+      (ActiveBlock::CronJobs, cronjobs),
+      (ActiveBlock::Secrets, secrets),
+      (ActiveBlock::ReplicationControllers, replication_controllers),
+      (ActiveBlock::StorageClasses, storage_classes),
+      (ActiveBlock::Roles, roles),
+      (ActiveBlock::RoleBindings, role_bindings),
+      (ActiveBlock::ClusterRoles, cluster_roles),
+      (ActiveBlock::ClusterRoleBindings, cluster_role_bindings),
+      (ActiveBlock::PersistentVolumeClaims, persistent_volume_claims),
+      (ActiveBlock::PersistentVolumes, persistent_volumes),
+      (ActiveBlock::Ingresses, ingress),
+      (ActiveBlock::ServiceAccounts, service_accounts),
+      (ActiveBlock::NetworkPolicies, network_policies),
+      (ActiveBlock::DynamicResource, dynamic_resources),
+    ],
+    extra: {
+      ActiveBlock::Contexts => app.data.contexts.handle_scroll(up, page),
+      ActiveBlock::Utilization => app.data.metrics.handle_scroll(up, page),
+      ActiveBlock::Help => app.help_docs.handle_scroll(up, page),
+      ActiveBlock::More => app.more_resources_menu.handle_scroll(up, page),
+      ActiveBlock::DynamicView => app.dynamic_resources_menu.handle_scroll(up, page),
+      ActiveBlock::Logs => {
+        app.log_auto_scroll = false;
+        app.data.logs.handle_scroll(inverse_dir(up, is_mouse), page);
+      }
+      ActiveBlock::Describe | ActiveBlock::Yaml => app
+        .data
+        .describe_out
+        .handle_scroll(inverse_dir(up, is_mouse), page),
     }
-    ActiveBlock::PersistentVolumes => app.data.persistent_volumes.handle_scroll(up, page),
-    ActiveBlock::Ingresses => app.data.ingress.handle_scroll(up, page),
-    ActiveBlock::ServiceAccounts => app.data.service_accounts.handle_scroll(up, page),
-    ActiveBlock::NetworkPolicies => app.data.network_policies.handle_scroll(up, page),
-    ActiveBlock::DynamicResource => app.data.dynamic_resources.handle_scroll(up, page),
-    ActiveBlock::Contexts => app.data.contexts.handle_scroll(up, page),
-    ActiveBlock::Utilization => app.data.metrics.handle_scroll(up, page),
-    ActiveBlock::Help => app.help_docs.handle_scroll(up, page),
-    ActiveBlock::More => app.more_resources_menu.handle_scroll(up, page),
-    ActiveBlock::DynamicView => app.dynamic_resources_menu.handle_scroll(up, page),
-    ActiveBlock::Logs => {
-      app.log_auto_scroll = false;
-      app.data.logs.handle_scroll(inverse_dir(up, is_mouse), page);
-    }
-    ActiveBlock::Describe | ActiveBlock::Yaml => app
-      .data
-      .describe_out
-      .handle_scroll(inverse_dir(up, is_mouse), page),
-  }
+  )
 }
 
 fn copy_to_clipboard(content: String) {
