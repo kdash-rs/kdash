@@ -400,8 +400,14 @@ impl Default for App {
       more_resources_menu: StatefulList::with_items(vec![
         ("CronJobs".into(), ActiveBlock::CronJobs),
         ("Secrets".into(), ActiveBlock::Secrets),
-        ("ReplicationControllers".into(), ActiveBlock::ReplicationControllers),
-        ("PersistentVolumeClaims".into(), ActiveBlock::PersistentVolumeClaims),
+        (
+          "ReplicationControllers".into(),
+          ActiveBlock::ReplicationControllers,
+        ),
+        (
+          "PersistentVolumeClaims".into(),
+          ActiveBlock::PersistentVolumeClaims,
+        ),
         ("PersistentVolumes".into(), ActiveBlock::PersistentVolumes),
         ("StorageClasses".into(), ActiveBlock::StorageClasses),
         ("Roles".into(), ActiveBlock::Roles),

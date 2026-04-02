@@ -123,7 +123,12 @@ impl AppResource for PvcResource {
 
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
-  let title = get_resource_title(app, PVC_TITLE, "", app.data.persistent_volume_claims.items.len());
+  let title = get_resource_title(
+    app,
+    PVC_TITLE,
+    "",
+    app.data.persistent_volume_claims.items.len(),
+  );
 
   draw_resource_block(
     f,

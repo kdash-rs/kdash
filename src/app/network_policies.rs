@@ -104,7 +104,12 @@ impl AppResource for NetworkPolicyResource {
 
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
-  let title = get_resource_title(app, NW_POLICY_TITLE, "", app.data.network_policies.items.len());
+  let title = get_resource_title(
+    app,
+    NW_POLICY_TITLE,
+    "",
+    app.data.network_policies.items.len(),
+  );
 
   draw_resource_block(
     f,

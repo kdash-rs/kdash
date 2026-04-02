@@ -716,7 +716,9 @@ async fn handle_block_scroll(app: &mut App, up: bool, is_mouse: bool, page: bool
     ActiveBlock::RoleBindings => app.data.role_bindings.handle_scroll(up, page),
     ActiveBlock::ClusterRoles => app.data.cluster_roles.handle_scroll(up, page),
     ActiveBlock::ClusterRoleBindings => app.data.cluster_role_bindings.handle_scroll(up, page),
-    ActiveBlock::PersistentVolumeClaims => app.data.persistent_volume_claims.handle_scroll(up, page),
+    ActiveBlock::PersistentVolumeClaims => {
+      app.data.persistent_volume_claims.handle_scroll(up, page)
+    }
     ActiveBlock::PersistentVolumes => app.data.persistent_volumes.handle_scroll(up, page),
     ActiveBlock::Ingresses => app.data.ingress.handle_scroll(up, page),
     ActiveBlock::ServiceAccounts => app.data.service_accounts.handle_scroll(up, page),

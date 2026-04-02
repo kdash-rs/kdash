@@ -135,7 +135,12 @@ impl AppResource for ReplicationControllerResource {
 
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
-  let title = get_resource_title(app, RPL_CTRL_TITLE, "", app.data.replication_controllers.items.len());
+  let title = get_resource_title(
+    app,
+    RPL_CTRL_TITLE,
+    "",
+    app.data.replication_controllers.items.len(),
+  );
 
   draw_resource_block(
     f,

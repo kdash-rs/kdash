@@ -82,7 +82,9 @@ fn draw_more(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     ActiveBlock::DynamicView => draw_menu(f, &mut app.dynamic_resources_menu, area),
     ActiveBlock::CronJobs => CronJobResource::render(block, f, app, area),
     ActiveBlock::Secrets => SecretResource::render(block, f, app, area),
-    ActiveBlock::ReplicationControllers => ReplicationControllerResource::render(block, f, app, area),
+    ActiveBlock::ReplicationControllers => {
+      ReplicationControllerResource::render(block, f, app, area)
+    }
     ActiveBlock::StorageClasses => StorageClassResource::render(block, f, app, area),
     ActiveBlock::Roles => RoleResource::render(block, f, app, area),
     ActiveBlock::RoleBindings => RoleBindingResource::render(block, f, app, area),
@@ -102,7 +104,9 @@ fn draw_more(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
       match prev_route.active_block {
         ActiveBlock::CronJobs => CronJobResource::render(block, f, app, area),
         ActiveBlock::Secrets => SecretResource::render(block, f, app, area),
-        ActiveBlock::ReplicationControllers => ReplicationControllerResource::render(block, f, app, area),
+        ActiveBlock::ReplicationControllers => {
+          ReplicationControllerResource::render(block, f, app, area)
+        }
         ActiveBlock::StorageClasses => StorageClassResource::render(block, f, app, area),
         ActiveBlock::Roles => RoleResource::render(block, f, app, area),
         ActiveBlock::RoleBindings => RoleBindingResource::render(block, f, app, area),
