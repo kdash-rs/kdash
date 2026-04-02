@@ -90,7 +90,7 @@ impl AppResource for NetworkPolicyResource {
       area,
       Self::render,
       draw_block,
-      app.data.nw_policies
+      app.data.network_policies
     );
   }
 
@@ -98,13 +98,13 @@ impl AppResource for NetworkPolicyResource {
     let items: Vec<KubeNetworkPolicy> = nw.get_namespaced_resources(NetworkPolicy::into).await;
 
     let mut app = nw.app.lock().await;
-    app.data.nw_policies.set_items(items);
+    app.data.network_policies.set_items(items);
   }
 }
 
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
-  let title = get_resource_title(app, NW_POLICY_TITLE, "", app.data.nw_policies.items.len());
+  let title = get_resource_title(app, NW_POLICY_TITLE, "", app.data.network_policies.items.len());
 
   draw_resource_block(
     f,
@@ -112,7 +112,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     ResourceTableProps {
       title,
       inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
-      resource: &mut app.data.nw_policies,
+      resource: &mut app.data.network_policies,
       table_headers: vec!["Namespace", "Name", "Pod Selector", "Policy Types", "Age"],
       column_widths: vec![
         Constraint::Percentage(20),

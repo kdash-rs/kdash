@@ -484,8 +484,8 @@ async fn handle_route_events(key: Key, app: &mut App) {
             .await;
           }
         }
-        ActiveBlock::RplCtrl => {
-          if let Some(res) = handle_block_action(key, &app.data.rpl_ctrls) {
+        ActiveBlock::ReplicationControllers => {
+          if let Some(res) = handle_block_action(key, &app.data.replication_controllers) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -559,7 +559,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
             .await;
           }
         }
-        ActiveBlock::ClusterRoleBinding => {
+        ActiveBlock::ClusterRoleBindings => {
           if let Some(res) = handle_block_action(key, &app.data.cluster_role_bindings) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
@@ -574,7 +574,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
             .await;
           }
         }
-        ActiveBlock::Ingress => {
+        ActiveBlock::Ingresses => {
           if let Some(res) = handle_block_action(key, &app.data.ingress) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
@@ -589,8 +589,8 @@ async fn handle_route_events(key: Key, app: &mut App) {
             .await;
           }
         }
-        ActiveBlock::Pvc => {
-          if let Some(res) = handle_block_action(key, &app.data.pvcs) {
+        ActiveBlock::PersistentVolumeClaims => {
+          if let Some(res) = handle_block_action(key, &app.data.persistent_volume_claims) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -604,8 +604,8 @@ async fn handle_route_events(key: Key, app: &mut App) {
             .await;
           }
         }
-        ActiveBlock::Pv => {
-          if let Some(res) = handle_block_action(key, &app.data.pvs) {
+        ActiveBlock::PersistentVolumes => {
+          if let Some(res) = handle_block_action(key, &app.data.persistent_volumes) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -635,7 +635,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
         }
         ActiveBlock::NetworkPolicies => {
-          if let Some(res) = handle_block_action(key, &app.data.nw_policies) {
+          if let Some(res) = handle_block_action(key, &app.data.network_policies) {
             let _ok = handle_describe_decode_or_yaml_action(
               key,
               app,
@@ -710,17 +710,17 @@ async fn handle_block_scroll(app: &mut App, up: bool, is_mouse: bool, page: bool
     ActiveBlock::DaemonSets => app.data.daemon_sets.handle_scroll(up, page),
     ActiveBlock::CronJobs => app.data.cronjobs.handle_scroll(up, page),
     ActiveBlock::Secrets => app.data.secrets.handle_scroll(up, page),
-    ActiveBlock::RplCtrl => app.data.rpl_ctrls.handle_scroll(up, page),
+    ActiveBlock::ReplicationControllers => app.data.replication_controllers.handle_scroll(up, page),
     ActiveBlock::StorageClasses => app.data.storage_classes.handle_scroll(up, page),
     ActiveBlock::Roles => app.data.roles.handle_scroll(up, page),
     ActiveBlock::RoleBindings => app.data.role_bindings.handle_scroll(up, page),
     ActiveBlock::ClusterRoles => app.data.cluster_roles.handle_scroll(up, page),
-    ActiveBlock::ClusterRoleBinding => app.data.cluster_role_bindings.handle_scroll(up, page),
-    ActiveBlock::Pvc => app.data.pvcs.handle_scroll(up, page),
-    ActiveBlock::Pv => app.data.pvs.handle_scroll(up, page),
-    ActiveBlock::Ingress => app.data.ingress.handle_scroll(up, page),
+    ActiveBlock::ClusterRoleBindings => app.data.cluster_role_bindings.handle_scroll(up, page),
+    ActiveBlock::PersistentVolumeClaims => app.data.persistent_volume_claims.handle_scroll(up, page),
+    ActiveBlock::PersistentVolumes => app.data.persistent_volumes.handle_scroll(up, page),
+    ActiveBlock::Ingresses => app.data.ingress.handle_scroll(up, page),
     ActiveBlock::ServiceAccounts => app.data.service_accounts.handle_scroll(up, page),
-    ActiveBlock::NetworkPolicies => app.data.nw_policies.handle_scroll(up, page),
+    ActiveBlock::NetworkPolicies => app.data.network_policies.handle_scroll(up, page),
     ActiveBlock::DynamicResource => app.data.dynamic_resources.handle_scroll(up, page),
     ActiveBlock::Contexts => app.data.contexts.handle_scroll(up, page),
     ActiveBlock::Utilization => app.data.metrics.handle_scroll(up, page),

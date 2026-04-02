@@ -61,7 +61,7 @@ pub enum IoEvent {
   GetRoles,
   GetRoleBindings,
   GetClusterRoles,
-  GetClusterRoleBindings,
+  GetClusterRoleBinding,
   GetIngress,
   GetPvcs,
   GetPvs,
@@ -216,7 +216,7 @@ impl<'a> Network<'a> {
       IoEvent::GetClusterRoles => {
         ClusterRoleResource::get_resource(self).await;
       }
-      IoEvent::GetClusterRoleBindings => {
+      IoEvent::GetClusterRoleBinding => {
         ClusterRoleBindingResource::get_resource(self).await;
       }
       IoEvent::GetIngress => {

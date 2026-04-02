@@ -89,15 +89,15 @@ pub enum ActiveBlock {
   CronJobs,
   DynamicResource,
   Secrets,
-  RplCtrl,
+  ReplicationControllers,
   StorageClasses,
   Roles,
   RoleBindings,
   ClusterRoles,
-  ClusterRoleBinding,
-  Ingress,
-  Pvc,
-  Pv,
+  ClusterRoleBindings,
+  Ingresses,
+  PersistentVolumeClaims,
+  PersistentVolumes,
   NetworkPolicies,
   ServiceAccounts,
   More,
@@ -154,16 +154,16 @@ pub struct Data {
   pub daemon_sets: StatefulTable<KubeDaemonSet>,
   pub cronjobs: StatefulTable<KubeCronJob>,
   pub secrets: StatefulTable<KubeSecret>,
-  pub rpl_ctrls: StatefulTable<KubeReplicationController>,
+  pub replication_controllers: StatefulTable<KubeReplicationController>,
   pub storage_classes: StatefulTable<KubeStorageClass>,
   pub roles: StatefulTable<KubeRole>,
   pub role_bindings: StatefulTable<KubeRoleBinding>,
   pub cluster_roles: StatefulTable<KubeClusterRole>,
   pub cluster_role_bindings: StatefulTable<KubeClusterRoleBinding>,
   pub ingress: StatefulTable<KubeIngress>,
-  pub pvcs: StatefulTable<KubePVC>,
-  pub pvs: StatefulTable<KubePV>,
-  pub nw_policies: StatefulTable<KubeNetworkPolicy>,
+  pub persistent_volume_claims: StatefulTable<KubePVC>,
+  pub persistent_volumes: StatefulTable<KubePV>,
+  pub network_policies: StatefulTable<KubeNetworkPolicy>,
   pub service_accounts: StatefulTable<KubeSvcAcct>,
   pub dynamic_kinds: Vec<KubeDynamicKind>,
   pub dynamic_resources: StatefulTable<KubeDynamicResource>,
@@ -257,16 +257,16 @@ impl Default for Data {
       daemon_sets: StatefulTable::new(),
       cronjobs: StatefulTable::new(),
       secrets: StatefulTable::new(),
-      rpl_ctrls: StatefulTable::new(),
+      replication_controllers: StatefulTable::new(),
       storage_classes: StatefulTable::new(),
       roles: StatefulTable::new(),
       role_bindings: StatefulTable::new(),
       cluster_roles: StatefulTable::new(),
       cluster_role_bindings: StatefulTable::new(),
       ingress: StatefulTable::new(),
-      pvcs: StatefulTable::new(),
-      pvs: StatefulTable::new(),
-      nw_policies: StatefulTable::new(),
+      persistent_volume_claims: StatefulTable::new(),
+      persistent_volumes: StatefulTable::new(),
+      network_policies: StatefulTable::new(),
       service_accounts: StatefulTable::new(),
       dynamic_kinds: vec![],
       dynamic_resources: StatefulTable::new(),
@@ -400,19 +400,19 @@ impl Default for App {
       more_resources_menu: StatefulList::with_items(vec![
         ("CronJobs".into(), ActiveBlock::CronJobs),
         ("Secrets".into(), ActiveBlock::Secrets),
-        ("ReplicationControllers".into(), ActiveBlock::RplCtrl),
-        ("PersistentVolumeClaims".into(), ActiveBlock::Pvc),
-        ("PersistentVolumes".into(), ActiveBlock::Pv),
+        ("ReplicationControllers".into(), ActiveBlock::ReplicationControllers),
+        ("PersistentVolumeClaims".into(), ActiveBlock::PersistentVolumeClaims),
+        ("PersistentVolumes".into(), ActiveBlock::PersistentVolumes),
         ("StorageClasses".into(), ActiveBlock::StorageClasses),
         ("Roles".into(), ActiveBlock::Roles),
         ("RoleBindings".into(), ActiveBlock::RoleBindings),
         ("ClusterRoles".into(), ActiveBlock::ClusterRoles),
         (
-          "ClusterRoleBindings".into(),
-          ActiveBlock::ClusterRoleBinding,
+          "ClusterRoleBinding".into(),
+          ActiveBlock::ClusterRoleBindings,
         ),
         ("ServiceAccounts".into(), ActiveBlock::ServiceAccounts),
-        ("Ingresses".into(), ActiveBlock::Ingress),
+        ("Ingresses".into(), ActiveBlock::Ingresses),
         ("NetworkPolicies".into(), ActiveBlock::NetworkPolicies),
       ]),
       dynamic_resources_menu: StatefulList::new(),
@@ -628,7 +628,7 @@ impl App {
     self.dispatch(IoEvent::GetRoles).await;
     self.dispatch(IoEvent::GetRoleBindings).await;
     self.dispatch(IoEvent::GetClusterRoles).await;
-    self.dispatch(IoEvent::GetClusterRoleBindings).await;
+    self.dispatch(IoEvent::GetClusterRoleBinding).await;
     self.dispatch(IoEvent::GetIngress).await;
     self.dispatch(IoEvent::GetPvcs).await;
     self.dispatch(IoEvent::GetPvs).await;
@@ -669,7 +669,7 @@ impl App {
       ActiveBlock::Secrets => {
         self.dispatch(IoEvent::GetSecrets).await;
       }
-      ActiveBlock::RplCtrl => {
+      ActiveBlock::ReplicationControllers => {
         self.dispatch(IoEvent::GetReplicationControllers).await;
       }
       ActiveBlock::StorageClasses => {
@@ -684,16 +684,16 @@ impl App {
       ActiveBlock::ClusterRoles => {
         self.dispatch(IoEvent::GetClusterRoles).await;
       }
-      ActiveBlock::ClusterRoleBinding => {
-        self.dispatch(IoEvent::GetClusterRoleBindings).await;
+      ActiveBlock::ClusterRoleBindings => {
+        self.dispatch(IoEvent::GetClusterRoleBinding).await;
       }
-      ActiveBlock::Ingress => {
+      ActiveBlock::Ingresses => {
         self.dispatch(IoEvent::GetIngress).await;
       }
-      ActiveBlock::Pvc => {
+      ActiveBlock::PersistentVolumeClaims => {
         self.dispatch(IoEvent::GetPvcs).await;
       }
-      ActiveBlock::Pv => {
+      ActiveBlock::PersistentVolumes => {
         self.dispatch(IoEvent::GetPvs).await;
       }
       ActiveBlock::ServiceAccounts => {
@@ -864,7 +864,7 @@ mod tests {
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetClusterRoles);
     assert_eq!(
       sync_io_rx.recv().await.unwrap(),
-      IoEvent::GetClusterRoleBindings
+      IoEvent::GetClusterRoleBinding
     );
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetIngress);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPvcs);
