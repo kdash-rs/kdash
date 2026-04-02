@@ -135,7 +135,7 @@ fn draw_cli_version_block(f: &mut Frame<'_>, app: &App, area: Rect) {
     .block(block);
     f.render_widget(table, area);
   } else {
-    loading(f, block, area, app.is_loading, app.light_theme);
+    loading(f, block, area, app.is_loading(), app.light_theme);
   }
 }
 

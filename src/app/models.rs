@@ -210,7 +210,7 @@ impl TabsState {
 #[derive(Debug, Eq, PartialEq)]
 pub struct ScrollableTxt {
   items: Vec<String>,
-  pub offset: u16,
+  pub offset: usize,
 }
 
 impl ScrollableTxt {
@@ -236,14 +236,14 @@ impl Scrollable for ScrollableTxt {
   fn scroll_down(&mut self, increment: usize) {
     // scroll only if offset is less than total lines in text
     // we subtract increment + 2 to keep the text in view. Its just an arbitrary number that works
-    if self.offset < self.items.len().saturating_sub(increment + 2) as u16 {
-      self.offset += increment as u16;
+    if self.offset < self.items.len().saturating_sub(increment + 2) {
+      self.offset += increment;
     }
   }
   fn scroll_up(&mut self, decrement: usize) {
     // scroll up and avoid going negative
     if self.offset > 0 {
-      self.offset = self.offset.saturating_sub(decrement as u16);
+      self.offset = self.offset.saturating_sub(decrement);
     }
   }
 }
@@ -577,6 +577,44 @@ mod tests {
     stxt2.scroll_up(1);
     // no overflow past (0)
     assert_eq!(stxt2.offset, 0);
+  }
+
+  #[test]
+  fn test_scrollable_txt_beyond_u16_max() {
+    let line_count = u16::MAX as usize + 100; // 65635 lines
+    let lines: Vec<String> = (0..line_count).map(|i| format!("line {}", i)).collect();
+    let mut stxt = ScrollableTxt::with_string(lines.join("\n"));
+
+    assert_eq!(stxt.items.len(), line_count);
+    assert_eq!(stxt.offset, 0);
+
+    // Scroll down past u16::MAX in large steps — should not wrap or panic
+    let target = line_count.saturating_sub(3); // max reachable offset (len - 1 - 2)
+    for _ in 0..(target / 1000) {
+      stxt.scroll_down(1000);
+    }
+    // Finish off with single increments to reach the cap
+    for _ in 0..1000 {
+      stxt.scroll_down(1);
+    }
+
+    // Offset must be beyond what u16 could hold and must not have wrapped
+    assert!(
+      stxt.offset > u16::MAX as usize,
+      "offset {} should exceed u16::MAX (65535)",
+      stxt.offset
+    );
+    // Must be capped at items.len() - 3  (the scroll_down guard: len - increment - 2 where increment=1)
+    assert!(stxt.offset <= target, "offset {} should be at most {}", stxt.offset, target);
+
+    // Scroll back up past u16::MAX boundary — should not wrap or panic
+    for _ in 0..(stxt.offset / 1000) {
+      stxt.scroll_up(1000);
+    }
+    for _ in 0..1000 {
+      stxt.scroll_up(1);
+    }
+    assert_eq!(stxt.offset, 0);
   }
 
   #[test]

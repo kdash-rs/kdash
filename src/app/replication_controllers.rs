@@ -134,6 +134,7 @@ impl AppResource for ReplicationControllerResource {
 }
 
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
+  let is_loading = app.is_loading();
   let title = get_resource_title(app, RPL_CTRL_TITLE, "", app.data.rpl_ctrls.items.len());
 
   draw_resource_block(
@@ -181,7 +182,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       .style(style_primary(app.light_theme))
     },
     app.light_theme,
-    app.is_loading,
+    is_loading,
     app.data.selected.filter.to_owned(),
   );
 }

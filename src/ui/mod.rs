@@ -88,7 +88,7 @@ fn draw_app_title(f: &mut Frame<'_>, app: &App, area: Rect) {
   let text = format!(
     "v{} with ♥ in Rust {} ",
     env!("CARGO_PKG_VERSION"),
-    nw_loading_indicator(app.is_loading)
+    nw_loading_indicator(app.is_loading())
   );
 
   let meta = Paragraph::new(Span::styled(text, style_header_text(app.light_theme)))

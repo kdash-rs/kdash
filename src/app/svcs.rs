@@ -114,6 +114,7 @@ impl AppResource for SvcResource {
 }
 
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
+  let is_loading = app.is_loading();
   let title = get_resource_title(app, SERVICES_TITLE, "", app.data.services.items.len());
 
   draw_resource_block(
@@ -155,7 +156,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       .style(style_primary(app.light_theme))
     },
     app.light_theme,
-    app.is_loading,
+    is_loading,
     app.data.selected.filter.to_owned(),
   );
 }
@@ -185,34 +186,29 @@ fn get_ports(s_ports: &Option<Vec<ServicePort>>) -> Option<String> {
 fn get_lb_ext_ips(service: &Service, external_ips: Option<Vec<String>>) -> Option<Vec<String>> {
   let mut lb_ips = match &service.status {
     Some(ss) => match &ss.load_balancer {
-      Some(lb) => {
-        let ing = &lb.ingress;
-        ing
-          .clone()
-          .unwrap_or_default()
-          .iter()
-          .map(|lb_ing| {
-            if lb_ing.ip.is_some() {
-              lb_ing.ip.clone().unwrap_or_default()
-            } else if lb_ing.hostname.is_some() {
-              lb_ing.hostname.clone().unwrap_or_default()
-            } else {
-              String::default()
-            }
-          })
-          .collect::<Vec<String>>()
-      }
+      Some(lb) => lb
+        .ingress
+        .as_ref()
+        .map(|ingresses| {
+          ingresses
+            .iter()
+            .filter_map(|lb_ing| lb_ing.ip.clone().or_else(|| lb_ing.hostname.clone()))
+            .collect::<Vec<String>>()
+        })
+        .unwrap_or_default(),
       None => vec![],
     },
     None => vec![],
   };
-  if external_ips.is_none() && !lb_ips.is_empty() {
-    lb_ips.extend(external_ips.unwrap_or_default());
-    Some(lb_ips)
-  } else if !lb_ips.is_empty() {
-    Some(lb_ips)
-  } else {
+
+  if let Some(ext_ips) = external_ips {
+    lb_ips.extend(ext_ips);
+  }
+
+  if lb_ips.is_empty() {
     Some(vec!["<pending>".into()])
+  } else {
+    Some(lb_ips)
   }
 }
 
@@ -220,6 +216,10 @@ fn get_lb_ext_ips(service: &Service, external_ips: Option<Vec<String>>) -> Optio
 mod tests {
   use super::*;
   use crate::app::test_utils::*;
+  use k8s_openapi::api::core::v1::{
+    LoadBalancerIngress, LoadBalancerStatus, ServiceSpec, ServiceStatus,
+  };
+  use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 
   #[test]
   fn test_services_from_api() {
@@ -291,5 +291,76 @@ mod tests {
         ports: "http:80►30723 https:443►31954".into(),
       }
     );
+  }
+
+  /// Helper to create a Service with optional LB ingress IPs in its status.
+  fn make_lb_service(ingress_ips: Option<Vec<&str>>) -> Service {
+    let lb_status = ingress_ips.map(|ips| LoadBalancerStatus {
+      ingress: Some(
+        ips
+          .into_iter()
+          .map(|ip| LoadBalancerIngress {
+            ip: Some(ip.to_string()),
+            hostname: None,
+            ports: None,
+            ip_mode: None,
+          })
+          .collect(),
+      ),
+    });
+
+    Service {
+      metadata: ObjectMeta::default(),
+      spec: Some(ServiceSpec {
+        type_: Some("LoadBalancer".into()),
+        ..Default::default()
+      }),
+      status: Some(ServiceStatus {
+        load_balancer: lb_status,
+        ..Default::default()
+      }),
+    }
+  }
+
+  #[test]
+  fn test_get_lb_ext_ips_both_lb_and_external() {
+    let svc = make_lb_service(Some(vec!["10.0.0.1", "10.0.0.2"]));
+    let external = Some(vec!["203.0.113.1".to_string()]);
+
+    let result = get_lb_ext_ips(&svc, external);
+    let ips = result.unwrap();
+
+    assert_eq!(ips, vec!["10.0.0.1", "10.0.0.2", "203.0.113.1"]);
+  }
+
+  #[test]
+  fn test_get_lb_ext_ips_lb_only() {
+    let svc = make_lb_service(Some(vec!["10.0.0.1"]));
+
+    let result = get_lb_ext_ips(&svc, None);
+    let ips = result.unwrap();
+
+    assert_eq!(ips, vec!["10.0.0.1"]);
+  }
+
+  #[test]
+  fn test_get_lb_ext_ips_external_only() {
+    let svc = make_lb_service(None);
+    let external = Some(vec!["203.0.113.5".to_string()]);
+
+    let result = get_lb_ext_ips(&svc, external);
+    let ips = result.unwrap();
+
+    assert_eq!(ips, vec!["203.0.113.5"]);
+  }
+
+  #[test]
+  fn test_get_lb_ext_ips_neither() {
+    let svc = make_lb_service(None);
+
+    let result = get_lb_ext_ips(&svc, None);
+    let ips = result.unwrap();
+
+    assert_eq!(ips, vec!["<pending>"]);
   }
 }

@@ -109,7 +109,7 @@ impl AppResource for ContextResource {
 
       f.render_stateful_widget(table, area, &mut app.data.contexts.state);
     } else {
-      loading(f, block, area, app.is_loading, app.light_theme);
+      loading(f, block, area, app.is_loading(), app.light_theme);
     }
   }
 

@@ -65,6 +65,8 @@ use super::{
   network::{stream::IoStreamEvent, IoEvent},
 };
 
+const MAX_NAV_STACK: usize = 128;
+
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub enum ActiveBlock {
   Help,
@@ -203,7 +205,7 @@ pub struct App {
   pub dynamic_resources_menu: StatefulList<(String, ActiveBlock)>,
   pub show_info_bar: bool,
   pub show_filter_bar: bool,
-  pub is_loading: bool,
+  loading_counter: u32,
   pub is_streaming: bool,
   pub is_routing: bool,
   pub tick_until_poll: u64,
@@ -416,7 +418,7 @@ impl Default for App {
       dynamic_resources_menu: StatefulList::new(),
       show_info_bar: true,
       show_filter_bar: false,
-      is_loading: false,
+      loading_counter: 0,
       is_streaming: false,
       is_routing: false,
       tick_until_poll: 0,
@@ -464,7 +466,16 @@ impl App {
     }
   }
 
+  pub fn is_loading(&self) -> bool {
+    self.loading_counter > 0
+  }
+
+  pub fn loading_complete(&mut self) {
+    self.loading_counter = self.loading_counter.saturating_sub(1);
+  }
+
   pub fn reset(&mut self) {
+    self.loading_counter = 0;
     self.tick_count = 0;
     self.api_error = String::new();
     self.data = Data::default();
@@ -473,11 +484,11 @@ impl App {
 
   // Send a network event to the network thread
   pub async fn dispatch(&mut self, action: IoEvent) {
-    // `is_loading` will be set to false again after the async action has finished in network/mod.rs
-    self.is_loading = true;
+    // `loading_counter` will be decremented after the async action has finished in network/mod.rs
+    self.loading_counter += 1;
     if let Some(io_tx) = &self.io_tx {
       if let Err(e) = io_tx.send(action).await {
-        self.is_loading = false;
+        self.loading_counter = self.loading_counter.saturating_sub(1);
         self.handle_error(anyhow!(e));
       };
     }
@@ -485,11 +496,11 @@ impl App {
 
   // Send a stream event to the stream network thread
   pub async fn dispatch_stream(&mut self, action: IoStreamEvent) {
-    // `is_loading` will be set to false again after the async action has finished in network/stream.rs
-    self.is_loading = true;
+    // `loading_counter` will be decremented after the async action has finished in network/stream.rs
+    self.loading_counter += 1;
     if let Some(io_stream_tx) = &self.io_stream_tx {
       if let Err(e) = io_stream_tx.send(action).await {
-        self.is_loading = false;
+        self.loading_counter = self.loading_counter.saturating_sub(1);
         self.handle_error(anyhow!(e));
       };
     }
@@ -497,11 +508,11 @@ impl App {
 
   // Send a cmd event to the cmd runner thread
   pub async fn dispatch_cmd(&mut self, action: IoCmdEvent) {
-    // `is_loading` will be set to false again after the async action has finished in network/stream.rs
-    self.is_loading = true;
+    // `loading_counter` will be decremented after the async action has finished in cmd/mod.rs
+    self.loading_counter += 1;
     if let Some(io_cmd_tx) = &self.io_cmd_tx {
       if let Err(e) = io_cmd_tx.send(action).await {
-        self.is_loading = false;
+        self.loading_counter = self.loading_counter.saturating_sub(1);
         self.handle_error(anyhow!(e));
       };
     }
@@ -529,6 +540,9 @@ impl App {
 
   pub fn push_navigation_route(&mut self, route: Route) {
     self.navigation_stack.push(route);
+    if self.navigation_stack.len() > MAX_NAV_STACK {
+      self.navigation_stack.drain(..self.navigation_stack.len() - MAX_NAV_STACK);
+    }
     self.is_routing = true;
   }
 
@@ -997,5 +1011,38 @@ mod tests {
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetServices);
     assert_eq!(sync_io_cmd_rx.recv().await.unwrap(), IoCmdEvent::GetCliInfo);
+  }
+
+  #[test]
+  fn test_navigation_stack_cap() {
+    let mut app = App::default();
+    // Push more than MAX_NAV_STACK routes
+    for _i in 0..150 {
+      app.push_navigation_stack(RouteId::Home, ActiveBlock::Pods);
+    }
+    // Stack should be capped at MAX_NAV_STACK
+    assert!(app.navigation_stack.len() <= MAX_NAV_STACK);
+    // Current route should still be the most recently pushed
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Pods);
+  }
+
+  #[test]
+  fn test_navigation_stack_within_cap() {
+    let mut app = App::default();
+    // Push fewer than cap - default already has 1 route
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Services);
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Pods);
+    assert_eq!(app.navigation_stack.len(), 3); // 1 default + 2 pushed
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Pods);
+    // Pop should work normally
+    let popped = app.pop_navigation_stack();
+    assert!(popped.is_some());
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Services);
+  }
+
+  #[test]
+  fn test_loading_counter_default() {
+    let app = App::default();
+    assert!(!app.is_loading());
   }
 }

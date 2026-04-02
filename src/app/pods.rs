@@ -219,6 +219,7 @@ impl AppResource for PodResource {
 }
 
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
+  let is_loading = app.is_loading();
   let title = get_resource_title(app, PODS_TITLE, "", app.data.pods.items.len());
 
   draw_resource_block(
@@ -251,12 +252,13 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       .style(style)
     },
     app.light_theme,
-    app.is_loading,
+    is_loading,
     app.data.selected.filter.to_owned(),
   );
 }
 
 fn draw_containers_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
+  let is_loading = app.is_loading();
   let title = get_container_title(app, app.data.containers.items.len(), "");
 
   draw_resource_block(
@@ -305,7 +307,7 @@ fn draw_containers_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       .style(style)
     },
     app.light_theme,
-    app.is_loading,
+    is_loading,
     app.data.selected.filter.to_owned(),
   );
 }
@@ -345,7 +347,7 @@ fn draw_logs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       app.log_auto_scroll,
     );
   } else {
-    loading(f, block, area, app.is_loading, app.light_theme);
+    loading(f, block, area, app.is_loading(), app.light_theme);
   }
 }
 

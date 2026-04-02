@@ -103,6 +103,7 @@ impl AppResource for NetworkPolicyResource {
 }
 
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
+  let is_loading = app.is_loading();
   let title = get_resource_title(app, NW_POLICY_TITLE, "", app.data.nw_policies.items.len());
 
   draw_resource_block(
@@ -132,7 +133,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       .style(style_primary(app.light_theme))
     },
     app.light_theme,
-    app.is_loading,
+    is_loading,
     app.data.selected.filter.to_owned(),
   );
 }

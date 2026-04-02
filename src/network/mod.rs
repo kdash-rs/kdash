@@ -243,7 +243,7 @@ impl<'a> Network<'a> {
     };
 
     let mut app = self.app.lock().await;
-    app.is_loading = false;
+    app.loading_complete();
   }
 
   pub async fn handle_error(&self, e: anyhow::Error) {

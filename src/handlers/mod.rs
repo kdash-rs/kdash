@@ -291,12 +291,12 @@ async fn handle_route_events(key: Key, app: &mut App) {
           if key == DEFAULT_KEYBINDING.log_auto_scroll.key {
             app.log_auto_scroll = !app.log_auto_scroll;
           } else if key == DEFAULT_KEYBINDING.copy_to_clipboard.key {
-            copy_to_clipboard(app.data.logs.get_plain_text(), app);
+            copy_to_clipboard(app.data.logs.get_plain_text());
           }
         }
         ActiveBlock::Describe | ActiveBlock::Yaml => {
           if key == DEFAULT_KEYBINDING.copy_to_clipboard.key {
-            copy_to_clipboard(app.data.describe_out.get_txt(), app);
+            copy_to_clipboard(app.data.describe_out.get_txt());
           }
         }
         ActiveBlock::Services => {
@@ -738,22 +738,23 @@ async fn handle_block_scroll(app: &mut App, up: bool, is_mouse: bool, page: bool
   }
 }
 
-fn copy_to_clipboard(content: String, app: &mut App) {
+fn copy_to_clipboard(content: String) {
   use std::thread;
 
-  use anyhow::anyhow;
-  use copypasta::{ClipboardContext, ClipboardProvider};
+  thread::spawn(move || {
+    use copypasta::{ClipboardContext, ClipboardProvider};
 
-  match ClipboardContext::new() {
-    Ok(mut ctx) => match ctx.set_contents(content) {
-      // without this sleep the clipboard is not set in some OSes
-      Ok(_) => thread::sleep(std::time::Duration::from_millis(100)),
-      Err(_) => app.handle_error(anyhow!("Unable to set clipboard contents".to_string())),
-    },
-    Err(err) => {
-      app.handle_error(anyhow!("Unable to obtain clipboard: {}", err));
-    }
-  };
+    match ClipboardContext::new() {
+      Ok(mut ctx) => match ctx.set_contents(content) {
+        // without this sleep the clipboard is not set in some OSes
+        Ok(_) => thread::sleep(std::time::Duration::from_millis(100)),
+        Err(e) => log::error!("Unable to set clipboard contents: {}", e),
+      },
+      Err(err) => {
+        log::error!("Unable to obtain clipboard: {}", err);
+      }
+    };
+  });
 }
 
 /// inverse direction for natural scrolling on mouse and keyboard

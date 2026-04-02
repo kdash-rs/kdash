@@ -167,7 +167,7 @@ impl AppResource for UtilizationResource {
 
       f.render_stateful_widget(table, area, &mut app.data.metrics.state);
     } else {
-      loading(f, block, area, app.is_loading, app.light_theme);
+      loading(f, block, area, app.is_loading(), app.light_theme);
     }
   }
 

@@ -102,6 +102,7 @@ impl AppResource for RoleResource {
 }
 
 fn draw_roles_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
+  let is_loading = app.is_loading();
   let title = get_resource_title(app, ROLES_TITLE, "", app.data.roles.items.len());
 
   draw_resource_block(
@@ -127,7 +128,7 @@ fn draw_roles_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       .style(style_primary(app.light_theme))
     },
     app.light_theme,
-    app.is_loading,
+    is_loading,
     app.data.selected.filter.to_owned(),
   );
 }
@@ -182,6 +183,7 @@ impl AppResource for ClusterRoleResource {
 }
 
 fn draw_cluster_roles_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
+  let is_loading = app.is_loading();
   let title = get_resource_title(
     app,
     CLUSTER_ROLES_TITLE,
@@ -207,7 +209,7 @@ fn draw_cluster_roles_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       .style(style_primary(app.light_theme))
     },
     app.light_theme,
-    app.is_loading,
+    is_loading,
     app.data.selected.filter.to_owned(),
   );
 }
@@ -263,6 +265,7 @@ impl AppResource for RoleBindingResource {
 }
 
 fn draw_role_bindings_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
+  let is_loading = app.is_loading();
   let title = get_resource_title(
     app,
     ROLE_BINDINGS_TITLE,
@@ -295,7 +298,7 @@ fn draw_role_bindings_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       .style(style_primary(app.light_theme))
     },
     app.light_theme,
-    app.is_loading,
+    is_loading,
     app.data.selected.filter.to_owned(),
   );
 }
@@ -348,6 +351,7 @@ impl AppResource for ClusterRoleBindingResource {
 }
 
 fn draw_cluster_role_binding_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
+  let is_loading = app.is_loading();
   let title = get_resource_title(
     app,
     CLUSTER_ROLES_BINDING_TITLE,
@@ -378,7 +382,7 @@ fn draw_cluster_role_binding_block(f: &mut Frame<'_>, app: &mut App, area: Rect)
       .style(style_primary(app.light_theme))
     },
     app.light_theme,
-    app.is_loading,
+    is_loading,
     app.data.selected.filter.to_owned(),
   );
 }

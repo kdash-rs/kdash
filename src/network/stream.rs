@@ -56,7 +56,7 @@ impl<'a> NetworkStream<'a> {
     };
 
     let mut app = self.app.lock().await;
-    app.is_loading = false;
+    app.loading_complete();
   }
 
   async fn handle_error(&self, e: anyhow::Error) {

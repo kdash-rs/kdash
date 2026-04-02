@@ -279,6 +279,7 @@ async fn get_node_metrics(nw: &Network<'_>) {
 }
 
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
+  let is_loading = app.is_loading();
   let title = get_cluster_wide_resource_title(NODES_TITLE, app.data.nodes.items.len(), "");
 
   draw_resource_block(
@@ -330,7 +331,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       .style(style)
     },
     app.light_theme,
-    app.is_loading,
+    is_loading,
     app.data.selected.filter.to_owned(),
   );
 }
