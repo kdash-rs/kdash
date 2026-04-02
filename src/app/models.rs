@@ -249,6 +249,8 @@ impl Scrollable for ScrollableTxt {
 }
 
 // TODO implement line buffer to avoid gathering too much data in memory
+const MAX_LOG_RECORDS: usize = 10_000;
+
 #[derive(Debug, Clone)]
 pub struct LogsState {
   /// Stores the log messages to be displayed
@@ -365,6 +367,9 @@ impl LogsState {
   /// Add a record to be displayed
   pub fn add_record(&mut self, record: String) {
     self.records.push_back((record, None));
+    while self.records.len() > MAX_LOG_RECORDS {
+      self.records.pop_front();
+    }
   }
 
   fn unselect(&mut self) {
@@ -685,5 +690,25 @@ mod tests {
     }
 
     terminal.backend().assert_buffer(&expected5);
+  }
+
+  #[test]
+  fn test_logs_state_bounded() {
+    let mut log = LogsState::new("bounded".into());
+
+    // Add more than MAX_LOG_RECORDS entries
+    for i in 0..MAX_LOG_RECORDS + 100 {
+      log.add_record(format!("record {}", i));
+    }
+
+    // Should be capped at MAX_LOG_RECORDS
+    assert_eq!(log.records.len(), MAX_LOG_RECORDS);
+
+    // Oldest records should have been evicted — first record should be 100
+    assert_eq!(log.records.front().unwrap().0, "record 100");
+    assert_eq!(
+      log.records.back().unwrap().0,
+      format!("record {}", MAX_LOG_RECORDS + 99)
+    );
   }
 }

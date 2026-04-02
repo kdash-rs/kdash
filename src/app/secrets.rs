@@ -45,7 +45,7 @@ impl KubeSecret {
     for (key_name, encoded_bytes) in self.data.iter() {
       let decoded_str = match serde_yaml::to_string(encoded_bytes) {
         Ok(encoded_str) => match general_purpose::STANDARD.decode(encoded_str.trim()) {
-          Ok(decoded_bytes) => String::from_utf8(decoded_bytes).unwrap(),
+          Ok(decoded_bytes) => String::from_utf8_lossy(&decoded_bytes).into_owned(),
           Err(_) => format!("cannot decode value: {}", encoded_str.trim()),
         },
         Err(_) => String::from("cannot deserialize value"),

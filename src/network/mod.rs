@@ -9,7 +9,7 @@ use kube::{
   api::ListParams, config::Kubeconfig, discovery::verbs, Api, Client, Discovery,
   Resource as ApiResource,
 };
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use serde::de::DeserializeOwned;
 use tokio::sync::Mutex;
 
@@ -95,7 +95,7 @@ async fn refresh_kube_config(context: &Option<String>) -> Result<kube::Client> {
 }
 
 pub async fn get_client(context: Option<String>) -> Result<kube::Client> {
-  info!("env KUBECONFIG: {:?}", std::env::var_os("KUBECONFIG"));
+  debug!("env KUBECONFIG: {:?}", std::env::var_os("KUBECONFIG"));
   let client_config = match context.as_ref() {
     Some(context) => {
       info!("Getting kubernetes client. Context: {}", context);
@@ -110,7 +110,8 @@ pub async fn get_client(context: Option<String>) -> Result<kube::Client> {
       kube::Config::infer().await?
     }
   };
-  info!("Kubernetes client config: {:?}", client_config);
+  debug!("Kubernetes client config: {:?}", client_config);
+  info!("Kubernetes client connected");
   Ok(kube::Client::try_from(client_config)?)
 }
 
@@ -254,7 +255,8 @@ impl<'a> Network<'a> {
   pub async fn get_kube_config(&self) {
     match Kubeconfig::read() {
       Ok(config) => {
-        info!("Using Kubeconfig: {:?}", config);
+        info!("Using Kubeconfig");
+        debug!("Kubeconfig: {:?}", config);
         let mut app = self.app.lock().await;
         let selected_ctx = app.data.selected.context.to_owned();
         app.set_contexts(contexts::get_contexts(&config, selected_ctx));

@@ -136,6 +136,33 @@ impl<'a> CmdRunner<'a> {
 
   // TODO temp solution, should build this from API response
   async fn get_describe(&self, kind: String, value: String, ns: Option<String>) {
+    // Validate arguments to prevent unexpected kubectl behavior
+    fn is_valid_arg(s: &str) -> bool {
+      !s.contains('\n')
+        && !s.contains('\r')
+        && !s.contains('\0')
+        && !s.contains(';')
+        && !s.contains('|')
+        && !s.contains('&')
+        && !s.contains('`')
+        && !s.contains('$')
+    }
+
+    if !is_valid_arg(&kind) || !is_valid_arg(&value) {
+      self
+        .handle_error(anyhow!("Invalid characters in resource kind or name"))
+        .await;
+      return;
+    }
+    if let Some(ref ns) = ns {
+      if !is_valid_arg(ns) {
+        self
+          .handle_error(anyhow!("Invalid characters in namespace"))
+          .await;
+        return;
+      }
+    }
+
     let mut args = vec!["describe", kind.as_str(), value.as_str()];
 
     if let Some(ns) = ns.as_ref() {
