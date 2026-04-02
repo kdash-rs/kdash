@@ -184,4 +184,62 @@ mod tests {
       }
     );
   }
+
+  #[test]
+  fn test_decode_secret_valid_utf8() {
+    // Secrets with valid UTF-8 values should decode correctly
+    let secret = KubeSecret {
+      name: "my-secret".into(),
+      namespace: "default".into(),
+      type_: "Opaque".into(),
+      data: map_string_object! {
+        "username" => ByteString("admin".as_bytes().into())
+      },
+      age: String::new(),
+      k8s_obj: Secret::default(),
+    };
+
+    let decoded = secret.decode_secret();
+    assert!(decoded.contains("Name:         my-secret"));
+    assert!(decoded.contains("Namespace:    default"));
+    assert!(decoded.contains("username:"));
+  }
+
+  #[test]
+  fn test_decode_secret_non_utf8_binary() {
+    // Secrets containing non-UTF8 binary data should not panic (uses from_utf8_lossy)
+    let binary_data: Vec<u8> = vec![0xFF, 0xFE, 0x00, 0x01, 0x80, 0x90];
+    let secret = KubeSecret {
+      name: "binary-secret".into(),
+      namespace: "default".into(),
+      type_: "Opaque".into(),
+      data: map_string_object! {
+        "binary-key" => ByteString(binary_data)
+      },
+      age: String::new(),
+      k8s_obj: Secret::default(),
+    };
+
+    // This should not panic — from_utf8_lossy replaces invalid bytes with U+FFFD
+    let decoded = secret.decode_secret();
+    assert!(decoded.contains("binary-key:"));
+    assert!(decoded.contains("Name:         binary-secret"));
+  }
+
+  #[test]
+  fn test_decode_secret_empty_data() {
+    let secret = KubeSecret {
+      name: "empty-secret".into(),
+      namespace: "test-ns".into(),
+      type_: "Opaque".into(),
+      data: BTreeMap::new(),
+      age: String::new(),
+      k8s_obj: Secret::default(),
+    };
+
+    let decoded = secret.decode_secret();
+    assert!(decoded.contains("Name:         empty-secret"));
+    assert!(decoded.contains("Namespace:    test-ns"));
+    assert!(decoded.contains("Data\n===="));
+  }
 }

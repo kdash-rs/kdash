@@ -110,3 +110,50 @@ fn handle_key_event(event_tx: &mpsc::Sender<Event<KeyEvent, MouseEvent>>, key_ev
 fn handle_key_event(event_tx: &mpsc::Sender<Event<KeyEvent, MouseEvent>>, key_event: KeyEvent) {
   let _ = event_tx.send(Event::Input(key_event));
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn test_events_produces_tick() {
+    // Events should produce at least one Tick within a reasonable time
+    let events = Events::new(50); // 50ms tick rate
+    match events.next() {
+      Ok(Event::Tick) => {} // expected
+      Ok(Event::Input(_)) => {} // possible if terminal sends something
+      Ok(Event::MouseInput(_)) => {} // possible
+      Err(e) => panic!("Events::next() returned error: {:?}", e),
+    }
+  }
+
+  #[test]
+  fn test_events_receiver_drop_stops_sender() {
+    // Create events, then drop the Events struct — the sender thread should exit gracefully
+    let events = Events::new(50);
+    // Get one event to ensure the thread is running
+    let _ = events.next();
+    // Drop events — the thread should detect the receiver is gone and break
+    drop(events);
+    // If this test completes without hanging, the thread exited properly
+  }
+
+  #[test]
+  fn test_handle_key_event_send_failure() {
+    // When the receiver is dropped, handle_key_event should not panic
+    let (tx, rx) = mpsc::channel();
+    drop(rx); // drop receiver immediately
+    let key_event = KeyEvent::new(
+      crossterm::event::KeyCode::Char('a'),
+      crossterm::event::KeyModifiers::NONE,
+    );
+    // This should not panic — uses `let _ = send()`
+    handle_key_event(&tx, key_event);
+  }
+
+  #[test]
+  fn test_event_config_default() {
+    let config = EventConfig::default();
+    assert_eq!(config.tick_rate, std::time::Duration::from_millis(250));
+  }
+}

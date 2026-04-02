@@ -921,4 +921,53 @@ mod tests {
     assert!(!app.is_routing);
     assert_eq!(app.tick_count, 3);
   }
+
+  #[tokio::test]
+  async fn test_on_tick_no_poll_non_refresh() {
+    // When tick_count is not a multiple of tick_until_poll and refresh=false,
+    // no IO events should be dispatched (lazy loading: only fetch when needed)
+    let (sync_io_tx, mut sync_io_rx) = mpsc::channel::<IoEvent>(500);
+
+    let mut app = App {
+      tick_until_poll: 5,
+      tick_count: 3, // 3 % 5 != 0, so no polling
+      refresh: false,
+      is_routing: false,
+      io_tx: Some(sync_io_tx),
+      ..App::default()
+    };
+
+    app.on_tick(false).await;
+
+    // No IO events should have been dispatched
+    assert!(sync_io_rx.try_recv().is_err());
+    assert_eq!(app.tick_count, 4);
+  }
+
+  #[tokio::test]
+  async fn test_on_tick_dispatch_by_active_block() {
+    // Verify that on polling tick, the active block's resource is fetched
+    let (sync_io_tx, mut sync_io_rx) = mpsc::channel::<IoEvent>(500);
+    let (sync_io_cmd_tx, mut sync_io_cmd_rx) = mpsc::channel::<IoCmdEvent>(500);
+
+    let mut app = App {
+      tick_until_poll: 1, // poll every tick
+      tick_count: 0,
+      refresh: false,
+      io_tx: Some(sync_io_tx),
+      io_cmd_tx: Some(sync_io_cmd_tx),
+      ..App::default()
+    };
+
+    // Navigate to Services tab
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Services);
+
+    app.on_tick(false).await;
+
+    // Should dispatch: GetNamespaces, GetNodes (always), then GetServices (active block)
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetServices);
+    assert_eq!(sync_io_cmd_rx.recv().await.unwrap(), IoCmdEvent::GetCliInfo);
+  }
 }

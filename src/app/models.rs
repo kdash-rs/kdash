@@ -711,4 +711,56 @@ mod tests {
       format!("record {}", MAX_LOG_RECORDS + 99)
     );
   }
+
+  #[test]
+  fn test_logs_state_bounded_exactly_at_limit() {
+    let mut log = LogsState::new("exact".into());
+
+    // Add exactly MAX_LOG_RECORDS entries — no eviction should occur
+    for i in 0..MAX_LOG_RECORDS {
+      log.add_record(format!("record {}", i));
+    }
+
+    assert_eq!(log.records.len(), MAX_LOG_RECORDS);
+    assert_eq!(log.records.front().unwrap().0, "record 0");
+    assert_eq!(
+      log.records.back().unwrap().0,
+      format!("record {}", MAX_LOG_RECORDS - 1)
+    );
+  }
+
+  #[test]
+  fn test_logs_state_bounded_one_over() {
+    let mut log = LogsState::new("one_over".into());
+
+    for i in 0..MAX_LOG_RECORDS + 1 {
+      log.add_record(format!("record {}", i));
+    }
+
+    assert_eq!(log.records.len(), MAX_LOG_RECORDS);
+    // First record should be evicted
+    assert_eq!(log.records.front().unwrap().0, "record 1");
+    assert_eq!(
+      log.records.back().unwrap().0,
+      format!("record {}", MAX_LOG_RECORDS)
+    );
+  }
+
+  #[test]
+  fn test_logs_state_empty() {
+    let log = LogsState::new("empty".into());
+    assert_eq!(log.records.len(), 0);
+    assert_eq!(log.get_plain_text(), "");
+  }
+
+  #[test]
+  fn test_logs_state_plain_text_preserves_order() {
+    let mut log = LogsState::new("text".into());
+    log.add_record("first".into());
+    log.add_record("second".into());
+    log.add_record("third".into());
+
+    let text = log.get_plain_text();
+    assert_eq!(text, "\nfirst\nsecond\nthird");
+  }
 }

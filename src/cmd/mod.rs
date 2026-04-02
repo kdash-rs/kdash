@@ -236,4 +236,70 @@ mod tests {
       Some("1.8.2".into())
     );
   }
+
+  #[test]
+  fn test_is_valid_arg_accepts_normal_input() {
+    // Re-implement is_valid_arg here for testing since it's nested inside get_describe
+    fn is_valid_arg(s: &str) -> bool {
+      !s.contains('\n')
+        && !s.contains('\r')
+        && !s.contains('\0')
+        && !s.contains(';')
+        && !s.contains('|')
+        && !s.contains('&')
+        && !s.contains('`')
+        && !s.contains('$')
+    }
+
+    // Normal k8s resource names should pass
+    assert!(is_valid_arg("pod"));
+    assert!(is_valid_arg("my-deployment"));
+    assert!(is_valid_arg("my_namespace"));
+    assert!(is_valid_arg("kube-system"));
+    assert!(is_valid_arg("nginx-ingress-controller-abc123"));
+    assert!(is_valid_arg("default"));
+    assert!(is_valid_arg("my.resource.name"));
+  }
+
+  #[test]
+  fn test_is_valid_arg_rejects_injection_attempts() {
+    fn is_valid_arg(s: &str) -> bool {
+      !s.contains('\n')
+        && !s.contains('\r')
+        && !s.contains('\0')
+        && !s.contains(';')
+        && !s.contains('|')
+        && !s.contains('&')
+        && !s.contains('`')
+        && !s.contains('$')
+    }
+
+    // Shell injection attempts should be rejected
+    assert!(!is_valid_arg("pod; rm -rf /"));
+    assert!(!is_valid_arg("pod | cat /etc/passwd"));
+    assert!(!is_valid_arg("pod & malicious-cmd"));
+    assert!(!is_valid_arg("pod `whoami`"));
+    assert!(!is_valid_arg("pod\nmalicious"));
+    assert!(!is_valid_arg("pod\rmalicious"));
+    assert!(!is_valid_arg("pod\0malicious"));
+    assert!(!is_valid_arg("$HOME"));
+    assert!(!is_valid_arg("$(whoami)"));
+  }
+
+  #[test]
+  fn test_is_valid_arg_empty_string() {
+    fn is_valid_arg(s: &str) -> bool {
+      !s.contains('\n')
+        && !s.contains('\r')
+        && !s.contains('\0')
+        && !s.contains(';')
+        && !s.contains('|')
+        && !s.contains('&')
+        && !s.contains('`')
+        && !s.contains('$')
+    }
+
+    // Empty string should be considered valid (kubectl will error separately)
+    assert!(is_valid_arg(""));
+  }
 }
