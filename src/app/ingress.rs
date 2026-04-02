@@ -95,9 +95,9 @@ fn format_backend(backend: &Option<IngressBackend>) -> String {
             if let Some(name) = &port.name {
               format!("{}:{}", service.name, name)
             } else if let Some(number) = &port.number {
-              return format!("{}:{}", service.name, number);
+              format!("{}:{}", service.name, number)
             } else {
-              return String::default();
+              String::default()
             }
           }
           None => String::default(),

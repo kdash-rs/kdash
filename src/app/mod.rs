@@ -709,7 +709,7 @@ impl App {
       self.refresh = false;
     }
     // make network requests only in intervals to avoid hogging up the network
-    if self.tick_count % self.tick_until_poll == 0 || self.is_routing {
+    if self.tick_count.is_multiple_of(self.tick_until_poll) || self.is_routing {
       // make periodic network calls based on active route and active block to avoid hogging
       match self.get_current_route().id {
         RouteId::Home => {
