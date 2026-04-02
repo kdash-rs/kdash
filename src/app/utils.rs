@@ -1,7 +1,5 @@
-use k8s_openapi::{
-  apimachinery::pkg::apis::meta::v1::Time,
-  chrono::{DateTime, Duration, Utc},
-};
+use chrono::{DateTime, Duration, Utc};
+use k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
 use kube::{Resource, ResourceExt};
 
 pub fn sanitize_obj<K: Resource>(mut obj: K) -> K {
@@ -11,10 +9,16 @@ pub fn sanitize_obj<K: Resource>(mut obj: K) -> K {
 
 pub static UNKNOWN: &str = "Unknown";
 
+/// Convert a k8s-openapi `Time` (jiff::Timestamp) to a chrono `DateTime<Utc>`.
+fn time_to_chrono(time: &Time) -> DateTime<Utc> {
+  DateTime::from_timestamp(time.0.as_second(), time.0.subsec_nanosecond() as u32)
+    .unwrap_or_default()
+}
+
 pub fn to_age(timestamp: Option<&Time>, against: DateTime<Utc>) -> String {
   match timestamp {
     Some(time) => {
-      let time = time.0;
+      let time = time_to_chrono(time);
       let duration = against.signed_duration_since(time);
 
       duration_to_age(duration, false)
@@ -26,7 +30,7 @@ pub fn to_age(timestamp: Option<&Time>, against: DateTime<Utc>) -> String {
 pub fn to_age_secs(timestamp: Option<&Time>, against: DateTime<Utc>) -> String {
   match timestamp {
     Some(time) => {
-      let time = time.0;
+      let time = time_to_chrono(time);
       let duration = against.signed_duration_since(time);
 
       duration_to_age(duration, true)
@@ -118,10 +122,8 @@ pub fn convert_to_f64(s: &str) -> f64 {
 #[cfg(test)]
 #[allow(clippy::float_cmp)]
 mod tests {
-  use k8s_openapi::{
-    apimachinery::pkg::apis::meta::v1::Time,
-    chrono::{DateTime, Utc},
-  };
+  use chrono::{DateTime, Utc};
+  use k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
 
   #[test]
   fn test_mem_to_mi() {
@@ -160,8 +162,12 @@ mod tests {
     assert_eq!(cpu_to_milli(String::from("0")), String::from("0m"));
   }
 
+  fn chrono_to_jiff(dt: DateTime<Utc>) -> k8s_openapi::jiff::Timestamp {
+    k8s_openapi::jiff::Timestamp::from_second(dt.timestamp()).unwrap()
+  }
+
   fn get_time(s: &str) -> Time {
-    Time(to_utc(s))
+    Time(chrono_to_jiff(to_utc(s)))
   }
 
   fn to_utc(s: &str) -> DateTime<Utc> {
@@ -177,7 +183,7 @@ mod tests {
     use super::to_age_secs;
 
     assert_eq!(
-      to_age_secs(Some(&Time(Utc::now())), Utc::now()),
+      to_age_secs(Some(&Time(chrono_to_jiff(Utc::now()))), Utc::now()),
       String::from("0s")
     );
     assert_eq!(
@@ -287,7 +293,9 @@ mod tests {
     );
     assert_eq!(
       to_age_secs(
-        Some(&Time(DateTime::from(SystemTime::UNIX_EPOCH))),
+        Some(&Time(chrono_to_jiff(DateTime::from(
+          SystemTime::UNIX_EPOCH
+        )))),
         to_utc("15-4-2021 14:10:0")
       ),
       String::from("2676w14h")
@@ -300,7 +308,7 @@ mod tests {
     use super::to_age;
 
     assert_eq!(
-      to_age(Some(&Time(Utc::now())), Utc::now()),
+      to_age(Some(&Time(chrono_to_jiff(Utc::now()))), Utc::now()),
       String::from("0m")
     );
     assert_eq!(
@@ -396,7 +404,9 @@ mod tests {
     );
     assert_eq!(
       to_age(
-        Some(&Time(DateTime::from(SystemTime::UNIX_EPOCH))),
+        Some(&Time(chrono_to_jiff(DateTime::from(
+          SystemTime::UNIX_EPOCH
+        )))),
         to_utc("15-4-2021 14:10:0")
       ),
       String::from("2676w14h")

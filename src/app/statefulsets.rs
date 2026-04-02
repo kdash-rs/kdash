@@ -1,5 +1,6 @@
 use async_trait::async_trait;
-use k8s_openapi::{api::apps::v1::StatefulSet, chrono::Utc};
+use chrono::Utc;
+use k8s_openapi::api::apps::v1::StatefulSet;
 use ratatui::{
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
@@ -42,10 +43,9 @@ impl From<StatefulSet> for KubeStatefulSet {
       name: stfs.metadata.name.clone().unwrap_or_default(),
       namespace: stfs.metadata.namespace.clone().unwrap_or_default(),
       age: utils::to_age(stfs.metadata.creation_timestamp.as_ref(), Utc::now()),
-      service: stfs
-        .spec
-        .as_ref()
-        .map_or("n/a".into(), |spec| spec.service_name.to_owned()),
+      service: stfs.spec.as_ref().map_or("n/a".into(), |spec| {
+        spec.service_name.clone().unwrap_or_else(|| "n/a".into())
+      }),
       ready,
       k8s_obj: utils::sanitize_obj(stfs),
     }

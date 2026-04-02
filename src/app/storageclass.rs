@@ -1,5 +1,6 @@
 use async_trait::async_trait;
-use k8s_openapi::{api::storage::v1::StorageClass, chrono::Utc};
+use chrono::Utc;
+use k8s_openapi::api::storage::v1::StorageClass;
 use ratatui::{
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
@@ -138,7 +139,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
 
 #[cfg(test)]
 mod tests {
-  use k8s_openapi::chrono::Utc;
+  use chrono::Utc;
 
   use crate::app::{
     storageclass::KubeStorageClass,

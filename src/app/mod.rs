@@ -746,10 +746,8 @@ impl App {
 mod test_utils {
   use std::{fmt, fs};
 
-  use k8s_openapi::{
-    apimachinery::pkg::apis::meta::v1::Time,
-    chrono::{DateTime, Utc},
-  };
+  use chrono::{DateTime, Utc};
+  use k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
   use kube::{api::ObjectList, Resource};
   use serde::{de::DeserializeOwned, Serialize};
 
@@ -783,7 +781,8 @@ mod test_utils {
   }
 
   pub fn get_time(s: &str) -> Time {
-    Time(to_utc(s))
+    let dt = to_utc(s);
+    Time(k8s_openapi::jiff::Timestamp::from_second(dt.timestamp()).unwrap())
   }
 
   fn to_utc(s: &str) -> DateTime<Utc> {

@@ -1,4 +1,4 @@
-use rand::Rng;
+use rand::RngExt;
 mod help;
 mod overview;
 pub mod resource_tabs;
@@ -103,7 +103,7 @@ const FRAMES: &[&str] = &["⠋⠴", "⠦⠙", "⠏⠼", "⠧⠹", "⠯⠽"];
 
 fn nw_loading_indicator<'a>(loading: bool) -> &'a str {
   if loading {
-    FRAMES[rand::thread_rng().gen_range(0..FRAMES.len())]
+    FRAMES[rand::rng().random_range(0..FRAMES.len())]
   } else {
     ""
   }

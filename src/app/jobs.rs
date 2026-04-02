@@ -1,5 +1,6 @@
 use async_trait::async_trait;
-use k8s_openapi::{api::batch::v1::Job, chrono::Utc};
+use chrono::Utc;
+use k8s_openapi::api::batch::v1::Job;
 use ratatui::{
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
@@ -48,7 +49,9 @@ impl From<Job> for KubeJob {
       Some(stat) => match stat.start_time.as_ref() {
         Some(st) => match stat.completion_time.as_ref() {
           Some(ct) => {
-            let duration = ct.0.signed_duration_since(st.0);
+            let ct_secs = ct.0.as_second();
+            let st_secs = st.0.as_second();
+            let duration = chrono::Duration::seconds(ct_secs - st_secs);
             utils::duration_to_age(duration, true)
           }
           None => utils::to_age(stat.start_time.as_ref(), Utc::now()),

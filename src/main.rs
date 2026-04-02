@@ -18,6 +18,7 @@ use std::{
 use anyhow::{anyhow, Result};
 use app::App;
 use banner::BANNER;
+use chrono::{self};
 use clap::{builder::PossibleValuesParser, Parser};
 use cmd::{CmdRunner, IoCmdEvent};
 use crossterm::{
@@ -25,7 +26,6 @@ use crossterm::{
   terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use event::Key;
-use k8s_openapi::chrono::{self};
 use log::{info, warn, LevelFilter, SetLoggerError};
 use network::{
   get_client,
@@ -70,7 +70,8 @@ pub struct Cli {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-  openssl_probe::init_ssl_cert_env_vars();
+  // SAFETY: safe as this is called once at startup before spawning threads
+  unsafe { openssl_probe::try_init_openssl_env_vars() };
   panic::set_hook(Box::new(|info| {
     panic_hook(info);
   }));

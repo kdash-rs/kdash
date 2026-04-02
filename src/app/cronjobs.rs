@@ -1,5 +1,6 @@
 use async_trait::async_trait;
-use k8s_openapi::{api::batch::v1::CronJob, chrono::Utc};
+use chrono::Utc;
+use k8s_openapi::api::batch::v1::CronJob;
 use ratatui::{
   layout::{Constraint, Rect},
   widgets::{Cell, Row},

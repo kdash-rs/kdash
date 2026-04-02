@@ -1,7 +1,8 @@
 use std::vec;
 
 use async_trait::async_trait;
-use k8s_openapi::{api::networking::v1::NetworkPolicy, chrono::Utc};
+use chrono::Utc;
+use k8s_openapi::api::networking::v1::NetworkPolicy;
 use ratatui::{
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
@@ -37,7 +38,11 @@ impl From<NetworkPolicy> for KubeNetworkPolicy {
     let pod_selector = match &nw_policy.spec {
       Some(s) => {
         let mut pod_selector = vec![];
-        if let Some(match_labels) = &s.pod_selector.match_labels {
+        if let Some(match_labels) = s
+          .pod_selector
+          .as_ref()
+          .and_then(|ps| ps.match_labels.as_ref())
+        {
           for (k, v) in match_labels {
             pod_selector.push(format!("{}={}", k, v));
           }

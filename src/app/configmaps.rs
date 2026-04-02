@@ -1,7 +1,8 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
-use k8s_openapi::{api::core::v1::ConfigMap, chrono::Utc};
+use chrono::Utc;
+use k8s_openapi::api::core::v1::ConfigMap;
 use ratatui::{
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
@@ -114,7 +115,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
 
 #[cfg(test)]
 mod tests {
-  use k8s_openapi::chrono::Utc;
+  use chrono::Utc;
 
   use super::*;
   use crate::{app::test_utils::*, map_string_object};

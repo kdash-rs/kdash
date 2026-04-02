@@ -1,10 +1,8 @@
 use async_trait::async_trait;
-use k8s_openapi::{
-  api::core::v1::{
-    Container, ContainerPort, ContainerState, ContainerStateWaiting, ContainerStatus, Pod, PodSpec,
-    PodStatus,
-  },
-  chrono::Utc,
+use chrono::Utc;
+use k8s_openapi::api::core::v1::{
+  Container, ContainerPort, ContainerState, ContainerStateWaiting, ContainerStatus, Pod, PodSpec,
+  PodStatus,
 };
 use ratatui::{
   layout::{Constraint, Rect},

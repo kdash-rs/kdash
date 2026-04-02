@@ -9,7 +9,7 @@ use ratatui::{
 use super::{
   resource_tabs::draw_resource_tabs_block,
   utils::{
-    get_gauge_style, horizontal_chunks, layout_block_default, loading, style_default,
+    get_gauge_symbol, horizontal_chunks, layout_block_default, loading, style_default,
     style_failure, style_logo, style_primary, style_secondary, vertical_chunks,
     vertical_chunks_with_margin,
   },
@@ -205,7 +205,8 @@ fn draw_context_info_block(f: &mut Frame<'_>, app: &App, area: Rect) {
   let cpu_gauge = LineGauge::default()
     .block(Block::default().title("CPU:"))
     .filled_style(style_primary(app.light_theme))
-    .line_set(get_gauge_style(app.enhanced_graphics))
+    .filled_symbol(get_gauge_symbol(app.enhanced_graphics))
+    .unfilled_symbol(get_gauge_symbol(app.enhanced_graphics))
     .ratio(limited_ratio)
     .label(Line::from(format!("{:.0}%", ratio * 100.0)));
   f.render_widget(cpu_gauge, chunks[1]);
@@ -216,7 +217,8 @@ fn draw_context_info_block(f: &mut Frame<'_>, app: &App, area: Rect) {
   let mem_gauge = LineGauge::default()
     .block(Block::default().title("Memory:"))
     .filled_style(style_primary(app.light_theme))
-    .line_set(get_gauge_style(app.enhanced_graphics))
+    .filled_symbol(get_gauge_symbol(app.enhanced_graphics))
+    .unfilled_symbol(get_gauge_symbol(app.enhanced_graphics))
     .ratio(limited_ratio)
     .label(Line::from(format!("{:.0}%", ratio * 100.0)));
   f.render_widget(mem_gauge, chunks[2]);

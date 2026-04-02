@@ -1,6 +1,7 @@
 use async_trait::async_trait;
+use chrono::Utc;
 use k8s_openapi::{
-  api::core::v1::PersistentVolumeClaim, apimachinery::pkg::api::resource::Quantity, chrono::Utc,
+  api::core::v1::PersistentVolumeClaim, apimachinery::pkg::api::resource::Quantity,
 };
 use ratatui::{
   layout::{Constraint, Rect},

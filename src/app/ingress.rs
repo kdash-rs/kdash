@@ -1,8 +1,6 @@
 use async_trait::async_trait;
-use k8s_openapi::{
-  api::networking::v1::{Ingress, IngressBackend, IngressRule, IngressStatus},
-  chrono::Utc,
-};
+use chrono::Utc;
+use k8s_openapi::api::networking::v1::{Ingress, IngressBackend, IngressRule, IngressStatus};
 use ratatui::{
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
