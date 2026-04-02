@@ -445,7 +445,10 @@ pub fn draw_yaml_block(f: &mut Frame<'_>, app: &App, area: Rect, title: Line<'_>
     let paragraph = Paragraph::new(lines)
       .block(block)
       .wrap(Wrap { trim: false })
-      .scroll((app.data.describe_out.offset.min(u16::MAX as usize) as u16, 0));
+      .scroll((
+        app.data.describe_out.offset.min(u16::MAX as usize) as u16,
+        0,
+      ));
     f.render_widget(paragraph, area);
   } else {
     loading(f, block, area, app.is_loading(), app.light_theme);

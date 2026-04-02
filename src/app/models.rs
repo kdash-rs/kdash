@@ -605,7 +605,12 @@ mod tests {
       stxt.offset
     );
     // Must be capped at items.len() - 3  (the scroll_down guard: len - increment - 2 where increment=1)
-    assert!(stxt.offset <= target, "offset {} should be at most {}", stxt.offset, target);
+    assert!(
+      stxt.offset <= target,
+      "offset {} should be at most {}",
+      stxt.offset,
+      target
+    );
 
     // Scroll back up past u16::MAX boundary — should not wrap or panic
     for _ in 0..(stxt.offset / 1000) {

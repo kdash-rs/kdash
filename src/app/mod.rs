@@ -541,7 +541,9 @@ impl App {
   pub fn push_navigation_route(&mut self, route: Route) {
     self.navigation_stack.push(route);
     if self.navigation_stack.len() > MAX_NAV_STACK {
-      self.navigation_stack.drain(..self.navigation_stack.len() - MAX_NAV_STACK);
+      self
+        .navigation_stack
+        .drain(..self.navigation_stack.len() - MAX_NAV_STACK);
     }
     self.is_routing = true;
   }
