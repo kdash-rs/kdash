@@ -120,8 +120,8 @@ mod tests {
     // Events should produce at least one Tick within a reasonable time
     let events = Events::new(50); // 50ms tick rate
     match events.next() {
-      Ok(Event::Tick) => {} // expected
-      Ok(Event::Input(_)) => {} // possible if terminal sends something
+      Ok(Event::Tick) => {}          // expected
+      Ok(Event::Input(_)) => {}      // possible if terminal sends something
       Ok(Event::MouseInput(_)) => {} // possible
       Err(e) => panic!("Events::next() returned error: {:?}", e),
     }
