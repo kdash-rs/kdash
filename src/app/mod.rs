@@ -704,8 +704,12 @@ impl App {
         self.dispatch_stream(IoStreamEvent::RefreshClient).await;
       }
       self.dispatch(IoEvent::GetKubeConfig).await;
-      // call these once to pre-load data
-      self.cache_all_resource_data().await;
+      // Only fetch essential data on startup/refresh — other resources
+      // load lazily when their tab is first activated via dispatch_by_active_block
+      self.dispatch(IoEvent::GetNamespaces).await;
+      self.dispatch(IoEvent::GetNodes).await;
+      self.dispatch(IoEvent::GetPods).await;
+      self.dispatch(IoEvent::DiscoverDynamicRes).await;
       self.refresh = false;
     }
     // make network requests only in intervals to avoid hogging up the network
@@ -820,49 +824,17 @@ mod tests {
     };
 
     assert_eq!(app.tick_count, 0);
-    // test first render
+    // test first render - only essential resources are fetched on startup
     app.on_tick(true).await;
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetKubeConfig);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
     assert_eq!(
       sync_io_rx.recv().await.unwrap(),
       IoEvent::DiscoverDynamicRes
     );
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetServices);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetConfigMaps);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetStatefulSets);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetReplicaSets);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetDeployments);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetJobs);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetDaemonSets);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetCronJobs);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetSecrets);
-    assert_eq!(
-      sync_io_rx.recv().await.unwrap(),
-      IoEvent::GetReplicationControllers
-    );
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetStorageClasses);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetRoles);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetRoleBindings);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetClusterRoles);
-    assert_eq!(
-      sync_io_rx.recv().await.unwrap(),
-      IoEvent::GetClusterRoleBindings
-    );
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetIngress);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPvcs);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPvs);
-    assert_eq!(
-      sync_io_rx.recv().await.unwrap(),
-      IoEvent::GetServiceAccounts
-    );
-    assert_eq!(
-      sync_io_rx.recv().await.unwrap(),
-      IoEvent::GetNetworkPolicies
-    );
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetMetrics);
+    // periodic polling also fires (tick_count 0 % 2 == 0), fetching active tab data
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
@@ -890,22 +862,22 @@ mod tests {
     };
 
     assert_eq!(app.tick_count, 2);
-    // test first render
+    // test refresh (non-first-render)
     app.on_tick(false).await;
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::RefreshClient);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetKubeConfig);
+    // Lazy-load: only essential resources on refresh
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
     assert_eq!(
       sync_io_rx.recv().await.unwrap(),
       IoEvent::DiscoverDynamicRes
     );
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetServices);
+    // Periodic polling also fires (tick_count 2 % 2 == 0)
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetConfigMaps);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetStatefulSets);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetReplicaSets);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetDeployments);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
 
     assert_eq!(
       sync_io_stream_rx.recv().await.unwrap(),
