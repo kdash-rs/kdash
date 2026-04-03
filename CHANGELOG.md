@@ -3,8 +3,9 @@
 ## [1.0.0] - 2026-04-03
 
 - Major refactor and architecture improvements
-- Log streaming fixes and improvements
-- Library updates
+- Log streaming fixes and improvements. Fix #6
+- Library updates of the long standing bugs #89, #90, #484, #315, #8
+- Fixes many other bugs and improvements
 
 ## [0.6.2] - 2025-03-05
 

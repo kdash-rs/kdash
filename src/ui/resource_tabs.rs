@@ -1,7 +1,7 @@
 use ratatui::{
   layout::{Constraint, Rect},
   text::{Line, Span},
-  widgets::{List, ListItem, Tabs},
+  widgets::{List, ListItem, ListState, Tabs},
   Frame,
 };
 
@@ -78,8 +78,10 @@ pub fn draw_resource_tabs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
 /// more resources tab
 fn draw_more(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
   match block {
-    ActiveBlock::More => draw_menu(f, &mut app.more_resources_menu, area),
-    ActiveBlock::DynamicView => draw_menu(f, &mut app.dynamic_resources_menu, area),
+    ActiveBlock::More => draw_menu(f, &mut app.more_resources_menu, &app.menu_filter, area),
+    ActiveBlock::DynamicView => {
+      draw_menu(f, &mut app.dynamic_resources_menu, &app.menu_filter, area)
+    }
     ActiveBlock::CronJobs => CronJobResource::render(block, f, app, area),
     ActiveBlock::Secrets => SecretResource::render(block, f, app, area),
     ActiveBlock::ReplicationControllers => {
@@ -130,23 +132,44 @@ fn draw_more(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
 fn draw_menu(
   f: &mut Frame<'_>,
   more_resources_menu: &mut StatefulList<(String, ActiveBlock)>,
+  filter: &str,
   area: Rect,
 ) {
+  use crate::handlers::filter_menu_items;
+
   let area = centered_rect(50, 15, area);
 
-  let items: Vec<ListItem<'_>> = more_resources_menu
-    .items
+  let filtered = filter_menu_items(&more_resources_menu.items, filter);
+  let items: Vec<ListItem<'_>> = filtered
     .iter()
-    .map(|it| ListItem::new(it.0.clone()))
+    .map(|(_, (name, _))| ListItem::new(name.clone()))
     .collect();
+
+  let title = if filter.is_empty() {
+    " Select Resource (type to filter) ".to_string()
+  } else {
+    format!(" Select Resource [{}] ", filter)
+  };
+
+  // Use a local ListState so selection operates within filtered bounds
+  let selected = more_resources_menu
+    .state
+    .selected()
+    .map(|i| i.min(items.len().saturating_sub(1)));
+  let mut local_state = ListState::default();
+  local_state.select(selected);
+
   f.render_stateful_widget(
     List::new(items)
-      .block(layout_block_default(" Select Resource "))
+      .block(layout_block_default(&title))
       .highlight_style(style_highlight())
       .highlight_symbol(HIGHLIGHT),
     area,
-    &mut more_resources_menu.state,
+    &mut local_state,
   );
+
+  // Sync the clamped selection back
+  more_resources_menu.state.select(local_state.selected());
 }
 
 #[cfg(test)]

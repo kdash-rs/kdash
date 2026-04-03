@@ -205,6 +205,7 @@ pub struct App {
   pub context_tabs: TabsState,
   pub more_resources_menu: StatefulList<(String, ActiveBlock)>,
   pub dynamic_resources_menu: StatefulList<(String, ActiveBlock)>,
+  pub menu_filter: String,
   pub show_info_bar: bool,
   pub show_filter_bar: bool,
   pub is_streaming: bool,
@@ -422,6 +423,7 @@ impl Default for App {
         ("NetworkPolicies".into(), ActiveBlock::NetworkPolicies),
       ]),
       dynamic_resources_menu: StatefulList::new(),
+      menu_filter: String::new(),
       show_info_bar: true,
       show_filter_bar: false,
       loading_counter: 0,
@@ -470,6 +472,13 @@ impl App {
       tick_until_poll,
       ..App::default()
     }
+  }
+
+  pub fn is_menu_active(&self) -> bool {
+    matches!(
+      self.get_current_route().active_block,
+      ActiveBlock::More | ActiveBlock::DynamicView
+    )
   }
 
   pub fn is_loading(&self) -> bool {

@@ -6,7 +6,7 @@ use tui_input::backend::crossterm::EventHandler;
 use crate::{
   app::{
     key_binding::DEFAULT_KEYBINDING,
-    models::{KubeResource, Scrollable, ScrollableTxt, StatefulTable},
+    models::{KubeResource, Scrollable, ScrollableTxt, StatefulList, StatefulTable},
     secrets::KubeSecret,
     ActiveBlock, App, InputMode, Route, RouteId,
   },
@@ -81,6 +81,8 @@ pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
       app.app_input.input.handle_event(&Event::Key(key_event));
       app.data.selected.filter = Some(app.app_input.input.value().into());
     }
+  } else if app.is_menu_active() && handle_menu_filter_key(key, app) {
+    // Menu filter captured the key — done
   } else {
     // First handle any global event and then move to route event
     match key {
@@ -145,6 +147,17 @@ fn handle_escape(app: &mut App) {
     app.api_error = String::default();
   }
 
+  // If menu is active with a filter, clear the filter first
+  if app.is_menu_active() && !app.menu_filter.is_empty() {
+    app.menu_filter.clear();
+    return;
+  }
+
+  // Clear menu filter on any menu exit
+  if app.is_menu_active() {
+    app.menu_filter.clear();
+  }
+
   match app.get_current_route().id {
     RouteId::HelpMenu => {
       app.pop_navigation_stack();
@@ -170,6 +183,53 @@ fn handle_escape(app: &mut App) {
       }
     },
   }
+}
+
+/// Handle character/backspace keys for menu filter input.
+/// Returns true if the key was consumed, false to let it pass through.
+fn handle_menu_filter_key(key: Key, app: &mut App) -> bool {
+  match key {
+    Key::Char(c) => {
+      app.menu_filter.push(c);
+      // Reset selection to first item when filter changes
+      let menu = get_active_menu_mut(app);
+      menu.state.select(Some(0));
+      true
+    }
+    Key::Backspace => {
+      app.menu_filter.pop();
+      let menu = get_active_menu_mut(app);
+      menu.state.select(Some(0));
+      true
+    }
+    _ => false,
+  }
+}
+
+fn get_active_menu_mut(app: &mut App) -> &mut StatefulList<(String, ActiveBlock)> {
+  match app.get_current_route().active_block {
+    ActiveBlock::DynamicView => &mut app.dynamic_resources_menu,
+    _ => &mut app.more_resources_menu,
+  }
+}
+
+/// Filter menu items by the given filter string using case-insensitive substring + glob matching.
+pub fn filter_menu_items<'a>(
+  items: &'a [(String, ActiveBlock)],
+  filter: &str,
+) -> Vec<(usize, &'a (String, ActiveBlock))> {
+  if filter.is_empty() {
+    return items.iter().enumerate().collect();
+  }
+  let filter_lower = filter.to_lowercase();
+  items
+    .iter()
+    .enumerate()
+    .filter(|(_, (name, _))| {
+      let name_lower = name.to_lowercase();
+      name_lower.contains(&filter_lower) || glob_match::glob_match(&filter_lower, &name_lower)
+    })
+    .collect()
 }
 
 async fn handle_describe_decode_or_yaml_action<T, S>(
@@ -373,12 +433,15 @@ async fn handle_route_events(key: Key, app: &mut App) {
       }
           ActiveBlock::More => {
             if key == DEFAULT_KEYBINDING.submit.key {
-              if let Some((_title, active_block)) = app
+              let filtered = filter_menu_items(&app.more_resources_menu.items, &app.menu_filter);
+              let selected_item = app
                 .more_resources_menu
                 .state
                 .selected()
-                .map(|i| app.more_resources_menu.items[i].clone())
-              {
+                .and_then(|i| filtered.get(i))
+                .map(|(_, item)| (*item).clone());
+              if let Some((_title, active_block)) = selected_item {
+                app.menu_filter.clear();
                 app.push_navigation_route(Route {
                   id: RouteId::Home,
                   active_block,
@@ -388,17 +451,20 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
           ActiveBlock::DynamicView => {
             if key == DEFAULT_KEYBINDING.submit.key {
-              if let Some((title, active_block)) = app
+              let filtered = filter_menu_items(&app.dynamic_resources_menu.items, &app.menu_filter);
+              let selected_item = app
                 .dynamic_resources_menu
                 .state
                 .selected()
-                .map(|i| app.dynamic_resources_menu.items[i].clone())
-              {
+                .and_then(|i| filtered.get(i))
+                .map(|(_, item)| (*item).clone());
+              if let Some((title, active_block)) = selected_item {
+                app.menu_filter.clear();
                 app.push_navigation_route(Route {
                   id: RouteId::Home,
                   active_block,
                 });
-                let selected = app.data.dynamic_kinds.iter().find(|&it| it.kind == title);
+                let selected = app.data.dynamic_kinds.iter().find(|it| it.kind == title);
                 app.data.selected.dynamic_kind = selected.cloned();
                 app.data.dynamic_resources.set_items(vec![]);
               }
@@ -503,8 +569,14 @@ async fn handle_block_scroll(app: &mut App, up: bool, is_mouse: bool, page: bool
       ActiveBlock::Contexts => app.data.contexts.handle_scroll(up, page),
       ActiveBlock::Utilization => app.data.metrics.handle_scroll(up, page),
       ActiveBlock::Help => app.help_docs.handle_scroll(up, page),
-      ActiveBlock::More => app.more_resources_menu.handle_scroll(up, page),
-      ActiveBlock::DynamicView => app.dynamic_resources_menu.handle_scroll(up, page),
+      ActiveBlock::More => {
+        let filtered_len = filter_menu_items(&app.more_resources_menu.items, &app.menu_filter).len();
+        handle_menu_scroll(&mut app.more_resources_menu, up, page, filtered_len);
+      }
+      ActiveBlock::DynamicView => {
+        let filtered_len = filter_menu_items(&app.dynamic_resources_menu.items, &app.menu_filter).len();
+        handle_menu_scroll(&mut app.dynamic_resources_menu, up, page, filtered_len);
+      }
       ActiveBlock::Logs => {
         app.log_auto_scroll = false;
         app.data.logs.handle_scroll(inverse_dir(up, is_mouse), page);
@@ -515,6 +587,36 @@ async fn handle_block_scroll(app: &mut App, up: bool, is_mouse: bool, page: bool
         .handle_scroll(inverse_dir(up, is_mouse), page),
     }
   )
+}
+
+/// Scroll within a menu, respecting filtered item count
+fn handle_menu_scroll(
+  menu: &mut StatefulList<(String, ActiveBlock)>,
+  up: bool,
+  page: bool,
+  filtered_len: usize,
+) {
+  if filtered_len == 0 {
+    return;
+  }
+  let increment = if page { 5 } else { 1 };
+  let i = match menu.state.selected() {
+    Some(i) => {
+      if up {
+        if i == 0 {
+          filtered_len.saturating_sub(increment)
+        } else {
+          i.saturating_sub(increment)
+        }
+      } else if i >= filtered_len.saturating_sub(increment) {
+        0
+      } else {
+        i + increment
+      }
+    }
+    None => 0,
+  };
+  menu.state.select(Some(i));
 }
 
 fn copy_to_clipboard(content: String, app: &mut App) {
@@ -783,5 +885,202 @@ mod tests {
     assert_eq!(app.data.selected.context, Some("dev".into()));
     assert_eq!(app.data.selected.ns, None);
     assert!(app.refresh);
+  }
+
+  #[test]
+  fn test_filter_menu_items_empty_filter_returns_all() {
+    let items = vec![
+      ("CronJobs".into(), ActiveBlock::CronJobs),
+      ("Secrets".into(), ActiveBlock::Secrets),
+      ("Roles".into(), ActiveBlock::Roles),
+    ];
+    let filtered = filter_menu_items(&items, "");
+    assert_eq!(filtered.len(), 3);
+  }
+
+  #[test]
+  fn test_filter_menu_items_substring_match() {
+    let items = vec![
+      ("CronJobs".into(), ActiveBlock::CronJobs),
+      ("Secrets".into(), ActiveBlock::Secrets),
+      ("Roles".into(), ActiveBlock::Roles),
+    ];
+    let filtered = filter_menu_items(&items, "cron");
+    assert_eq!(filtered.len(), 1);
+    assert_eq!(filtered[0].1 .0, "CronJobs");
+  }
+
+  #[test]
+  fn test_filter_menu_items_case_insensitive() {
+    let items = vec![
+      ("CronJobs".into(), ActiveBlock::CronJobs),
+      ("Secrets".into(), ActiveBlock::Secrets),
+    ];
+    let filtered = filter_menu_items(&items, "CRON");
+    assert_eq!(filtered.len(), 1);
+    assert_eq!(filtered[0].1 .0, "CronJobs");
+  }
+
+  #[test]
+  fn test_filter_menu_items_glob_match() {
+    let items = vec![
+      ("ClusterRoles".into(), ActiveBlock::ClusterRoles),
+      (
+        "ClusterRoleBinding".into(),
+        ActiveBlock::ClusterRoleBindings,
+      ),
+      ("CronJobs".into(), ActiveBlock::CronJobs),
+    ];
+    let filtered = filter_menu_items(&items, "cluster*");
+    assert_eq!(filtered.len(), 2);
+    assert_eq!(filtered[0].1 .0, "ClusterRoles");
+    assert_eq!(filtered[1].1 .0, "ClusterRoleBinding");
+  }
+
+  #[test]
+  fn test_filter_menu_items_no_match() {
+    let items = vec![
+      ("CronJobs".into(), ActiveBlock::CronJobs),
+      ("Secrets".into(), ActiveBlock::Secrets),
+    ];
+    let filtered = filter_menu_items(&items, "zzz");
+    assert_eq!(filtered.len(), 0);
+  }
+
+  #[test]
+  fn test_filter_menu_items_preserves_original_index() {
+    let items = vec![
+      ("CronJobs".into(), ActiveBlock::CronJobs),
+      ("Secrets".into(), ActiveBlock::Secrets),
+      ("Roles".into(), ActiveBlock::Roles),
+    ];
+    let filtered = filter_menu_items(&items, "role");
+    assert_eq!(filtered.len(), 1);
+    assert_eq!(filtered[0].0, 2); // original index
+  }
+
+  #[tokio::test]
+  async fn test_menu_filter_captures_character_keys() {
+    let mut app = App::default();
+    // Navigate to More menu
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::More);
+
+    let key_evt = KeyEvent::from(KeyCode::Char('c'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert_eq!(app.menu_filter, "c");
+
+    let key_evt = KeyEvent::from(KeyCode::Char('r'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert_eq!(app.menu_filter, "cr");
+  }
+
+  #[tokio::test]
+  async fn test_menu_filter_backspace_removes_char() {
+    let mut app = App::default();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::More);
+
+    let key_evt = KeyEvent::from(KeyCode::Char('a'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    let key_evt = KeyEvent::from(KeyCode::Char('b'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert_eq!(app.menu_filter, "ab");
+
+    let key_evt = KeyEvent::from(KeyCode::Backspace);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert_eq!(app.menu_filter, "a");
+  }
+
+  #[tokio::test]
+  async fn test_menu_filter_backspace_on_empty_does_not_panic() {
+    let mut app = App::default();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::More);
+
+    let key_evt = KeyEvent::from(KeyCode::Backspace);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert_eq!(app.menu_filter, "");
+  }
+
+  #[tokio::test]
+  async fn test_menu_filter_escape_clears_filter_first() {
+    let mut app = App::default();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::More);
+
+    // Type a filter
+    let key_evt = KeyEvent::from(KeyCode::Char('x'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert_eq!(app.menu_filter, "x");
+
+    // First Escape clears filter but stays in menu
+    let key_evt = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert_eq!(app.menu_filter, "");
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::More);
+  }
+
+  #[tokio::test]
+  async fn test_menu_filter_escape_on_empty_closes_menu() {
+    let mut app = App::default();
+    // Push a base route then the menu
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::More);
+
+    // Escape with empty filter
+    let key_evt = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert_eq!(app.menu_filter, "");
+  }
+
+  #[tokio::test]
+  async fn test_menu_filter_enter_selects_filtered_item() {
+    let mut app = App::default();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::More);
+
+    // Type "cron" to filter to CronJobs
+    for c in "cron".chars() {
+      let key_evt = KeyEvent::from(KeyCode::Char(c));
+      handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    }
+    assert_eq!(app.menu_filter, "cron");
+
+    // Selection should be at 0 (first filtered item)
+    assert_eq!(app.more_resources_menu.state.selected(), Some(0));
+
+    // Press Enter to select
+    let key_evt = KeyEvent::from(KeyCode::Enter);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+
+    // Should navigate to CronJobs and clear filter
+    assert_eq!(app.menu_filter, "");
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::CronJobs);
+  }
+
+  #[test]
+  fn test_handle_menu_scroll_within_filtered_bounds() {
+    let mut menu = StatefulList::with_items(vec![
+      ("A".into(), ActiveBlock::CronJobs),
+      ("B".into(), ActiveBlock::Secrets),
+      ("C".into(), ActiveBlock::Roles),
+    ]);
+
+    // Scroll down within filtered_len=2
+    menu.state.select(Some(0));
+    handle_menu_scroll(&mut menu, false, false, 2);
+    assert_eq!(menu.state.selected(), Some(1));
+
+    // Scroll down wraps at filtered_len
+    handle_menu_scroll(&mut menu, false, false, 2);
+    assert_eq!(menu.state.selected(), Some(0));
+
+    // Scroll up from 0 wraps to end of filtered
+    handle_menu_scroll(&mut menu, true, false, 2);
+    assert_eq!(menu.state.selected(), Some(1));
+  }
+
+  #[test]
+  fn test_handle_menu_scroll_empty_filtered() {
+    let mut menu = StatefulList::with_items(vec![("A".into(), ActiveBlock::CronJobs)]);
+    menu.state.select(Some(0));
+    // Should not panic with filtered_len=0
+    handle_menu_scroll(&mut menu, false, false, 0);
+    assert_eq!(menu.state.selected(), Some(0));
   }
 }
