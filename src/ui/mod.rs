@@ -70,6 +70,7 @@ pub fn draw(f: &mut Frame<'_>, app: &mut App) {
       UtilizationResource::render(ActiveBlock::Utilization, f, app, last_chunk);
     }
     RouteId::Troubleshoot => {
+      // Only render the active troubleshoot block to avoid unnecessary checks and rendering
       TroubleshootResource::render(app.get_current_route().active_block, f, app, last_chunk);
     }
     _ => {
@@ -114,7 +115,7 @@ fn nw_loading_indicator<'a>(loading: bool) -> &'a str {
 
 fn draw_app_header(f: &mut Frame<'_>, app: &App, area: Rect) {
   let chunks =
-    horizontal_chunks_with_margin(vec![Constraint::Length(60), Constraint::Min(0)], area, 1);
+    horizontal_chunks_with_margin(vec![Constraint::Length(75), Constraint::Min(0)], area, 1);
 
   let titles: Vec<_> = app
     .main_tabs
