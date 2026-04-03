@@ -1,8 +1,6 @@
 use async_trait::async_trait;
-use k8s_openapi::{
-  api::networking::v1::{Ingress, IngressBackend, IngressRule, IngressStatus},
-  chrono::Utc,
-};
+use chrono::Utc;
+use k8s_openapi::api::networking::v1::{Ingress, IngressBackend, IngressRule, IngressStatus};
 use ratatui::{
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
@@ -95,9 +93,9 @@ fn format_backend(backend: &Option<IngressBackend>) -> String {
             if let Some(name) = &port.name {
               format!("{}:{}", service.name, name)
             } else if let Some(number) = &port.number {
-              return format!("{}:{}", service.name, number);
+              format!("{}:{}", service.name, number)
             } else {
-              return String::default();
+              String::default()
             }
           }
           None => String::default(),
@@ -186,6 +184,7 @@ impl AppResource for IngressResource {
 }
 
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
+  let is_loading = app.is_loading();
   let title = get_resource_title(app, INGRESS_TITLE, "", app.data.ingress.items.len());
 
   draw_resource_block(
@@ -227,7 +226,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       .style(style_primary(app.light_theme))
     },
     app.light_theme,
-    app.is_loading,
+    is_loading,
     app.data.selected.filter.to_owned(),
   );
 }

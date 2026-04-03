@@ -1,7 +1,8 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
-use k8s_openapi::{api::core::v1::ReplicationController, chrono::Utc};
+use chrono::Utc;
+use k8s_openapi::api::core::v1::ReplicationController;
 use ratatui::{
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
@@ -118,7 +119,7 @@ impl AppResource for ReplicationControllerResource {
       area,
       Self::render,
       draw_block,
-      app.data.rpl_ctrls
+      app.data.replication_controllers
     );
   }
 
@@ -128,12 +129,18 @@ impl AppResource for ReplicationControllerResource {
       .await;
 
     let mut app = nw.app.lock().await;
-    app.data.rpl_ctrls.set_items(items);
+    app.data.replication_controllers.set_items(items);
   }
 }
 
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
-  let title = get_resource_title(app, RPL_CTRL_TITLE, "", app.data.rpl_ctrls.items.len());
+  let is_loading = app.is_loading();
+  let title = get_resource_title(
+    app,
+    RPL_CTRL_TITLE,
+    "",
+    app.data.replication_controllers.items.len(),
+  );
 
   draw_resource_block(
     f,
@@ -141,7 +148,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     ResourceTableProps {
       title,
       inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
-      resource: &mut app.data.rpl_ctrls,
+      resource: &mut app.data.replication_controllers,
       table_headers: vec![
         "Namespace",
         "Name",
@@ -180,7 +187,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       .style(style_primary(app.light_theme))
     },
     app.light_theme,
-    app.is_loading,
+    is_loading,
     app.data.selected.filter.to_owned(),
   );
 }

@@ -82,15 +82,17 @@ fn draw_more(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     ActiveBlock::DynamicView => draw_menu(f, &mut app.dynamic_resources_menu, area),
     ActiveBlock::CronJobs => CronJobResource::render(block, f, app, area),
     ActiveBlock::Secrets => SecretResource::render(block, f, app, area),
-    ActiveBlock::RplCtrl => ReplicationControllerResource::render(block, f, app, area),
+    ActiveBlock::ReplicationControllers => {
+      ReplicationControllerResource::render(block, f, app, area)
+    }
     ActiveBlock::StorageClasses => StorageClassResource::render(block, f, app, area),
     ActiveBlock::Roles => RoleResource::render(block, f, app, area),
     ActiveBlock::RoleBindings => RoleBindingResource::render(block, f, app, area),
     ActiveBlock::ClusterRoles => ClusterRoleResource::render(block, f, app, area),
-    ActiveBlock::ClusterRoleBinding => ClusterRoleBindingResource::render(block, f, app, area),
-    ActiveBlock::Ingress => IngressResource::render(block, f, app, area),
-    ActiveBlock::Pvc => PvcResource::render(block, f, app, area),
-    ActiveBlock::Pv => PvResource::render(block, f, app, area),
+    ActiveBlock::ClusterRoleBindings => ClusterRoleBindingResource::render(block, f, app, area),
+    ActiveBlock::Ingresses => IngressResource::render(block, f, app, area),
+    ActiveBlock::PersistentVolumeClaims => PvcResource::render(block, f, app, area),
+    ActiveBlock::PersistentVolumes => PvResource::render(block, f, app, area),
     ActiveBlock::ServiceAccounts => SvcAcctResource::render(block, f, app, area),
     ActiveBlock::NetworkPolicies => NetworkPolicyResource::render(block, f, app, area),
     ActiveBlock::DynamicResource => DynamicResource::render(block, f, app, area),
@@ -102,15 +104,17 @@ fn draw_more(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
       match prev_route.active_block {
         ActiveBlock::CronJobs => CronJobResource::render(block, f, app, area),
         ActiveBlock::Secrets => SecretResource::render(block, f, app, area),
-        ActiveBlock::RplCtrl => ReplicationControllerResource::render(block, f, app, area),
+        ActiveBlock::ReplicationControllers => {
+          ReplicationControllerResource::render(block, f, app, area)
+        }
         ActiveBlock::StorageClasses => StorageClassResource::render(block, f, app, area),
         ActiveBlock::Roles => RoleResource::render(block, f, app, area),
         ActiveBlock::RoleBindings => RoleBindingResource::render(block, f, app, area),
         ActiveBlock::ClusterRoles => ClusterRoleResource::render(block, f, app, area),
-        ActiveBlock::ClusterRoleBinding => ClusterRoleBindingResource::render(block, f, app, area),
-        ActiveBlock::Ingress => IngressResource::render(block, f, app, area),
-        ActiveBlock::Pvc => PvcResource::render(block, f, app, area),
-        ActiveBlock::Pv => PvResource::render(block, f, app, area),
+        ActiveBlock::ClusterRoleBindings => ClusterRoleBindingResource::render(block, f, app, area),
+        ActiveBlock::Ingresses => IngressResource::render(block, f, app, area),
+        ActiveBlock::PersistentVolumeClaims => PvcResource::render(block, f, app, area),
+        ActiveBlock::PersistentVolumes => PvResource::render(block, f, app, area),
         ActiveBlock::ServiceAccounts => SvcAcctResource::render(block, f, app, area),
         ActiveBlock::NetworkPolicies => NetworkPolicyResource::render(block, f, app, area),
         ActiveBlock::DynamicResource => DynamicResource::render(block, f, app, area),

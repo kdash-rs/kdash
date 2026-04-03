@@ -1,7 +1,8 @@
 use std::vec;
 
 use async_trait::async_trait;
-use k8s_openapi::{api::networking::v1::NetworkPolicy, chrono::Utc};
+use chrono::Utc;
+use k8s_openapi::api::networking::v1::NetworkPolicy;
 use ratatui::{
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
@@ -37,7 +38,11 @@ impl From<NetworkPolicy> for KubeNetworkPolicy {
     let pod_selector = match &nw_policy.spec {
       Some(s) => {
         let mut pod_selector = vec![];
-        if let Some(match_labels) = &s.pod_selector.match_labels {
+        if let Some(match_labels) = s
+          .pod_selector
+          .as_ref()
+          .and_then(|ps| ps.match_labels.as_ref())
+        {
           for (k, v) in match_labels {
             pod_selector.push(format!("{}={}", k, v));
           }
@@ -85,7 +90,7 @@ impl AppResource for NetworkPolicyResource {
       area,
       Self::render,
       draw_block,
-      app.data.nw_policies
+      app.data.network_policies
     );
   }
 
@@ -93,12 +98,18 @@ impl AppResource for NetworkPolicyResource {
     let items: Vec<KubeNetworkPolicy> = nw.get_namespaced_resources(NetworkPolicy::into).await;
 
     let mut app = nw.app.lock().await;
-    app.data.nw_policies.set_items(items);
+    app.data.network_policies.set_items(items);
   }
 }
 
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
-  let title = get_resource_title(app, NW_POLICY_TITLE, "", app.data.nw_policies.items.len());
+  let is_loading = app.is_loading();
+  let title = get_resource_title(
+    app,
+    NW_POLICY_TITLE,
+    "",
+    app.data.network_policies.items.len(),
+  );
 
   draw_resource_block(
     f,
@@ -106,7 +117,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     ResourceTableProps {
       title,
       inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
-      resource: &mut app.data.nw_policies,
+      resource: &mut app.data.network_policies,
       table_headers: vec!["Namespace", "Name", "Pod Selector", "Policy Types", "Age"],
       column_widths: vec![
         Constraint::Percentage(20),
@@ -127,7 +138,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       .style(style_primary(app.light_theme))
     },
     app.light_theme,
-    app.is_loading,
+    is_loading,
     app.data.selected.filter.to_owned(),
   );
 }

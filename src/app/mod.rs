@@ -30,7 +30,7 @@ use kube::config::Kubeconfig;
 use kubectl_view_allocations::{GroupBy, QtyByQualifier};
 use log::{error, info};
 use ratatui::layout::Rect;
-use tokio::sync::mpsc::Sender;
+use tokio::sync::{mpsc::Sender, watch};
 use tui_input::Input;
 
 use self::{
@@ -65,6 +65,8 @@ use super::{
   network::{stream::IoStreamEvent, IoEvent},
 };
 
+const MAX_NAV_STACK: usize = 128;
+
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub enum ActiveBlock {
   Help,
@@ -87,15 +89,15 @@ pub enum ActiveBlock {
   CronJobs,
   DynamicResource,
   Secrets,
-  RplCtrl,
+  ReplicationControllers,
   StorageClasses,
   Roles,
   RoleBindings,
   ClusterRoles,
-  ClusterRoleBinding,
-  Ingress,
-  Pvc,
-  Pv,
+  ClusterRoleBindings,
+  Ingresses,
+  PersistentVolumeClaims,
+  PersistentVolumes,
   NetworkPolicies,
   ServiceAccounts,
   More,
@@ -152,16 +154,16 @@ pub struct Data {
   pub daemon_sets: StatefulTable<KubeDaemonSet>,
   pub cronjobs: StatefulTable<KubeCronJob>,
   pub secrets: StatefulTable<KubeSecret>,
-  pub rpl_ctrls: StatefulTable<KubeReplicationController>,
+  pub replication_controllers: StatefulTable<KubeReplicationController>,
   pub storage_classes: StatefulTable<KubeStorageClass>,
   pub roles: StatefulTable<KubeRole>,
   pub role_bindings: StatefulTable<KubeRoleBinding>,
   pub cluster_roles: StatefulTable<KubeClusterRole>,
   pub cluster_role_bindings: StatefulTable<KubeClusterRoleBinding>,
   pub ingress: StatefulTable<KubeIngress>,
-  pub pvcs: StatefulTable<KubePVC>,
-  pub pvs: StatefulTable<KubePV>,
-  pub nw_policies: StatefulTable<KubeNetworkPolicy>,
+  pub persistent_volume_claims: StatefulTable<KubePVC>,
+  pub persistent_volumes: StatefulTable<KubePV>,
+  pub network_policies: StatefulTable<KubeNetworkPolicy>,
   pub service_accounts: StatefulTable<KubeSvcAcct>,
   pub dynamic_kinds: Vec<KubeDynamicKind>,
   pub dynamic_resources: StatefulTable<KubeDynamicResource>,
@@ -195,6 +197,8 @@ pub struct App {
   io_tx: Option<Sender<IoEvent>>,
   io_stream_tx: Option<Sender<IoStreamEvent>>,
   io_cmd_tx: Option<Sender<IoCmdEvent>>,
+  log_cancel_tx: watch::Sender<bool>,
+  loading_counter: u32,
   pub title: &'static str,
   pub should_quit: bool,
   pub main_tabs: TabsState,
@@ -203,15 +207,11 @@ pub struct App {
   pub dynamic_resources_menu: StatefulList<(String, ActiveBlock)>,
   pub show_info_bar: bool,
   pub show_filter_bar: bool,
-  pub is_loading: bool,
   pub is_streaming: bool,
   pub is_routing: bool,
   pub tick_until_poll: u64,
   pub tick_count: u64,
   pub enhanced_graphics: bool,
-  //   pub table_cols: u16,
-  //   pub dialog: Option<String>,
-  //   pub confirm: bool,
   pub size: Rect,
   pub api_error: String,
   pub app_input: AppInput,
@@ -255,16 +255,16 @@ impl Default for Data {
       daemon_sets: StatefulTable::new(),
       cronjobs: StatefulTable::new(),
       secrets: StatefulTable::new(),
-      rpl_ctrls: StatefulTable::new(),
+      replication_controllers: StatefulTable::new(),
       storage_classes: StatefulTable::new(),
       roles: StatefulTable::new(),
       role_bindings: StatefulTable::new(),
       cluster_roles: StatefulTable::new(),
       cluster_role_bindings: StatefulTable::new(),
       ingress: StatefulTable::new(),
-      pvcs: StatefulTable::new(),
-      pvs: StatefulTable::new(),
-      nw_policies: StatefulTable::new(),
+      persistent_volume_claims: StatefulTable::new(),
+      persistent_volumes: StatefulTable::new(),
+      network_policies: StatefulTable::new(),
       service_accounts: StatefulTable::new(),
       dynamic_kinds: vec![],
       dynamic_resources: StatefulTable::new(),
@@ -274,11 +274,13 @@ impl Default for Data {
 
 impl Default for App {
   fn default() -> Self {
+    let (log_cancel_tx, _) = watch::channel(false);
     App {
       navigation_stack: vec![DEFAULT_ROUTE],
       io_tx: None,
       io_stream_tx: None,
       io_cmd_tx: None,
+      log_cancel_tx,
       title: " KDash - A simple Kubernetes dashboard ",
       should_quit: false,
       main_tabs: TabsState::new(vec![
@@ -398,25 +400,31 @@ impl Default for App {
       more_resources_menu: StatefulList::with_items(vec![
         ("CronJobs".into(), ActiveBlock::CronJobs),
         ("Secrets".into(), ActiveBlock::Secrets),
-        ("ReplicationControllers".into(), ActiveBlock::RplCtrl),
-        ("PersistentVolumeClaims".into(), ActiveBlock::Pvc),
-        ("PersistentVolumes".into(), ActiveBlock::Pv),
+        (
+          "ReplicationControllers".into(),
+          ActiveBlock::ReplicationControllers,
+        ),
+        (
+          "PersistentVolumeClaims".into(),
+          ActiveBlock::PersistentVolumeClaims,
+        ),
+        ("PersistentVolumes".into(), ActiveBlock::PersistentVolumes),
         ("StorageClasses".into(), ActiveBlock::StorageClasses),
         ("Roles".into(), ActiveBlock::Roles),
         ("RoleBindings".into(), ActiveBlock::RoleBindings),
         ("ClusterRoles".into(), ActiveBlock::ClusterRoles),
         (
-          "ClusterRoleBindings".into(),
-          ActiveBlock::ClusterRoleBinding,
+          "ClusterRoleBinding".into(),
+          ActiveBlock::ClusterRoleBindings,
         ),
         ("ServiceAccounts".into(), ActiveBlock::ServiceAccounts),
-        ("Ingresses".into(), ActiveBlock::Ingress),
+        ("Ingresses".into(), ActiveBlock::Ingresses),
         ("NetworkPolicies".into(), ActiveBlock::NetworkPolicies),
       ]),
       dynamic_resources_menu: StatefulList::new(),
       show_info_bar: true,
       show_filter_bar: false,
-      is_loading: false,
+      loading_counter: 0,
       is_streaming: false,
       is_routing: false,
       tick_until_poll: 0,
@@ -464,7 +472,29 @@ impl App {
     }
   }
 
+  pub fn is_loading(&self) -> bool {
+    self.loading_counter > 0
+  }
+
+  pub fn loading_complete(&mut self) {
+    self.loading_counter = self.loading_counter.saturating_sub(1);
+  }
+
+  /// Signal any active log stream to stop
+  pub fn cancel_log_stream(&self) {
+    let _ = self.log_cancel_tx.send(true);
+  }
+
+  /// Get a new receiver for log cancellation.
+  /// Resets the channel so the next stream starts clean.
+  pub fn new_log_cancel_rx(&self) -> watch::Receiver<bool> {
+    let _ = self.log_cancel_tx.send(false);
+    self.log_cancel_tx.subscribe()
+  }
+
   pub fn reset(&mut self) {
+    self.cancel_log_stream();
+    self.loading_counter = 0;
     self.tick_count = 0;
     self.api_error = String::new();
     self.data = Data::default();
@@ -473,11 +503,11 @@ impl App {
 
   // Send a network event to the network thread
   pub async fn dispatch(&mut self, action: IoEvent) {
-    // `is_loading` will be set to false again after the async action has finished in network/mod.rs
-    self.is_loading = true;
+    // `loading_counter` will be decremented after the async action has finished in network/mod.rs
     if let Some(io_tx) = &self.io_tx {
+      self.loading_counter += 1;
       if let Err(e) = io_tx.send(action).await {
-        self.is_loading = false;
+        self.loading_counter = self.loading_counter.saturating_sub(1);
         self.handle_error(anyhow!(e));
       };
     }
@@ -485,11 +515,11 @@ impl App {
 
   // Send a stream event to the stream network thread
   pub async fn dispatch_stream(&mut self, action: IoStreamEvent) {
-    // `is_loading` will be set to false again after the async action has finished in network/stream.rs
-    self.is_loading = true;
+    // `loading_counter` will be decremented after the async action has finished in network/stream.rs
     if let Some(io_stream_tx) = &self.io_stream_tx {
+      self.loading_counter += 1;
       if let Err(e) = io_stream_tx.send(action).await {
-        self.is_loading = false;
+        self.loading_counter = self.loading_counter.saturating_sub(1);
         self.handle_error(anyhow!(e));
       };
     }
@@ -497,11 +527,11 @@ impl App {
 
   // Send a cmd event to the cmd runner thread
   pub async fn dispatch_cmd(&mut self, action: IoCmdEvent) {
-    // `is_loading` will be set to false again after the async action has finished in network/stream.rs
-    self.is_loading = true;
+    // `loading_counter` will be decremented after the async action has finished in cmd/mod.rs
     if let Some(io_cmd_tx) = &self.io_cmd_tx {
+      self.loading_counter += 1;
       if let Err(e) = io_cmd_tx.send(action).await {
-        self.is_loading = false;
+        self.loading_counter = self.loading_counter.saturating_sub(1);
         self.handle_error(anyhow!(e));
       };
     }
@@ -529,6 +559,11 @@ impl App {
 
   pub fn push_navigation_route(&mut self, route: Route) {
     self.navigation_stack.push(route);
+    if self.navigation_stack.len() > MAX_NAV_STACK {
+      self
+        .navigation_stack
+        .drain(..self.navigation_stack.len() - MAX_NAV_STACK);
+    }
     self.is_routing = true;
   }
 
@@ -583,6 +618,7 @@ impl App {
   }
 
   pub async fn dispatch_container_logs(&mut self, id: String) {
+    self.cancel_log_stream();
     self.data.logs = LogsState::new(id);
     self.push_navigation_stack(RouteId::Home, ActiveBlock::Logs);
     self.dispatch_stream(IoStreamEvent::GetPodLogs(true)).await;
@@ -612,7 +648,7 @@ impl App {
     self.dispatch(IoEvent::GetRoles).await;
     self.dispatch(IoEvent::GetRoleBindings).await;
     self.dispatch(IoEvent::GetClusterRoles).await;
-    self.dispatch(IoEvent::GetClusterRoleBindings).await;
+    self.dispatch(IoEvent::GetClusterRoleBinding).await;
     self.dispatch(IoEvent::GetIngress).await;
     self.dispatch(IoEvent::GetPvcs).await;
     self.dispatch(IoEvent::GetPvs).await;
@@ -653,7 +689,7 @@ impl App {
       ActiveBlock::Secrets => {
         self.dispatch(IoEvent::GetSecrets).await;
       }
-      ActiveBlock::RplCtrl => {
+      ActiveBlock::ReplicationControllers => {
         self.dispatch(IoEvent::GetReplicationControllers).await;
       }
       ActiveBlock::StorageClasses => {
@@ -668,16 +704,16 @@ impl App {
       ActiveBlock::ClusterRoles => {
         self.dispatch(IoEvent::GetClusterRoles).await;
       }
-      ActiveBlock::ClusterRoleBinding => {
-        self.dispatch(IoEvent::GetClusterRoleBindings).await;
+      ActiveBlock::ClusterRoleBindings => {
+        self.dispatch(IoEvent::GetClusterRoleBinding).await;
       }
-      ActiveBlock::Ingress => {
+      ActiveBlock::Ingresses => {
         self.dispatch(IoEvent::GetIngress).await;
       }
-      ActiveBlock::Pvc => {
+      ActiveBlock::PersistentVolumeClaims => {
         self.dispatch(IoEvent::GetPvcs).await;
       }
-      ActiveBlock::Pv => {
+      ActiveBlock::PersistentVolumes => {
         self.dispatch(IoEvent::GetPvs).await;
       }
       ActiveBlock::ServiceAccounts => {
@@ -688,7 +724,6 @@ impl App {
       }
       ActiveBlock::Logs => {
         if !self.is_streaming {
-          // do not tail to avoid duplicates
           self.dispatch_stream(IoStreamEvent::GetPodLogs(false)).await;
         }
       }
@@ -709,7 +744,7 @@ impl App {
       self.refresh = false;
     }
     // make network requests only in intervals to avoid hogging up the network
-    if self.tick_count % self.tick_until_poll == 0 || self.is_routing {
+    if self.tick_count.is_multiple_of(self.tick_until_poll) || self.is_routing {
       // make periodic network calls based on active route and active block to avoid hogging
       match self.get_current_route().id {
         RouteId::Home => {
@@ -746,10 +781,8 @@ impl App {
 mod test_utils {
   use std::{fmt, fs};
 
-  use k8s_openapi::{
-    apimachinery::pkg::apis::meta::v1::Time,
-    chrono::{DateTime, Utc},
-  };
+  use chrono::{DateTime, Utc};
+  use k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
   use kube::{api::ObjectList, Resource};
   use serde::{de::DeserializeOwned, Serialize};
 
@@ -783,7 +816,8 @@ mod test_utils {
   }
 
   pub fn get_time(s: &str) -> Time {
-    Time(to_utc(s))
+    let dt = to_utc(s);
+    Time(k8s_openapi::jiff::Timestamp::from_second(dt.timestamp()).unwrap())
   }
 
   fn to_utc(s: &str) -> DateTime<Utc> {
@@ -820,7 +854,7 @@ mod tests {
     };
 
     assert_eq!(app.tick_count, 0);
-    // test first render
+    // test first render — cache_all_resource_data pre-loads everything
     app.on_tick(true).await;
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetKubeConfig);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
@@ -849,7 +883,7 @@ mod tests {
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetClusterRoles);
     assert_eq!(
       sync_io_rx.recv().await.unwrap(),
-      IoEvent::GetClusterRoleBindings
+      IoEvent::GetClusterRoleBinding
     );
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetIngress);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPvcs);
@@ -863,6 +897,7 @@ mod tests {
       IoEvent::GetNetworkPolicies
     );
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetMetrics);
+    // periodic polling also fires (tick_count 0 % 2 == 0), fetching active tab data
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
@@ -890,7 +925,7 @@ mod tests {
     };
 
     assert_eq!(app.tick_count, 2);
-    // test first render
+    // test refresh (non-first-render) — cache_all_resource_data pre-loads everything
     app.on_tick(false).await;
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::RefreshClient);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetKubeConfig);
@@ -948,5 +983,114 @@ mod tests {
     assert!(!app.refresh);
     assert!(!app.is_routing);
     assert_eq!(app.tick_count, 3);
+  }
+
+  #[tokio::test]
+  async fn test_on_tick_no_poll_non_refresh() {
+    // When tick_count is not a multiple of tick_until_poll and refresh=false,
+    // no IO events should be dispatched (lazy loading: only fetch when needed)
+    let (sync_io_tx, mut sync_io_rx) = mpsc::channel::<IoEvent>(500);
+
+    let mut app = App {
+      tick_until_poll: 5,
+      tick_count: 3, // 3 % 5 != 0, so no polling
+      refresh: false,
+      is_routing: false,
+      io_tx: Some(sync_io_tx),
+      ..App::default()
+    };
+
+    app.on_tick(false).await;
+
+    // No IO events should have been dispatched
+    assert!(sync_io_rx.try_recv().is_err());
+    assert_eq!(app.tick_count, 4);
+  }
+
+  #[tokio::test]
+  async fn test_on_tick_dispatch_by_active_block() {
+    // Verify that on polling tick, the active block's resource is fetched
+    let (sync_io_tx, mut sync_io_rx) = mpsc::channel::<IoEvent>(500);
+    let (sync_io_cmd_tx, mut sync_io_cmd_rx) = mpsc::channel::<IoCmdEvent>(500);
+
+    let mut app = App {
+      tick_until_poll: 1, // poll every tick
+      tick_count: 0,
+      refresh: false,
+      io_tx: Some(sync_io_tx),
+      io_cmd_tx: Some(sync_io_cmd_tx),
+      ..App::default()
+    };
+
+    // Navigate to Services tab
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Services);
+
+    app.on_tick(false).await;
+
+    // Should dispatch: GetNamespaces, GetNodes (always), then GetServices (active block)
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetServices);
+    assert_eq!(sync_io_cmd_rx.recv().await.unwrap(), IoCmdEvent::GetCliInfo);
+  }
+
+  #[test]
+  fn test_navigation_stack_cap() {
+    let mut app = App::default();
+    // Push more than MAX_NAV_STACK routes
+    for _i in 0..150 {
+      app.push_navigation_stack(RouteId::Home, ActiveBlock::Pods);
+    }
+    // Stack should be capped at MAX_NAV_STACK
+    assert!(app.navigation_stack.len() <= MAX_NAV_STACK);
+    // Current route should still be the most recently pushed
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Pods);
+  }
+
+  #[test]
+  fn test_navigation_stack_within_cap() {
+    let mut app = App::default();
+    // Push fewer than cap - default already has 1 route
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Services);
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Pods);
+    assert_eq!(app.navigation_stack.len(), 3); // 1 default + 2 pushed
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Pods);
+    // Pop should work normally
+    let popped = app.pop_navigation_stack();
+    assert!(popped.is_some());
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Services);
+  }
+
+  #[test]
+  fn test_loading_counter_default() {
+    let app = App::default();
+    assert!(!app.is_loading());
+  }
+
+  #[tokio::test]
+  async fn test_dispatch_without_sender_does_not_set_loading() {
+    let mut app = App::default();
+
+    app.dispatch(IoEvent::GetNamespaces).await;
+
+    assert!(!app.is_loading());
+  }
+
+  #[tokio::test]
+  async fn test_dispatch_stream_without_sender_does_not_set_loading() {
+    let mut app = App::default();
+
+    app.dispatch_stream(IoStreamEvent::GetPodLogs(false)).await;
+
+    assert!(!app.is_loading());
+  }
+
+  #[tokio::test]
+  async fn test_dispatch_cmd_without_sender_does_not_set_loading() {
+    let mut app = App::default();
+
+    app.dispatch_cmd(IoCmdEvent::GetCliInfo).await;
+
+    assert!(!app.is_loading());
   }
 }

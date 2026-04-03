@@ -1,4 +1,4 @@
-use rand::Rng;
+use rand::RngExt;
 mod help;
 mod overview;
 pub mod resource_tabs;
@@ -88,7 +88,7 @@ fn draw_app_title(f: &mut Frame<'_>, app: &App, area: Rect) {
   let text = format!(
     "v{} with ♥ in Rust {} ",
     env!("CARGO_PKG_VERSION"),
-    nw_loading_indicator(app.is_loading)
+    nw_loading_indicator(app.is_loading())
   );
 
   let meta = Paragraph::new(Span::styled(text, style_header_text(app.light_theme)))
@@ -103,7 +103,7 @@ const FRAMES: &[&str] = &["⠋⠴", "⠦⠙", "⠏⠼", "⠧⠹", "⠯⠽"];
 
 fn nw_loading_indicator<'a>(loading: bool) -> &'a str {
   if loading {
-    FRAMES[rand::thread_rng().gen_range(0..FRAMES.len())]
+    FRAMES[rand::rng().random_range(0..FRAMES.len())]
   } else {
     ""
   }

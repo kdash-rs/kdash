@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
-use k8s_openapi::chrono::Utc;
+use chrono::Utc;
 use kube::{
   core::DynamicObject,
   discovery::{ApiResource, Scope},
@@ -133,6 +133,7 @@ impl AppResource for DynamicResource {
 }
 
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
+  let is_loading = app.is_loading();
   let (title, scope) = if let Some(res) = &app.data.selected.dynamic_kind {
     (res.kind.as_str(), res.scope.clone())
   } else {
@@ -182,7 +183,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       rows.style(style_primary(app.light_theme))
     },
     app.light_theme,
-    app.is_loading,
+    is_loading,
     app.data.selected.filter.to_owned(),
   );
 }

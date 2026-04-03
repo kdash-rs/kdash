@@ -18,6 +18,7 @@ use std::{
 use anyhow::{anyhow, Result};
 use app::App;
 use banner::BANNER;
+use chrono::{self};
 use clap::{builder::PossibleValuesParser, Parser};
 use cmd::{CmdRunner, IoCmdEvent};
 use crossterm::{
@@ -25,7 +26,6 @@ use crossterm::{
   terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use event::Key;
-use k8s_openapi::chrono::{self};
 use log::{info, warn, LevelFilter, SetLoggerError};
 use network::{
   get_client,
@@ -70,7 +70,8 @@ pub struct Cli {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-  openssl_probe::init_ssl_cert_env_vars();
+  // SAFETY: safe as this is called once at startup before spawning threads
+  unsafe { openssl_probe::try_init_openssl_env_vars() };
   panic::set_hook(Box::new(|info| {
     panic_hook(info);
   }));
@@ -109,25 +110,23 @@ async fn main() -> Result<()> {
     cli.poll_rate / cli.tick_rate,
   )));
 
-  // make copies for the network/cli threads
+  // Launch network, stream, and cmd tasks on the shared runtime
   let app_nw = Arc::clone(&app);
-  let app_stream = Arc::clone(&app);
-  let app_cli = Arc::clone(&app);
+  tokio::spawn(async move {
+    info!("Starting network task");
+    start_network(sync_io_rx, &app_nw).await;
+  });
 
-  // Launch network thread
-  std::thread::spawn(move || {
-    info!("Starting network thread");
-    start_network(sync_io_rx, &app_nw);
+  let app_stream = Arc::clone(&app);
+  tokio::spawn(async move {
+    info!("Starting network stream task");
+    start_stream_network(sync_io_stream_rx, &app_stream).await;
   });
-  // Launch network thread for streams
-  std::thread::spawn(move || {
-    info!("Starting network stream thread");
-    start_stream_network(sync_io_stream_rx, &app_stream);
-  });
-  // Launch thread for cmd runner
-  std::thread::spawn(move || {
-    info!("Starting cmd runner thread");
-    start_cmd_runner(sync_io_cmd_rx, &app_cli);
+
+  let app_cli = Arc::clone(&app);
+  tokio::spawn(async move {
+    info!("Starting cmd runner task");
+    start_cmd_runner(sync_io_cmd_rx, &app_cli).await;
   });
   // Launch the UI asynchronously
   // The UI must run in the "main" thread
@@ -136,7 +135,6 @@ async fn main() -> Result<()> {
   Ok(())
 }
 
-#[tokio::main]
 async fn start_network(mut io_rx: mpsc::Receiver<IoEvent>, app: &Arc<Mutex<App>>) {
   match get_client(None).await {
     Ok(client) => {
@@ -154,7 +152,6 @@ async fn start_network(mut io_rx: mpsc::Receiver<IoEvent>, app: &Arc<Mutex<App>>
   }
 }
 
-#[tokio::main]
 async fn start_stream_network(mut io_rx: mpsc::Receiver<IoStreamEvent>, app: &Arc<Mutex<App>>) {
   match get_client(None).await {
     Ok(client) => {
@@ -172,7 +169,6 @@ async fn start_stream_network(mut io_rx: mpsc::Receiver<IoStreamEvent>, app: &Ar
   }
 }
 
-#[tokio::main]
 async fn start_cmd_runner(mut io_rx: mpsc::Receiver<IoCmdEvent>, app: &Arc<Mutex<App>>) {
   let mut cmd = CmdRunner::new(app);
 
@@ -200,6 +196,10 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
   let mut is_first_render = true;
   // main UI loop
   loop {
+    // Wait for the next event BEFORE acquiring the lock.
+    // This is the blocking call — no reason to hold the mutex while waiting.
+    let event = events.next()?;
+
     let mut app = app.lock().await;
     // Get the size of the screen on each loop to account for resize event
     if let Ok(size) = terminal.backend().size() {
@@ -213,8 +213,8 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
     // draw the UI layout
     terminal.draw(|f| ui::draw(f, &mut app))?;
 
-    // handle key events
-    match events.next()? {
+    // handle events
+    match event {
       event::Event::Input(key_event) => {
         info!("Input event received: {:?}", key_event);
         // quit on CTRL + C

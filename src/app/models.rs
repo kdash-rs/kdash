@@ -210,7 +210,7 @@ impl TabsState {
 #[derive(Debug, Eq, PartialEq)]
 pub struct ScrollableTxt {
   items: Vec<String>,
-  pub offset: u16,
+  pub offset: usize,
 }
 
 impl ScrollableTxt {
@@ -236,19 +236,21 @@ impl Scrollable for ScrollableTxt {
   fn scroll_down(&mut self, increment: usize) {
     // scroll only if offset is less than total lines in text
     // we subtract increment + 2 to keep the text in view. Its just an arbitrary number that works
-    if self.offset < self.items.len().saturating_sub(increment + 2) as u16 {
-      self.offset += increment as u16;
+    if self.offset < self.items.len().saturating_sub(increment + 2) {
+      self.offset += increment;
     }
   }
   fn scroll_up(&mut self, decrement: usize) {
     // scroll up and avoid going negative
     if self.offset > 0 {
-      self.offset = self.offset.saturating_sub(decrement as u16);
+      self.offset = self.offset.saturating_sub(decrement);
     }
   }
 }
 
 // TODO implement line buffer to avoid gathering too much data in memory
+const MAX_LOG_RECORDS: usize = 10_000;
+
 #[derive(Debug, Clone)]
 pub struct LogsState {
   /// Stores the log messages to be displayed
@@ -363,8 +365,33 @@ impl LogsState {
     f.render_stateful_widget(list, logs_area, &mut self.state);
   }
   /// Add a record to be displayed
+  #[cfg(test)]
   pub fn add_record(&mut self, record: String) {
     self.records.push_back((record, None));
+    while self.records.len() > MAX_LOG_RECORDS {
+      self.records.pop_front();
+    }
+  }
+
+  /// Add multiple records in a batch
+  pub fn add_records(&mut self, records: Vec<String>) {
+    for record in records {
+      self.records.push_back((record, None));
+    }
+    while self.records.len() > MAX_LOG_RECORDS {
+      self.records.pop_front();
+    }
+  }
+
+  /// Get the last n raw log lines (for dedup on reconnect)
+  pub fn last_n_records(&self, n: usize) -> Vec<&str> {
+    self
+      .records
+      .iter()
+      .rev()
+      .take(n)
+      .map(|(s, _)| s.as_str())
+      .collect()
   }
 
   fn unselect(&mut self) {
@@ -575,6 +602,49 @@ mod tests {
   }
 
   #[test]
+  fn test_scrollable_txt_beyond_u16_max() {
+    let line_count = u16::MAX as usize + 100; // 65635 lines
+    let lines: Vec<String> = (0..line_count).map(|i| format!("line {}", i)).collect();
+    let mut stxt = ScrollableTxt::with_string(lines.join("\n"));
+
+    assert_eq!(stxt.items.len(), line_count);
+    assert_eq!(stxt.offset, 0);
+
+    // Scroll down past u16::MAX in large steps — should not wrap or panic
+    let target = line_count.saturating_sub(3); // max reachable offset (len - 1 - 2)
+    for _ in 0..(target / 1000) {
+      stxt.scroll_down(1000);
+    }
+    // Finish off with single increments to reach the cap
+    for _ in 0..1000 {
+      stxt.scroll_down(1);
+    }
+
+    // Offset must be beyond what u16 could hold and must not have wrapped
+    assert!(
+      stxt.offset > u16::MAX as usize,
+      "offset {} should exceed u16::MAX (65535)",
+      stxt.offset
+    );
+    // Must be capped at items.len() - 3  (the scroll_down guard: len - increment - 2 where increment=1)
+    assert!(
+      stxt.offset <= target,
+      "offset {} should be at most {}",
+      stxt.offset,
+      target
+    );
+
+    // Scroll back up past u16::MAX boundary — should not wrap or panic
+    for _ in 0..(stxt.offset / 1000) {
+      stxt.scroll_up(1000);
+    }
+    for _ in 0..1000 {
+      stxt.scroll_up(1);
+    }
+    assert_eq!(stxt.offset, 0);
+  }
+
+  #[test]
   fn test_logs_state() {
     let mut log = LogsState::new("1".into());
     log.add_record("record 1".into());
@@ -685,5 +755,77 @@ mod tests {
     }
 
     terminal.backend().assert_buffer(&expected5);
+  }
+
+  #[test]
+  fn test_logs_state_bounded() {
+    let mut log = LogsState::new("bounded".into());
+
+    // Add more than MAX_LOG_RECORDS entries
+    for i in 0..MAX_LOG_RECORDS + 100 {
+      log.add_record(format!("record {}", i));
+    }
+
+    // Should be capped at MAX_LOG_RECORDS
+    assert_eq!(log.records.len(), MAX_LOG_RECORDS);
+
+    // Oldest records should have been evicted — first record should be 100
+    assert_eq!(log.records.front().unwrap().0, "record 100");
+    assert_eq!(
+      log.records.back().unwrap().0,
+      format!("record {}", MAX_LOG_RECORDS + 99)
+    );
+  }
+
+  #[test]
+  fn test_logs_state_bounded_exactly_at_limit() {
+    let mut log = LogsState::new("exact".into());
+
+    // Add exactly MAX_LOG_RECORDS entries — no eviction should occur
+    for i in 0..MAX_LOG_RECORDS {
+      log.add_record(format!("record {}", i));
+    }
+
+    assert_eq!(log.records.len(), MAX_LOG_RECORDS);
+    assert_eq!(log.records.front().unwrap().0, "record 0");
+    assert_eq!(
+      log.records.back().unwrap().0,
+      format!("record {}", MAX_LOG_RECORDS - 1)
+    );
+  }
+
+  #[test]
+  fn test_logs_state_bounded_one_over() {
+    let mut log = LogsState::new("one_over".into());
+
+    for i in 0..MAX_LOG_RECORDS + 1 {
+      log.add_record(format!("record {}", i));
+    }
+
+    assert_eq!(log.records.len(), MAX_LOG_RECORDS);
+    // First record should be evicted
+    assert_eq!(log.records.front().unwrap().0, "record 1");
+    assert_eq!(
+      log.records.back().unwrap().0,
+      format!("record {}", MAX_LOG_RECORDS)
+    );
+  }
+
+  #[test]
+  fn test_logs_state_empty() {
+    let log = LogsState::new("empty".into());
+    assert_eq!(log.records.len(), 0);
+    assert_eq!(log.get_plain_text(), "");
+  }
+
+  #[test]
+  fn test_logs_state_plain_text_preserves_order() {
+    let mut log = LogsState::new("text".into());
+    log.add_record("first".into());
+    log.add_record("second".into());
+    log.add_record("third".into());
+
+    let text = log.get_plain_text();
+    assert_eq!(text, "\nfirst\nsecond\nthird");
   }
 }

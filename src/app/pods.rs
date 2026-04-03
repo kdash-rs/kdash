@@ -1,10 +1,8 @@
 use async_trait::async_trait;
-use k8s_openapi::{
-  api::core::v1::{
-    Container, ContainerPort, ContainerState, ContainerStateWaiting, ContainerStatus, Pod, PodSpec,
-    PodStatus,
-  },
-  chrono::Utc,
+use chrono::Utc;
+use k8s_openapi::api::core::v1::{
+  Container, ContainerPort, ContainerState, ContainerStateWaiting, ContainerStatus, Pod, PodSpec,
+  PodStatus,
 };
 use ratatui::{
   layout::{Constraint, Rect},
@@ -71,27 +69,26 @@ impl From<Pod> for KubePod {
   fn from(pod: Pod) -> Self {
     let age = utils::to_age(pod.metadata.creation_timestamp.as_ref(), Utc::now());
     let pod_name = pod.metadata.name.clone().unwrap_or_default();
-    let (status, cr, restarts, c_stats_len, containers) = match &pod.status {
+    let main_containers = pod
+      .spec
+      .as_ref()
+      .map(|spec| spec.containers.clone())
+      .unwrap_or_default();
+    let ready_total = main_containers.len() as i32;
+    let (status, cr, restarts, ready_count, containers) = match &pod.status {
       Some(status) => {
         let (mut cr, mut rc) = (0, 0);
-        let c_stats_len = match status.container_statuses.as_ref() {
-          Some(c_stats) => {
-            c_stats.iter().for_each(|cs| {
-              if cs.ready {
-                cr += 1;
-              }
-              rc += cs.restart_count;
-            });
-            c_stats.len()
-          }
-          None => 0,
-        };
+        let has_container_statuses = status.container_statuses.is_some();
+        if let Some(c_stats) = status.container_statuses.as_ref() {
+          c_stats.iter().for_each(|cs| {
+            if cs.ready {
+              cr += 1;
+            }
+            rc += cs.restart_count;
+          });
+        }
 
-        let mut containers: Vec<KubeContainer> = pod
-          .spec
-          .as_ref()
-          .unwrap_or(&PodSpec::default())
-          .containers
+        let mut containers: Vec<KubeContainer> = main_containers
           .iter()
           .map(|c| {
             KubeContainer::from_api(
@@ -126,7 +123,18 @@ impl From<Pod> for KubePod {
         // merge containers and init-containers into single array
         containers.append(&mut init_containers);
 
-        (get_status(status, &pod), cr, rc, c_stats_len, containers)
+        let status_name = get_status(status, &pod);
+        let ready_count = if has_container_statuses || !is_pending_like_status(&status_name) {
+          status
+            .container_statuses
+            .as_ref()
+            .map(|c_stats| c_stats.len() as i32)
+            .unwrap_or_default()
+        } else {
+          ready_total
+        };
+
+        (status_name, cr, rc, ready_count, containers)
       }
       _ => (UNKNOWN.into(), 0, 0, 0, vec![]),
     };
@@ -134,7 +142,7 @@ impl From<Pod> for KubePod {
     KubePod {
       name: pod_name,
       namespace: pod.metadata.namespace.clone().unwrap_or_default(),
-      ready: (cr, c_stats_len as i32),
+      ready: (cr, ready_count),
       restarts,
       // TODO implement pod metrics
       cpu: String::default(),
@@ -221,6 +229,7 @@ impl AppResource for PodResource {
 }
 
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
+  let is_loading = app.is_loading();
   let title = get_resource_title(app, PODS_TITLE, "", app.data.pods.items.len());
 
   draw_resource_block(
@@ -253,12 +262,13 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       .style(style)
     },
     app.light_theme,
-    app.is_loading,
+    is_loading,
     app.data.selected.filter.to_owned(),
   );
 }
 
 fn draw_containers_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
+  let is_loading = app.is_loading();
   let title = get_container_title(app, app.data.containers.items.len(), "");
 
   draw_resource_block(
@@ -307,7 +317,7 @@ fn draw_containers_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       .style(style)
     },
     app.light_theme,
-    app.is_loading,
+    is_loading,
     app.data.selected.filter.to_owned(),
   );
 }
@@ -347,7 +357,7 @@ fn draw_logs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       app.log_auto_scroll,
     );
   } else {
-    loading(f, block, area, app.is_loading, app.light_theme);
+    loading(f, block, area, app.is_loading(), app.light_theme);
   }
 }
 
@@ -368,6 +378,16 @@ fn get_resource_row_style(status: &str, ready: (i32, i32), light: bool) -> Style
   } else {
     style_failure(light)
   }
+}
+
+fn is_pending_like_status(status: &str) -> bool {
+  [
+    "ContainerCreating",
+    "PodInitializing",
+    "Pending",
+    "Initialized",
+  ]
+  .contains(&status)
 }
 
 impl KubeContainer {
@@ -570,6 +590,7 @@ fn get_container_ports(ports_ref: &Option<Vec<ContainerPort>>) -> Option<String>
 mod tests {
   use super::*;
   use crate::app::test_utils::*;
+  use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 
   #[test]
   fn test_get_container_title() {
@@ -590,7 +611,7 @@ mod tests {
       KubePod {
         namespace: "default".into(),
         name: "adservice-f787c8dcd-tb6x2".into(),
-        ready: (0, 0),
+        ready: (0, 1),
         status: "Pending".into(),
         restarts: 0,
         cpu: "".into(),
@@ -870,5 +891,34 @@ mod tests {
       }
     );
     // TODO add tests for NodeLost case
+  }
+
+  #[test]
+  fn test_pending_pod_ready_count_uses_declared_containers() {
+    let pod = Pod {
+      metadata: ObjectMeta {
+        name: Some("pending-pod".into()),
+        namespace: Some("default".into()),
+        ..Default::default()
+      },
+      spec: Some(PodSpec {
+        containers: vec![Container {
+          name: "server".into(),
+          image: Some("busybox".into()),
+          ..Default::default()
+        }],
+        ..Default::default()
+      }),
+      status: Some(PodStatus {
+        phase: Some("Pending".into()),
+        container_statuses: None,
+        ..Default::default()
+      }),
+    };
+
+    let pod = KubePod::from(pod);
+
+    assert_eq!(pod.ready, (0, 1));
+    assert_eq!(pod.status, "Pending");
   }
 }

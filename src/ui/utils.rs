@@ -51,6 +51,50 @@ const YAML_BACKGROUND_DARK: syntect::highlighting::Color = syntect::highlighting
   a: 255,
 }; // corresponds to TEAL
 
+/// Convert a syntect highlight segment into a ratatui Span (inlined from syntect-tui).
+fn syntect_to_ratatui_span<'a>(
+  (style, content): (syntect::highlighting::Style, &'a str),
+) -> Option<Span<'a>> {
+  use syntect::highlighting::FontStyle;
+  let fg = if style.foreground.a > 0 {
+    Some(Color::Rgb(
+      style.foreground.r,
+      style.foreground.g,
+      style.foreground.b,
+    ))
+  } else {
+    None
+  };
+  let bg = if style.background.a > 0 {
+    Some(Color::Rgb(
+      style.background.r,
+      style.background.g,
+      style.background.b,
+    ))
+  } else {
+    None
+  };
+  let modifier = {
+    let fs = style.font_style;
+    let mut m = Modifier::empty();
+    if fs.contains(FontStyle::BOLD) {
+      m |= Modifier::BOLD;
+    }
+    if fs.contains(FontStyle::ITALIC) {
+      m |= Modifier::ITALIC;
+    }
+    if fs.contains(FontStyle::UNDERLINE) {
+      m |= Modifier::UNDERLINED;
+    }
+    m
+  };
+  let ratatui_style = Style::default()
+    .fg(fg.unwrap_or_default())
+    .bg(bg.unwrap_or_default())
+    .add_modifier(modifier);
+  Some(Span::styled(content, ratatui_style))
+}
+
 fn get_syntax_set() -> &'static syntect::parsing::SyntaxSet {
   static SYNTAX_SET: OnceLock<syntect::parsing::SyntaxSet> = OnceLock::new();
   SYNTAX_SET.get_or_init(syntect::parsing::SyntaxSet::load_defaults_newlines)
@@ -183,11 +227,11 @@ pub fn style_highlight() -> Style {
   Style::default().add_modifier(Modifier::REVERSED)
 }
 
-pub fn get_gauge_style(enhanced_graphics: bool) -> symbols::line::Set {
+pub fn get_gauge_symbol(enhanced_graphics: bool) -> &'static str {
   if enhanced_graphics {
-    symbols::line::THICK
+    symbols::line::THICK_HORIZONTAL
   } else {
-    symbols::line::NORMAL
+    symbols::line::HORIZONTAL
   }
 }
 
@@ -387,7 +431,7 @@ pub fn draw_yaml_block(f: &mut Frame<'_>, app: &App, area: Rect, title: Line<'_>
           Ok(segments) => {
             let line_spans: Vec<_> = segments
               .into_iter()
-              .filter_map(|segment| syntect_tui::into_span(segment).ok())
+              .filter_map(syntect_to_ratatui_span)
               .collect();
             Some(ratatui::text::Line::from(
               line_spans.into_iter().collect::<Vec<_>>(),
@@ -401,10 +445,13 @@ pub fn draw_yaml_block(f: &mut Frame<'_>, app: &App, area: Rect, title: Line<'_>
     let paragraph = Paragraph::new(lines)
       .block(block)
       .wrap(Wrap { trim: false })
-      .scroll((app.data.describe_out.offset, 0));
+      .scroll((
+        app.data.describe_out.offset.min(u16::MAX as usize) as u16,
+        0,
+      ));
     f.render_widget(paragraph, area);
   } else {
-    loading(f, block, area, app.is_loading, app.light_theme);
+    loading(f, block, area, app.is_loading(), app.light_theme);
   }
 }
 

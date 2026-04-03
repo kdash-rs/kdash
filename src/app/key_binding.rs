@@ -318,8 +318,8 @@ pub fn get_help_docs() -> Vec<Vec<String>> {
 
 fn help_row(item: &KeyBinding) -> Vec<String> {
   vec![
-    if item.alt.is_some() {
-      format!("{} | {}", item.key, item.alt.unwrap())
+    if let Some(alt) = item.alt {
+      format!("{} | {}", item.key, alt)
     } else {
       item.key.to_string()
     },

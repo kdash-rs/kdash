@@ -1,6 +1,7 @@
 use async_trait::async_trait;
+use chrono::Utc;
 use k8s_openapi::{
-  api::core::v1::PersistentVolumeClaim, apimachinery::pkg::api::resource::Quantity, chrono::Utc,
+  api::core::v1::PersistentVolumeClaim, apimachinery::pkg::api::resource::Quantity,
 };
 use ratatui::{
   layout::{Constraint, Rect},
@@ -106,7 +107,7 @@ impl AppResource for PvcResource {
       area,
       Self::render,
       draw_block,
-      app.data.pvcs
+      app.data.persistent_volume_claims
     );
   }
 
@@ -116,12 +117,18 @@ impl AppResource for PvcResource {
       .await;
 
     let mut app = nw.app.lock().await;
-    app.data.pvcs.set_items(items);
+    app.data.persistent_volume_claims.set_items(items);
   }
 }
 
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
-  let title = get_resource_title(app, PVC_TITLE, "", app.data.pvcs.items.len());
+  let is_loading = app.is_loading();
+  let title = get_resource_title(
+    app,
+    PVC_TITLE,
+    "",
+    app.data.persistent_volume_claims.items.len(),
+  );
 
   draw_resource_block(
     f,
@@ -129,7 +136,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     ResourceTableProps {
       title,
       inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
-      resource: &mut app.data.pvcs,
+      resource: &mut app.data.persistent_volume_claims,
       table_headers: vec![
         "Namespace",
         "Name",
@@ -166,7 +173,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       .style(style_primary(app.light_theme))
     },
     app.light_theme,
-    app.is_loading,
+    is_loading,
     app.data.selected.filter.to_owned(),
   );
 }

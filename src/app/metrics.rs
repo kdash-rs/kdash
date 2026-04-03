@@ -11,7 +11,7 @@ use kubectl_view_allocations::{
   metrics::{PodMetrics, Usage},
   qty::Qty,
   tree::provide_prefix,
-  Resource,
+  Resource, UsedMode,
 };
 use ratatui::{
   layout::{Constraint, Rect},
@@ -133,7 +133,7 @@ impl AppResource for UtilizationResource {
             make_table_cell(&qtys.requested, &qtys.allocatable),
             make_table_cell(&qtys.limit, &qtys.allocatable),
             make_table_cell(&qtys.allocatable, &None),
-            make_table_cell(&qtys.calc_free(), &None),
+            make_table_cell(&qtys.calc_free(UsedMode::default()), &None),
           ])
           .style(style);
           rows.push(row);
@@ -167,7 +167,7 @@ impl AppResource for UtilizationResource {
 
       f.render_stateful_widget(table, area, &mut app.data.metrics.state);
     } else {
-      loading(f, block, area, app.is_loading, app.light_theme);
+      loading(f, block, area, app.is_loading(), app.light_theme);
     }
   }
 
@@ -177,7 +177,7 @@ impl AppResource for UtilizationResource {
     let node_api: Api<Node> = Api::all(nw.client.clone());
     match node_api.list(&ListParams::default()).await {
       Ok(node_list) => {
-        if let Err(e) = extract_allocatable_from_nodes(node_list, &mut resources).await {
+        if let Err(e) = extract_allocatable_from_nodes(node_list.items, &mut resources).await {
           nw.handle_error(anyhow!(
             "Failed to extract node allocation metrics. {:?}",
             e
@@ -197,7 +197,7 @@ impl AppResource for UtilizationResource {
     let pod_api: Api<Pod> = nw.get_namespaced_api().await;
     match pod_api.list(&ListParams::default()).await {
       Ok(pod_list) => {
-        if let Err(e) = extract_allocatable_from_pods(pod_list, &mut resources).await {
+        if let Err(e) = extract_allocatable_from_pods(pod_list.items, &mut resources, &[]).await {
           nw.handle_error(anyhow!("Failed to extract pod allocation metrics. {:?}", e))
             .await;
         }

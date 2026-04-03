@@ -1,7 +1,6 @@
 use async_trait::async_trait;
-use k8s_openapi::{
-  api::core::v1::PersistentVolume, apimachinery::pkg::api::resource::Quantity, chrono::Utc,
-};
+use chrono::Utc;
+use k8s_openapi::{api::core::v1::PersistentVolume, apimachinery::pkg::api::resource::Quantity};
 use ratatui::{
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
@@ -125,7 +124,7 @@ impl AppResource for PvResource {
       area,
       Self::render,
       draw_block,
-      app.data.pvs
+      app.data.persistent_volumes
     );
   }
 
@@ -133,12 +132,13 @@ impl AppResource for PvResource {
     let items: Vec<KubePV> = nw.get_resources(PersistentVolume::into).await;
 
     let mut app = nw.app.lock().await;
-    app.data.pvs.set_items(items);
+    app.data.persistent_volumes.set_items(items);
   }
 }
 
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
-  let title = get_resource_title(app, PV_TITLE, "", app.data.pvs.items.len());
+  let is_loading = app.is_loading();
+  let title = get_resource_title(app, PV_TITLE, "", app.data.persistent_volumes.items.len());
 
   draw_resource_block(
     f,
@@ -146,7 +146,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     ResourceTableProps {
       title,
       inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
-      resource: &mut app.data.pvs,
+      resource: &mut app.data.persistent_volumes,
       table_headers: vec![
         "Name",
         "Capacity",
@@ -185,7 +185,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       .style(style_primary(app.light_theme))
     },
     app.light_theme,
-    app.is_loading,
+    is_loading,
     app.data.selected.filter.to_owned(),
   );
 }

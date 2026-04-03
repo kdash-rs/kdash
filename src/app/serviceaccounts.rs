@@ -1,5 +1,6 @@
 use async_trait::async_trait;
-use k8s_openapi::{api::core::v1::ServiceAccount, chrono::Utc};
+use chrono::Utc;
+use k8s_openapi::api::core::v1::ServiceAccount;
 use ratatui::{
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
@@ -80,6 +81,7 @@ impl AppResource for SvcAcctResource {
 }
 
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
+  let is_loading = app.is_loading();
   let title = get_resource_title(
     app,
     SVC_ACCT_TITLE,
@@ -112,14 +114,14 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       .style(style_primary(app.light_theme))
     },
     app.light_theme,
-    app.is_loading,
+    is_loading,
     app.data.selected.filter.to_owned(),
   );
 }
 
 #[cfg(test)]
 mod tests {
-  use k8s_openapi::chrono::Utc;
+  use chrono::Utc;
 
   use crate::app::{
     serviceaccounts::KubeSvcAcct,

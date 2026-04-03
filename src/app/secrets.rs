@@ -2,7 +2,8 @@ use std::collections::BTreeMap;
 
 use async_trait::async_trait;
 use base64::{engine::general_purpose, Engine};
-use k8s_openapi::{api::core::v1::Secret, chrono::Utc, ByteString};
+use chrono::Utc;
+use k8s_openapi::{api::core::v1::Secret, ByteString};
 use ratatui::{
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
@@ -45,7 +46,7 @@ impl KubeSecret {
     for (key_name, encoded_bytes) in self.data.iter() {
       let decoded_str = match serde_yaml::to_string(encoded_bytes) {
         Ok(encoded_str) => match general_purpose::STANDARD.decode(encoded_str.trim()) {
-          Ok(decoded_bytes) => String::from_utf8(decoded_bytes).unwrap(),
+          Ok(decoded_bytes) => String::from_utf8_lossy(&decoded_bytes).into_owned(),
           Err(_) => format!("cannot decode value: {}", encoded_str.trim()),
         },
         Err(_) => String::from("cannot deserialize value"),
@@ -107,6 +108,7 @@ impl AppResource for SecretResource {
 }
 
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
+  let is_loading = app.is_loading();
   let title = get_resource_title(app, SECRETS_TITLE, "", app.data.secrets.items.len());
 
   draw_resource_block(
@@ -136,14 +138,14 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       .style(style_primary(app.light_theme))
     },
     app.light_theme,
-    app.is_loading,
+    is_loading,
     app.data.selected.filter.to_owned(),
   );
 }
 
 #[cfg(test)]
 mod tests {
-  use k8s_openapi::chrono::Utc;
+  use chrono::Utc;
 
   use super::*;
   use crate::{app::test_utils::*, map_string_object};
@@ -183,5 +185,63 @@ mod tests {
         k8s_obj: secret_list[1].clone()
       }
     );
+  }
+
+  #[test]
+  fn test_decode_secret_valid_utf8() {
+    // Secrets with valid UTF-8 values should decode correctly
+    let secret = KubeSecret {
+      name: "my-secret".into(),
+      namespace: "default".into(),
+      type_: "Opaque".into(),
+      data: map_string_object! {
+        "username" => ByteString("admin".as_bytes().into())
+      },
+      age: String::new(),
+      k8s_obj: Secret::default(),
+    };
+
+    let decoded = secret.decode_secret();
+    assert!(decoded.contains("Name:         my-secret"));
+    assert!(decoded.contains("Namespace:    default"));
+    assert!(decoded.contains("username:"));
+  }
+
+  #[test]
+  fn test_decode_secret_non_utf8_binary() {
+    // Secrets containing non-UTF8 binary data should not panic (uses from_utf8_lossy)
+    let binary_data: Vec<u8> = vec![0xFF, 0xFE, 0x00, 0x01, 0x80, 0x90];
+    let secret = KubeSecret {
+      name: "binary-secret".into(),
+      namespace: "default".into(),
+      type_: "Opaque".into(),
+      data: map_string_object! {
+        "binary-key" => ByteString(binary_data)
+      },
+      age: String::new(),
+      k8s_obj: Secret::default(),
+    };
+
+    // This should not panic — from_utf8_lossy replaces invalid bytes with U+FFFD
+    let decoded = secret.decode_secret();
+    assert!(decoded.contains("binary-key:"));
+    assert!(decoded.contains("Name:         binary-secret"));
+  }
+
+  #[test]
+  fn test_decode_secret_empty_data() {
+    let secret = KubeSecret {
+      name: "empty-secret".into(),
+      namespace: "test-ns".into(),
+      type_: "Opaque".into(),
+      data: BTreeMap::new(),
+      age: String::new(),
+      k8s_obj: Secret::default(),
+    };
+
+    let decoded = secret.decode_secret();
+    assert!(decoded.contains("Name:         empty-secret"));
+    assert!(decoded.contains("Namespace:    test-ns"));
+    assert!(decoded.contains("Data\n===="));
   }
 }

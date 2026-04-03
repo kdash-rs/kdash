@@ -1,5 +1,6 @@
 use async_trait::async_trait;
-use k8s_openapi::{api::apps::v1::ReplicaSet, chrono::Utc};
+use chrono::Utc;
+use k8s_openapi::api::apps::v1::ReplicaSet;
 use ratatui::{
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
@@ -91,6 +92,7 @@ impl AppResource for ReplicaSetResource {
 }
 
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
+  let is_loading = app.is_loading();
   let title = get_resource_title(
     app,
     REPLICA_SETS_TITLE,
@@ -127,7 +129,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       .style(style_primary(app.light_theme))
     },
     app.light_theme,
-    app.is_loading,
+    is_loading,
     app.data.selected.filter.to_owned(),
   );
 }

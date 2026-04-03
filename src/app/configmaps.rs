@@ -1,7 +1,8 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
-use k8s_openapi::{api::core::v1::ConfigMap, chrono::Utc};
+use chrono::Utc;
+use k8s_openapi::api::core::v1::ConfigMap;
 use ratatui::{
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
@@ -80,6 +81,7 @@ impl AppResource for ConfigMapResource {
 }
 
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
+  let is_loading = app.is_loading();
   let title = get_resource_title(app, CONFIG_MAPS_TITLE, "", app.data.config_maps.items.len());
 
   draw_resource_block(
@@ -107,14 +109,14 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       .style(style_primary(app.light_theme))
     },
     app.light_theme,
-    app.is_loading,
+    is_loading,
     app.data.selected.filter.to_owned(),
   );
 }
 
 #[cfg(test)]
 mod tests {
-  use k8s_openapi::chrono::Utc;
+  use chrono::Utc;
 
   use super::*;
   use crate::{app::test_utils::*, map_string_object};
