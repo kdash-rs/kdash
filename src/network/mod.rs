@@ -264,7 +264,7 @@ impl<'a> Network<'a> {
       Err(e) => {
         self
           .handle_error(anyhow!(
-            "Failed to refresh client. {:?}. Loading default context. ",
+            "Failed to refresh client. {}. Loading default context.",
             e
           ))
           .await;
@@ -427,8 +427,8 @@ impl<'a> Network<'a> {
       Err(e) => {
         self
           .handle_error(anyhow!(
-            "Failed to get namespaced resource {}. {:?}",
-            std::any::type_name::<T>(),
+            "Failed to get namespaced resource {}. {}",
+            crate::app::utils::friendly_type_name::<T>(),
             e
           ))
           .await;
@@ -451,8 +451,8 @@ impl<'a> Network<'a> {
       Err(e) => {
         self
           .handle_error(anyhow!(
-            "Failed to get resource {}. {:?}",
-            std::any::type_name::<T>(),
+            "Failed to get resource {}. {}",
+            crate::app::utils::friendly_type_name::<T>(),
             e
           ))
           .await;
@@ -479,7 +479,7 @@ impl<'a> Network<'a> {
       Ok(d) => d,
       Err(e) => {
         self
-          .handle_error(anyhow!("Failed to get dynamic resources. {:?}", e))
+          .handle_error(anyhow!("Failed to get dynamic resources. {}", e))
           .await;
         return;
       }

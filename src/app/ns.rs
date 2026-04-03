@@ -136,7 +136,7 @@ impl AppResource for NamespaceResource {
           }
         } else {
           drop(app);
-          nw.handle_error(anyhow!("Failed to get namespaces. {:?}", e))
+          nw.handle_error(anyhow!("Failed to get namespaces. {}", e))
             .await;
         }
       }

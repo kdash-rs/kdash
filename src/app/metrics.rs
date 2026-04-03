@@ -178,19 +178,13 @@ impl AppResource for UtilizationResource {
     match node_api.list(&ListParams::default()).await {
       Ok(node_list) => {
         if let Err(e) = extract_allocatable_from_nodes(node_list.items, &mut resources).await {
-          nw.handle_error(anyhow!(
-            "Failed to extract node allocation metrics. {:?}",
-            e
-          ))
-          .await;
+          nw.handle_error(anyhow!("Failed to extract node allocation metrics. {}", e))
+            .await;
         }
       }
       Err(e) => {
-        nw.handle_error(anyhow!(
-          "Failed to extract node allocation metrics. {:?}",
-          e
-        ))
-        .await
+        nw.handle_error(anyhow!("Failed to extract node allocation metrics. {}", e))
+          .await
       }
     }
 
@@ -198,12 +192,12 @@ impl AppResource for UtilizationResource {
     match pod_api.list(&ListParams::default()).await {
       Ok(pod_list) => {
         if let Err(e) = extract_allocatable_from_pods(pod_list.items, &mut resources, &[]).await {
-          nw.handle_error(anyhow!("Failed to extract pod allocation metrics. {:?}", e))
+          nw.handle_error(anyhow!("Failed to extract pod allocation metrics. {}", e))
             .await;
         }
       }
       Err(e) => {
-        nw.handle_error(anyhow!("Failed to extract pod allocation metrics. {:?}", e))
+        nw.handle_error(anyhow!("Failed to extract pod allocation metrics. {}", e))
           .await
       }
     }
@@ -216,7 +210,7 @@ impl AppResource for UtilizationResource {
     {
       Ok(pod_metrics) => {
         if let Err(e) = extract_utilizations_from_pod_metrics(pod_metrics, &mut resources).await {
-          nw.handle_error(anyhow!("Failed to extract pod utilization metrics. {:?}", e)).await;
+          nw.handle_error(anyhow!("Failed to extract pod utilization metrics. {}", e)).await;
         }
       }
       Err(_e) => nw.handle_error(anyhow!("Failed to extract pod utilization metrics. Make sure you have a metrics-server deployed on your cluster.")).await,

@@ -147,7 +147,7 @@ async fn start_network(mut io_rx: mpsc::Receiver<IoEvent>, app: &Arc<Mutex<App>>
     }
     Err(e) => {
       let mut app = app.lock().await;
-      app.handle_error(anyhow!("Unable to obtain Kubernetes client. {:?}", e));
+      app.handle_error(anyhow!("Unable to obtain Kubernetes client. {}", e));
     }
   }
 }
@@ -164,7 +164,7 @@ async fn start_stream_network(mut io_rx: mpsc::Receiver<IoStreamEvent>, app: &Ar
     }
     Err(e) => {
       let mut app = app.lock().await;
-      app.handle_error(anyhow!("Unable to obtain Kubernetes client. {:?}", e));
+      app.handle_error(anyhow!("Unable to obtain Kubernetes client. {}", e));
     }
   }
 }

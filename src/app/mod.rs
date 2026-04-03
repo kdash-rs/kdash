@@ -23,7 +23,7 @@ pub(crate) mod serviceaccounts;
 pub(crate) mod statefulsets;
 pub(crate) mod storageclass;
 pub(crate) mod svcs;
-mod utils;
+pub(crate) mod utils;
 
 use anyhow::anyhow;
 use kube::config::Kubeconfig;
@@ -549,8 +549,10 @@ impl App {
   }
 
   pub fn handle_error(&mut self, e: anyhow::Error) {
+    // Log the full debug output for diagnostics
     error!("{:?}", e);
-    self.api_error = e.to_string();
+    // Show a cleaned-up message in the UI
+    self.api_error = crate::app::utils::sanitize_error_message(&e);
   }
 
   pub fn push_navigation_stack(&mut self, id: RouteId, active_block: ActiveBlock) {

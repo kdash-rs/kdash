@@ -248,8 +248,7 @@ impl AppResource for NodeResource {
         app.data.nodes.set_items(items);
       }
       Err(e) => {
-        nw.handle_error(anyhow!("Failed to get nodes. {:?}", e))
-          .await;
+        nw.handle_error(anyhow!("Failed to get nodes. {}", e)).await;
       }
     }
   }

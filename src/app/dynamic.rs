@@ -122,7 +122,7 @@ impl AppResource for DynamicResource {
           .map(|item| KubeDynamicResource::from(item.clone()))
           .collect::<Vec<KubeDynamicResource>>(),
         Err(e) => {
-          nw.handle_error(anyhow!("Failed to get dynamic resources. {:?}", e))
+          nw.handle_error(anyhow!("Failed to get dynamic resources. {}", e))
             .await;
           return;
         }
