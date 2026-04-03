@@ -92,7 +92,7 @@ fn syntect_to_ratatui_span<'a>(
     .fg(fg.unwrap_or_default())
     .bg(bg.unwrap_or_default())
     .add_modifier(modifier);
-  Some(Span::styled(content.to_string(), ratatui_style))
+  Some(Span::styled(content, ratatui_style))
 }
 
 fn get_syntax_set() -> &'static syntect::parsing::SyntaxSet {

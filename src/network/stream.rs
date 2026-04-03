@@ -104,7 +104,6 @@ impl<'a> NetworkStream<'a> {
     let api: Api<Pod> = Api::namespaced(self.client.clone(), &namespace);
     let mut since_seconds: Option<i64> = None;
     let mut reconnect_count: u32 = 0;
-    let stream_start = Instant::now();
 
     loop {
       let lp = LogParams {
@@ -237,9 +236,8 @@ impl<'a> NetworkStream<'a> {
         break;
       }
 
-      // Calculate since_seconds for reconnection with overlap
-      let elapsed = stream_start.elapsed().as_secs() as i64;
-      since_seconds = Some((elapsed + RECONNECT_OVERLAP_SECS).max(RECONNECT_OVERLAP_SECS));
+      // Ask Kubernetes for a small overlap window so reconnects only refetch recent logs.
+      since_seconds = Some(RECONNECT_OVERLAP_SECS);
 
       // Backoff before reconnecting
       let backoff = Duration::from_millis(500 * (reconnect_count as u64).min(4));

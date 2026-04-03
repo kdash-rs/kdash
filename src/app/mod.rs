@@ -504,8 +504,8 @@ impl App {
   // Send a network event to the network thread
   pub async fn dispatch(&mut self, action: IoEvent) {
     // `loading_counter` will be decremented after the async action has finished in network/mod.rs
-    self.loading_counter += 1;
     if let Some(io_tx) = &self.io_tx {
+      self.loading_counter += 1;
       if let Err(e) = io_tx.send(action).await {
         self.loading_counter = self.loading_counter.saturating_sub(1);
         self.handle_error(anyhow!(e));
@@ -516,8 +516,8 @@ impl App {
   // Send a stream event to the stream network thread
   pub async fn dispatch_stream(&mut self, action: IoStreamEvent) {
     // `loading_counter` will be decremented after the async action has finished in network/stream.rs
-    self.loading_counter += 1;
     if let Some(io_stream_tx) = &self.io_stream_tx {
+      self.loading_counter += 1;
       if let Err(e) = io_stream_tx.send(action).await {
         self.loading_counter = self.loading_counter.saturating_sub(1);
         self.handle_error(anyhow!(e));
@@ -528,8 +528,8 @@ impl App {
   // Send a cmd event to the cmd runner thread
   pub async fn dispatch_cmd(&mut self, action: IoCmdEvent) {
     // `loading_counter` will be decremented after the async action has finished in cmd/mod.rs
-    self.loading_counter += 1;
     if let Some(io_cmd_tx) = &self.io_cmd_tx {
+      self.loading_counter += 1;
       if let Err(e) = io_cmd_tx.send(action).await {
         self.loading_counter = self.loading_counter.saturating_sub(1);
         self.handle_error(anyhow!(e));
@@ -1064,6 +1064,33 @@ mod tests {
   #[test]
   fn test_loading_counter_default() {
     let app = App::default();
+    assert!(!app.is_loading());
+  }
+
+  #[tokio::test]
+  async fn test_dispatch_without_sender_does_not_set_loading() {
+    let mut app = App::default();
+
+    app.dispatch(IoEvent::GetNamespaces).await;
+
+    assert!(!app.is_loading());
+  }
+
+  #[tokio::test]
+  async fn test_dispatch_stream_without_sender_does_not_set_loading() {
+    let mut app = App::default();
+
+    app.dispatch_stream(IoStreamEvent::GetPodLogs(false)).await;
+
+    assert!(!app.is_loading());
+  }
+
+  #[tokio::test]
+  async fn test_dispatch_cmd_without_sender_does_not_set_loading() {
+    let mut app = App::default();
+
+    app.dispatch_cmd(IoCmdEvent::GetCliInfo).await;
+
     assert!(!app.is_loading());
   }
 }
