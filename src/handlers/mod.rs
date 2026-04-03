@@ -428,6 +428,8 @@ async fn handle_route_events(key: Key, app: &mut App) {
     RouteId::Contexts => {
       if let Some(ctx) = handle_block_action(key, &app.data.contexts) {
         app.data.selected.context = Some(ctx.name);
+        // Pre-select the namespace from the context if one is configured (#90)
+        app.data.selected.ns = ctx.namespace;
         app.refresh();
       }
     }
@@ -742,6 +744,44 @@ mod tests {
     handle_route_events(Key::Enter, &mut app).await;
 
     assert_eq!(app.data.selected.context, Some("test".into()));
+    assert!(app.refresh);
+  }
+
+  #[tokio::test]
+  async fn test_context_switch_preselects_namespace() {
+    let mut app = App::default();
+    let ctx = KubeContext {
+      name: "prod".into(),
+      namespace: Some("prod-ns".into()),
+      ..KubeContext::default()
+    };
+    app.data.contexts.set_items(vec![ctx]);
+
+    assert_eq!(app.data.selected.ns, None);
+    app.route_contexts();
+    handle_route_events(Key::Enter, &mut app).await;
+
+    assert_eq!(app.data.selected.context, Some("prod".into()));
+    assert_eq!(app.data.selected.ns, Some("prod-ns".into()));
+    assert!(app.refresh);
+  }
+
+  #[tokio::test]
+  async fn test_context_switch_no_namespace_clears_ns() {
+    let mut app = App::default();
+    app.data.selected.ns = Some("old-ns".into());
+    let ctx = KubeContext {
+      name: "dev".into(),
+      namespace: None,
+      ..KubeContext::default()
+    };
+    app.data.contexts.set_items(vec![ctx]);
+
+    app.route_contexts();
+    handle_route_events(Key::Enter, &mut app).await;
+
+    assert_eq!(app.data.selected.context, Some("dev".into()));
+    assert_eq!(app.data.selected.ns, None);
     assert!(app.refresh);
   }
 }

@@ -1,13 +1,20 @@
 pub(crate) mod stream;
 
 use core::convert::TryFrom;
-use std::{fmt, sync::Arc};
+use std::{
+  env, fmt,
+  io::ErrorKind,
+  path::{Path, PathBuf},
+  sync::Arc,
+};
 
 use anyhow::{anyhow, Result};
 use k8s_openapi::NamespaceResourceScope;
 use kube::{
-  api::ListParams, config::Kubeconfig, discovery::verbs, Api, Client, Discovery,
-  Resource as ApiResource,
+  api::ListParams,
+  config::{KubeConfigOptions, Kubeconfig},
+  discovery::verbs,
+  Api, Client, Discovery, Resource as ApiResource,
 };
 use log::{debug, error, info, warn};
 use serde::de::DeserializeOwned;
@@ -94,20 +101,130 @@ async fn refresh_kube_config(context: &Option<String>) -> Result<kube::Client> {
   get_client(context.to_owned()).await
 }
 
+fn is_blank_kubeconfig(config: &Kubeconfig) -> bool {
+  config.current_context.is_none()
+    && config.clusters.is_empty()
+    && config.auth_infos.is_empty()
+    && config.contexts.is_empty()
+}
+
+fn format_invalid_kubeconfig_error(source: &str, problems: &[String]) -> anyhow::Error {
+  anyhow!(
+    "Failed to load Kubernetes config from {}: {}",
+    source,
+    problems.join("; ")
+  )
+}
+
+fn load_kubeconfig_path(path: &Path) -> std::result::Result<Kubeconfig, String> {
+  match Kubeconfig::read_from(path) {
+    Ok(config) => {
+      if is_blank_kubeconfig(&config) {
+        Err(format!("ignored blank kubeconfig {:?}", path))
+      } else {
+        Ok(config)
+      }
+    }
+    Err(kube::config::KubeconfigError::ReadConfig(err, path))
+      if err.kind() == ErrorKind::NotFound =>
+    {
+      Err(format!("ignored missing kubeconfig {:?}", path))
+    }
+    Err(e) => Err(format!("ignored invalid kubeconfig {:?}: {}", path, e)),
+  }
+}
+
+fn load_kubeconfig_from_paths(paths: &[PathBuf]) -> Result<Kubeconfig> {
+  let mut config = Kubeconfig::default();
+  let mut loaded = false;
+  let mut problems = vec![];
+
+  for path in paths {
+    match load_kubeconfig_path(path) {
+      Ok(next) => {
+        config = config.merge(next)?;
+        loaded = true;
+      }
+      Err(problem) => {
+        warn!("{}", problem);
+        problems.push(problem);
+      }
+    }
+  }
+
+  if loaded {
+    Ok(config)
+  } else {
+    Err(format_invalid_kubeconfig_error("KUBECONFIG", &problems))
+  }
+}
+
+fn load_local_kubeconfig() -> Result<Option<Kubeconfig>> {
+  match env::var_os("KUBECONFIG") {
+    Some(value) => {
+      let paths = env::split_paths(&value)
+        .filter(|path| !path.as_os_str().is_empty())
+        .collect::<Vec<_>>();
+
+      if paths.is_empty() {
+        return Ok(None);
+      }
+
+      load_kubeconfig_from_paths(&paths).map(Some)
+    }
+    None => match Kubeconfig::read() {
+      Ok(config) => {
+        if is_blank_kubeconfig(&config) {
+          Err(anyhow!(
+            "Failed to load Kubernetes config from default kubeconfig: kubeconfig file is blank"
+          ))
+        } else {
+          Ok(Some(config))
+        }
+      }
+      Err(kube::config::KubeconfigError::FindPath) => Ok(None),
+      Err(kube::config::KubeconfigError::ReadConfig(err, _))
+        if err.kind() == ErrorKind::NotFound =>
+      {
+        Ok(None)
+      }
+      Err(e) => Err(anyhow!("Failed to load Kubernetes config. {}", e)),
+    },
+  }
+}
+
+async fn load_client_config(context: Option<String>) -> Result<kube::Config> {
+  let options = KubeConfigOptions {
+    context: context.clone(),
+    ..Default::default()
+  };
+
+  if let Some(kubeconfig) = load_local_kubeconfig()? {
+    return kube::Config::from_custom_kubeconfig(kubeconfig, &options)
+      .await
+      .map_err(|e| anyhow!("Failed to load Kubernetes config. {}", e));
+  }
+
+  if let Some(context) = context {
+    Err(anyhow!(
+      "Failed to load Kubernetes config: no valid kubeconfig was found for context {}",
+      context
+    ))
+  } else {
+    kube::Config::incluster().map_err(|e| anyhow!("Failed to load Kubernetes config. {}", e))
+  }
+}
+
 pub async fn get_client(context: Option<String>) -> Result<kube::Client> {
-  debug!("env KUBECONFIG: {:?}", std::env::var_os("KUBECONFIG"));
+  debug!("env KUBECONFIG: {:?}", env::var_os("KUBECONFIG"));
   let client_config = match context.as_ref() {
     Some(context) => {
       info!("Getting kubernetes client. Context: {}", context);
-      kube::Config::from_kubeconfig(&kube::config::KubeConfigOptions {
-        context: Some(context.to_owned()),
-        ..Default::default()
-      })
-      .await?
+      load_client_config(Some(context.to_owned())).await?
     }
     None => {
       warn!("Getting kubernetes client by inference. No context given");
-      kube::Config::infer().await?
+      load_client_config(None).await?
     }
   };
   debug!("Kubernetes client config: {:?}", client_config);
@@ -127,12 +244,13 @@ impl<'a> Network<'a> {
   }
 
   pub async fn refresh_client(&mut self) {
-    let context = {
+    let (context, ns) = {
       let mut app = self.app.lock().await;
       let context = app.data.selected.context.clone();
+      let ns = app.data.selected.ns.clone();
       // so that if refresh fails we dont see mixed results
       app.data.selected.context = None;
-      context
+      (context, ns)
     };
 
     match refresh_kube_config(&context).await {
@@ -141,6 +259,7 @@ impl<'a> Network<'a> {
         let mut app = self.app.lock().await;
         app.reset();
         app.data.selected.context = context;
+        app.data.selected.ns = ns;
       }
       Err(e) => {
         self
@@ -253,19 +372,42 @@ impl<'a> Network<'a> {
   }
 
   pub async fn get_kube_config(&self) {
-    match Kubeconfig::read() {
-      Ok(config) => {
+    match load_local_kubeconfig() {
+      Ok(Some(config)) => {
         info!("Using Kubeconfig");
         debug!("Kubeconfig: {:?}", config);
         let mut app = self.app.lock().await;
         let selected_ctx = app.data.selected.context.to_owned();
+
+        // Detect external context change (#315): if the user hasn't manually
+        // selected a context (selected.context is None) and the kubeconfig's
+        // current_context differs from what we had, trigger a refresh.
+        if selected_ctx.is_none() {
+          let prev_ctx = app.data.active_context.as_ref().map(|c| c.name.clone());
+          if prev_ctx.is_some() && prev_ctx != config.current_context {
+            info!(
+              "External context change detected: {:?} -> {:?}",
+              prev_ctx, config.current_context
+            );
+            app.set_contexts(contexts::get_contexts(&config, None));
+            app.data.kubeconfig = Some(config);
+            app.refresh();
+            return;
+          }
+        }
+
         app.set_contexts(contexts::get_contexts(&config, selected_ctx));
         app.data.kubeconfig = Some(config);
       }
-      Err(e) => {
+      Ok(None) => {
         self
-          .handle_error(anyhow!("Failed to load Kubernetes config. {:?}", e))
+          .handle_error(anyhow!(
+            "Failed to load Kubernetes config. No kubeconfig was found"
+          ))
           .await;
+      }
+      Err(e) => {
+        self.handle_error(e).await;
       }
     }
   }
@@ -387,5 +529,217 @@ impl<'a> Network<'a> {
     dynamic_menu.sort_by(|a, b| a.0.cmp(&b.0));
     app.dynamic_resources_menu = StatefulList::with_items(dynamic_menu);
     app.data.dynamic_kinds = dynamic_resources.clone();
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use std::{
+    fs,
+    time::{SystemTime, UNIX_EPOCH},
+  };
+
+  fn temp_test_dir(name: &str) -> PathBuf {
+    let suffix = SystemTime::now()
+      .duration_since(UNIX_EPOCH)
+      .expect("system time should be after epoch")
+      .as_nanos();
+    let path = env::temp_dir().join(format!(
+      "kdash-network-tests-{}-{}-{}",
+      name,
+      std::process::id(),
+      suffix
+    ));
+    fs::create_dir_all(&path).expect("temp test dir should be created");
+    path
+  }
+
+  fn write_kubeconfig(path: &Path, contents: &str) {
+    fs::write(path, contents).expect("kubeconfig fixture should be written");
+  }
+
+  fn valid_kubeconfig() -> &'static str {
+    r#"apiVersion: v1
+kind: Config
+clusters:
+  - name: test-cluster
+    cluster:
+      server: https://127.0.0.1:6443
+contexts:
+  - name: test-context
+    context:
+      cluster: test-cluster
+      user: test-user
+current-context: test-context
+users:
+  - name: test-user
+    user:
+      token: test-token
+"#
+  }
+
+  #[test]
+  fn test_load_kubeconfig_from_paths_ignores_missing_entries_when_valid_config_exists() {
+    let dir = temp_test_dir("missing-valid");
+    let missing = dir.join("missing-config");
+    let valid = dir.join("valid-config");
+    write_kubeconfig(&valid, valid_kubeconfig());
+
+    let kubeconfig =
+      load_kubeconfig_from_paths(&[missing, valid]).expect("valid kubeconfig should load");
+
+    assert_eq!(kubeconfig.current_context.as_deref(), Some("test-context"));
+    assert_eq!(kubeconfig.clusters.len(), 1);
+    assert_eq!(kubeconfig.contexts.len(), 1);
+    assert_eq!(kubeconfig.auth_infos.len(), 1);
+
+    fs::remove_dir_all(dir).expect("temp test dir should be removed");
+  }
+
+  #[test]
+  fn test_load_kubeconfig_from_paths_ignores_blank_entries_when_valid_config_exists() {
+    let dir = temp_test_dir("blank-valid");
+    let blank = dir.join("blank-config");
+    let valid = dir.join("valid-config");
+    write_kubeconfig(&blank, "");
+    write_kubeconfig(&valid, valid_kubeconfig());
+
+    let kubeconfig =
+      load_kubeconfig_from_paths(&[blank, valid]).expect("valid kubeconfig should load");
+
+    assert_eq!(kubeconfig.current_context.as_deref(), Some("test-context"));
+    assert_eq!(kubeconfig.clusters.len(), 1);
+    assert_eq!(kubeconfig.contexts.len(), 1);
+    assert_eq!(kubeconfig.auth_infos.len(), 1);
+
+    fs::remove_dir_all(dir).expect("temp test dir should be removed");
+  }
+
+  #[test]
+  fn test_load_kubeconfig_from_paths_returns_clean_error_when_all_entries_are_invalid() {
+    let dir = temp_test_dir("all-invalid");
+    let missing = dir.join("missing-config");
+    let blank = dir.join("blank-config");
+    write_kubeconfig(&blank, "");
+
+    let error = load_kubeconfig_from_paths(&[missing, blank])
+      .expect_err("all invalid kubeconfigs should fail")
+      .to_string();
+
+    assert!(error.contains("Failed to load Kubernetes config from KUBECONFIG"));
+    assert!(error.contains("ignored missing kubeconfig"));
+    assert!(error.contains("ignored blank kubeconfig"));
+
+    fs::remove_dir_all(dir).expect("temp test dir should be removed");
+  }
+
+  #[test]
+  fn test_is_blank_kubeconfig_detects_empty_config() {
+    let config = Kubeconfig::default();
+    assert!(is_blank_kubeconfig(&config));
+  }
+
+  #[test]
+  fn test_is_blank_kubeconfig_returns_false_for_populated_config() {
+    let config = Kubeconfig {
+      current_context: Some("ctx".to_string()),
+      ..Default::default()
+    };
+    assert!(!is_blank_kubeconfig(&config));
+  }
+
+  #[test]
+  fn test_load_kubeconfig_path_ok_for_valid_file() {
+    let dir = temp_test_dir("path-valid");
+    let file = dir.join("config");
+    write_kubeconfig(&file, valid_kubeconfig());
+
+    let config = load_kubeconfig_path(&file).expect("valid config should load");
+    assert_eq!(config.current_context.as_deref(), Some("test-context"));
+
+    fs::remove_dir_all(dir).expect("temp test dir should be removed");
+  }
+
+  #[test]
+  fn test_load_kubeconfig_path_err_for_missing_file() {
+    let dir = temp_test_dir("path-missing");
+    let missing = dir.join("does-not-exist");
+
+    let err = load_kubeconfig_path(&missing).expect_err("missing file should return Err");
+    assert!(err.contains("ignored missing kubeconfig"));
+
+    fs::remove_dir_all(dir).expect("temp test dir should be removed");
+  }
+
+  #[test]
+  fn test_load_kubeconfig_path_err_for_blank_file() {
+    let dir = temp_test_dir("path-blank");
+    let blank = dir.join("blank");
+    write_kubeconfig(&blank, "");
+
+    let err = load_kubeconfig_path(&blank).expect_err("blank file should return Err");
+    assert!(err.contains("ignored blank kubeconfig"));
+
+    fs::remove_dir_all(dir).expect("temp test dir should be removed");
+  }
+
+  #[test]
+  fn test_load_kubeconfig_from_paths_merges_multiple_valid_configs() {
+    let dir = temp_test_dir("merge");
+    let file_a = dir.join("config-a");
+    let file_b = dir.join("config-b");
+
+    write_kubeconfig(
+      &file_a,
+      r#"apiVersion: v1
+kind: Config
+clusters:
+  - name: cluster-a
+    cluster:
+      server: https://a:6443
+contexts:
+  - name: ctx-a
+    context:
+      cluster: cluster-a
+      user: user-a
+current-context: ctx-a
+users:
+  - name: user-a
+    user:
+      token: token-a
+"#,
+    );
+
+    write_kubeconfig(
+      &file_b,
+      r#"apiVersion: v1
+kind: Config
+clusters:
+  - name: cluster-b
+    cluster:
+      server: https://b:6443
+contexts:
+  - name: ctx-b
+    context:
+      cluster: cluster-b
+      user: user-b
+users:
+  - name: user-b
+    user:
+      token: token-b
+"#,
+    );
+
+    let config =
+      load_kubeconfig_from_paths(&[file_a, file_b]).expect("multiple valid configs should merge");
+
+    // First file's current_context wins
+    assert_eq!(config.current_context.as_deref(), Some("ctx-a"));
+    assert_eq!(config.clusters.len(), 2);
+    assert_eq!(config.contexts.len(), 2);
+    assert_eq!(config.auth_infos.len(), 2);
+
+    fs::remove_dir_all(dir).expect("temp test dir should be removed");
   }
 }

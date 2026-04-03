@@ -2,6 +2,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use k8s_openapi::api::core::v1::Namespace;
 use kube::{api::ListParams, Api};
+use log::warn;
 use ratatui::{
   layout::{Constraint, Rect},
   widgets::{Cell, Row, Table},
@@ -110,8 +111,34 @@ impl AppResource for NamespaceResource {
         app.data.namespaces.set_items(items);
       }
       Err(e) => {
-        nw.handle_error(anyhow!("Failed to get namespaces. {:?}", e))
-          .await;
+        // When namespace listing is forbidden (RBAC), fall back to the
+        // context namespace from kubeconfig so the user can still browse
+        // resources they have access to.
+        let mut app = nw.app.lock().await;
+        let ctx_ns = app
+          .data
+          .active_context
+          .as_ref()
+          .and_then(|ctx| ctx.namespace.clone());
+        if let Some(ns_name) = ctx_ns {
+          warn!(
+            "Failed to list namespaces ({:?}), falling back to context namespace: {}",
+            e, ns_name
+          );
+          let fallback = KubeNs {
+            name: ns_name.clone(),
+            status: UNKNOWN.into(),
+            ..Default::default()
+          };
+          app.data.namespaces.set_items(vec![fallback]);
+          if app.data.selected.ns.is_none() {
+            app.data.selected.ns = Some(ns_name);
+          }
+        } else {
+          drop(app);
+          nw.handle_error(anyhow!("Failed to get namespaces. {:?}", e))
+            .await;
+        }
       }
     }
   }

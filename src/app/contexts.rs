@@ -23,7 +23,7 @@ pub struct KubeContext {
   pub name: String,
   pub cluster: String,
   pub user: Option<String>,
-  //   pub namespace: Option<String>,
+  pub namespace: Option<String>,
   pub is_active: bool,
 }
 
@@ -35,7 +35,7 @@ impl KubeContext {
       name: ctx.name.clone(),
       cluster: context.cluster.clone(),
       user: context.user.clone(),
-      //   namespace: context.namespace.clone(),
+      namespace: context.namespace.clone(),
       is_active,
     }
   }
@@ -116,5 +116,77 @@ impl AppResource for ContextResource {
   async fn get_resource(_nw: &Network<'_>) {
     // not required
     unimplemented!()
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use kube::config::{Context, NamedContext};
+
+  fn make_named_context(name: &str, cluster: &str, namespace: Option<&str>) -> NamedContext {
+    NamedContext {
+      name: name.to_string(),
+      context: Some(Context {
+        cluster: cluster.to_string(),
+        user: Some("user".to_string()),
+        namespace: namespace.map(String::from),
+        ..Default::default()
+      }),
+    }
+  }
+
+  #[test]
+  fn test_from_api_extracts_namespace() {
+    let ctx = make_named_context("prod", "prod-cluster", Some("kube-system"));
+    let kube_ctx = KubeContext::from_api(&ctx, true);
+
+    assert_eq!(kube_ctx.name, "prod");
+    assert_eq!(kube_ctx.cluster, "prod-cluster");
+    assert_eq!(kube_ctx.namespace, Some("kube-system".to_string()));
+    assert!(kube_ctx.is_active);
+  }
+
+  #[test]
+  fn test_from_api_namespace_none_when_absent() {
+    let ctx = make_named_context("dev", "dev-cluster", None);
+    let kube_ctx = KubeContext::from_api(&ctx, false);
+
+    assert_eq!(kube_ctx.namespace, None);
+    assert!(!kube_ctx.is_active);
+  }
+
+  #[test]
+  fn test_get_contexts_marks_active_from_kubeconfig() {
+    let config = Kubeconfig {
+      current_context: Some("ctx-b".to_string()),
+      contexts: vec![
+        make_named_context("ctx-a", "c1", Some("ns-a")),
+        make_named_context("ctx-b", "c2", Some("ns-b")),
+      ],
+      ..Default::default()
+    };
+
+    let contexts = get_contexts(&config, None);
+    assert_eq!(contexts.len(), 2);
+    assert!(!contexts[0].is_active);
+    assert!(contexts[1].is_active);
+    assert_eq!(contexts[1].namespace, Some("ns-b".to_string()));
+  }
+
+  #[test]
+  fn test_get_contexts_selected_overrides_current_context() {
+    let config = Kubeconfig {
+      current_context: Some("ctx-b".to_string()),
+      contexts: vec![
+        make_named_context("ctx-a", "c1", None),
+        make_named_context("ctx-b", "c2", None),
+      ],
+      ..Default::default()
+    };
+
+    let contexts = get_contexts(&config, Some("ctx-a".to_string()));
+    assert!(contexts[0].is_active);
+    assert!(!contexts[1].is_active);
   }
 }

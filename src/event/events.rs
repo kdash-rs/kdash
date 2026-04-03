@@ -1,12 +1,15 @@
 //  adapted from tui-rs/examples/crossterm_demo.rs
 use std::{
+  env,
+  path::PathBuf,
   sync::mpsc,
   thread,
   time::{Duration, Instant},
 };
 
 use crossterm::event::{self, Event as CEvent, KeyEvent, MouseEvent};
-use log::error;
+use log::{error, info, warn};
+use notify::{RecursiveMode, Watcher};
 
 #[derive(Debug, Clone, Copy)]
 /// Configuration for event handling.
@@ -30,6 +33,8 @@ pub enum Event<I, J> {
   MouseInput(J),
   /// An tick event occurred.
   Tick,
+  /// The kubeconfig file changed on disk.
+  KubeConfigChange,
 }
 
 /// A small event handler that wrap crossterm input and tick event. Each event
@@ -89,6 +94,9 @@ impl Events {
       }
     });
 
+    // Start kubeconfig file watcher for live sync (#315)
+    start_kubeconfig_watcher(tx.clone());
+
     Events { rx, _tx: tx }
   }
 
@@ -97,6 +105,104 @@ impl Events {
   pub fn next(&self) -> Result<Event<KeyEvent, MouseEvent>, mpsc::RecvError> {
     self.rx.recv()
   }
+}
+
+/// Resolve the kubeconfig file paths that should be watched.
+fn kubeconfig_watch_paths() -> Vec<PathBuf> {
+  if let Some(value) = env::var_os("KUBECONFIG") {
+    let paths: Vec<PathBuf> = env::split_paths(&value)
+      .filter(|p| !p.as_os_str().is_empty())
+      .collect();
+    if !paths.is_empty() {
+      return paths;
+    }
+  }
+  // Fall back to default kubeconfig location
+  if let Some(home) = env::var_os("HOME").or_else(|| env::var_os("USERPROFILE")) {
+    vec![PathBuf::from(home).join(".kube").join("config")]
+  } else {
+    vec![]
+  }
+}
+
+/// Start a file watcher thread for kubeconfig files. Sends `Event::KubeConfigChange`
+/// on the provided channel when any watched file is modified.
+fn start_kubeconfig_watcher(tx: mpsc::Sender<Event<KeyEvent, MouseEvent>>) {
+  let paths = kubeconfig_watch_paths();
+  if paths.is_empty() {
+    info!("No kubeconfig paths to watch");
+    return;
+  }
+
+  thread::spawn(move || {
+    let (notify_tx, notify_rx) = mpsc::channel();
+    let mut watcher = match notify::recommended_watcher(move |res| {
+      let _ = notify_tx.send(res);
+    }) {
+      Ok(w) => w,
+      Err(e) => {
+        warn!("Failed to create kubeconfig file watcher: {}", e);
+        return;
+      }
+    };
+
+    // Collect the canonical file names we care about, and watch their
+    // parent directories instead of the files themselves. This handles
+    // atomic saves (tmp + rename) that tools like kubectl perform, which
+    // would otherwise invalidate a direct file watch.
+    let mut watched_dirs = std::collections::HashSet::new();
+    let mut target_filenames = std::collections::HashSet::new();
+    for path in &paths {
+      if let Some(filename) = path.file_name() {
+        target_filenames.insert(filename.to_os_string());
+      }
+      let dir = if let Some(parent) = path.parent() {
+        if parent.exists() {
+          parent.to_path_buf()
+        } else {
+          continue;
+        }
+      } else {
+        continue;
+      };
+      if watched_dirs.insert(dir.clone()) {
+        if let Err(e) = watcher.watch(&dir, RecursiveMode::NonRecursive) {
+          warn!("Failed to watch {:?}: {}", dir, e);
+        } else {
+          info!("Watching kubeconfig directory: {:?}", dir);
+        }
+      }
+    }
+
+    // Debounce: ignore rapid successive events (editors do multiple writes)
+    let debounce = Duration::from_secs(2);
+    let mut last_sent = Instant::now() - debounce;
+
+    for res in notify_rx {
+      match res {
+        Ok(event) => {
+          // Only react to events that touch our target kubeconfig files
+          let dominated = event.paths.iter().any(|p| {
+            p.file_name()
+              .is_some_and(|f| target_filenames.contains(f))
+          });
+          if !dominated {
+            continue;
+          }
+          if last_sent.elapsed() >= debounce {
+            info!("Kubeconfig file change detected: {:?}", event.kind);
+            if tx.send(Event::KubeConfigChange).is_err() {
+              break; // receiver dropped, app is shutting down
+            }
+            last_sent = Instant::now();
+          }
+        }
+        Err(e) => {
+          warn!("Kubeconfig watcher error: {:?}", e);
+        }
+      }
+    }
+  });
 }
 
 #[cfg(target_os = "windows")]
@@ -120,9 +226,10 @@ mod tests {
     // Events should produce at least one Tick within a reasonable time
     let events = Events::new(50); // 50ms tick rate
     match events.next() {
-      Ok(Event::Tick) => {}          // expected
-      Ok(Event::Input(_)) => {}      // possible if terminal sends something
-      Ok(Event::MouseInput(_)) => {} // possible
+      Ok(Event::Tick) => {}             // expected
+      Ok(Event::Input(_)) => {}         // possible if terminal sends something
+      Ok(Event::MouseInput(_)) => {}    // possible
+      Ok(Event::KubeConfigChange) => {} // possible if kubeconfig watcher fires
       Err(e) => panic!("Events::next() returned error: {:?}", e),
     }
   }
@@ -155,5 +262,103 @@ mod tests {
   fn test_event_config_default() {
     let config = EventConfig::default();
     assert_eq!(config.tick_rate, std::time::Duration::from_millis(250));
+  }
+
+  #[test]
+  fn test_kubeconfig_watch_paths_default() {
+    // When KUBECONFIG is not set, should return ~/.kube/config
+    let original = env::var_os("KUBECONFIG");
+    env::remove_var("KUBECONFIG");
+
+    let paths = kubeconfig_watch_paths();
+
+    // Restore
+    if let Some(val) = original {
+      env::set_var("KUBECONFIG", val);
+    }
+
+    assert_eq!(paths.len(), 1);
+    assert!(paths[0].ends_with(".kube/config"));
+  }
+
+  #[test]
+  fn test_kubeconfig_watch_paths_from_env() {
+    let original = env::var_os("KUBECONFIG");
+    env::set_var("KUBECONFIG", "/tmp/a:/tmp/b");
+
+    let paths = kubeconfig_watch_paths();
+
+    // Restore
+    match original {
+      Some(val) => env::set_var("KUBECONFIG", val),
+      None => env::remove_var("KUBECONFIG"),
+    }
+
+    assert_eq!(paths.len(), 2);
+    assert_eq!(paths[0], PathBuf::from("/tmp/a"));
+    assert_eq!(paths[1], PathBuf::from("/tmp/b"));
+  }
+
+  #[test]
+  fn test_kubeconfig_watch_paths_ignores_empty_segments() {
+    let original = env::var_os("KUBECONFIG");
+    env::set_var("KUBECONFIG", "/tmp/a::/tmp/b:");
+
+    let paths = kubeconfig_watch_paths();
+
+    match original {
+      Some(val) => env::set_var("KUBECONFIG", val),
+      None => env::remove_var("KUBECONFIG"),
+    }
+
+    assert_eq!(paths.len(), 2);
+    assert_eq!(paths[0], PathBuf::from("/tmp/a"));
+    assert_eq!(paths[1], PathBuf::from("/tmp/b"));
+  }
+
+  #[test]
+  fn test_start_kubeconfig_watcher_sends_event_on_file_change() {
+    use std::fs;
+
+    let dir = env::temp_dir().join(format!("kdash-watcher-test-{}", std::process::id()));
+    fs::create_dir_all(&dir).unwrap();
+    let config_file = dir.join("config");
+    fs::write(&config_file, "initial").unwrap();
+
+    let (tx, rx) = mpsc::channel::<Event<KeyEvent, MouseEvent>>();
+
+    // Manually set up a watcher on our test file
+    let watch_tx = tx.clone();
+    let config_path = config_file.clone();
+    thread::spawn(move || {
+      let (notify_tx, notify_rx) = mpsc::channel();
+      let mut watcher = notify::recommended_watcher(move |res| {
+        let _ = notify_tx.send(res);
+      })
+      .unwrap();
+      watcher
+        .watch(&config_path, RecursiveMode::NonRecursive)
+        .unwrap();
+      for res in notify_rx {
+        if res.is_ok() {
+          let _ = watch_tx.send(Event::KubeConfigChange);
+          break; // one event is enough for the test
+        }
+      }
+    });
+
+    // Give the watcher time to start
+    thread::sleep(Duration::from_millis(200));
+
+    // Modify the file
+    fs::write(&config_file, "modified").unwrap();
+
+    // Should receive the event within a reasonable time
+    match rx.recv_timeout(Duration::from_secs(5)) {
+      Ok(Event::KubeConfigChange) => {} // expected
+      other => panic!("Expected KubeConfigChange, got: {:?}", other.is_ok()),
+    }
+
+    fs::remove_dir_all(dir).unwrap();
   }
 }

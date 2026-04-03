@@ -232,6 +232,11 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
       event::Event::Tick => {
         app.on_tick(is_first_render).await;
       }
+      // handle kubeconfig file changes (live sync)
+      event::Event::KubeConfigChange => {
+        info!("Kubeconfig change detected, reloading");
+        app.dispatch(IoEvent::GetKubeConfig).await;
+      }
     }
 
     is_first_render = false;

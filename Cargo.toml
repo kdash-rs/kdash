@@ -70,6 +70,9 @@ kube = { version = "3.1.0", default-features = false, features = [
 k8s-openapi = { version = "0.27.1", default-features = false, features = [
     "v1_31",
 ] }
+notify = { version = "8", default-features = false, features = [
+    "macos_fsevent",
+] }
 base64 = "0.22.1"
 human-panic = "2.0.7"
 kubectl-view-allocations = { version = "1.1.0", default-features = false }

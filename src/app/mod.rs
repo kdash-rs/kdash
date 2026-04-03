@@ -745,6 +745,13 @@ impl App {
     }
     // make network requests only in intervals to avoid hogging up the network
     if self.tick_count.is_multiple_of(self.tick_until_poll) || self.is_routing {
+      // Safety-net kubeconfig reload (~60s) in case the file watcher misses an event
+      if self.tick_until_poll > 0
+        && self.tick_count > 0
+        && self.tick_count.is_multiple_of(self.tick_until_poll * 12)
+      {
+        self.dispatch(IoEvent::GetKubeConfig).await;
+      }
       // make periodic network calls based on active route and active block to avoid hogging
       match self.get_current_route().id {
         RouteId::Home => {
@@ -1092,5 +1099,53 @@ mod tests {
     app.dispatch_cmd(IoCmdEvent::GetCliInfo).await;
 
     assert!(!app.is_loading());
+  }
+
+  #[test]
+  fn test_set_contexts_tracks_active_context() {
+    use crate::app::contexts::KubeContext;
+
+    let mut app = App::default();
+    let contexts = vec![
+      KubeContext {
+        name: "ctx-a".into(),
+        namespace: Some("ns-a".into()),
+        is_active: false,
+        ..Default::default()
+      },
+      KubeContext {
+        name: "ctx-b".into(),
+        namespace: Some("ns-b".into()),
+        is_active: true,
+        ..Default::default()
+      },
+    ];
+
+    app.set_contexts(contexts);
+
+    let active = app
+      .data
+      .active_context
+      .as_ref()
+      .expect("should have active context");
+    assert_eq!(active.name, "ctx-b");
+    assert_eq!(active.namespace, Some("ns-b".into()));
+    assert_eq!(app.data.contexts.items.len(), 2);
+  }
+
+  #[test]
+  fn test_set_contexts_no_active() {
+    use crate::app::contexts::KubeContext;
+
+    let mut app = App::default();
+    let contexts = vec![KubeContext {
+      name: "ctx-a".into(),
+      is_active: false,
+      ..Default::default()
+    }];
+
+    app.set_contexts(contexts);
+
+    assert!(app.data.active_context.is_none());
   }
 }

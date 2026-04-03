@@ -7,3 +7,4 @@ rustc-ice-*
 .github/workflows/ci-test.yml.bak
 .remember/
 docs/
+.codex
