@@ -365,11 +365,33 @@ impl LogsState {
     f.render_stateful_widget(list, logs_area, &mut self.state);
   }
   /// Add a record to be displayed
+  #[cfg(test)]
   pub fn add_record(&mut self, record: String) {
     self.records.push_back((record, None));
     while self.records.len() > MAX_LOG_RECORDS {
       self.records.pop_front();
     }
+  }
+
+  /// Add multiple records in a batch
+  pub fn add_records(&mut self, records: Vec<String>) {
+    for record in records {
+      self.records.push_back((record, None));
+    }
+    while self.records.len() > MAX_LOG_RECORDS {
+      self.records.pop_front();
+    }
+  }
+
+  /// Get the last n raw log lines (for dedup on reconnect)
+  pub fn last_n_records(&self, n: usize) -> Vec<&str> {
+    self
+      .records
+      .iter()
+      .rev()
+      .take(n)
+      .map(|(s, _)| s.as_str())
+      .collect()
   }
 
   fn unselect(&mut self) {

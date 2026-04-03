@@ -151,10 +151,13 @@ fn handle_escape(app: &mut App) {
     }
     _ => match app.get_current_route().active_block {
       ActiveBlock::Namespaces
-      | ActiveBlock::Logs
       | ActiveBlock::Containers
       | ActiveBlock::Yaml
       | ActiveBlock::Describe => {
+        app.pop_navigation_stack();
+      }
+      ActiveBlock::Logs => {
+        app.cancel_log_stream();
         app.pop_navigation_stack();
       }
       _ => {

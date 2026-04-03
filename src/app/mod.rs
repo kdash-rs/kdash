@@ -30,7 +30,7 @@ use kube::config::Kubeconfig;
 use kubectl_view_allocations::{GroupBy, QtyByQualifier};
 use log::{error, info};
 use ratatui::layout::Rect;
-use tokio::sync::mpsc::Sender;
+use tokio::sync::{mpsc::Sender, watch};
 use tui_input::Input;
 
 use self::{
@@ -197,6 +197,8 @@ pub struct App {
   io_tx: Option<Sender<IoEvent>>,
   io_stream_tx: Option<Sender<IoStreamEvent>>,
   io_cmd_tx: Option<Sender<IoCmdEvent>>,
+  log_cancel_tx: watch::Sender<bool>,
+  loading_counter: u32,
   pub title: &'static str,
   pub should_quit: bool,
   pub main_tabs: TabsState,
@@ -205,15 +207,11 @@ pub struct App {
   pub dynamic_resources_menu: StatefulList<(String, ActiveBlock)>,
   pub show_info_bar: bool,
   pub show_filter_bar: bool,
-  loading_counter: u32,
   pub is_streaming: bool,
   pub is_routing: bool,
   pub tick_until_poll: u64,
   pub tick_count: u64,
   pub enhanced_graphics: bool,
-  //   pub table_cols: u16,
-  //   pub dialog: Option<String>,
-  //   pub confirm: bool,
   pub size: Rect,
   pub api_error: String,
   pub app_input: AppInput,
@@ -276,11 +274,13 @@ impl Default for Data {
 
 impl Default for App {
   fn default() -> Self {
+    let (log_cancel_tx, _) = watch::channel(false);
     App {
       navigation_stack: vec![DEFAULT_ROUTE],
       io_tx: None,
       io_stream_tx: None,
       io_cmd_tx: None,
+      log_cancel_tx,
       title: " KDash - A simple Kubernetes dashboard ",
       should_quit: false,
       main_tabs: TabsState::new(vec![
@@ -480,7 +480,20 @@ impl App {
     self.loading_counter = self.loading_counter.saturating_sub(1);
   }
 
+  /// Signal any active log stream to stop
+  pub fn cancel_log_stream(&self) {
+    let _ = self.log_cancel_tx.send(true);
+  }
+
+  /// Get a new receiver for log cancellation.
+  /// Resets the channel so the next stream starts clean.
+  pub fn new_log_cancel_rx(&self) -> watch::Receiver<bool> {
+    let _ = self.log_cancel_tx.send(false);
+    self.log_cancel_tx.subscribe()
+  }
+
   pub fn reset(&mut self) {
+    self.cancel_log_stream();
     self.loading_counter = 0;
     self.tick_count = 0;
     self.api_error = String::new();
@@ -605,6 +618,7 @@ impl App {
   }
 
   pub async fn dispatch_container_logs(&mut self, id: String) {
+    self.cancel_log_stream();
     self.data.logs = LogsState::new(id);
     self.push_navigation_stack(RouteId::Home, ActiveBlock::Logs);
     self.dispatch_stream(IoStreamEvent::GetPodLogs(true)).await;
@@ -710,7 +724,6 @@ impl App {
       }
       ActiveBlock::Logs => {
         if !self.is_streaming {
-          // do not tail to avoid duplicates
           self.dispatch_stream(IoStreamEvent::GetPodLogs(false)).await;
         }
       }
