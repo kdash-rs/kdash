@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.0] - 2026-04-03
+
+- Major refactor and architecture improvements
+- Log streaming fixes and improvements
+- Library updates
+
 ## [0.6.2] - 2025-03-05
 
 - Dependency updates
