@@ -276,7 +276,7 @@ pub(crate) fn draw_containers_block(f: &mut Frame<'_>, app: &mut App, area: Rect
     area,
     ResourceTableProps {
       title,
-      inline_help: format!("| Logs <enter> | {} <esc> ", PODS_TITLE),
+      inline_help: format!("| logs <enter> | {} <esc> ", PODS_TITLE),
       resource: &mut app.data.containers,
       table_headers: vec![
         "Name",

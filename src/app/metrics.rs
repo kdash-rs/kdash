@@ -25,8 +25,8 @@ use super::{models::AppResource, utils, ActiveBlock, App};
 use crate::{
   network::Network,
   ui::utils::{
-    layout_block_active, loading, style_highlight, style_primary, style_success, style_warning,
-    table_header_style,
+    layout_block_active_span, loading, style_highlight, style_primary, style_success,
+    style_warning, table_header_style, title_with_dual_style,
   },
 };
 
@@ -93,17 +93,20 @@ pub struct UtilizationResource {}
 #[async_trait]
 impl AppResource for UtilizationResource {
   fn render(_block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
-    let title = format!(
-      " Resource Utilization (ns: [{}], group by <g>: {:?}) ",
-      app
-        .data
-        .selected
-        .ns
-        .as_ref()
-        .unwrap_or(&String::from("all")),
-      app.utilization_group_by
+    let title = title_with_dual_style(
+      format!(
+        " Resource Utilization (ns: [{}]) ",
+        app
+          .data
+          .selected
+          .ns
+          .as_ref()
+          .unwrap_or(&String::from("all"))
+      ),
+      format!("| group by <g>: {:?} ", app.utilization_group_by),
+      app.light_theme,
     );
-    let block = layout_block_active(title.as_str(), app.light_theme);
+    let block = layout_block_active_span(title, app.light_theme);
 
     if !app.data.metrics.items.is_empty() {
       let data = &app.data.metrics.items;

@@ -177,14 +177,15 @@ pub fn render_troubleshoot(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     area,
     ResourceTableProps {
       title,
-      inline_help: format!("{} | refresh <ctrl+r> ", DESCRIBE_AND_YAML_HINT),
+      inline_help: format!("| resource <enter> | {} ", DESCRIBE_AND_YAML_HINT),
       resource: findings,
-      table_headers: vec!["Severity", "Reason", "Resource", "Message", "Age"],
+      table_headers: vec!["Severity", "Type", "Reason", "Resource", "Message", "Age"],
       column_widths: vec![
-        Constraint::Percentage(8),
-        Constraint::Percentage(15),
-        Constraint::Percentage(20),
-        Constraint::Percentage(45),
+        Constraint::Percentage(7),
+        Constraint::Percentage(6),
+        Constraint::Percentage(13),
+        Constraint::Percentage(18),
+        Constraint::Percentage(44),
         Constraint::Percentage(12),
       ],
     },
@@ -197,8 +198,9 @@ pub fn render_troubleshoot(f: &mut Frame<'_>, app: &mut App, area: Rect) {
 
       Row::new(vec![
         Cell::from(c.severity.to_string()),
+        Cell::from(c.resource_kind.to_string()),
         Cell::from(c.reason.clone()),
-        Cell::from(format!("{} {}", c.resource_kind, c.resource_ref())),
+        Cell::from(c.resource_ref()),
         Cell::from(c.message.clone()),
         Cell::from(c.age.clone()),
       ])
