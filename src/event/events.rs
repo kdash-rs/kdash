@@ -182,10 +182,10 @@ fn start_kubeconfig_watcher(tx: mpsc::Sender<Event<KeyEvent, MouseEvent>>) {
       match res {
         Ok(event) => {
           // Only react to events that touch our target kubeconfig files
-          let dominated = event.paths.iter().any(|p| {
-            p.file_name()
-              .is_some_and(|f| target_filenames.contains(f))
-          });
+          let dominated = event
+            .paths
+            .iter()
+            .any(|p| p.file_name().is_some_and(|f| target_filenames.contains(f)));
           if !dominated {
             continue;
           }
