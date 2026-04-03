@@ -284,7 +284,9 @@ mod tests {
   #[test]
   fn test_kubeconfig_watch_paths_from_env() {
     let original = env::var_os("KUBECONFIG");
-    env::set_var("KUBECONFIG", "/tmp/a:/tmp/b");
+    // Use env::join_paths for cross-platform separator (: on Unix, ; on Windows)
+    let joined = env::join_paths(["/tmp/a", "/tmp/b"]).unwrap();
+    env::set_var("KUBECONFIG", &joined);
 
     let paths = kubeconfig_watch_paths();
 
@@ -302,7 +304,9 @@ mod tests {
   #[test]
   fn test_kubeconfig_watch_paths_ignores_empty_segments() {
     let original = env::var_os("KUBECONFIG");
-    env::set_var("KUBECONFIG", "/tmp/a::/tmp/b:");
+    // Use env::join_paths and include empty segments
+    let joined = env::join_paths(["/tmp/a", "", "/tmp/b", ""]).unwrap();
+    env::set_var("KUBECONFIG", &joined);
 
     let paths = kubeconfig_watch_paths();
 
