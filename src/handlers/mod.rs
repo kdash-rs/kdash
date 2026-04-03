@@ -420,7 +420,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           ActiveBlock::Containers => {
             if let Some(c) = handle_block_action(key, &app.data.containers) {
               app.data.selected.container = Some(c.name.clone());
-              app.dispatch_container_logs(c.name).await;
+              app.dispatch_container_logs(c.name, RouteId::Home).await;
             }
           }
       ActiveBlock::Logs => {
@@ -520,68 +520,119 @@ async fn handle_route_events(key: Key, app: &mut App) {
       }
     }
     RouteId::Troubleshoot => {
-      if key == DEFAULT_KEYBINDING.submit.key || key == DEFAULT_KEYBINDING.describe_resource.key {
-        if let Some(finding) = handle_block_action(key, &app.data.troubleshoot_findings) {
-          let (kind, value, ns) = finding.describe_target();
-          app.data.describe_out = ScrollableTxt::new();
-          app.push_navigation_stack(RouteId::Troubleshoot, ActiveBlock::Describe);
-          app
-            .dispatch_cmd(IoCmdEvent::GetDescribe {
-              kind: kind.to_owned(),
-              value: value.to_owned(),
-              ns: ns.map(str::to_owned),
-            })
-            .await;
+      match app.get_current_route().active_block {
+        ActiveBlock::Containers => {
+          if let Some(c) = handle_block_action(key, &app.data.containers) {
+            app.data.selected.container = Some(c.name.clone());
+            app
+              .dispatch_container_logs(c.name, RouteId::Troubleshoot)
+              .await;
+          }
         }
-      } else if key == DEFAULT_KEYBINDING.resource_yaml.key {
-        if let Some(finding) = handle_block_action(key, &app.data.troubleshoot_findings) {
-          let yaml = match finding.resource_kind {
-            ResourceKind::Pod => app
-              .data
-              .pods
-              .items
-              .iter()
-              .find(|p| {
-                p.name == finding.describe_name
-                  && finding
-                    .describe_namespace
-                    .as_deref()
-                    .is_some_and(|ns| p.namespace == ns)
-              })
-              .map(|p| p.resource_to_yaml())
-              .unwrap_or_default(),
-            ResourceKind::Pvc => app
-              .data
-              .persistent_volume_claims
-              .items
-              .iter()
-              .find(|pvc| {
-                pvc.name == finding.describe_name
-                  && finding
-                    .describe_namespace
-                    .as_deref()
-                    .is_some_and(|ns| pvc.namespace == ns)
-              })
-              .map(|pvc| pvc.resource_to_yaml())
-              .unwrap_or_default(),
-            ResourceKind::ReplicaSet => app
-              .data
-              .replica_sets
-              .items
-              .iter()
-              .find(|rs| {
-                rs.name == finding.describe_name
-                  && finding
-                    .describe_namespace
-                    .as_deref()
-                    .is_some_and(|ns| rs.namespace == ns)
-              })
-              .map(|rs| rs.resource_to_yaml())
-              .unwrap_or_default(),
-          };
-          app.data.describe_out = ScrollableTxt::with_string(yaml);
-          app.push_navigation_stack(RouteId::Troubleshoot, ActiveBlock::Yaml);
+        ActiveBlock::Logs => {
+          if key == DEFAULT_KEYBINDING.log_auto_scroll.key {
+            app.log_auto_scroll = !app.log_auto_scroll;
+          } else if key == DEFAULT_KEYBINDING.copy_to_clipboard.key {
+            copy_to_clipboard(app.data.logs.get_plain_text(), app);
+          }
         }
+        ActiveBlock::Troubleshoot => {
+          if key == DEFAULT_KEYBINDING.submit.key {
+            if let Some(finding) = handle_block_action(key, &app.data.troubleshoot_findings) {
+              if finding.resource_kind == ResourceKind::Pod {
+                // Drill into containers for pod findings
+                if let Some(idx) = app.data.pods.items.iter().position(|p| {
+                  p.name == finding.describe_name
+                    && finding
+                      .describe_namespace
+                      .as_deref()
+                      .is_some_and(|ns| p.namespace == ns)
+                }) {
+                  let pod = app.data.pods.items[idx].clone();
+                  app.data.pods.state.select(Some(idx));
+                  app.data.selected.pod = Some(pod.name);
+                  app.data.containers.set_items(pod.containers);
+                  app.push_navigation_stack(RouteId::Troubleshoot, ActiveBlock::Containers);
+                }
+              } else {
+                // Describe for non-pod findings
+                let (kind, value, ns) = finding.describe_target();
+                app.data.describe_out = ScrollableTxt::new();
+                app.push_navigation_stack(RouteId::Troubleshoot, ActiveBlock::Describe);
+                app
+                  .dispatch_cmd(IoCmdEvent::GetDescribe {
+                    kind: kind.to_owned(),
+                    value: value.to_owned(),
+                    ns: ns.map(str::to_owned),
+                  })
+                  .await;
+              }
+            }
+          } else if key == DEFAULT_KEYBINDING.describe_resource.key {
+            if let Some(finding) = handle_block_action(key, &app.data.troubleshoot_findings) {
+              let (kind, value, ns) = finding.describe_target();
+              app.data.describe_out = ScrollableTxt::new();
+              app.push_navigation_stack(RouteId::Troubleshoot, ActiveBlock::Describe);
+              app
+                .dispatch_cmd(IoCmdEvent::GetDescribe {
+                  kind: kind.to_owned(),
+                  value: value.to_owned(),
+                  ns: ns.map(str::to_owned),
+                })
+                .await;
+            }
+          } else if key == DEFAULT_KEYBINDING.resource_yaml.key {
+            if let Some(finding) = handle_block_action(key, &app.data.troubleshoot_findings) {
+              let yaml = match finding.resource_kind {
+                ResourceKind::Pod => app
+                  .data
+                  .pods
+                  .items
+                  .iter()
+                  .find(|p| {
+                    p.name == finding.describe_name
+                      && finding
+                        .describe_namespace
+                        .as_deref()
+                        .is_some_and(|ns| p.namespace == ns)
+                  })
+                  .map(|p| p.resource_to_yaml())
+                  .unwrap_or_default(),
+                ResourceKind::Pvc => app
+                  .data
+                  .persistent_volume_claims
+                  .items
+                  .iter()
+                  .find(|pvc| {
+                    pvc.name == finding.describe_name
+                      && finding
+                        .describe_namespace
+                        .as_deref()
+                        .is_some_and(|ns| pvc.namespace == ns)
+                  })
+                  .map(|pvc| pvc.resource_to_yaml())
+                  .unwrap_or_default(),
+                ResourceKind::ReplicaSet => app
+                  .data
+                  .replica_sets
+                  .items
+                  .iter()
+                  .find(|rs| {
+                    rs.name == finding.describe_name
+                      && finding
+                        .describe_namespace
+                        .as_deref()
+                        .is_some_and(|ns| rs.namespace == ns)
+                  })
+                  .map(|rs| rs.resource_to_yaml())
+                  .unwrap_or_default(),
+              };
+              app.data.describe_out = ScrollableTxt::with_string(yaml);
+              app.push_navigation_stack(RouteId::Troubleshoot, ActiveBlock::Yaml);
+            }
+          }
+        }
+        _ => {}
       }
     }
     RouteId::HelpMenu => { /* Do nothing */ }

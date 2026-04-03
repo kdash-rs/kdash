@@ -267,7 +267,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   );
 }
 
-fn draw_containers_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
+pub(crate) fn draw_containers_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_container_title(app, app.data.containers.items.len(), "");
 
@@ -332,7 +332,7 @@ fn get_container_title<S: AsRef<str>>(app: &App, container_len: usize, suffix: S
   title
 }
 
-fn draw_logs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
+pub(crate) fn draw_logs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let selected_container = app.data.selected.container.clone();
   let container_name = selected_container.unwrap_or_default();
 

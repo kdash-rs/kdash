@@ -231,3 +231,9 @@ MIT
 - [Deepu K Sasidharan](https://deepu.tech/)
 
 ## [Contributors](https://github.com/kdash-rs/kdash/graphs/contributors)
+
+
+## TODO
+
+- Show no of resources in brackets near tab labels, menu dropdown etc for all CRDs
+- Enter should run describe except for items which have child views like pods or containers.

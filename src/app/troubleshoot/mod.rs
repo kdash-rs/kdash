@@ -216,6 +216,8 @@ pub struct TroubleshootResource;
 impl AppResource for TroubleshootResource {
   fn render(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     match block {
+      ActiveBlock::Containers => super::pods::draw_containers_block(f, app, area),
+      ActiveBlock::Logs => super::pods::draw_logs_block(f, app, area),
       ActiveBlock::Describe => draw_describe_block(
         f,
         app,
