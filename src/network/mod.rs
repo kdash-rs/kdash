@@ -81,6 +81,7 @@ pub enum IoEvent {
   GetDynamicRes,
   GetNetworkPolicies,
   GetPodsBySelector { namespace: String, selector: String },
+  GetPodsByNode { node_name: String },
 }
 
 async fn refresh_kube_config(context: &Option<String>) -> Result<kube::Client> {
@@ -371,6 +372,9 @@ impl<'a> Network<'a> {
       } => {
         self.get_pods_by_selector(&namespace, &selector).await;
       }
+      IoEvent::GetPodsByNode { node_name } => {
+        self.get_pods_by_node(&node_name).await;
+      }
     };
 
     let mut app = self.app.lock().await;
@@ -501,6 +505,27 @@ impl<'a> Network<'a> {
           .handle_error(anyhow!(
             "Failed to get pods for selector '{}'. {}",
             selector,
+            e
+          ))
+          .await;
+      }
+    }
+  }
+
+  pub async fn get_pods_by_node(&self, node_name: &str) {
+    let api: Api<Pod> = Api::all(self.client.clone());
+    let lp = ListParams::default().fields(&format!("spec.nodeName={}", node_name));
+    match api.list(&lp).await {
+      Ok(list) => {
+        let items: Vec<KubePod> = list.into_iter().map(Pod::into).collect();
+        let mut app = self.app.lock().await;
+        app.data.pods.set_items(items);
+      }
+      Err(e) => {
+        self
+          .handle_error(anyhow!(
+            "Failed to get pods for node '{}'. {}",
+            node_name,
             e
           ))
           .await;

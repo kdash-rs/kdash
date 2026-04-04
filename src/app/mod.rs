@@ -657,6 +657,17 @@ impl App {
     self.push_navigation_route(route);
   }
 
+  /// Navigate from a node to its pods via field selector.
+  pub async fn dispatch_node_pods(&mut self, node_name: String, route_id: RouteId) {
+    self.data.selected.pod_selector = Some(node_name.clone());
+    self.data.selected.pod_selector_ns = None;
+    self.data.selected.pod_selector_resource = Some("node".into());
+    self
+      .dispatch(IoEvent::GetPodsByNode { node_name })
+      .await;
+    self.push_navigation_stack(route_id, ActiveBlock::Pods);
+  }
+
   /// Navigate from a workload resource to its owned pods via label selector drill-down.
   pub async fn dispatch_resource_pods(
     &mut self,

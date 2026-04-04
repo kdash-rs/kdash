@@ -215,6 +215,9 @@ impl AppResource for NodeResource {
           app.light_theme,
         ),
       ),
+      ActiveBlock::Pods => crate::app::pods::draw_block_as_sub(f, app, area),
+      ActiveBlock::Containers => crate::app::pods::draw_containers_block(f, app, area),
+      ActiveBlock::Logs => crate::app::pods::draw_logs_block(f, app, area),
       ActiveBlock::Namespaces => Self::render(app.get_prev_route().active_block, f, app, area),
       _ => draw_block(f, app, area),
     };
@@ -286,7 +289,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     area,
     ResourceTableProps {
       title,
-      inline_help: DESCRIBE_AND_YAML_HINT.into(),
+      inline_help: format!("| Pods <enter> {}", DESCRIBE_AND_YAML_HINT),
       resource: &mut app.data.nodes,
       table_headers: vec![
         "Name", "Status", "Roles", "Version", "Pods", "CPU", "Mem", "CPU %", "Mem %", "CPU/A",

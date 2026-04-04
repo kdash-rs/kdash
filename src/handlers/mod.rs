@@ -440,13 +440,30 @@ async fn handle_route_events(key: Key, app: &mut App) {
           (ActiveBlock::NetworkPolicies, network_policies, "networkpolicy"),
         ],
         cluster: [
-          (ActiveBlock::Nodes, nodes, "node"),
           (ActiveBlock::StorageClasses, storage_classes, "storageclass"),
           (ActiveBlock::ClusterRoles, cluster_roles, "clusterroles"),
           (ActiveBlock::ClusterRoleBindings, cluster_role_bindings, "clusterrolebinding"),
           (ActiveBlock::PersistentVolumes, persistent_volumes, "persistentvolumes"),
         ],
         extra: {
+          ActiveBlock::Nodes => {
+            if let Some(res) = handle_block_action(key, &app.data.nodes) {
+              let ok = handle_describe_decode_or_yaml_action(
+                key,
+                app,
+                &res,
+                IoCmdEvent::GetDescribe {
+                  kind: "node".to_owned(),
+                  value: res.name.to_owned(),
+                  ns: None,
+                },
+              )
+              .await;
+              if !ok {
+                app.dispatch_node_pods(res.name.clone(), RouteId::Home).await;
+              }
+            }
+          }
           ActiveBlock::Deployments => {
             handle_workload_action!(key, app, deployments, "deployment");
           }
@@ -1408,6 +1425,24 @@ mod tests {
     assert_eq!(app.data.selected.pod_selector, None);
     assert_eq!(app.data.selected.pod_selector_ns, None);
     assert_eq!(app.data.selected.pod_selector_resource, None);
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Pods);
+  }
+
+  #[tokio::test]
+  async fn test_dispatch_node_pods_sets_state() {
+    let mut app = App::default();
+    app.route_home();
+
+    app
+      .dispatch_node_pods("my-node-01".into(), RouteId::Home)
+      .await;
+
+    assert_eq!(app.data.selected.pod_selector, Some("my-node-01".into()));
+    assert_eq!(app.data.selected.pod_selector_ns, None);
+    assert_eq!(
+      app.data.selected.pod_selector_resource,
+      Some("node".into())
+    );
     assert_eq!(app.get_current_route().active_block, ActiveBlock::Pods);
   }
 }
