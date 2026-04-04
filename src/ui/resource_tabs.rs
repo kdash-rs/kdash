@@ -46,11 +46,39 @@ pub fn draw_resource_tabs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     block = block.style(style_secondary(app.light_theme))
   }
 
+  let tab_counts = [
+    app.data.pods.items.len(),
+    app.data.services.items.len(),
+    app.data.nodes.items.len(),
+    app.data.config_maps.items.len(),
+    app.data.stateful_sets.items.len(),
+    app.data.replica_sets.items.len(),
+    app.data.deployments.items.len(),
+    app.data.jobs.items.len(),
+    app.data.daemon_sets.items.len(),
+    0, // More
+    0, // Dynamic
+  ];
   let titles: Vec<_> = app
     .context_tabs
     .items
     .iter()
-    .map(|t| Line::from(Span::styled(&t.title, style_default(app.light_theme))))
+    .enumerate()
+    .map(|(i, t)| {
+      let count = tab_counts.get(i).copied().unwrap_or(0);
+      let label = if count > 0 {
+        // Insert count before the shortcut key hint, e.g. "Pods [5] <1>"
+        if let Some(pos) = t.title.find('<') {
+          let (name, hint) = t.title.split_at(pos);
+          format!("{}[{}] {}", name, count, hint)
+        } else {
+          format!("{} [{}]", t.title, count)
+        }
+      } else {
+        t.title.clone()
+      };
+      Line::from(Span::styled(label, style_default(app.light_theme)))
+    })
     .collect();
   let tabs = Tabs::new(titles)
     .block(block)
@@ -77,11 +105,64 @@ pub fn draw_resource_tabs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
 
 /// more resources tab
 fn draw_more(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
+  // Collect counts before borrowing menu mutably
+  let counts: Vec<(ActiveBlock, usize)> = vec![
+    (ActiveBlock::CronJobs, app.data.cronjobs.items.len()),
+    (ActiveBlock::Secrets, app.data.secrets.items.len()),
+    (
+      ActiveBlock::ReplicationControllers,
+      app.data.replication_controllers.items.len(),
+    ),
+    (
+      ActiveBlock::StorageClasses,
+      app.data.storage_classes.items.len(),
+    ),
+    (ActiveBlock::Roles, app.data.roles.items.len()),
+    (
+      ActiveBlock::RoleBindings,
+      app.data.role_bindings.items.len(),
+    ),
+    (
+      ActiveBlock::ClusterRoles,
+      app.data.cluster_roles.items.len(),
+    ),
+    (
+      ActiveBlock::ClusterRoleBindings,
+      app.data.cluster_role_bindings.items.len(),
+    ),
+    (ActiveBlock::Ingresses, app.data.ingress.items.len()),
+    (
+      ActiveBlock::PersistentVolumeClaims,
+      app.data.persistent_volume_claims.items.len(),
+    ),
+    (
+      ActiveBlock::PersistentVolumes,
+      app.data.persistent_volumes.items.len(),
+    ),
+    (
+      ActiveBlock::ServiceAccounts,
+      app.data.service_accounts.items.len(),
+    ),
+    (
+      ActiveBlock::NetworkPolicies,
+      app.data.network_policies.items.len(),
+    ),
+  ];
   match block {
-    ActiveBlock::More => draw_menu(f, &mut app.more_resources_menu, &app.menu_filter, area),
-    ActiveBlock::DynamicView => {
-      draw_menu(f, &mut app.dynamic_resources_menu, &app.menu_filter, area)
-    }
+    ActiveBlock::More => draw_menu(
+      f,
+      &mut app.more_resources_menu,
+      &app.menu_filter,
+      &counts,
+      area,
+    ),
+    ActiveBlock::DynamicView => draw_menu(
+      f,
+      &mut app.dynamic_resources_menu,
+      &app.menu_filter,
+      &counts,
+      area,
+    ),
     ActiveBlock::CronJobs => CronJobResource::render(block, f, app, area),
     ActiveBlock::Secrets => SecretResource::render(block, f, app, area),
     ActiveBlock::ReplicationControllers => {
@@ -136,6 +217,7 @@ fn draw_menu(
   f: &mut Frame<'_>,
   more_resources_menu: &mut StatefulList<(String, ActiveBlock)>,
   filter: &str,
+  counts: &[(ActiveBlock, usize)],
   area: Rect,
 ) {
   use crate::handlers::filter_menu_items;
@@ -145,7 +227,18 @@ fn draw_menu(
   let filtered = filter_menu_items(&more_resources_menu.items, filter);
   let items: Vec<ListItem<'_>> = filtered
     .iter()
-    .map(|(_, (name, _))| ListItem::new(name.clone()))
+    .map(|(_, (name, block))| {
+      let count = counts
+        .iter()
+        .find(|(b, _)| b == block)
+        .map(|(_, c)| *c)
+        .unwrap_or(0);
+      if count > 0 {
+        ListItem::new(format!("{} [{}]", name, count))
+      } else {
+        ListItem::new(name.clone())
+      }
+    })
     .collect();
 
   let title = if filter.is_empty() {
@@ -213,7 +306,7 @@ mod tests {
 
     let mut expected = Buffer::with_lines(vec![
         "┌ Resources ───────────────────────────────────────────────────────────────────────────────────────┐",
-        "│ Pods <1> │ Services <2> │ Nodes <3> │ ConfigMaps <4> │ StatefulSets <5> │ ReplicaSets <6> │ Deplo│",
+        "│ Pods [1] <1> │ Services <2> │ Nodes <3> │ ConfigMaps <4> │ StatefulSets <5> │ ReplicaSets <6> │ D│",
         "│                                                                                                  │",
         "│ Pods (ns: all) [1] | Containers <enter> | describe <d> | yaml <y> ───────────────────────────────│",
         "│   Namespace                Name                         Ready      Status    Restarts   Age      │",
@@ -242,7 +335,7 @@ mod tests {
     // second row tab headings
     for col in 0..=99 {
       match col {
-        0..=12 | 25..=27 | 37..=39 | 54..=56 | 73..=75 | 91..=93 | 99 => {
+        0..=16 | 29..=31 | 41..=43 | 58..=60 | 77..=79 | 95..=97 | 99 => {
           expected
             .cell_mut(Position::new(col, 1))
             .unwrap()
