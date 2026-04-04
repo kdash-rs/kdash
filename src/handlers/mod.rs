@@ -143,8 +143,11 @@ pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
       app.app_input.input.handle_event(&Event::Key(key_event));
       app.data.selected.filter = Some(app.app_input.input.value().into());
     }
-  } else if app.is_menu_active() && handle_menu_filter_key(key, app) {
+  } else if app.is_menu_active() && app.menu_filter_active && handle_menu_filter_key(key, app) {
     // Menu filter captured the key — done
+  } else if app.is_menu_active() && !app.menu_filter_active && key == Key::Char('/') {
+    // Activate menu filter mode
+    app.menu_filter_active = true;
   } else {
     // First handle any global event and then move to route event
     match key {
@@ -212,15 +215,20 @@ fn handle_escape(app: &mut App) {
     app.api_error = String::default();
   }
 
-  // If menu is active with a filter, clear the filter first
-  if app.is_menu_active() && !app.menu_filter.is_empty() {
-    app.menu_filter.clear();
+  // If menu filter is active, deactivate it first (clear text if any, else deactivate)
+  if app.is_menu_active() && app.menu_filter_active {
+    if !app.menu_filter.is_empty() {
+      app.menu_filter.clear();
+    } else {
+      app.menu_filter_active = false;
+    }
     return;
   }
 
-  // Clear menu filter on any menu exit
+  // Clear menu filter state on any menu exit
   if app.is_menu_active() {
     app.menu_filter.clear();
+    app.menu_filter_active = false;
   }
 
   match app.get_current_route().id {
@@ -553,6 +561,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
                 .map(|(_, item)| (*item).clone());
               if let Some((_title, active_block)) = selected_item {
                 app.menu_filter.clear();
+                app.menu_filter_active = false;
                 app.push_navigation_route(Route {
                   id: RouteId::Home,
                   active_block,
@@ -571,6 +580,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
                 .map(|(_, item)| (*item).clone());
               if let Some((title, active_block)) = selected_item {
                 app.menu_filter.clear();
+                app.menu_filter_active = false;
                 app.push_navigation_route(Route {
                   id: RouteId::Home,
                   active_block,
@@ -1193,6 +1203,11 @@ mod tests {
     // Navigate to More menu
     app.push_navigation_stack(RouteId::Home, ActiveBlock::More);
 
+    // Activate filter mode with '/'
+    let key_evt = KeyEvent::from(KeyCode::Char('/'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert!(app.menu_filter_active);
+
     let key_evt = KeyEvent::from(KeyCode::Char('c'));
     handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
     assert_eq!(app.menu_filter, "c");
@@ -1203,9 +1218,22 @@ mod tests {
   }
 
   #[tokio::test]
+  async fn test_menu_filter_requires_slash_to_activate() {
+    let mut app = App::default();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::More);
+
+    // Typing without '/' should not filter
+    let key_evt = KeyEvent::from(KeyCode::Char('c'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert_eq!(app.menu_filter, "");
+    assert!(!app.menu_filter_active);
+  }
+
+  #[tokio::test]
   async fn test_menu_filter_backspace_removes_char() {
     let mut app = App::default();
     app.push_navigation_stack(RouteId::Home, ActiveBlock::More);
+    app.menu_filter_active = true;
 
     let key_evt = KeyEvent::from(KeyCode::Char('a'));
     handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
@@ -1222,6 +1250,7 @@ mod tests {
   async fn test_menu_filter_backspace_on_empty_does_not_panic() {
     let mut app = App::default();
     app.push_navigation_stack(RouteId::Home, ActiveBlock::More);
+    app.menu_filter_active = true;
 
     let key_evt = KeyEvent::from(KeyCode::Backspace);
     handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
@@ -1232,6 +1261,7 @@ mod tests {
   async fn test_menu_filter_escape_clears_filter_first() {
     let mut app = App::default();
     app.push_navigation_stack(RouteId::Home, ActiveBlock::More);
+    app.menu_filter_active = true;
 
     // Type a filter
     let key_evt = KeyEvent::from(KeyCode::Char('x'));
@@ -1242,6 +1272,13 @@ mod tests {
     let key_evt = KeyEvent::from(KeyCode::Esc);
     handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
     assert_eq!(app.menu_filter, "");
+    assert!(app.menu_filter_active); // still active, just cleared text
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::More);
+
+    // Second Escape deactivates filter mode
+    let key_evt = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert!(!app.menu_filter_active);
     assert_eq!(app.get_current_route().active_block, ActiveBlock::More);
   }
 
@@ -1261,6 +1298,7 @@ mod tests {
   async fn test_menu_filter_enter_selects_filtered_item() {
     let mut app = App::default();
     app.push_navigation_stack(RouteId::Home, ActiveBlock::More);
+    app.menu_filter_active = true;
 
     // Type "cron" to filter to CronJobs
     for c in "cron".chars() {
@@ -1276,8 +1314,9 @@ mod tests {
     let key_evt = KeyEvent::from(KeyCode::Enter);
     handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
 
-    // Should navigate to CronJobs and clear filter
+    // Should navigate to CronJobs, clear filter, and deactivate filter mode
     assert_eq!(app.menu_filter, "");
+    assert!(!app.menu_filter_active);
     assert_eq!(app.get_current_route().active_block, ActiveBlock::CronJobs);
   }
 

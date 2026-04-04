@@ -216,6 +216,7 @@ pub struct App {
   pub more_resources_menu: StatefulList<(String, ActiveBlock)>,
   pub dynamic_resources_menu: StatefulList<(String, ActiveBlock)>,
   pub menu_filter: String,
+  pub menu_filter_active: bool,
   pub show_info_bar: bool,
   pub show_filter_bar: bool,
   pub is_streaming: bool,
@@ -448,6 +449,7 @@ impl Default for App {
       ]),
       dynamic_resources_menu: StatefulList::new(),
       menu_filter: String::new(),
+      menu_filter_active: false,
       show_info_bar: true,
       show_filter_bar: false,
       loading_counter: 0,
@@ -662,9 +664,7 @@ impl App {
     self.data.selected.pod_selector = Some(node_name.clone());
     self.data.selected.pod_selector_ns = None;
     self.data.selected.pod_selector_resource = Some("node".into());
-    self
-      .dispatch(IoEvent::GetPodsByNode { node_name })
-      .await;
+    self.dispatch(IoEvent::GetPodsByNode { node_name }).await;
     self.push_navigation_stack(route_id, ActiveBlock::Pods);
   }
 

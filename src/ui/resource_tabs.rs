@@ -153,6 +153,7 @@ fn draw_more(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
       f,
       &mut app.more_resources_menu,
       &app.menu_filter,
+      app.menu_filter_active,
       &counts,
       area,
     ),
@@ -160,6 +161,7 @@ fn draw_more(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
       f,
       &mut app.dynamic_resources_menu,
       &app.menu_filter,
+      app.menu_filter_active,
       &counts,
       area,
     ),
@@ -217,6 +219,7 @@ fn draw_menu(
   f: &mut Frame<'_>,
   more_resources_menu: &mut StatefulList<(String, ActiveBlock)>,
   filter: &str,
+  filter_active: bool,
   counts: &[(ActiveBlock, usize)],
   area: Rect,
 ) {
@@ -241,10 +244,12 @@ fn draw_menu(
     })
     .collect();
 
-  let title = if filter.is_empty() {
+  let title = if filter_active && !filter.is_empty() {
+    format!(" Select Resource [{}] ", filter)
+  } else if filter_active {
     " Select Resource (type to filter) ".to_string()
   } else {
-    format!(" Select Resource [{}] ", filter)
+    " Select Resource (/ to filter) ".to_string()
   };
 
   // Use a local ListState so selection operates within filtered bounds
