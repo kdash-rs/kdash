@@ -76,28 +76,40 @@ macro_rules! handle_resource_action {
       $(
         $block => {
           if let Some(res) = handle_block_action($key, &$app.data.$field) {
-            let _ok = handle_describe_decode_or_yaml_action(
-              $key, $app, &res,
-              IoCmdEvent::GetDescribe {
-                kind: $kind.to_owned(),
-                value: res.name.to_owned(),
-                ns: Some(res.namespace.to_owned()),
-              },
+            let describe_action = IoCmdEvent::GetDescribe {
+              kind: $kind.to_owned(),
+              value: res.name.to_owned(),
+              ns: Some(res.namespace.to_owned()),
+            };
+            let ok = handle_describe_decode_or_yaml_action(
+              $key, $app, &res, describe_action.clone(),
             ).await;
+            // Enter key runs describe for resources without child views
+            if !ok && $key == DEFAULT_KEYBINDING.submit.key {
+              $app.data.describe_out = ScrollableTxt::new();
+              $app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
+              $app.dispatch_cmd(describe_action).await;
+            }
           }
         }
       )*
       $(
         $cblock => {
           if let Some(res) = handle_block_action($key, &$app.data.$cfield) {
-            let _ok = handle_describe_decode_or_yaml_action(
-              $key, $app, &res,
-              IoCmdEvent::GetDescribe {
-                kind: $ckind.to_owned(),
-                value: res.name.to_owned(),
-                ns: None,
-              },
+            let describe_action = IoCmdEvent::GetDescribe {
+              kind: $ckind.to_owned(),
+              value: res.name.to_owned(),
+              ns: None,
+            };
+            let ok = handle_describe_decode_or_yaml_action(
+              $key, $app, &res, describe_action.clone(),
             ).await;
+            // Enter key runs describe for cluster-scoped resources without child views
+            if !ok && $key == DEFAULT_KEYBINDING.submit.key {
+              $app.data.describe_out = ScrollableTxt::new();
+              $app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
+              $app.dispatch_cmd(describe_action).await;
+            }
           }
         }
       )*
@@ -1429,6 +1441,27 @@ mod tests {
   }
 
   #[tokio::test]
+  async fn test_enter_on_leaf_resource_runs_describe() {
+    let mut app = App::default();
+    app.route_home();
+
+    // Navigate to Secrets (a leaf resource with no child views)
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Secrets);
+
+    let mut secret = KubeSecret::default();
+    secret.name = "my-secret".into();
+    secret.namespace = "default".into();
+    app.data.secrets.set_items(vec![secret]);
+
+    // Press Enter
+    let key_evt = KeyEvent::from(KeyCode::Enter);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+
+    // Should navigate to Describe view
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Describe);
+  }
+
+  #[tokio::test]
   async fn test_dispatch_node_pods_sets_state() {
     let mut app = App::default();
     app.route_home();
@@ -1439,10 +1472,7 @@ mod tests {
 
     assert_eq!(app.data.selected.pod_selector, Some("my-node-01".into()));
     assert_eq!(app.data.selected.pod_selector_ns, None);
-    assert_eq!(
-      app.data.selected.pod_selector_resource,
-      Some("node".into())
-    );
+    assert_eq!(app.data.selected.pod_selector_resource, Some("node".into()));
     assert_eq!(app.get_current_route().active_block, ActiveBlock::Pods);
   }
 }
