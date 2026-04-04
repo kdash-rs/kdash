@@ -376,6 +376,10 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         // as these are tabs with index the order here matters, atleast for readability
         _ if key == DEFAULT_KEYBINDING.jump_to_pods.key => {
+          // Clear any workload drill-down state so the pod view shows all pods
+          app.data.selected.pod_selector = None;
+          app.data.selected.pod_selector_ns = None;
+          app.data.selected.pod_selector_resource = None;
           let route = app.context_tabs.set_index(0).route.clone();
           app.push_navigation_route(route);
         }
@@ -1385,5 +1389,25 @@ mod tests {
       Some("deployment".into())
     );
     assert_eq!(app.data.selected.pod_selector, Some("app=nginx".into()));
+  }
+
+  #[tokio::test]
+  async fn test_jump_to_pods_clears_selector_state() {
+    let mut app = App::default();
+    app.route_home();
+
+    // Simulate leftover drill-down state
+    app.data.selected.pod_selector = Some("app=nginx".into());
+    app.data.selected.pod_selector_ns = Some("default".into());
+    app.data.selected.pod_selector_resource = Some("deployment".into());
+
+    // Press '1' to jump to pods tab
+    let key_evt = KeyEvent::from(KeyCode::Char('1'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+
+    assert_eq!(app.data.selected.pod_selector, None);
+    assert_eq!(app.data.selected.pod_selector_ns, None);
+    assert_eq!(app.data.selected.pod_selector_resource, None);
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Pods);
   }
 }
