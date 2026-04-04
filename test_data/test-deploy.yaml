@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kdash-test-nginx
+  namespace: default
+  labels:
+    app: kdash-test
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: kdash-test
+  template:
+    metadata:
+      labels:
+        app: kdash-test
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          while true; do
+            echo "[$(date)] Pod $(hostname) is running";
+            sleep 2;
+          done
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kdash-test-multi
+  namespace: default
+  labels:
+    app: kdash-test-multi
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: kdash-test-multi
+  template:
+    metadata:
+      labels:
+        app: kdash-test-multi
+    spec:
+      containers:
+      - name: web
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          while true; do
+            echo "[$(date)] web container on $(hostname)";
+            sleep 3;
+          done
+      - name: sidecar
+        image: busybox
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          while true; do
+            echo "[$(date)] sidecar on $(hostname)";
+            sleep 3;
+          done

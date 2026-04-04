@@ -19,6 +19,23 @@ pub trait AppResource {
 
   async fn get_resource(network: &Network<'_>);
 }
+/// Trait for workload resources that own pods via a label selector.
+pub trait HasPodSelector {
+  /// Returns a comma-separated label selector string (e.g., "app=web,version=v2")
+  /// suitable for use with `ListParams::labels()`. Returns `None` if the resource
+  /// has no selector (e.g., missing spec).
+  fn pod_label_selector(&self) -> Option<String>;
+}
+
+/// Helper to convert a BTreeMap of labels to a comma-separated selector string.
+pub fn labels_to_selector(labels: &std::collections::BTreeMap<String, String>) -> String {
+  labels
+    .iter()
+    .map(|(k, v)| format!("{}={}", k, v))
+    .collect::<Vec<_>>()
+    .join(",")
+}
+
 pub trait KubeResource<T: Serialize> {
   fn get_name(&self) -> &String;
 

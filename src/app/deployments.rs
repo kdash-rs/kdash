@@ -8,7 +8,7 @@ use ratatui::{
 };
 
 use super::{
-  models::{AppResource, KubeResource},
+  models::{self, AppResource, KubeResource},
   utils, ActiveBlock, App,
 };
 use crate::{
@@ -17,7 +17,7 @@ use crate::{
   ui::utils::{
     draw_describe_block, draw_resource_block, draw_yaml_block, get_describe_active,
     get_resource_title, style_primary, title_with_dual_style, ResourceTableProps, COPY_HINT,
-    DESCRIBE_AND_YAML_HINT,
+    DESCRIBE_YAML_AND_LOGS_HINT,
   },
 };
 
@@ -68,6 +68,18 @@ impl KubeResource<Deployment> for KubeDeployment {
   }
 }
 
+impl models::HasPodSelector for KubeDeployment {
+  fn pod_label_selector(&self) -> Option<String> {
+    self
+      .k8s_obj
+      .spec
+      .as_ref()
+      .and_then(|s| s.selector.match_labels.as_ref())
+      .filter(|labels| !labels.is_empty())
+      .map(models::labels_to_selector)
+  }
+}
+
 static DEPLOYMENTS_TITLE: &str = "Deployments";
 
 pub struct DeploymentResource {}
@@ -104,7 +116,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     area,
     ResourceTableProps {
       title,
-      inline_help: DESCRIBE_AND_YAML_HINT.into(),
+      inline_help: format!("| Pods <enter> {}", DESCRIBE_YAML_AND_LOGS_HINT),
       resource: &mut app.data.deployments,
       table_headers: vec![
         "Namespace",
@@ -143,6 +155,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::app::models::HasPodSelector;
   use crate::app::test_utils::*;
 
   #[test]
@@ -163,5 +176,15 @@ mod tests {
         ready: "1/1".into(),
       }
     );
+  }
+
+  #[test]
+  fn test_deployment_pod_label_selector() {
+    let (deployments, _): (Vec<KubeDeployment>, Vec<_>) = convert_resource_from_file("deployments");
+
+    // metrics-server has matchLabels: {k8s-app: metrics-server}
+    let selector = deployments[0].pod_label_selector();
+    assert!(selector.is_some());
+    assert_eq!(selector.unwrap(), "k8s-app=metrics-server");
   }
 }

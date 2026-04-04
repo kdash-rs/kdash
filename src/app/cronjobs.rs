@@ -8,7 +8,7 @@ use ratatui::{
 };
 
 use super::{
-  models::{AppResource, KubeResource},
+  models::{self, AppResource, KubeResource},
   utils, ActiveBlock, App,
 };
 use crate::{
@@ -17,7 +17,7 @@ use crate::{
   ui::utils::{
     draw_describe_block, draw_resource_block, draw_yaml_block, get_describe_active,
     get_resource_title, style_primary, title_with_dual_style, ResourceTableProps, COPY_HINT,
-    DESCRIBE_YAML_AND_ESC_HINT,
+    DESCRIBE_YAML_LOGS_AND_ESC_HINT,
   },
 };
 
@@ -70,6 +70,15 @@ impl KubeResource<CronJob> for KubeCronJob {
   }
 }
 
+impl models::HasPodSelector for KubeCronJob {
+  fn pod_label_selector(&self) -> Option<String> {
+    // CronJobs don't directly own pods — they create Jobs which create Pods.
+    // Pod lookup for CronJobs requires resolving the CronJob→Job→Pod chain,
+    // which is handled at the network layer rather than via a simple label selector.
+    None
+  }
+}
+
 static CRON_JOBS_TITLE: &str = "CronJobs";
 
 pub struct CronJobResource {}
@@ -106,7 +115,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     area,
     ResourceTableProps {
       title,
-      inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
+      inline_help: format!("| Pods <enter> {}", DESCRIBE_YAML_LOGS_AND_ESC_HINT),
       resource: &mut app.data.cronjobs,
       table_headers: vec![
         "Namespace",

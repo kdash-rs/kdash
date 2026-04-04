@@ -56,7 +56,8 @@ generate_keybindings! {
   jump_to_daemonsets,
   jump_to_more_resources,
   jump_to_dynamic_resources,
-  cycle_group_by
+  cycle_group_by,
+  aggregate_logs
 }
 
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Debug)]
@@ -313,6 +314,12 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
     key: Key::Char('e'),
     alt: None,
     desc: "Enable global filtering edit mode",
+    context: HContext::Overview,
+  },
+  aggregate_logs: KeyBinding {
+    key: Key::Char('o'),
+    alt: None,
+    desc: "Aggregate logs for resource",
     context: HContext::Overview,
   },
 };

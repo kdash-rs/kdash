@@ -235,5 +235,6 @@ MIT
 
 ## TODO
 
-- Show no of resources in brackets near tab labels, menu dropdown etc for all CRDs
+- Show no of resources in brackets near tab labels, menu dropdown (more, dynamic??) etc for all CRDs
 - Enter should run describe except for items which have child views like pods or containers.
+- Better filtering

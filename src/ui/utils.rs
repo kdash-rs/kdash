@@ -20,6 +20,9 @@ use crate::app::{
 
 pub static COPY_HINT: &str = "| copy <c>";
 pub static DESCRIBE_AND_YAML_HINT: &str = "| describe <d> | yaml <y> ";
+pub static DESCRIBE_YAML_AND_LOGS_HINT: &str = "| describe <d> | yaml <y> | logs <o> ";
+pub static DESCRIBE_YAML_LOGS_AND_ESC_HINT: &str =
+  "| describe <d> | yaml <y> | logs <o> | back to menu <esc> ";
 pub static DESCRIBE_YAML_AND_ESC_HINT: &str = "| describe <d> | yaml <y> | back to menu <esc> ";
 pub static DESCRIBE_YAML_DECODE_AND_ESC_HINT: &str =
   "| describe <d> | yaml <y> | decode <x> | back to menu <esc> ";
@@ -393,6 +396,9 @@ macro_rules! draw_resource_tab {
           $app.light_theme,
         ),
       ),
+      ActiveBlock::Pods => $crate::app::pods::draw_block_as_sub($f, $app, $area),
+      ActiveBlock::Containers => $crate::app::pods::draw_containers_block($f, $app, $area),
+      ActiveBlock::Logs => $crate::app::pods::draw_logs_block($f, $app, $area),
       ActiveBlock::Namespaces => $fn1($app.get_prev_route().active_block, $f, $app, $area),
       _ => $fn2($f, $app, $area),
     };

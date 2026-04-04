@@ -181,6 +181,12 @@ pub struct Selected {
   pub container: Option<String>,
   pub context: Option<String>,
   pub dynamic_kind: Option<KubeDynamicKind>,
+  /// Label selector for pod drill-down from workload resources
+  pub pod_selector: Option<String>,
+  /// Namespace for pod drill-down (the workload resource's namespace)
+  pub pod_selector_ns: Option<String>,
+  /// Parent resource name for display in drill-down title breadcrumbs
+  pub pod_selector_resource: Option<String>,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -244,6 +250,9 @@ impl Default for Data {
         container: None,
         context: None,
         dynamic_kind: None,
+        pod_selector: None,
+        pod_selector_ns: None,
+        pod_selector_resource: None,
       },
       logs: LogsState::new(String::default()),
       describe_out: ScrollableTxt::new(),
@@ -648,11 +657,52 @@ impl App {
     self.push_navigation_route(route);
   }
 
+  /// Navigate from a workload resource to its owned pods via label selector drill-down.
+  pub async fn dispatch_resource_pods(
+    &mut self,
+    namespace: String,
+    selector: String,
+    resource_name: String,
+    route_id: RouteId,
+  ) {
+    self.data.selected.pod_selector = Some(selector.clone());
+    self.data.selected.pod_selector_ns = Some(namespace.clone());
+    self.data.selected.pod_selector_resource = Some(resource_name);
+    self
+      .dispatch(IoEvent::GetPodsBySelector {
+        namespace,
+        selector,
+      })
+      .await;
+    self.push_navigation_stack(route_id, ActiveBlock::Pods);
+  }
+
   pub async fn dispatch_container_logs(&mut self, id: String, route_id: RouteId) {
     self.cancel_log_stream();
     self.data.logs = LogsState::new(id);
     self.push_navigation_stack(route_id, ActiveBlock::Logs);
     self.dispatch_stream(IoStreamEvent::GetPodLogs(true)).await;
+  }
+
+  /// Start aggregate log streaming from all pods matching a label selector.
+  pub async fn dispatch_aggregate_logs(
+    &mut self,
+    name: String,
+    namespace: String,
+    selector: String,
+    resource_name: String,
+    route_id: RouteId,
+  ) {
+    self.cancel_log_stream();
+    self.data.selected.pod_selector_resource = Some(resource_name);
+    self.data.logs = LogsState::new(format!("agg:{}", name));
+    self.push_navigation_stack(route_id, ActiveBlock::Logs);
+    self
+      .dispatch_stream(IoStreamEvent::GetAggregateLogs {
+        namespace,
+        selector,
+      })
+      .await;
   }
 
   pub fn refresh(&mut self) {
@@ -691,7 +741,20 @@ impl App {
   pub async fn dispatch_by_active_block(&mut self, active_block: ActiveBlock) {
     match active_block {
       ActiveBlock::Pods | ActiveBlock::Containers => {
-        self.dispatch(IoEvent::GetPods).await;
+        // If we're in a workload drill-down, refresh using the label selector
+        if let (Some(selector), Some(namespace)) = (
+          self.data.selected.pod_selector.clone(),
+          self.data.selected.pod_selector_ns.clone(),
+        ) {
+          self
+            .dispatch(IoEvent::GetPodsBySelector {
+              namespace,
+              selector,
+            })
+            .await;
+        } else {
+          self.dispatch(IoEvent::GetPods).await;
+        }
       }
       ActiveBlock::Services => {
         self.dispatch(IoEvent::GetServices).await;

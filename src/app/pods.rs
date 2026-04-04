@@ -228,6 +228,64 @@ impl AppResource for PodResource {
   }
 }
 
+fn capitalize_first(s: &str) -> String {
+  let mut chars = s.chars();
+  match chars.next() {
+    None => String::new(),
+    Some(c) => c.to_uppercase().to_string() + chars.as_str(),
+  }
+}
+
+pub(crate) fn draw_block_as_sub(f: &mut Frame<'_>, app: &mut App, area: Rect) {
+  let is_loading = app.is_loading();
+  let parent = app
+    .data
+    .selected
+    .pod_selector_resource
+    .as_deref()
+    .map(capitalize_first)
+    .unwrap_or_default();
+  let base = format!("{} -> Pods", parent);
+  let title = get_resource_title(app, &base, &String::new(), app.data.pods.items.len());
+
+  draw_resource_block(
+    f,
+    area,
+    ResourceTableProps {
+      title,
+      inline_help: format!(
+        "| Containers <enter> {} | back <esc> ",
+        DESCRIBE_AND_YAML_HINT
+      ),
+      resource: &mut app.data.pods,
+      table_headers: vec!["Namespace", "Name", "Ready", "Status", "Restarts", "Age"],
+      column_widths: vec![
+        Constraint::Percentage(25),
+        Constraint::Percentage(35),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+      ],
+    },
+    |c| {
+      let style = get_resource_row_style(c.status.as_str(), c.ready, app.light_theme);
+      Row::new(vec![
+        Cell::from(c.namespace.to_owned()),
+        Cell::from(c.name.to_owned()),
+        Cell::from(format!("{}/{}", c.ready.0, c.ready.1)),
+        Cell::from(c.status.to_owned()),
+        Cell::from(c.restarts.to_string()),
+        Cell::from(c.age.to_owned()),
+      ])
+      .style(style)
+    },
+    app.light_theme,
+    is_loading,
+    app.data.selected.filter.to_owned(),
+  );
+}
+
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_resource_title(app, PODS_TITLE, "", app.data.pods.items.len());
@@ -323,32 +381,51 @@ pub(crate) fn draw_containers_block(f: &mut Frame<'_>, app: &mut App, area: Rect
 }
 
 fn get_container_title<S: AsRef<str>>(app: &App, container_len: usize, suffix: S) -> String {
-  let title = get_resource_title(
-    app,
-    PODS_TITLE,
-    format!("-> Containers [{}] {}", container_len, suffix.as_ref()).as_str(),
-    app.data.pods.items.len(),
-  );
-  title
+  let base = match &app.data.selected.pod_selector_resource {
+    Some(resource) => format!("{} -> Pods", capitalize_first(resource)),
+    None => PODS_TITLE.to_string(),
+  };
+  let suffix = format!("-> Containers [{}] {}", container_len, suffix.as_ref());
+  get_resource_title(app, &base, &suffix, app.data.pods.items.len())
 }
 
 pub(crate) fn draw_logs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
-  let selected_container = app.data.selected.container.clone();
-  let container_name = selected_container.unwrap_or_default();
+  let is_aggregate = app.data.logs.id.starts_with("agg:");
 
-  let title = title_with_dual_style(
-    get_container_title(
-      app,
-      app.data.containers.items.len(),
-      format!("-> Logs ({}) ", container_name),
-    ),
-    "| copy <c> | Containers <esc> ".into(),
-    app.light_theme,
-  );
+  let (title, hint) = if is_aggregate {
+    let resource = app
+      .data
+      .selected
+      .pod_selector_resource
+      .as_deref()
+      .map(capitalize_first)
+      .unwrap_or_default();
+    let agg_name = app.data.logs.id.strip_prefix("agg:").unwrap_or_default();
+    (
+      format!(" {} -> Logs ({}) ", resource, agg_name),
+      "| copy <c> | back <esc> ".to_string(),
+    )
+  } else {
+    let selected_container = app.data.selected.container.clone();
+    let container_name = selected_container.unwrap_or_default();
+    (
+      get_container_title(
+        app,
+        app.data.containers.items.len(),
+        format!("-> Logs ({}) ", container_name),
+      ),
+      "| copy <c> | Containers <esc> ".to_string(),
+    )
+  };
+
+  let title = title_with_dual_style(title, hint, app.light_theme);
 
   let block = layout_block_top_border(title);
 
-  if container_name == app.data.logs.id {
+  let selected_container = app.data.selected.container.clone();
+  let container_name = selected_container.unwrap_or_default();
+
+  if container_name == app.data.logs.id || is_aggregate {
     app.data.logs.render_list(
       f,
       area,
@@ -599,6 +676,34 @@ mod tests {
       get_container_title(&app, 3, "hello"),
       " Pods (ns: all) [0] -> Containers [3] hello"
     );
+  }
+
+  #[test]
+  fn test_get_container_title_with_resource_breadcrumb() {
+    let mut app = App::default();
+    app.data.selected.pod_selector_resource = Some("deployment".into());
+    assert_eq!(
+      get_container_title(&app, 2, ""),
+      " Deployment -> Pods (ns: all) [0] -> Containers [2] "
+    );
+  }
+
+  #[test]
+  fn test_get_container_title_with_resource_breadcrumb_and_logs() {
+    let mut app = App::default();
+    app.data.selected.pod_selector_resource = Some("statefulset".into());
+    assert_eq!(
+      get_container_title(&app, 1, "-> Logs (nginx) "),
+      " Statefulset -> Pods (ns: all) [0] -> Containers [1] -> Logs (nginx) "
+    );
+  }
+
+  #[test]
+  fn test_capitalize_first() {
+    assert_eq!(capitalize_first("deployment"), "Deployment");
+    assert_eq!(capitalize_first("statefulset"), "Statefulset");
+    assert_eq!(capitalize_first(""), "");
+    assert_eq!(capitalize_first("A"), "A");
   }
 
   #[test]

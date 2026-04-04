@@ -123,6 +123,9 @@ fn draw_more(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
         _ => { /* do nothing */ }
       }
     }
+    ActiveBlock::Pods => crate::app::pods::draw_block_as_sub(f, app, area),
+    ActiveBlock::Containers => crate::app::pods::draw_containers_block(f, app, area),
+    ActiveBlock::Logs => crate::app::pods::draw_logs_block(f, app, area),
     ActiveBlock::Namespaces => draw_more(app.get_prev_route().active_block, f, app, area),
     _ => { /* do nothing */ }
   }

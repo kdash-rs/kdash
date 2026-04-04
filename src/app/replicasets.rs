@@ -8,7 +8,7 @@ use ratatui::{
 };
 
 use super::{
-  models::{AppResource, KubeResource},
+  models::{self, AppResource, KubeResource},
   utils::{self},
   ActiveBlock, App,
 };
@@ -18,7 +18,7 @@ use crate::{
   ui::utils::{
     draw_describe_block, draw_resource_block, draw_yaml_block, get_describe_active,
     get_resource_title, style_primary, title_with_dual_style, ResourceTableProps, COPY_HINT,
-    DESCRIBE_AND_YAML_HINT,
+    DESCRIBE_YAML_AND_LOGS_HINT,
   },
 };
 
@@ -64,6 +64,18 @@ impl KubeResource<ReplicaSet> for KubeReplicaSet {
   }
 }
 
+impl models::HasPodSelector for KubeReplicaSet {
+  fn pod_label_selector(&self) -> Option<String> {
+    self
+      .k8s_obj
+      .spec
+      .as_ref()
+      .and_then(|s| s.selector.match_labels.as_ref())
+      .filter(|labels| !labels.is_empty())
+      .map(models::labels_to_selector)
+  }
+}
+
 static REPLICA_SETS_TITLE: &str = "ReplicaSets";
 
 pub struct ReplicaSetResource {}
@@ -105,7 +117,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     area,
     ResourceTableProps {
       title,
-      inline_help: DESCRIBE_AND_YAML_HINT.into(),
+      inline_help: format!("| Pods <enter> {}", DESCRIBE_YAML_AND_LOGS_HINT),
       resource: &mut app.data.replica_sets,
       table_headers: vec!["Namespace", "Name", "Desired", "Current", "Ready", "Age"],
       column_widths: vec![

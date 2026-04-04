@@ -8,7 +8,7 @@ use ratatui::{
 };
 
 use super::{
-  models::{AppResource, KubeResource},
+  models::{self, AppResource, KubeResource},
   utils::{self},
   ActiveBlock, App,
 };
@@ -18,7 +18,7 @@ use crate::{
   ui::utils::{
     draw_describe_block, draw_resource_block, draw_yaml_block, get_describe_active,
     get_resource_title, style_primary, title_with_dual_style, ResourceTableProps, COPY_HINT,
-    DESCRIBE_AND_YAML_HINT,
+    DESCRIBE_YAML_AND_LOGS_HINT,
   },
 };
 
@@ -61,6 +61,18 @@ impl KubeResource<StatefulSet> for KubeStatefulSet {
   }
 }
 
+impl models::HasPodSelector for KubeStatefulSet {
+  fn pod_label_selector(&self) -> Option<String> {
+    self
+      .k8s_obj
+      .spec
+      .as_ref()
+      .and_then(|s| s.selector.match_labels.as_ref())
+      .filter(|labels| !labels.is_empty())
+      .map(models::labels_to_selector)
+  }
+}
+
 static STFS_TITLE: &str = "StatefulSets";
 
 pub struct StatefulSetResource {}
@@ -97,7 +109,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     area,
     ResourceTableProps {
       title,
-      inline_help: DESCRIBE_AND_YAML_HINT.into(),
+      inline_help: format!("| Pods <enter> {}", DESCRIBE_YAML_AND_LOGS_HINT),
       resource: &mut app.data.stateful_sets,
       table_headers: vec!["Namespace", "Name", "Ready", "Service", "Age"],
       column_widths: vec![

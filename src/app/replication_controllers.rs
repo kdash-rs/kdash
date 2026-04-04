@@ -10,7 +10,7 @@ use ratatui::{
 };
 
 use super::{
-  models::{AppResource, KubeResource},
+  models::{self, AppResource, KubeResource},
   utils::{self},
   ActiveBlock, App,
 };
@@ -20,7 +20,7 @@ use crate::{
   ui::utils::{
     draw_describe_block, draw_resource_block, draw_yaml_block, get_describe_active,
     get_resource_title, style_primary, title_with_dual_style, ResourceTableProps, COPY_HINT,
-    DESCRIBE_YAML_AND_ESC_HINT,
+    DESCRIBE_YAML_LOGS_AND_ESC_HINT,
   },
 };
 
@@ -104,6 +104,18 @@ impl KubeResource<ReplicationController> for KubeReplicationController {
   }
 }
 
+impl models::HasPodSelector for KubeReplicationController {
+  fn pod_label_selector(&self) -> Option<String> {
+    self
+      .k8s_obj
+      .spec
+      .as_ref()
+      .and_then(|s| s.selector.as_ref())
+      .filter(|labels| !labels.is_empty())
+      .map(models::labels_to_selector)
+  }
+}
+
 static RPL_CTRL_TITLE: &str = "ReplicationControllers";
 
 pub struct ReplicationControllerResource {}
@@ -147,7 +159,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     area,
     ResourceTableProps {
       title,
-      inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
+      inline_help: format!("| Pods <enter> {}", DESCRIBE_YAML_LOGS_AND_ESC_HINT),
       resource: &mut app.data.replication_controllers,
       table_headers: vec![
         "Namespace",
@@ -195,6 +207,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::app::models::HasPodSelector;
   use crate::app::test_utils::*;
 
   #[test]
@@ -233,5 +246,16 @@ mod tests {
         selector: "app=nginx".into(),
       }
     );
+  }
+
+  #[test]
+  fn test_replication_controller_pod_label_selector() {
+    let (rplc, _): (Vec<KubeReplicationController>, Vec<_>) =
+      convert_resource_from_file("replication_controllers");
+
+    // nginx RC has selector: {app: nginx}
+    let selector = rplc[0].pod_label_selector();
+    assert!(selector.is_some());
+    assert_eq!(selector.unwrap(), "app=nginx");
   }
 }

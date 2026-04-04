@@ -5,6 +5,9 @@
 - **NEW:** Troubleshoot tab with diagnostics and recommendations for common Kubernetes issues. Thanks to [@sed-i](https://github.com/sed-i) for the contribution! [#505](https://github.com/kdash-rs/kdash/pull/505)
   - Navigate into Pods -> Containers -> Logs/Describe/YAML views for detailed information.
 - UI improvements
+  - Navigate into child views like containers, logs, describe, yaml from the main resource tables.
+  - See consolidated logs from pods owned by a resource like deployment, statefulset, replicaset etc.
+- Better error handling and messages
 - Major refactor and architecture improvements
 - Log streaming fixes and improvements. Fix #6
 - Library updates of the long standing bugs #89, #90, #484, #315, #8

@@ -6,7 +6,9 @@ use tui_input::backend::crossterm::EventHandler;
 use crate::{
   app::{
     key_binding::DEFAULT_KEYBINDING,
-    models::{KubeResource, Scrollable, ScrollableTxt, StatefulList, StatefulTable},
+    models::{
+      HasPodSelector, KubeResource, Scrollable, ScrollableTxt, StatefulList, StatefulTable,
+    },
     secrets::KubeSecret,
     troubleshoot::ResourceKind,
     ActiveBlock, App, InputMode, Route, RouteId,
@@ -14,6 +16,53 @@ use crate::{
   cmd::IoCmdEvent,
   event::Key,
 };
+
+/// Handles Enter/`o` key on a workload resource: describe/yaml, drill-down to pods, or aggregate logs.
+macro_rules! handle_workload_action {
+  ($key:expr, $app:expr, $field:ident, $kind:expr) => {
+    if $key == DEFAULT_KEYBINDING.aggregate_logs.key {
+      // `o` key — aggregate logs from all pods
+      if let Some(res) = $app.data.$field.get_selected_item_copy() {
+        if let Some(selector) = res.pod_label_selector() {
+          $app
+            .dispatch_aggregate_logs(
+              res.name.clone(),
+              res.namespace.clone(),
+              selector,
+              $kind.to_owned(),
+              RouteId::Home,
+            )
+            .await;
+        }
+      }
+    } else if let Some(res) = handle_block_action($key, &$app.data.$field) {
+      let ok = handle_describe_decode_or_yaml_action(
+        $key,
+        $app,
+        &res,
+        IoCmdEvent::GetDescribe {
+          kind: $kind.to_owned(),
+          value: res.name.to_owned(),
+          ns: Some(res.namespace.to_owned()),
+        },
+      )
+      .await;
+      if !ok {
+        // Enter key pressed — drill down to the resource's pods
+        if let Some(selector) = res.pod_label_selector() {
+          $app
+            .dispatch_resource_pods(
+              res.namespace.clone(),
+              selector,
+              $kind.to_owned(),
+              RouteId::Home,
+            )
+            .await;
+        }
+      }
+    }
+  };
+}
 
 /// Dispatches block action (describe/yaml/decode) for standard resource types.
 /// Wraps the entire match expression. Special-case arms go in the `extra` block.
@@ -173,8 +222,19 @@ fn handle_escape(app: &mut App) {
       | ActiveBlock::Describe => {
         app.pop_navigation_stack();
       }
+      ActiveBlock::Pods if app.data.selected.pod_selector.is_some() => {
+        // Exiting a filtered pod view from workload drill-down
+        app.data.selected.pod_selector = None;
+        app.data.selected.pod_selector_ns = None;
+        app.data.selected.pod_selector_resource = None;
+        app.pop_navigation_stack();
+      }
       ActiveBlock::Logs => {
         app.cancel_log_stream();
+        // Clear resource context when leaving aggregate logs
+        if app.data.selected.pod_selector.is_none() {
+          app.data.selected.pod_selector_resource = None;
+        }
         app.pop_navigation_stack();
       }
       _ => {
@@ -366,15 +426,8 @@ async fn handle_route_events(key: Key, app: &mut App) {
       handle_resource_action!(app.get_current_route().active_block, key, app,
         namespaced: [
           (ActiveBlock::Services, services, "service"),
-          (ActiveBlock::Deployments, deployments, "deployment"),
           (ActiveBlock::ConfigMaps, config_maps, "configmap"),
-          (ActiveBlock::StatefulSets, stateful_sets, "statefulset"),
-          (ActiveBlock::ReplicaSets, replica_sets, "replicaset"),
-          (ActiveBlock::Jobs, jobs, "job"),
-          (ActiveBlock::DaemonSets, daemon_sets, "daemonset"),
-          (ActiveBlock::CronJobs, cronjobs, "cronjob"),
           (ActiveBlock::Secrets, secrets, "secret"),
-          (ActiveBlock::ReplicationControllers, replication_controllers, "replicationcontroller"),
           (ActiveBlock::Roles, roles, "roles"),
           (ActiveBlock::RoleBindings, role_bindings, "rolebindings"),
           (ActiveBlock::Ingresses, ingress, "ingress"),
@@ -390,6 +443,27 @@ async fn handle_route_events(key: Key, app: &mut App) {
           (ActiveBlock::PersistentVolumes, persistent_volumes, "persistentvolumes"),
         ],
         extra: {
+          ActiveBlock::Deployments => {
+            handle_workload_action!(key, app, deployments, "deployment");
+          }
+          ActiveBlock::StatefulSets => {
+            handle_workload_action!(key, app, stateful_sets, "statefulset");
+          }
+          ActiveBlock::ReplicaSets => {
+            handle_workload_action!(key, app, replica_sets, "replicaset");
+          }
+          ActiveBlock::Jobs => {
+            handle_workload_action!(key, app, jobs, "job");
+          }
+          ActiveBlock::DaemonSets => {
+            handle_workload_action!(key, app, daemon_sets, "daemonset");
+          }
+          ActiveBlock::CronJobs => {
+            handle_workload_action!(key, app, cronjobs, "cronjob");
+          }
+          ActiveBlock::ReplicationControllers => {
+            handle_workload_action!(key, app, replication_controllers, "replicationcontroller");
+          }
           ActiveBlock::Namespaces => {
             if let Some(ns) = handle_block_action(key, &app.data.namespaces) {
               app.data.selected.ns = Some(ns.name);
@@ -1203,5 +1277,113 @@ mod tests {
     // Should not panic with filtered_len=0
     handle_menu_scroll(&mut menu, false, false, 0);
     assert_eq!(menu.state.selected(), Some(0));
+  }
+
+  #[tokio::test]
+  async fn test_dispatch_resource_pods_sets_selector_state() {
+    let mut app = App::default();
+    app.route_home();
+
+    app
+      .dispatch_resource_pods(
+        "default".into(),
+        "app=nginx".into(),
+        "deployment".into(),
+        RouteId::Home,
+      )
+      .await;
+
+    assert_eq!(app.data.selected.pod_selector, Some("app=nginx".into()));
+    assert_eq!(app.data.selected.pod_selector_ns, Some("default".into()));
+    assert_eq!(
+      app.data.selected.pod_selector_resource,
+      Some("deployment".into())
+    );
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Pods);
+  }
+
+  #[tokio::test]
+  async fn test_dispatch_aggregate_logs_sets_state() {
+    let mut app = App::default();
+    app.route_home();
+
+    app
+      .dispatch_aggregate_logs(
+        "my-deploy".into(),
+        "default".into(),
+        "app=nginx".into(),
+        "deployment".into(),
+        RouteId::Home,
+      )
+      .await;
+
+    assert_eq!(app.data.logs.id, "agg:my-deploy");
+    assert_eq!(
+      app.data.selected.pod_selector_resource,
+      Some("deployment".into())
+    );
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Logs);
+  }
+
+  #[tokio::test]
+  async fn test_escape_from_filtered_pods_clears_selector_state() {
+    let mut app = App::default();
+    app.route_home();
+
+    // Simulate drill-down state
+    app.data.selected.pod_selector = Some("app=nginx".into());
+    app.data.selected.pod_selector_ns = Some("default".into());
+    app.data.selected.pod_selector_resource = Some("deployment".into());
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Pods);
+
+    // Press Esc
+    let key_evt = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+
+    assert_eq!(app.data.selected.pod_selector, None);
+    assert_eq!(app.data.selected.pod_selector_ns, None);
+    assert_eq!(app.data.selected.pod_selector_resource, None);
+  }
+
+  #[tokio::test]
+  async fn test_escape_from_aggregate_logs_clears_resource_context() {
+    let mut app = App::default();
+    app.route_home();
+
+    // Simulate aggregate logs state (no pod_selector set)
+    app.data.selected.pod_selector_resource = Some("deployment".into());
+    app.data.logs = crate::app::models::LogsState::new("agg:my-deploy".into());
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Logs);
+
+    // Press Esc
+    let key_evt = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+
+    // Resource context should be cleared for aggregate logs
+    assert_eq!(app.data.selected.pod_selector_resource, None);
+  }
+
+  #[tokio::test]
+  async fn test_escape_from_drilldown_logs_preserves_resource_context() {
+    let mut app = App::default();
+    app.route_home();
+
+    // Simulate drill-down: Deployment → Pods → Container → Logs
+    app.data.selected.pod_selector = Some("app=nginx".into());
+    app.data.selected.pod_selector_ns = Some("default".into());
+    app.data.selected.pod_selector_resource = Some("deployment".into());
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Pods);
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Logs);
+
+    // Press Esc from Logs — should go back to Containers, resource context preserved
+    let key_evt = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+
+    assert_eq!(
+      app.data.selected.pod_selector_resource,
+      Some("deployment".into())
+    );
+    assert_eq!(app.data.selected.pod_selector, Some("app=nginx".into()));
   }
 }

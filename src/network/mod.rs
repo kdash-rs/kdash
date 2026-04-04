@@ -9,7 +9,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use k8s_openapi::NamespaceResourceScope;
+use k8s_openapi::{api::core::v1::Pod, NamespaceResourceScope};
 use kube::{
   api::ListParams,
   config::{KubeConfigOptions, Kubeconfig},
@@ -34,7 +34,7 @@ use crate::app::{
   network_policies::NetworkPolicyResource,
   nodes::NodeResource,
   ns::NamespaceResource,
-  pods::PodResource,
+  pods::{KubePod, PodResource},
   pvcs::PvcResource,
   pvs::PvResource,
   replicasets::ReplicaSetResource,
@@ -80,6 +80,7 @@ pub enum IoEvent {
   DiscoverDynamicRes,
   GetDynamicRes,
   GetNetworkPolicies,
+  GetPodsBySelector { namespace: String, selector: String },
 }
 
 async fn refresh_kube_config(context: &Option<String>) -> Result<kube::Client> {
@@ -364,6 +365,12 @@ impl<'a> Network<'a> {
       IoEvent::GetDynamicRes => {
         DynamicResource::get_resource(self).await;
       }
+      IoEvent::GetPodsBySelector {
+        namespace,
+        selector,
+      } => {
+        self.get_pods_by_selector(&namespace, &selector).await;
+      }
     };
 
     let mut app = self.app.lock().await;
@@ -475,6 +482,29 @@ impl<'a> Network<'a> {
     match &app.data.selected.ns {
       Some(ns) => Api::namespaced(self.client.clone(), ns),
       None => Api::all(self.client.clone()),
+    }
+  }
+
+  /// Fetch pods matching a label selector in a specific namespace.
+  /// Results are stored in `app.data.pods` for the drill-down flow.
+  pub async fn get_pods_by_selector(&self, namespace: &str, selector: &str) {
+    let api: Api<Pod> = Api::namespaced(self.client.clone(), namespace);
+    let lp = ListParams::default().labels(selector);
+    match api.list(&lp).await {
+      Ok(list) => {
+        let items: Vec<KubePod> = list.into_iter().map(Pod::into).collect();
+        let mut app = self.app.lock().await;
+        app.data.pods.set_items(items);
+      }
+      Err(e) => {
+        self
+          .handle_error(anyhow!(
+            "Failed to get pods for selector '{}'. {}",
+            selector,
+            e
+          ))
+          .await;
+      }
     }
   }
 
