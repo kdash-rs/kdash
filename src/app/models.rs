@@ -285,7 +285,6 @@ impl ScrollableTxt {
   pub fn get_txt(&self) -> &str {
     &self.txt_cache
   }
-
 }
 
 impl Scrollable for ScrollableTxt {
