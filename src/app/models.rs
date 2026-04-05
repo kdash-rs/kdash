@@ -285,18 +285,21 @@ impl ScrollableTxt {
   pub fn get_txt(&self) -> &str {
     &self.txt_cache
   }
+
 }
 
 impl Scrollable for ScrollableTxt {
   fn scroll_down(&mut self, increment: usize) {
-    // scroll only if offset is less than total lines in text
-    // we subtract increment + 2 to keep the text in view. Its just an arbitrary number that works
-    if self.offset < self.items.len().saturating_sub(increment + 2) {
-      self.offset += increment;
+    // Ratatui's Paragraph with Wrap counts scroll offset in *visual* rows
+    // (post-wrap), but we only know the number of source lines.  We cap at
+    // items.len() - 1 so at least the last source line remains visible,
+    // while still allowing enough scroll range for wrapped content.
+    let max_offset = self.items.len().saturating_sub(1);
+    if self.offset < max_offset {
+      self.offset = (self.offset + increment).min(max_offset);
     }
   }
   fn scroll_up(&mut self, decrement: usize) {
-    // scroll up and avoid going negative
     if self.offset > 0 {
       self.offset = self.offset.saturating_sub(decrement);
     }
@@ -683,9 +686,13 @@ mod tests {
 
     assert_eq!(stxt.get_txt(), "test\n multiline\n string");
 
+    // 3 items → max offset = 2 (last line visible)
     stxt.scroll_down(1);
-    assert_eq!(stxt.offset, 0);
+    assert_eq!(stxt.offset, 1);
+    stxt.scroll_down(5);
+    assert_eq!(stxt.offset, 2);
 
+    // 10 lines → max offset = 9
     let mut stxt2 = ScrollableTxt::with_string("te\nst\nmul\ntil\ni\nne\nstr\ni\nn\ng".into());
     assert_eq!(stxt2.items.len(), 10);
     stxt2.scroll_down(1);
@@ -694,12 +701,14 @@ mod tests {
     assert_eq!(stxt2.offset, 2);
     stxt2.scroll_down(5);
     assert_eq!(stxt2.offset, 7);
-    stxt2.scroll_down(1);
-    // no overflow past (len - 2)
-    assert_eq!(stxt2.offset, 7);
+    for _ in 0..5 {
+      stxt2.scroll_down(1);
+    }
+    // capped at len - 1 = 9
+    assert_eq!(stxt2.offset, 9);
     stxt2.scroll_up(1);
-    assert_eq!(stxt2.offset, 6);
-    stxt2.scroll_up(6);
+    assert_eq!(stxt2.offset, 8);
+    stxt2.scroll_up(8);
     assert_eq!(stxt2.offset, 0);
     stxt2.scroll_up(1);
     // no overflow past (0)
@@ -707,16 +716,49 @@ mod tests {
   }
 
   #[test]
+  fn test_scrollable_txt_viewport_reaches_end() {
+    // 100 lines → max offset = 99
+    let lines: Vec<String> = (0..100).map(|i| format!("line {}", i)).collect();
+    let mut stxt = ScrollableTxt::with_string(lines.join("\n"));
+
+    assert_eq!(stxt.items.len(), 100);
+    for _ in 0..110 {
+      stxt.scroll_down(1);
+    }
+    assert_eq!(stxt.offset, 99);
+  }
+
+  #[test]
+  fn test_scrollable_txt_single_line_no_scroll() {
+    // 1 line → max offset = 0
+    let mut stxt = ScrollableTxt::with_string("hello".into());
+
+    stxt.scroll_down(1);
+    assert_eq!(stxt.offset, 0);
+  }
+
+  #[test]
+  fn test_scrollable_txt_scroll_cap_is_len_minus_one() {
+    // 20 lines → max offset = 19 regardless of viewport
+    let lines: Vec<String> = (0..20).map(|i| format!("line {}", i)).collect();
+    let mut stxt = ScrollableTxt::with_string(lines.join("\n"));
+
+    for _ in 0..30 {
+      stxt.scroll_down(1);
+    }
+    assert_eq!(stxt.offset, 19);
+  }
+
+  #[test]
   fn test_scrollable_txt_beyond_u16_max() {
     let line_count = u16::MAX as usize + 100; // 65635 lines
     let lines: Vec<String> = (0..line_count).map(|i| format!("line {}", i)).collect();
     let mut stxt = ScrollableTxt::with_string(lines.join("\n"));
-
     assert_eq!(stxt.items.len(), line_count);
     assert_eq!(stxt.offset, 0);
 
     // Scroll down past u16::MAX in large steps — should not wrap or panic
-    let target = line_count.saturating_sub(3); // max reachable offset (len - 1 - 2)
+    let target = line_count.saturating_sub(1); // max reachable offset (len - 1)
     for _ in 0..(target / 1000) {
       stxt.scroll_down(1000);
     }
@@ -731,7 +773,7 @@ mod tests {
       "offset {} should exceed u16::MAX (65535)",
       stxt.offset
     );
-    // Must be capped at items.len() - 3  (the scroll_down guard: len - increment - 2 where increment=1)
+    // Must be capped at items.len() - 1
     assert!(
       stxt.offset <= target,
       "offset {} should be at most {}",
@@ -747,6 +789,18 @@ mod tests {
       stxt.scroll_up(1);
     }
     assert_eq!(stxt.offset, 0);
+  }
+
+  #[test]
+  fn test_scrollable_txt_last_line_always_reachable() {
+    // 10 source lines → max offset = 9 (last line at top of viewport)
+    let lines: Vec<String> = (0..10).map(|i| format!("line {}", i)).collect();
+    let mut stxt = ScrollableTxt::with_string(lines.join("\n"));
+
+    for _ in 0..20 {
+      stxt.scroll_down(1);
+    }
+    assert_eq!(stxt.offset, 9);
   }
 
   #[test]
