@@ -32,7 +32,6 @@ use kubectl_view_allocations::{GroupBy, QtyByQualifier};
 use log::{error, info};
 use ratatui::layout::Rect;
 use tokio::sync::{mpsc::Sender, watch};
-use tui_input::Input;
 
 use self::{
   configmaps::KubeConfigMap,
@@ -45,7 +44,9 @@ use self::{
   jobs::KubeJob,
   key_binding::DEFAULT_KEYBINDING,
   metrics::KubeNodeMetrics,
-  models::{LogsState, ScrollableTxt, StatefulList, StatefulTable, TabRoute, TabsState},
+  models::{
+    FilterableTable, LogsState, ScrollableTxt, StatefulList, StatefulTable, TabRoute, TabsState,
+  },
   network_policies::KubeNetworkPolicy,
   nodes::KubeNode,
   ns::KubeNs,
@@ -176,7 +177,6 @@ pub struct Data {
 /// selected data items
 pub struct Selected {
   pub ns: Option<String>,
-  pub filter: Option<String>,
   pub pod: Option<String>,
   pub container: Option<String>,
   pub context: Option<String>,
@@ -187,18 +187,6 @@ pub struct Selected {
   pub pod_selector_ns: Option<String>,
   /// Parent resource name for display in drill-down title breadcrumbs
   pub pod_selector_resource: Option<String>,
-}
-
-#[derive(Clone, Eq, PartialEq, Debug)]
-pub enum InputMode {
-  Normal,
-  Editing,
-}
-pub struct AppInput {
-  /// Current value of the input box
-  pub input: Input,
-  /// Current input mode
-  pub input_mode: InputMode,
 }
 
 /// Holds main application state
@@ -217,8 +205,9 @@ pub struct App {
   pub dynamic_resources_menu: StatefulList<(String, ActiveBlock)>,
   pub menu_filter: String,
   pub menu_filter_active: bool,
+  pub ns_filter: String,
+  pub ns_filter_active: bool,
   pub show_info_bar: bool,
-  pub show_filter_bar: bool,
   pub is_streaming: bool,
   pub is_routing: bool,
   pub tick_until_poll: u64,
@@ -226,7 +215,6 @@ pub struct App {
   pub enhanced_graphics: bool,
   pub size: Rect,
   pub api_error: String,
-  pub app_input: AppInput,
   pub light_theme: bool,
   pub refresh: bool,
   pub log_auto_scroll: bool,
@@ -245,7 +233,6 @@ impl Default for Data {
       node_metrics: vec![],
       namespaces: StatefulTable::new(),
       selected: Selected {
-        filter: None,
         ns: None,
         pod: None,
         container: None,
@@ -450,8 +437,9 @@ impl Default for App {
       dynamic_resources_menu: StatefulList::new(),
       menu_filter: String::new(),
       menu_filter_active: false,
+      ns_filter: String::new(),
+      ns_filter_active: false,
       show_info_bar: true,
-      show_filter_bar: false,
       loading_counter: 0,
       is_streaming: false,
       is_routing: false,
@@ -463,10 +451,6 @@ impl Default for App {
       //   confirm: false,
       size: Rect::default(),
       api_error: String::new(),
-      app_input: AppInput {
-        input: Input::default(),
-        input_mode: InputMode::Normal,
-      },
       light_theme: false,
       refresh: true,
       log_auto_scroll: true,
@@ -483,6 +467,94 @@ impl Default for App {
 }
 
 impl App {
+  fn resource_block_for_context_tab(index: usize) -> Option<ActiveBlock> {
+    match index {
+      0 => Some(ActiveBlock::Pods),
+      1 => Some(ActiveBlock::Services),
+      2 => Some(ActiveBlock::Nodes),
+      3 => Some(ActiveBlock::ConfigMaps),
+      4 => Some(ActiveBlock::StatefulSets),
+      5 => Some(ActiveBlock::ReplicaSets),
+      6 => Some(ActiveBlock::Deployments),
+      7 => Some(ActiveBlock::Jobs),
+      8 => Some(ActiveBlock::DaemonSets),
+      _ => None,
+    }
+  }
+
+  pub fn resource_table(&self, block: ActiveBlock) -> Option<&dyn FilterableTable> {
+    match block {
+      ActiveBlock::Pods => Some(&self.data.pods),
+      ActiveBlock::Services => Some(&self.data.services),
+      ActiveBlock::Nodes => Some(&self.data.nodes),
+      ActiveBlock::ConfigMaps => Some(&self.data.config_maps),
+      ActiveBlock::StatefulSets => Some(&self.data.stateful_sets),
+      ActiveBlock::ReplicaSets => Some(&self.data.replica_sets),
+      ActiveBlock::Deployments => Some(&self.data.deployments),
+      ActiveBlock::Jobs => Some(&self.data.jobs),
+      ActiveBlock::DaemonSets => Some(&self.data.daemon_sets),
+      ActiveBlock::CronJobs => Some(&self.data.cronjobs),
+      ActiveBlock::Secrets => Some(&self.data.secrets),
+      ActiveBlock::ReplicationControllers => Some(&self.data.replication_controllers),
+      ActiveBlock::StorageClasses => Some(&self.data.storage_classes),
+      ActiveBlock::Roles => Some(&self.data.roles),
+      ActiveBlock::RoleBindings => Some(&self.data.role_bindings),
+      ActiveBlock::ClusterRoles => Some(&self.data.cluster_roles),
+      ActiveBlock::ClusterRoleBindings => Some(&self.data.cluster_role_bindings),
+      ActiveBlock::Ingresses => Some(&self.data.ingress),
+      ActiveBlock::PersistentVolumeClaims => Some(&self.data.persistent_volume_claims),
+      ActiveBlock::PersistentVolumes => Some(&self.data.persistent_volumes),
+      ActiveBlock::NetworkPolicies => Some(&self.data.network_policies),
+      ActiveBlock::ServiceAccounts => Some(&self.data.service_accounts),
+      ActiveBlock::DynamicResource => Some(&self.data.dynamic_resources),
+      _ => None,
+    }
+  }
+
+  pub fn resource_table_mut(&mut self, block: ActiveBlock) -> Option<&mut dyn FilterableTable> {
+    match block {
+      ActiveBlock::Pods => Some(&mut self.data.pods),
+      ActiveBlock::Services => Some(&mut self.data.services),
+      ActiveBlock::Nodes => Some(&mut self.data.nodes),
+      ActiveBlock::ConfigMaps => Some(&mut self.data.config_maps),
+      ActiveBlock::StatefulSets => Some(&mut self.data.stateful_sets),
+      ActiveBlock::ReplicaSets => Some(&mut self.data.replica_sets),
+      ActiveBlock::Deployments => Some(&mut self.data.deployments),
+      ActiveBlock::Jobs => Some(&mut self.data.jobs),
+      ActiveBlock::DaemonSets => Some(&mut self.data.daemon_sets),
+      ActiveBlock::CronJobs => Some(&mut self.data.cronjobs),
+      ActiveBlock::Secrets => Some(&mut self.data.secrets),
+      ActiveBlock::ReplicationControllers => Some(&mut self.data.replication_controllers),
+      ActiveBlock::StorageClasses => Some(&mut self.data.storage_classes),
+      ActiveBlock::Roles => Some(&mut self.data.roles),
+      ActiveBlock::RoleBindings => Some(&mut self.data.role_bindings),
+      ActiveBlock::ClusterRoles => Some(&mut self.data.cluster_roles),
+      ActiveBlock::ClusterRoleBindings => Some(&mut self.data.cluster_role_bindings),
+      ActiveBlock::Ingresses => Some(&mut self.data.ingress),
+      ActiveBlock::PersistentVolumeClaims => Some(&mut self.data.persistent_volume_claims),
+      ActiveBlock::PersistentVolumes => Some(&mut self.data.persistent_volumes),
+      ActiveBlock::NetworkPolicies => Some(&mut self.data.network_policies),
+      ActiveBlock::ServiceAccounts => Some(&mut self.data.service_accounts),
+      ActiveBlock::DynamicResource => Some(&mut self.data.dynamic_resources),
+      _ => None,
+    }
+  }
+
+  pub fn current_resource_table(&self) -> Option<&dyn FilterableTable> {
+    self.resource_table(self.get_current_route().active_block)
+  }
+
+  pub fn current_or_selected_resource_table(&self) -> Option<&dyn FilterableTable> {
+    self.current_resource_table().or_else(|| {
+      Self::resource_block_for_context_tab(self.context_tabs.index)
+        .and_then(|block| self.resource_table(block))
+    })
+  }
+
+  pub fn context_tab_resource_table(&self, index: usize) -> Option<&dyn FilterableTable> {
+    Self::resource_block_for_context_tab(index).and_then(|block| self.resource_table(block))
+  }
+
   pub fn new(
     io_tx: Sender<IoEvent>,
     io_stream_tx: Sender<IoStreamEvent>,
@@ -505,6 +577,20 @@ impl App {
       self.get_current_route().active_block,
       ActiveBlock::More | ActiveBlock::DynamicView
     )
+  }
+
+  pub fn current_resource_filter_mut(
+    &mut self,
+  ) -> Option<(&mut String, &mut bool, &mut ratatui::widgets::TableState)> {
+    self
+      .resource_table_mut(self.get_current_route().active_block)
+      .map(FilterableTable::filter_parts_mut)
+  }
+
+  pub fn deactivate_current_resource_filter(&mut self) {
+    if let Some((_, filter_active, _)) = self.current_resource_filter_mut() {
+      *filter_active = false;
+    }
   }
 
   pub fn is_loading(&self) -> bool {

@@ -282,7 +282,6 @@ pub(crate) fn draw_block_as_sub(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     },
     app.light_theme,
     is_loading,
-    app.data.selected.filter.to_owned(),
   );
 }
 
@@ -321,7 +320,6 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     },
     app.light_theme,
     is_loading,
-    app.data.selected.filter.to_owned(),
   );
 }
 
@@ -376,7 +374,6 @@ pub(crate) fn draw_containers_block(f: &mut Frame<'_>, app: &mut App, area: Rect
     },
     app.light_theme,
     is_loading,
-    app.data.selected.filter.to_owned(),
   );
 }
 

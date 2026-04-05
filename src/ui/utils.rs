@@ -472,7 +472,6 @@ pub fn draw_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
   row_cell_mapper: F,
   light_theme: bool,
   is_loading: bool,
-  filter: Option<String>,
 ) where
   F: Fn(&T) -> Row<'a>,
 {
@@ -480,8 +479,9 @@ pub fn draw_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
   let block = layout_block_top_border(title);
 
   if !table_props.resource.items.is_empty() {
+    let filter = table_props.resource.filter.to_lowercase();
     // Build filtered rows and track the mapping from visible index → items index.
-    let has_filter = filter.as_ref().is_some_and(|f| !f.is_empty());
+    let has_filter = !filter.is_empty();
     let mut filtered_indices: Vec<usize> = Vec::new();
     let rows: Vec<Row<'a>> = table_props
       .resource
@@ -490,10 +490,10 @@ pub fn draw_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
       .enumerate()
       .filter_map(|(idx, c)| {
         let mapper = row_cell_mapper(c);
-        match filter.as_ref() {
-          None => Some((idx, mapper)),
-          Some(ft) if filter_by_name(ft, c) => Some((idx, mapper)),
-          _ => None,
+        if filter.is_empty() || filter_by_name(&filter, c) {
+          Some((idx, mapper))
+        } else {
+          None
         }
       })
       .map(|(idx, row)| {
@@ -528,14 +528,14 @@ pub fn draw_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
 }
 
 pub fn filter_by_resource_name<T: KubeResource<U>, U: Serialize>(
-  filter: Option<String>,
+  filter: &str,
   res: &T,
   row_cell_mapper: Row<'static>,
 ) -> Option<Row<'static>> {
-  match filter.as_ref() {
-    None => Some(row_cell_mapper),
-    Some(ft) if filter_by_name(ft, res) => Some(row_cell_mapper),
-    _ => None,
+  if filter.is_empty() || filter_by_name(filter, res) {
+    Some(row_cell_mapper)
+  } else {
+    None
   }
 }
 
@@ -669,7 +669,6 @@ mod tests {
           },
           false,
           false,
-          None,
         );
       })
       .unwrap();
@@ -776,6 +775,7 @@ mod tests {
             data: 6,
           },
         ]);
+        resource.filter = "truncated".to_string();
         draw_resource_block(
           f,
           size,
@@ -802,7 +802,6 @@ mod tests {
           },
           false,
           false,
-          Some("truncated".to_string()),
         );
       })
       .unwrap();
@@ -909,6 +908,7 @@ mod tests {
             data: 6,
           },
         ]);
+        resource.filter = "*long*truncated*".to_string();
         draw_resource_block(
           f,
           size,
@@ -935,7 +935,6 @@ mod tests {
           },
           false,
           false,
-          Some("*long*truncated*".to_string()),
         );
       })
       .unwrap();

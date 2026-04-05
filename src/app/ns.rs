@@ -65,10 +65,16 @@ pub struct NamespaceResource {}
 #[async_trait]
 impl AppResource for NamespaceResource {
   fn render(_block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
-    let title = format!(
-      " Namespaces {} (all: {}) ",
-      DEFAULT_KEYBINDING.jump_to_namespace.key, DEFAULT_KEYBINDING.select_all_namespace.key
-    );
+    let title = if app.ns_filter_active && !app.ns_filter.is_empty() {
+      format!(" Namespaces [{}] | type to filter ", app.ns_filter)
+    } else if app.ns_filter_active {
+      " Namespaces | type to filter ".to_string()
+    } else {
+      format!(
+        " Namespaces {} | all: {} | filter < / > ",
+        DEFAULT_KEYBINDING.jump_to_namespace.key, DEFAULT_KEYBINDING.select_all_namespace.key
+      )
+    };
     let mut block = layout_block_default(title.as_str());
 
     if app.get_current_route().active_block == ActiveBlock::Namespaces {
@@ -85,7 +91,7 @@ impl AppResource for NamespaceResource {
 
         let mapper = row_cell_mapper(s).style(style);
         // return only rows that match filter if filter is set
-        filter_by_resource_name(app.data.selected.filter.clone(), s, mapper)
+        filter_by_resource_name(&app.ns_filter, s, mapper)
       });
 
       let table = Table::new(rows, [Constraint::Length(22), Constraint::Length(6)])

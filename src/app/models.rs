@@ -120,9 +120,18 @@ impl<T> Scrollable for StatefulList<T> {
 pub struct StatefulTable<T> {
   pub state: TableState,
   pub items: Vec<T>,
+  pub filter: String,
+  pub filter_active: bool,
   /// When a filter is active, maps visible row index → `items` index.
   /// Empty when no filter is applied.
   pub filtered_indices: Vec<usize>,
+}
+
+pub trait FilterableTable {
+  fn filter_text(&self) -> &str;
+  fn is_filter_active(&self) -> bool;
+  fn count_label(&self) -> String;
+  fn filter_parts_mut(&mut self) -> (&mut String, &mut bool, &mut TableState);
 }
 
 impl<T> StatefulTable<T> {
@@ -130,6 +139,8 @@ impl<T> StatefulTable<T> {
     StatefulTable {
       state: TableState::default(),
       items: Vec::new(),
+      filter: String::new(),
+      filter_active: false,
       filtered_indices: Vec::new(),
     }
   }
@@ -158,6 +169,28 @@ impl<T> StatefulTable<T> {
       });
       self.state.select(Some(i));
     }
+  }
+}
+
+impl<T> FilterableTable for StatefulTable<T> {
+  fn filter_text(&self) -> &str {
+    &self.filter
+  }
+
+  fn is_filter_active(&self) -> bool {
+    self.filter_active
+  }
+
+  fn count_label(&self) -> String {
+    if self.filter.is_empty() {
+      self.items.len().to_string()
+    } else {
+      format!("{}/{}", self.filtered_indices.len(), self.items.len())
+    }
+  }
+
+  fn filter_parts_mut(&mut self) -> (&mut String, &mut bool, &mut TableState) {
+    (&mut self.filter, &mut self.filter_active, &mut self.state)
   }
 }
 
@@ -526,6 +559,8 @@ mod tests {
 
     assert_eq!(sft.items.len(), 0);
     assert_eq!(sft.state.selected(), None);
+    assert!(sft.filter.is_empty());
+    assert!(!sft.filter_active);
     // check default selection on set
     sft.set_items(vec![KubeNs::default(), KubeNs::default()]);
     assert_eq!(sft.items.len(), 2);

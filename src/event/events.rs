@@ -219,7 +219,11 @@ fn handle_key_event(event_tx: &mpsc::Sender<Event<KeyEvent, MouseEvent>>, key_ev
 
 #[cfg(test)]
 mod tests {
+  use std::sync::{LazyLock, Mutex};
+
   use super::*;
+
+  static KUBECONFIG_ENV_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
   #[test]
   fn test_events_produces_tick() {
@@ -266,6 +270,7 @@ mod tests {
 
   #[test]
   fn test_kubeconfig_watch_paths_default() {
+    let _guard = KUBECONFIG_ENV_LOCK.lock().unwrap();
     // When KUBECONFIG is not set, should return ~/.kube/config
     let original = env::var_os("KUBECONFIG");
     env::remove_var("KUBECONFIG");
@@ -283,6 +288,7 @@ mod tests {
 
   #[test]
   fn test_kubeconfig_watch_paths_from_env() {
+    let _guard = KUBECONFIG_ENV_LOCK.lock().unwrap();
     let original = env::var_os("KUBECONFIG");
     // Use env::join_paths for cross-platform separator (: on Unix, ; on Windows)
     let joined = env::join_paths(["/tmp/a", "/tmp/b"]).unwrap();
@@ -303,6 +309,7 @@ mod tests {
 
   #[test]
   fn test_kubeconfig_watch_paths_ignores_empty_segments() {
+    let _guard = KUBECONFIG_ENV_LOCK.lock().unwrap();
     let original = env::var_os("KUBECONFIG");
     // Use env::join_paths and include empty segments
     let joined = env::join_paths(["/tmp/a", "", "/tmp/b", ""]).unwrap();

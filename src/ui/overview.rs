@@ -1,6 +1,5 @@
 use ratatui::{
-  layout::{Constraint, Position, Rect},
-  style::Style,
+  layout::{Constraint, Rect},
   text::{Line, Span, Text},
   widgets::{Block, Borders, Cell, LineGauge, Paragraph, Row, Table},
   Frame,
@@ -10,15 +9,11 @@ use super::{
   resource_tabs::draw_resource_tabs_block,
   utils::{
     get_gauge_symbol, horizontal_chunks, layout_block_default, loading, style_default,
-    style_failure, style_logo, style_primary, style_secondary, vertical_chunks,
-    vertical_chunks_with_margin,
+    style_failure, style_logo, style_primary, vertical_chunks, vertical_chunks_with_margin,
   },
 };
 use crate::{
-  app::{
-    metrics::KubeNodeMetrics, models::AppResource, ns::NamespaceResource, ActiveBlock, App,
-    InputMode,
-  },
+  app::{metrics::KubeNodeMetrics, models::AppResource, ns::NamespaceResource, ActiveBlock, App},
   banner::BANNER,
 };
 
@@ -45,62 +40,8 @@ fn draw_status_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
 
   NamespaceResource::render(ActiveBlock::Namespaces, f, app, chunks[0]);
   draw_context_info_block(f, app, chunks[1]);
-  if app.show_filter_bar {
-    draw_filter_block(f, app, chunks[2]);
-  } else {
-    draw_cli_version_block(f, app, chunks[2]);
-  }
+  draw_cli_version_block(f, app, chunks[2]);
   draw_logo_block(f, app, chunks[3]);
-}
-
-fn draw_filter_block(f: &mut Frame<'_>, app: &App, area: Rect) {
-  let block = layout_block_default(" Global Filter (toggle <f>) ");
-
-  f.render_widget(block, area);
-
-  let text = Text::from(vec![Line::from(vec![Span::styled(
-    match app.app_input.input_mode {
-      InputMode::Normal => "Press <e> to start editing",
-      InputMode::Editing => "Press <esc> to stop editing",
-    },
-    style_default(app.light_theme),
-  )])]);
-
-  let text = text.patch_style(style_default(app.light_theme));
-
-  let paragraph = Paragraph::new(text).block(Block::default());
-
-  let chunks = vertical_chunks_with_margin(vec![Constraint::Min(2), Constraint::Min(2)], area, 1);
-  f.render_widget(paragraph, chunks[0]);
-
-  let width = chunks[1].width.max(3) - 3; // keep 2 for borders and 1 for cursor
-  let scroll = app.app_input.input.visual_scroll(width as usize);
-  let input = Paragraph::new(app.app_input.input.value())
-    .style(get_input_style(app))
-    .scroll((0, scroll as u16))
-    .block(
-      Block::default()
-        .borders(Borders::ALL)
-        .style(get_input_style(app)),
-    );
-
-  f.render_widget(input, chunks[1]);
-
-  match app.app_input.input_mode {
-    InputMode::Normal => {
-      // Hide the cursor. `Frame` does this by default, so we don't need to do anything here
-    }
-
-    InputMode::Editing => {
-      // Make the cursor visible and ask tui-rs to put it at the specified coordinates after rendering
-      f.set_cursor_position(Position {
-        // Put cursor past the end of the input text
-        x: chunks[1].x + ((app.app_input.input.visual_cursor()).max(scroll) - scroll) as u16 + 1,
-        // Move one line down, from the border to the input line
-        y: chunks[1].y + 1,
-      })
-    }
-  }
 }
 
 fn draw_logo_block(f: &mut Frame<'_>, app: &App, area: Rect) {
@@ -113,7 +54,7 @@ fn draw_logo_block(f: &mut Frame<'_>, app: &App, area: Rect) {
 }
 
 fn draw_cli_version_block(f: &mut Frame<'_>, app: &App, area: Rect) {
-  let block = layout_block_default(" CLI Info (filter <f>)");
+  let block = layout_block_default(" CLI Info ");
   if !app.data.clis.is_empty() {
     let rows = app.data.clis.iter().map(|s| {
       let style = if s.status {
@@ -150,7 +91,7 @@ fn draw_context_info_block(f: &mut Frame<'_>, app: &App, area: Rect) {
     1,
   );
 
-  let block = layout_block_default(" Context Info (toggle <i>) ");
+  let block = layout_block_default(" Context Info | toggle <i> ");
 
   f.render_widget(block, area);
 
@@ -222,15 +163,6 @@ fn draw_context_info_block(f: &mut Frame<'_>, app: &App, area: Rect) {
     .ratio(limited_ratio)
     .label(Line::from(format!("{:.0}%", ratio * 100.0)));
   f.render_widget(mem_gauge, chunks[2]);
-}
-
-// Utility methods
-
-fn get_input_style(app: &App) -> Style {
-  match app.app_input.input_mode {
-    InputMode::Normal => style_default(app.light_theme),
-    InputMode::Editing => style_secondary(app.light_theme),
-  }
 }
 
 /// covert percent value from metrics to ratio that gauge can understand

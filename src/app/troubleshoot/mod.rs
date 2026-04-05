@@ -163,7 +163,6 @@ pub fn evaluate_findings(
 pub fn render_troubleshoot(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let light_theme = app.light_theme;
   let is_loading = app.is_loading();
-  let filter = app.data.selected.filter.to_owned();
   let title = get_resource_title(
     app,
     "Troubleshoot",
@@ -208,7 +207,6 @@ pub fn render_troubleshoot(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     },
     light_theme,
     is_loading,
-    filter,
   );
 }
 

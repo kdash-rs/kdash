@@ -27,9 +27,6 @@ edition = "2021"
 
 [dependencies]
 chrono = "0.4"
-# Pin time >= 0.3.47 to work around ratatui-widgets 0.3.0 requiring Month::length()
-# (pulled transitively via tui-input enabling ratatui's default features)
-time = "0.3.47"
 openssl-probe = "0.2"
 crossterm = "0.29"
 ratatui = { version = "0.30", default-features = false, features = [
@@ -54,7 +51,6 @@ tokio-stream = { version = "0.1.18", default-features = false, features = [
     "time",
 ] }
 futures = "0.3.32"
-tui-input = { version = "0.15.0", default-features = false, features = ["ratatui-crossterm"] }
 duct = "1.1.1"
 anyhow = "1.0.102"
 backtrace = "0.3.76"

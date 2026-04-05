@@ -148,7 +148,6 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     },
     app.light_theme,
     is_loading,
-    app.data.selected.filter.to_owned(),
   );
 }
 

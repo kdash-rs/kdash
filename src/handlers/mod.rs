@@ -1,7 +1,6 @@
-use crossterm::event::{Event, KeyEvent, MouseEvent, MouseEventKind};
+use crossterm::event::{KeyEvent, MouseEvent, MouseEventKind};
 use kubectl_view_allocations::GroupBy;
 use serde::Serialize;
-use tui_input::backend::crossterm::EventHandler;
 
 use crate::{
   app::{
@@ -11,7 +10,7 @@ use crate::{
     },
     secrets::KubeSecret,
     troubleshoot::ResourceKind,
-    ActiveBlock, App, InputMode, Route, RouteId,
+    ActiveBlock, App, Route, RouteId,
   },
   cmd::IoCmdEvent,
   event::Key,
@@ -135,19 +134,23 @@ macro_rules! handle_resource_scroll {
 }
 
 pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
-  // if input is enabled capture keystrokes
-  if app.app_input.input_mode == InputMode::Editing {
-    if key == DEFAULT_KEYBINDING.esc.key {
-      app.app_input.input_mode = InputMode::Normal;
-    } else {
-      app.app_input.input.handle_event(&Event::Key(key_event));
-      app.data.selected.filter = Some(app.app_input.input.value().into());
-    }
-  } else if app.is_menu_active() && app.menu_filter_active && handle_menu_filter_key(key, app) {
+  let _ = key_event;
+  let resource_filter_active = app
+    .current_resource_table()
+    .is_some_and(|table| table.is_filter_active());
+
+  if app.is_menu_active() && app.menu_filter_active && handle_menu_filter_key(key, app) {
     // Menu filter captured the key — done
   } else if app.is_menu_active() && !app.menu_filter_active && key == Key::Char('/') {
     // Activate menu filter mode
     app.menu_filter_active = true;
+  } else if resource_filter_active && handle_resource_filter_key(key, app) {
+    // Resource filter captured the key — done
+  } else if app.get_current_route().active_block == ActiveBlock::Namespaces
+    && app.ns_filter_active
+    && handle_namespace_filter_key(key, app)
+  {
+    // Namespace filter captured the key — done
   } else {
     // First handle any global event and then move to route event
     match key {
@@ -217,12 +220,20 @@ fn handle_escape(app: &mut App) {
 
   // If menu filter is active, deactivate it first (clear text if any, else deactivate)
   if app.is_menu_active() && app.menu_filter_active {
-    if !app.menu_filter.is_empty() {
-      app.menu_filter.clear();
-    } else {
-      app.menu_filter_active = false;
-    }
+    clear_or_deactivate_filter(&mut app.menu_filter, &mut app.menu_filter_active);
     return;
+  }
+
+  if app.get_current_route().active_block == ActiveBlock::Namespaces && app.ns_filter_active {
+    clear_or_deactivate_filter(&mut app.ns_filter, &mut app.ns_filter_active);
+    return;
+  }
+
+  if let Some((filter, filter_active, _)) = app.current_resource_filter_mut() {
+    if *filter_active {
+      clear_or_deactivate_filter(filter, filter_active);
+      return;
+    }
   }
 
   // Clear menu filter state on any menu exit
@@ -288,6 +299,48 @@ fn handle_menu_filter_key(key: Key, app: &mut App) -> bool {
     }
     _ => false,
   }
+}
+
+fn handle_filter_text_key(filter: &mut String, key: Key) -> bool {
+  match key {
+    Key::Char(c) => {
+      filter.push(c);
+      true
+    }
+    Key::Backspace => {
+      filter.pop();
+      true
+    }
+    _ => false,
+  }
+}
+
+fn clear_or_deactivate_filter(filter: &mut String, active: &mut bool) {
+  if filter.is_empty() {
+    *active = false;
+  } else {
+    filter.clear();
+  }
+}
+
+fn handle_resource_filter_key(key: Key, app: &mut App) -> bool {
+  if let Some((filter, _, state)) = app.current_resource_filter_mut() {
+    let handled = handle_filter_text_key(filter, key);
+    if handled {
+      state.select(Some(0));
+    }
+    handled
+  } else {
+    false
+  }
+}
+
+fn handle_namespace_filter_key(key: Key, app: &mut App) -> bool {
+  let handled = handle_filter_text_key(&mut app.ns_filter, key);
+  if handled {
+    app.data.namespaces.state.select(Some(0));
+  }
+  handled
 }
 
 fn get_active_menu_mut(app: &mut App) -> &mut StatefulList<(String, ActiveBlock)> {
@@ -363,30 +416,24 @@ async fn handle_route_events(key: Key, app: &mut App) {
         _ if key == DEFAULT_KEYBINDING.right.key
           || key == DEFAULT_KEYBINDING.right.alt.unwrap() =>
         {
+          app.deactivate_current_resource_filter();
           app.context_tabs.next();
           app.push_navigation_route(app.context_tabs.get_active_route().clone());
         }
         _ if key == DEFAULT_KEYBINDING.left.key || key == DEFAULT_KEYBINDING.left.alt.unwrap() => {
+          app.deactivate_current_resource_filter();
           app.context_tabs.previous();
           app.push_navigation_route(app.context_tabs.get_active_route().clone());
         }
+        _ if key == Key::Char('/') => {
+          if app.get_current_route().active_block == ActiveBlock::Namespaces {
+            app.ns_filter_active = true;
+          } else if let Some((_, filter_active, _)) = app.current_resource_filter_mut() {
+            *filter_active = true;
+          }
+        }
         _ if key == DEFAULT_KEYBINDING.toggle_info.key => {
           app.show_info_bar = !app.show_info_bar;
-        }
-        _ if key == DEFAULT_KEYBINDING.toggle_global_filter.key => {
-          if app.show_filter_bar {
-            app.app_input.input_mode = InputMode::Normal;
-            app.app_input.input.reset();
-            app.data.selected.filter = None;
-          } else {
-            app.app_input.input_mode = InputMode::Editing;
-          }
-          app.show_filter_bar = !app.show_filter_bar;
-        }
-        _ if key == DEFAULT_KEYBINDING.toggle_global_filter_edit.key => {
-          if app.show_filter_bar {
-            app.app_input.input_mode = InputMode::Editing;
-          }
         }
         _ if key == DEFAULT_KEYBINDING.select_all_namespace.key => app.data.selected.ns = None,
         _ if key == DEFAULT_KEYBINDING.jump_to_namespace.key => {
@@ -400,46 +447,57 @@ async fn handle_route_events(key: Key, app: &mut App) {
           app.data.selected.pod_selector = None;
           app.data.selected.pod_selector_ns = None;
           app.data.selected.pod_selector_resource = None;
+          app.deactivate_current_resource_filter();
           let route = app.context_tabs.set_index(0).route.clone();
           app.push_navigation_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_services.key => {
+          app.deactivate_current_resource_filter();
           let route = app.context_tabs.set_index(1).route.clone();
           app.push_navigation_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_nodes.key => {
+          app.deactivate_current_resource_filter();
           let route = app.context_tabs.set_index(2).route.clone();
           app.push_navigation_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_configmaps.key => {
+          app.deactivate_current_resource_filter();
           let route = app.context_tabs.set_index(3).route.clone();
           app.push_navigation_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_statefulsets.key => {
+          app.deactivate_current_resource_filter();
           let route = app.context_tabs.set_index(4).route.clone();
           app.push_navigation_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_replicasets.key => {
+          app.deactivate_current_resource_filter();
           let route = app.context_tabs.set_index(5).route.clone();
           app.push_navigation_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_deployments.key => {
+          app.deactivate_current_resource_filter();
           let route = app.context_tabs.set_index(6).route.clone();
           app.push_navigation_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_jobs.key => {
+          app.deactivate_current_resource_filter();
           let route = app.context_tabs.set_index(7).route.clone();
           app.push_navigation_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_daemonsets.key => {
+          app.deactivate_current_resource_filter();
           let route = app.context_tabs.set_index(8).route.clone();
           app.push_navigation_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_more_resources.key => {
+          app.deactivate_current_resource_filter();
           let route = app.context_tabs.set_index(9).route.clone();
           app.push_navigation_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_dynamic_resources.key => {
+          app.deactivate_current_resource_filter();
           let route = app.context_tabs.set_index(10).route.clone();
           app.push_navigation_route(route);
         }
@@ -906,38 +964,75 @@ mod tests {
   }
 
   #[tokio::test]
-
-  async fn test_handle_key_events_for_filter() {
+  async fn test_resource_filter_key_flow() {
     let mut app = App::default();
-
     app.route_home();
-    assert_eq!(app.app_input.input_mode, InputMode::Normal);
+    assert!(!app.data.pods.filter_active);
+    assert!(app.data.pods.filter.is_empty());
 
-    let key_evt = KeyEvent::from(KeyCode::Char('f'));
+    let key_evt = KeyEvent::from(KeyCode::Char('/'));
     handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
-    assert!(app.show_filter_bar);
-    assert_eq!(app.app_input.input_mode, InputMode::Editing);
+    assert!(app.data.pods.filter_active);
 
-    let key_evt = KeyEvent::from(KeyCode::Esc);
-    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
-    assert_eq!(app.app_input.input_mode, InputMode::Normal);
+    for c in ['w', 'e', 'b'] {
+      let key_evt = KeyEvent::from(KeyCode::Char(c));
+      handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    }
+    assert_eq!(app.data.pods.filter, "web");
 
-    let key_evt = KeyEvent::from(KeyCode::Char('e'));
+    let key_evt = KeyEvent::from(KeyCode::Backspace);
     handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
-    assert_eq!(app.app_input.input_mode, InputMode::Editing);
-
-    let key_evt = KeyEvent::from(KeyCode::Char('f'));
-    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
-    assert_eq!(app.app_input.input_mode, InputMode::Editing);
-    assert!(app.show_filter_bar);
+    assert_eq!(app.data.pods.filter, "we");
 
     let key_evt = KeyEvent::from(KeyCode::Esc);
     handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
-    assert_eq!(app.app_input.input_mode, InputMode::Normal);
-    let key_evt = KeyEvent::from(KeyCode::Char('f'));
+    assert!(app.data.pods.filter_active);
+    assert!(app.data.pods.filter.is_empty());
+
+    let key_evt = KeyEvent::from(KeyCode::Esc);
     handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
-    assert_eq!(app.app_input.input_mode, InputMode::Normal);
-    assert!(!app.show_filter_bar);
+    assert!(!app.data.pods.filter_active);
+  }
+
+  #[tokio::test]
+  async fn test_tab_switch_deactivates_resource_filter_but_preserves_text() {
+    let mut app = App::default();
+    app.route_home();
+    app.data.pods.filter = "web".into();
+    app.data.pods.filter_active = true;
+
+    let key_evt = KeyEvent::from(KeyCode::Right);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+
+    assert_eq!(app.data.pods.filter, "web");
+    assert!(!app.data.pods.filter_active);
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Services);
+  }
+
+  #[tokio::test]
+  async fn test_namespace_filter_key_flow() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Namespaces);
+
+    let key_evt = KeyEvent::from(KeyCode::Char('/'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert!(app.ns_filter_active);
+
+    for c in ['p', 'r', 'o', 'd'] {
+      let key_evt = KeyEvent::from(KeyCode::Char(c));
+      handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    }
+    assert_eq!(app.ns_filter, "prod");
+
+    let key_evt = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert!(app.ns_filter_active);
+    assert!(app.ns_filter.is_empty());
+
+    let key_evt = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert!(!app.ns_filter_active);
   }
 
   #[tokio::test]

@@ -129,7 +129,6 @@ fn draw_roles_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     },
     app.light_theme,
     is_loading,
-    app.data.selected.filter.to_owned(),
   );
 }
 
@@ -210,7 +209,6 @@ fn draw_cluster_roles_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     },
     app.light_theme,
     is_loading,
-    app.data.selected.filter.to_owned(),
   );
 }
 
@@ -299,7 +297,6 @@ fn draw_role_bindings_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     },
     app.light_theme,
     is_loading,
-    app.data.selected.filter.to_owned(),
   );
 }
 
@@ -383,7 +380,6 @@ fn draw_cluster_role_binding_block(f: &mut Frame<'_>, app: &mut App, area: Rect)
     },
     app.light_theme,
     is_loading,
-    app.data.selected.filter.to_owned(),
   );
 }
 

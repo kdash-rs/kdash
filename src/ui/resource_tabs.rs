@@ -1,5 +1,5 @@
 use ratatui::{
-  layout::{Constraint, Rect},
+  layout::{Constraint, Position, Rect},
   text::{Line, Span},
   widgets::{List, ListItem, ListState, Tabs},
   Frame,
@@ -7,8 +7,8 @@ use ratatui::{
 
 use super::{
   utils::{
-    centered_rect, layout_block_default, style_default, style_highlight, style_secondary,
-    vertical_chunks_with_margin,
+    centered_rect, layout_block_default, layout_block_top_border, style_default, style_highlight,
+    style_secondary, vertical_chunks, vertical_chunks_with_margin,
   },
   HIGHLIGHT,
 };
@@ -38,44 +38,36 @@ use crate::app::{
 };
 
 pub fn draw_resource_tabs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
-  let chunks =
-    vertical_chunks_with_margin(vec![Constraint::Length(2), Constraint::Min(0)], area, 1);
+  let current_filter = app
+    .current_or_selected_resource_table()
+    .map(|table| (table.filter_text(), table.is_filter_active()));
+  let chunks = vertical_chunks_with_margin(
+    vec![
+      Constraint::Length(2),
+      Constraint::Length(2),
+      Constraint::Min(0),
+    ],
+    area,
+    1,
+  );
 
   let mut block = layout_block_default(" Resources ");
   if app.get_current_route().active_block != ActiveBlock::Namespaces {
     block = block.style(style_secondary(app.light_theme))
   }
 
-  let tab_counts = [
-    app.data.pods.items.len(),
-    app.data.services.items.len(),
-    app.data.nodes.items.len(),
-    app.data.config_maps.items.len(),
-    app.data.stateful_sets.items.len(),
-    app.data.replica_sets.items.len(),
-    app.data.deployments.items.len(),
-    app.data.jobs.items.len(),
-    app.data.daemon_sets.items.len(),
-    0, // More
-    0, // Dynamic
-  ];
   let titles: Vec<_> = app
     .context_tabs
     .items
     .iter()
     .enumerate()
     .map(|(i, t)| {
-      let count = tab_counts.get(i).copied().unwrap_or(0);
-      let label = if count > 0 {
-        // Insert count before the shortcut key hint, e.g. "Pods [5] <1>"
-        if let Some(pos) = t.title.find('<') {
-          let (name, hint) = t.title.split_at(pos);
-          format!("{}[{}] {}", name, count, hint)
-        } else {
-          format!("{} [{}]", t.title, count)
-        }
+      let count = tab_count_label(app, i);
+      let label = if let Some(pos) = t.title.find('<') {
+        let (name, hint) = t.title.split_at(pos);
+        format!("{}[{}] {}", name, count, hint)
       } else {
-        t.title.clone()
+        format!("{} [{}]", t.title, count)
       };
       Line::from(Span::styled(label, style_default(app.light_theme)))
     })
@@ -86,21 +78,73 @@ pub fn draw_resource_tabs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     .select(app.context_tabs.index);
 
   f.render_widget(tabs, area);
+  let filter_chunks = vertical_chunks(
+    vec![Constraint::Length(1), Constraint::Length(1)],
+    chunks[1],
+  );
+  draw_filter_bar(f, app, filter_chunks[0], current_filter);
+  let content_chunk = chunks[2];
 
   // render tab content
   match app.context_tabs.index {
-    0 => PodResource::render(app.get_current_route().active_block, f, app, chunks[1]),
-    1 => SvcResource::render(app.get_current_route().active_block, f, app, chunks[1]),
-    2 => NodeResource::render(app.get_current_route().active_block, f, app, chunks[1]),
-    3 => ConfigMapResource::render(app.get_current_route().active_block, f, app, chunks[1]),
-    4 => StatefulSetResource::render(app.get_current_route().active_block, f, app, chunks[1]),
-    5 => ReplicaSetResource::render(app.get_current_route().active_block, f, app, chunks[1]),
-    6 => DeploymentResource::render(app.get_current_route().active_block, f, app, chunks[1]),
-    7 => JobResource::render(app.get_current_route().active_block, f, app, chunks[1]),
-    8 => DaemonSetResource::render(app.get_current_route().active_block, f, app, chunks[1]),
-    9 | 10 => draw_more(app.get_current_route().active_block, f, app, chunks[1]),
+    0 => PodResource::render(app.get_current_route().active_block, f, app, content_chunk),
+    1 => SvcResource::render(app.get_current_route().active_block, f, app, content_chunk),
+    2 => NodeResource::render(app.get_current_route().active_block, f, app, content_chunk),
+    3 => ConfigMapResource::render(app.get_current_route().active_block, f, app, content_chunk),
+    4 => StatefulSetResource::render(app.get_current_route().active_block, f, app, content_chunk),
+    5 => ReplicaSetResource::render(app.get_current_route().active_block, f, app, content_chunk),
+    6 => DeploymentResource::render(app.get_current_route().active_block, f, app, content_chunk),
+    7 => JobResource::render(app.get_current_route().active_block, f, app, content_chunk),
+    8 => DaemonSetResource::render(app.get_current_route().active_block, f, app, content_chunk),
+    9 | 10 => draw_more(app.get_current_route().active_block, f, app, content_chunk),
     _ => {}
   };
+}
+
+fn tab_count_label(app: &App, index: usize) -> String {
+  app
+    .context_tab_resource_table(index)
+    .map_or_else(|| "0".to_string(), |table| table.count_label())
+}
+
+fn draw_filter_bar(f: &mut Frame<'_>, app: &App, area: Rect, current_filter: Option<(&str, bool)>) {
+  let (filter, filter_active) = current_filter.unwrap_or(("", false));
+  let title = if filter_active || !filter.is_empty() {
+    let label = if filter_active && filter.is_empty() {
+      "type to filter"
+    } else {
+      filter
+    };
+    let hint = if filter_active {
+      "| clear <esc> "
+    } else {
+      "| edit < / > "
+    };
+    Line::from(vec![
+      Span::styled(" / ", style_secondary(app.light_theme)),
+      Span::styled(label, style_default(app.light_theme)),
+      Span::styled(format!("  {}", hint), style_secondary(app.light_theme)),
+    ])
+  } else {
+    Line::from(vec![Span::styled(
+      " filter < / > ",
+      style_secondary(app.light_theme),
+    )])
+  };
+
+  f.render_widget(layout_block_top_border(title), area);
+
+  if filter_active {
+    let cursor_offset = if filter.is_empty() {
+      3
+    } else {
+      3 + filter.chars().count() as u16
+    };
+    f.set_cursor_position(Position {
+      x: area.x + cursor_offset.min(area.width.saturating_sub(2)),
+      y: area.y,
+    });
+  }
 }
 
 /// more resources tab
@@ -249,7 +293,7 @@ fn draw_menu(
   } else if filter_active {
     " Select Resource (type to filter) ".to_string()
   } else {
-    " Select Resource (/ to filter) ".to_string()
+    " Select Resource (< / > to filter) ".to_string()
   };
 
   // Use a local ListState so selection operates within filtered bounds
@@ -275,13 +319,7 @@ fn draw_menu(
 
 #[cfg(test)]
 mod tests {
-  use ratatui::{
-    backend::TestBackend,
-    buffer::Buffer,
-    layout::Position,
-    style::{Modifier, Style},
-    Terminal,
-  };
+  use ratatui::{backend::TestBackend, style::Modifier, Terminal};
 
   use super::*;
   use crate::{
@@ -291,7 +329,7 @@ mod tests {
 
   #[test]
   fn test_draw_resource_tabs_block() {
-    let backend = TestBackend::new(100, 7);
+    let backend = TestBackend::new(100, 10);
     let mut terminal = Terminal::new(backend).unwrap();
 
     terminal
@@ -309,128 +347,47 @@ mod tests {
       })
       .unwrap();
 
-    let mut expected = Buffer::with_lines(vec![
+    let buffer = terminal.backend().buffer();
+    let lines: Vec<String> = (0..buffer.area.height)
+      .map(|row| {
+        (0..buffer.area.width)
+          .map(|col| buffer[(col, row)].symbol())
+          .collect::<String>()
+      })
+      .collect();
+    assert_eq!(
+      lines,
+      vec![
         "┌ Resources ───────────────────────────────────────────────────────────────────────────────────────┐",
-        "│ Pods [1] <1> │ Services <2> │ Nodes <3> │ ConfigMaps <4> │ StatefulSets <5> │ ReplicaSets <6> │ D│",
+        "│ Pods [1] <1> │ Services [0] <2> │ Nodes [0] <3> │ ConfigMaps [0] <4> │ StatefulSets [0] <5> │ Rep│",
+        "│                                                                                                  │",
+        "│ filter < / > ────────────────────────────────────────────────────────────────────────────────────│",
         "│                                                                                                  │",
         "│ Pods (ns: all) [1] | Containers <enter> | describe <d> | yaml <y> | logs <o> ────────────────────│",
         "│   Namespace                Name                         Ready      Status    Restarts   Age      │",
         "│=> pod namespace test       pod name test                0/2        Failed    0          6h52m    │",
+        "│                                                                                                  │",
         "└──────────────────────────────────────────────────────────────────────────────────────────────────┘",
-      ]);
-    // set row styles
-    // First row heading style
-    for col in 0..=99 {
-      match col {
-        0 | 12..=99 => {
-          expected
-            .cell_mut(Position::new(col, 0))
-            .unwrap()
-            .set_style(Style::default().fg(COLOR_YELLOW));
-        }
-        _ => {
-          expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
-            Style::default()
-              .fg(COLOR_YELLOW)
-              .add_modifier(Modifier::BOLD),
-          );
-        }
-      }
-    }
-    // second row tab headings
-    for col in 0..=99 {
-      match col {
-        0..=16 | 29..=31 | 41..=43 | 58..=60 | 77..=79 | 95..=97 | 99 => {
-          expected
-            .cell_mut(Position::new(col, 1))
-            .unwrap()
-            .set_style(Style::default().fg(COLOR_YELLOW));
-        }
-        _ => {
-          expected
-            .cell_mut(Position::new(col, 1))
-            .unwrap()
-            .set_style(Style::default().fg(COLOR_WHITE));
-        }
-      }
-    }
-    // third empty row
-    for col in 0..=99 {
-      expected
-        .cell_mut(Position::new(col, 2))
-        .unwrap()
-        .set_style(Style::default().fg(COLOR_YELLOW));
-    }
+      ]
+    );
 
-    // fourth row tab header style
-    for col in 0..=99 {
-      match col {
-        0 | 79..=99 => {
-          expected
-            .cell_mut(Position::new(col, 3))
-            .unwrap()
-            .set_style(Style::default().fg(COLOR_YELLOW));
-        }
-        1..=20 => {
-          expected.cell_mut(Position::new(col, 3)).unwrap().set_style(
-            Style::default()
-              .fg(COLOR_YELLOW)
-              .add_modifier(Modifier::BOLD),
-          );
-        }
-        _ => {
-          expected.cell_mut(Position::new(col, 3)).unwrap().set_style(
-            Style::default()
-              .fg(COLOR_WHITE)
-              .add_modifier(Modifier::BOLD),
-          );
-        }
-      }
-    }
-    // table header row
-    for col in 0..=99 {
-      match col {
-        1..=98 => {
-          expected
-            .cell_mut(Position::new(col, 4))
-            .unwrap()
-            .set_style(Style::default().fg(COLOR_WHITE));
-        }
-        _ => {
-          expected
-            .cell_mut(Position::new(col, 4))
-            .unwrap()
-            .set_style(Style::default().fg(COLOR_YELLOW));
-        }
-      }
-    }
-    // first table data row style
-    for col in 0..=99 {
-      match col {
-        1..=98 => {
-          expected.cell_mut(Position::new(col, 5)).unwrap().set_style(
-            Style::default()
-              .fg(COLOR_RED)
-              .add_modifier(Modifier::REVERSED),
-          );
-        }
-        _ => {
-          expected
-            .cell_mut(Position::new(col, 5))
-            .unwrap()
-            .set_style(Style::default().fg(COLOR_YELLOW));
-        }
-      }
-    }
-
-    // last row
-    for col in 0..=99 {
-      expected
-        .cell_mut(Position::new(col, 6))
-        .unwrap()
-        .set_style(Style::default().fg(COLOR_YELLOW));
-    }
-
-    terminal.backend().assert_buffer(&expected);
+    assert_eq!(buffer[(0, 0)].fg, COLOR_YELLOW);
+    assert_eq!(buffer[(1, 0)].fg, COLOR_YELLOW);
+    assert!(buffer[(1, 0)].modifier.contains(Modifier::BOLD));
+    assert_eq!(buffer[(17, 1)].fg, COLOR_WHITE);
+    assert_eq!(buffer[(33, 1)].fg, COLOR_YELLOW);
+    assert_eq!(buffer[(1, 3)].fg, COLOR_YELLOW);
+    assert_eq!(buffer[(0, 4)].fg, COLOR_YELLOW);
+    assert_eq!(buffer[(99, 4)].fg, COLOR_YELLOW);
+    assert_eq!(buffer[(1, 5)].fg, COLOR_YELLOW);
+    assert!(buffer[(1, 5)].modifier.contains(Modifier::BOLD));
+    assert_eq!(buffer[(21, 5)].fg, COLOR_WHITE);
+    assert!(buffer[(21, 5)].modifier.contains(Modifier::BOLD));
+    assert_eq!(buffer[(79, 5)].fg, COLOR_YELLOW);
+    assert_eq!(buffer[(1, 6)].fg, COLOR_WHITE);
+    assert_eq!(buffer[(99, 6)].fg, COLOR_YELLOW);
+    assert_eq!(buffer[(1, 7)].fg, COLOR_RED);
+    assert!(buffer[(1, 7)].modifier.contains(Modifier::REVERSED));
+    assert_eq!(buffer[(99, 7)].fg, COLOR_YELLOW);
   }
 }
