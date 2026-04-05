@@ -477,15 +477,40 @@ pub fn draw_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
   let block = layout_block_top_border(title);
 
   if !table_props.resource.items.is_empty() {
-    let rows = table_props.resource.items.iter().filter_map(|c| {
-      let mapper = row_cell_mapper(c);
-      // return only rows that match filter if filter is set
-      match filter.as_ref() {
-        None => Some(mapper),
-        Some(ft) if filter_by_name(ft, c) => Some(mapper),
-        _ => None,
+    // Build filtered rows and track the mapping from visible index → items index.
+    let has_filter = filter.as_ref().is_some_and(|f| !f.is_empty());
+    let mut filtered_indices: Vec<usize> = Vec::new();
+    let rows: Vec<Row<'a>> = table_props
+      .resource
+      .items
+      .iter()
+      .enumerate()
+      .filter_map(|(idx, c)| {
+        let mapper = row_cell_mapper(c);
+        match filter.as_ref() {
+          None => Some((idx, mapper)),
+          Some(ft) if filter_by_name(ft, c) => Some((idx, mapper)),
+          _ => None,
+        }
+      })
+      .map(|(idx, row)| {
+        if has_filter {
+          filtered_indices.push(idx);
+        }
+        row
+      })
+      .collect();
+
+    // Clamp selection to the filtered list length.
+    if has_filter {
+      let max = filtered_indices.len().saturating_sub(1);
+      if let Some(sel) = table_props.resource.state.selected() {
+        if sel > max {
+          table_props.resource.state.select(Some(max));
+        }
       }
-    });
+    }
+    table_props.resource.filtered_indices = filtered_indices;
 
     let table = Table::new(rows, &table_props.column_widths)
       .header(table_header_style(table_props.table_headers, light_theme))

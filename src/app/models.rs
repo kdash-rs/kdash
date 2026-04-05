@@ -120,6 +120,9 @@ impl<T> Scrollable for StatefulList<T> {
 pub struct StatefulTable<T> {
   pub state: TableState,
   pub items: Vec<T>,
+  /// When a filter is active, maps visible row index → `items` index.
+  /// Empty when no filter is applied.
+  pub filtered_indices: Vec<usize>,
 }
 
 impl<T> StatefulTable<T> {
@@ -127,6 +130,7 @@ impl<T> StatefulTable<T> {
     StatefulTable {
       state: TableState::default(),
       items: Vec::new(),
+      filtered_indices: Vec::new(),
     }
   }
 
@@ -178,11 +182,20 @@ impl<T> Scrollable for StatefulTable<T> {
 }
 
 impl<T: Clone> StatefulTable<T> {
-  /// a clone of the currently selected item.
-  /// for mutable ref use state.selected() and fetch from items when needed
+  /// A clone of the currently selected item.
+  /// When a filter is active, maps the visual index through `filtered_indices`
+  /// so the correct item is returned regardless of filtering.
   pub fn get_selected_item_copy(&self) -> Option<T> {
     if !self.items.is_empty() {
-      self.state.selected().map(|i| self.items[i].clone())
+      self.state.selected().and_then(|i| {
+        if self.filtered_indices.is_empty() {
+          self.items.get(i).cloned()
+        } else {
+          self.filtered_indices
+            .get(i)
+            .and_then(|&real| self.items.get(real).cloned())
+        }
+      })
     } else {
       None
     }
@@ -523,6 +536,56 @@ mod tests {
 
     let sft2 = StatefulTable::with_items(vec![KubeNs::default(), KubeNs::default()]);
     assert_eq!(sft2.state.selected(), Some(0));
+  }
+
+  #[test]
+  fn test_filtered_selection_returns_correct_item() {
+    let mut sft: StatefulTable<&str> = StatefulTable::new();
+    sft.set_items(vec!["alpha", "beta", "gamma", "delta", "epsilon"]);
+
+    // Simulate a filter that shows items at indices 1, 3 (beta, delta)
+    sft.filtered_indices = vec![1, 3];
+
+    // Visual row 0 → items[1] = "beta"
+    sft.state.select(Some(0));
+    assert_eq!(sft.get_selected_item_copy(), Some("beta"));
+
+    // Visual row 1 → items[3] = "delta"
+    sft.state.select(Some(1));
+    assert_eq!(sft.get_selected_item_copy(), Some("delta"));
+  }
+
+  #[test]
+  fn test_no_filter_returns_direct_index() {
+    let mut sft: StatefulTable<&str> = StatefulTable::new();
+    sft.set_items(vec!["alpha", "beta", "gamma"]);
+
+    // No filter — filtered_indices is empty
+    sft.state.select(Some(2));
+    assert_eq!(sft.get_selected_item_copy(), Some("gamma"));
+  }
+
+  #[test]
+  fn test_filtered_selection_out_of_range_returns_none() {
+    let mut sft: StatefulTable<&str> = StatefulTable::new();
+    sft.set_items(vec!["alpha", "beta", "gamma"]);
+
+    // Filter shows 1 item but selection points past it
+    sft.filtered_indices = vec![2];
+    sft.state.select(Some(5));
+    assert_eq!(sft.get_selected_item_copy(), None);
+  }
+
+  #[test]
+  fn test_filtered_empty_matches_returns_none() {
+    let mut sft: StatefulTable<&str> = StatefulTable::new();
+    sft.set_items(vec!["alpha", "beta"]);
+
+    // Filter matches nothing
+    sft.filtered_indices = vec![];
+    sft.state.select(Some(0));
+    // filtered_indices is empty → direct indexing (no filter active)
+    assert_eq!(sft.get_selected_item_copy(), Some("alpha"));
   }
 
   #[test]
