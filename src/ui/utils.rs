@@ -54,10 +54,10 @@ const YAML_BACKGROUND_DARK: syntect::highlighting::Color = syntect::highlighting
   a: 255,
 }; // corresponds to TEAL
 
-/// Convert a syntect highlight segment into a ratatui Span (inlined from syntect-tui).
-fn syntect_to_ratatui_span<'a>(
-  (style, content): (syntect::highlighting::Style, &'a str),
-) -> Option<Span<'a>> {
+/// Convert a syntect highlight segment into an owned ratatui Span.
+fn syntect_to_ratatui_span_owned(
+  (style, content): (syntect::highlighting::Style, &str),
+) -> Option<Span<'static>> {
   use syntect::highlighting::FontStyle;
   let fg = if style.foreground.a > 0 {
     Some(Color::Rgb(
@@ -95,7 +95,7 @@ fn syntect_to_ratatui_span<'a>(
     .fg(fg.unwrap_or_default())
     .bg(bg.unwrap_or_default())
     .add_modifier(modifier);
-  Some(Span::styled(content, ratatui_style))
+  Some(Span::styled(content.to_owned(), ratatui_style))
 }
 
 fn get_syntax_set() -> &'static syntect::parsing::SyntaxSet {
@@ -413,42 +413,45 @@ pub struct ResourceTableProps<'a, T> {
   pub column_widths: Vec<Constraint>,
 }
 /// common for all resources
-pub fn draw_describe_block(f: &mut Frame<'_>, app: &App, area: Rect, title: Line<'_>) {
+pub fn draw_describe_block(f: &mut Frame<'_>, app: &mut App, area: Rect, title: Line<'_>) {
   draw_yaml_block(f, app, area, title);
 }
 
 /// common for all resources
-pub fn draw_yaml_block(f: &mut Frame<'_>, app: &App, area: Rect, title: Line<'_>) {
+pub fn draw_yaml_block(f: &mut Frame<'_>, app: &mut App, area: Rect, title: Line<'_>) {
   let block = layout_block_top_border(title);
 
-  let txt = &app.data.describe_out.get_txt();
+  let txt = app.data.describe_out.get_txt();
   if !txt.is_empty() {
-    let ss = get_syntax_set();
-    let syntax = get_yaml_syntax_reference();
-    let theme = if app.light_theme {
-      &get_yaml_themes().light
-    } else {
-      &get_yaml_themes().dark
-    };
-    let mut h = syntect::easy::HighlightLines::new(syntax, theme);
-    let lines: Vec<_> = syntect::util::LinesWithEndings::from(txt)
-      .filter_map(|line| {
-        match h.highlight_line(line, ss) {
+    // Re-highlight only when the cache is empty or the theme changed.
+    if app.data.describe_out.highlighted_lines.is_empty()
+      || app.data.describe_out.highlight_light_theme != app.light_theme
+    {
+      let ss = get_syntax_set();
+      let syntax = get_yaml_syntax_reference();
+      let theme = if app.light_theme {
+        &get_yaml_themes().light
+      } else {
+        &get_yaml_themes().dark
+      };
+      let mut h = syntect::easy::HighlightLines::new(syntax, theme);
+      let lines: Vec<_> = syntect::util::LinesWithEndings::from(txt)
+        .filter_map(|line| match h.highlight_line(line, ss) {
           Ok(segments) => {
             let line_spans: Vec<_> = segments
               .into_iter()
-              .filter_map(syntect_to_ratatui_span)
+              .filter_map(syntect_to_ratatui_span_owned)
               .collect();
-            Some(ratatui::text::Line::from(
-              line_spans.into_iter().collect::<Vec<_>>(),
-            ))
+            Some(ratatui::text::Line::from(line_spans))
           }
-          Err(_) => None, // Handle the error gracefully
-        }
-      })
-      .collect();
+          Err(_) => None,
+        })
+        .collect();
+      app.data.describe_out.highlighted_lines = lines;
+      app.data.describe_out.highlight_light_theme = app.light_theme;
+    }
 
-    let paragraph = Paragraph::new(lines)
+    let paragraph = Paragraph::new(app.data.describe_out.highlighted_lines.clone())
       .block(block)
       .wrap(Wrap { trim: false })
       .scroll((

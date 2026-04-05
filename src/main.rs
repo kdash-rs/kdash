@@ -110,26 +110,46 @@ async fn main() -> Result<()> {
     cli.poll_rate / cli.tick_rate,
   )));
 
-  // Launch network, stream, and cmd tasks on the shared runtime
+  // Launch network, stream, and cmd tasks on a dedicated tokio runtime running
+  // on its own OS thread.  This keeps all network I/O off the main runtime so
+  // the UI loop is never starved of CPU time by long-running API calls.
   let app_nw = Arc::clone(&app);
-  tokio::spawn(async move {
-    info!("Starting network task");
-    start_network(sync_io_rx, &app_nw).await;
-  });
-
   let app_stream = Arc::clone(&app);
-  tokio::spawn(async move {
-    info!("Starting network stream task");
-    start_stream_network(sync_io_stream_rx, &app_stream).await;
+  let app_cli = Arc::clone(&app);
+
+  std::thread::spawn(move || {
+    let rt = tokio::runtime::Builder::new_multi_thread()
+      .enable_all()
+      .thread_name("kdash-network")
+      .build()
+      .expect("Failed to create network runtime");
+
+    rt.block_on(async move {
+      tokio::spawn(async move {
+        info!("Starting network task");
+        start_network(sync_io_rx, &app_nw).await;
+      });
+
+      tokio::spawn(async move {
+        info!("Starting network stream task");
+        start_stream_network(sync_io_stream_rx, &app_stream).await;
+      });
+
+      tokio::spawn(async move {
+        info!("Starting cmd runner task");
+        start_cmd_runner(sync_io_cmd_rx, &app_cli).await;
+      });
+
+      // Keep this runtime alive until all tasks complete.
+      // When the UI exits and drops the channel senders, recv() returns None
+      // and the tasks finish naturally.
+      tokio::signal::ctrl_c()
+        .await
+        .expect("Failed to listen for ctrl_c");
+    });
   });
 
-  let app_cli = Arc::clone(&app);
-  tokio::spawn(async move {
-    info!("Starting cmd runner task");
-    start_cmd_runner(sync_io_cmd_rx, &app_cli).await;
-  });
-  // Launch the UI asynchronously
-  // The UI must run in the "main" thread
+  // Launch the UI on the main runtime — it owns the terminal and must run here
   start_ui(cli, &app).await?;
 
   Ok(())

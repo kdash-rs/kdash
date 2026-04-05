@@ -554,7 +554,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
       }
       ActiveBlock::Describe | ActiveBlock::Yaml => {
         if key == DEFAULT_KEYBINDING.copy_to_clipboard.key {
-          copy_to_clipboard(app.data.describe_out.get_txt(), app);
+          copy_to_clipboard(app.data.describe_out.get_txt().to_owned(), app);
         }
       }
           ActiveBlock::More => {

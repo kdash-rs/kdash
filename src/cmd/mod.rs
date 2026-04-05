@@ -52,83 +52,89 @@ impl<'a> CmdRunner<'a> {
   }
 
   async fn get_cli_info(&self) {
-    let mut clis: Vec<Cli> = vec![];
+    let clis = tokio::task::spawn_blocking(|| {
+      let mut clis: Vec<Cli> = vec![];
 
-    let (version_c, version_s) = match cmd!("kubectl", "version", "-o", "json")
-      .stderr_null()
-      .read()
-    {
-      Ok(out) => {
-        info!("kubectl version: {}", out);
-        let v: serde_json::Result<JValue> = serde_json::from_str(&out);
-        match v {
-          Ok(val) => (
-            Some(
-              val["clientVersion"]["gitVersion"]
-                .to_string()
-                .replace('"', ""),
+      let (version_c, version_s) = match cmd!("kubectl", "version", "-o", "json")
+        .stderr_null()
+        .read()
+      {
+        Ok(out) => {
+          info!("kubectl version: {}", out);
+          let v: serde_json::Result<JValue> = serde_json::from_str(&out);
+          match v {
+            Ok(val) => (
+              Some(
+                val["clientVersion"]["gitVersion"]
+                  .to_string()
+                  .replace('"', ""),
+              ),
+              Some(
+                val["serverVersion"]["gitVersion"]
+                  .to_string()
+                  .replace('"', ""),
+              ),
             ),
-            Some(
-              val["serverVersion"]["gitVersion"]
-                .to_string()
-                .replace('"', ""),
-            ),
-          ),
-          _ => (None, None),
+            _ => (None, None),
+          }
         }
-      }
-      _ => (None, None),
-    };
+        _ => (None, None),
+      };
 
-    clis.push(build_cli("kubectl client", version_c));
-    clis.push(build_cli("kubectl server", version_s));
+      clis.push(build_cli("kubectl client", version_c));
+      clis.push(build_cli("kubectl server", version_s));
 
-    let version = cmd!("docker", "version", "--format", "'{{.Client.Version}}'")
-      .stderr_null()
-      .read()
-      .map_or(None, |out| {
-        if out.is_empty() {
-          None
-        } else {
-          Some(format!("v{}", out.replace('\'', "")))
-        }
-      });
+      let version = cmd!("docker", "version", "--format", "'{{.Client.Version}}'")
+        .stderr_null()
+        .read()
+        .map_or(None, |out| {
+          if out.is_empty() {
+            None
+          } else {
+            Some(format!("v{}", out.replace('\'', "")))
+          }
+        });
 
-    clis.push(build_cli("docker", version));
+      clis.push(build_cli("docker", version));
 
-    let version = cmd!("docker-compose", "version", "--short")
-      .stderr_null()
-      .read()
-      .map_or(None, |out| {
-        if out.is_empty() {
-          cmd!("docker", "compose", "version", "--short")
-            .stderr_null()
-            .read()
-            .map_or(None, |out| {
-              if out.is_empty() {
-                None
-              } else {
-                Some(format!("v{}", out.replace('\'', "")))
-              }
-            })
-        } else {
-          Some(format!("v{}", out.replace('\'', "")))
-        }
-      });
+      let version = cmd!("docker-compose", "version", "--short")
+        .stderr_null()
+        .read()
+        .map_or(None, |out| {
+          if out.is_empty() {
+            cmd!("docker", "compose", "version", "--short")
+              .stderr_null()
+              .read()
+              .map_or(None, |out| {
+                if out.is_empty() {
+                  None
+                } else {
+                  Some(format!("v{}", out.replace('\'', "")))
+                }
+              })
+          } else {
+            Some(format!("v{}", out.replace('\'', "")))
+          }
+        });
 
-    clis.push(build_cli("docker-compose", version));
+      clis.push(build_cli("docker-compose", version));
 
-    let version = get_info_by_regex("kind", &["version"], r"(v[0-9.]+)");
+      let version = get_info_by_regex("kind", &["version"], r"(v[0-9.]+)");
 
-    clis.push(build_cli("kind", version));
+      clis.push(build_cli("kind", version));
 
-    let version = get_info_by_regex("helm", &["version", "-c"], r"(v[0-9.]+)");
+      let version = get_info_by_regex("helm", &["version", "-c"], r"(v[0-9.]+)");
 
-    clis.push(build_cli("helm", version));
+      clis.push(build_cli("helm", version));
 
-    let version = get_info_by_regex("istioctl", &["version"], r"([0-9.]+)");
+      let version = get_info_by_regex("istioctl", &["version"], r"([0-9.]+)");
 
-    clis.push(build_cli("istioctl", version.map(|v| format!("v{}", v))));
+      clis.push(build_cli("istioctl", version.map(|v| format!("v{}", v))));
+
+      clis
+    })
+    .await
+    .unwrap_or_default();
 
     let mut app = self.app.lock().await;
     app.data.clis = clis;
@@ -163,26 +169,36 @@ impl<'a> CmdRunner<'a> {
       }
     }
 
-    let mut args = vec!["describe", kind.as_str(), value.as_str()];
+    let kind_clone = kind.clone();
+    let result = tokio::task::spawn_blocking(move || {
+      let mut args = vec!["describe", kind.as_str(), value.as_str()];
 
-    if let Some(ns) = ns.as_ref() {
-      args.push("-n");
-      args.push(ns.as_str());
-    }
+      if let Some(ns) = ns.as_ref() {
+        args.push("-n");
+        args.push(ns.as_str());
+      }
 
-    let out = duct::cmd("kubectl", &args).stderr_null().read();
+      duct::cmd("kubectl", &args).stderr_null().read()
+    })
+    .await;
 
-    match out {
-      Ok(out) => {
+    match result {
+      Ok(Ok(out)) => {
         let mut app = self.app.lock().await;
         app.data.describe_out = ScrollableTxt::with_string(out);
       }
+      Ok(Err(e)) => {
+        self
+          .handle_error(anyhow!(
+            "Error running {} describe. Make sure you have kubectl installed: {:?}",
+            kind_clone,
+            e
+          ))
+          .await
+      }
       Err(e) => {
         self
-          .handle_error(anyhow!(format!(
-            "Error running {} describe. Make sure you have kubectl installed: {:?}",
-            kind, e
-          )))
+          .handle_error(anyhow!("Describe task panicked: {:?}", e))
           .await
       }
     }

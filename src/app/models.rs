@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use ratatui::{
   layout::Rect,
   style::{Modifier, Style},
-  text::Span,
+  text::{Line as RatatuiLine, Span},
   widgets::{Block, List, ListItem, ListState, TableState},
   Frame,
 };
@@ -191,7 +191,8 @@ impl<T: Clone> StatefulTable<T> {
         if self.filtered_indices.is_empty() {
           self.items.get(i).cloned()
         } else {
-          self.filtered_indices
+          self
+            .filtered_indices
             .get(i)
             .and_then(|&real| self.items.get(real).cloned())
         }
@@ -237,28 +238,52 @@ impl TabsState {
   }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub struct ScrollableTxt {
   items: Vec<String>,
   pub offset: usize,
+  /// Pre-joined text, computed once when items change.
+  txt_cache: String,
+  /// Cached syntax-highlighted lines, reused across render frames.
+  /// Invalidated when content or theme changes.
+  pub highlighted_lines: Vec<RatatuiLine<'static>>,
+  /// The theme used to produce `highlighted_lines` (true = light).
+  pub highlight_light_theme: bool,
 }
+
+impl PartialEq for ScrollableTxt {
+  fn eq(&self, other: &Self) -> bool {
+    self.items == other.items && self.offset == other.offset
+  }
+}
+
+impl Eq for ScrollableTxt {}
 
 impl ScrollableTxt {
   pub fn new() -> ScrollableTxt {
     ScrollableTxt {
       items: vec![],
       offset: 0,
+      txt_cache: String::new(),
+      highlighted_lines: Vec::new(),
+      highlight_light_theme: false,
     }
   }
 
   pub fn with_string(item: String) -> ScrollableTxt {
     let items: Vec<&str> = item.split('\n').collect();
     let items: Vec<String> = items.iter().map(|it| it.to_string()).collect();
-    ScrollableTxt { items, offset: 0 }
+    ScrollableTxt {
+      txt_cache: item,
+      items,
+      offset: 0,
+      highlighted_lines: Vec::new(),
+      highlight_light_theme: false,
+    }
   }
 
-  pub fn get_txt(&self) -> String {
-    self.items.join("\n")
+  pub fn get_txt(&self) -> &str {
+    &self.txt_cache
   }
 }
 
