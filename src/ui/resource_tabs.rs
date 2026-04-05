@@ -313,7 +313,7 @@ mod tests {
         "┌ Resources ───────────────────────────────────────────────────────────────────────────────────────┐",
         "│ Pods [1] <1> │ Services <2> │ Nodes <3> │ ConfigMaps <4> │ StatefulSets <5> │ ReplicaSets <6> │ D│",
         "│                                                                                                  │",
-        "│ Pods (ns: all) [1] | Containers <enter> | describe <d> | yaml <y> ───────────────────────────────│",
+        "│ Pods (ns: all) [1] | Containers <enter> | describe <d> | yaml <y> | logs <o> ────────────────────│",
         "│   Namespace                Name                         Ready      Status    Restarts   Age      │",
         "│=> pod namespace test       pod name test                0/2        Failed    0          6h52m    │",
         "└──────────────────────────────────────────────────────────────────────────────────────────────────┘",
@@ -365,7 +365,7 @@ mod tests {
     // fourth row tab header style
     for col in 0..=99 {
       match col {
-        0 | 68..=99 => {
+        0 | 79..=99 => {
           expected
             .cell_mut(Position::new(col, 3))
             .unwrap()

@@ -234,14 +234,8 @@ MIT
 
 ## TODO
 
-- [x] Capitalize title from get_container_title e.g. `StatefulSet -> Pods (ns: all) [0] -> Containers [1]` instead of `statefulset -> Pods (ns: all) [0] -> Containers [1]`
-- [x] COming back to the actual pod view should show all pods for selected ns or all. Right now seems to show filtered by deployment etc based on last view visited which is not ideal. Maybe we can reset the pod selector when going back to the pod view?
-- [x] Enter or node should show pods in that node?
-- [x] Combined logs for pods??
-- [x] Enter should run describe except for items which have child views like pods or containers.
-- [x] Show no of resources in brackets near tab labels, menu dropdown (more, dynamic??) etc for all CRDs
-- [x] Dynamic/more filtering to trigger on a specific key to avoid action keys being blocked by the filter input
 - [ ] Better filtering impl (seperate filter for namespaces??)
 - [ ] Add a line below resource tabs
 - [ ] Resource counts in the tab titles are changing during drill-down
 - [ ] Scroll tabs when cant fit in viewport
+- [ ] Make all help text same blue color

@@ -688,6 +688,15 @@ impl App {
     self.push_navigation_stack(route_id, ActiveBlock::Pods);
   }
 
+  pub async fn dispatch_pod_logs(&mut self, pod_name: String, route_id: RouteId) {
+    self.cancel_log_stream();
+    self.data.logs = LogsState::new(format!("agg:{}", pod_name));
+    self.push_navigation_stack(route_id, ActiveBlock::Logs);
+    self
+      .dispatch_stream(IoStreamEvent::GetPodAllContainerLogs)
+      .await;
+  }
+
   pub async fn dispatch_container_logs(&mut self, id: String, route_id: RouteId) {
     self.cancel_log_stream();
     self.data.logs = LogsState::new(id);

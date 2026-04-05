@@ -6,7 +6,7 @@
   - Navigate into Pods -> Containers -> Logs/Describe/YAML views for detailed information.
 - UI improvements
   - Navigate into child views like containers, logs, describe, yaml from the main resource tables.
-  - See consolidated logs from pods owned by a resource like deployment, statefulset, replicaset etc.
+  - See aggregate logs from containers owned by a resource like pods, deployment, statefulset, replicaset, Jobs etc.
 - Better error handling and messages
 - Major refactor and architecture improvements
 - Log streaming fixes and improvements. Fix #6

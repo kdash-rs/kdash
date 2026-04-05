@@ -513,7 +513,14 @@ async fn handle_route_events(key: Key, app: &mut App) {
             }
           }
           ActiveBlock::Pods => {
-            if let Some(pod) = handle_block_action(key, &app.data.pods) {
+            if key == DEFAULT_KEYBINDING.aggregate_logs.key {
+              if let Some(pod) = app.data.pods.get_selected_item_copy() {
+                app.data.selected.pod = Some(pod.name.clone());
+                app.data.selected.pod_selector_resource = Some("pod".into());
+                app.data.containers.set_items(pod.containers);
+                app.dispatch_pod_logs(pod.name, RouteId::Home).await;
+              }
+            } else if let Some(pod) = handle_block_action(key, &app.data.pods) {
               let ok = handle_describe_decode_or_yaml_action(
                 key,
                 app,

@@ -22,7 +22,7 @@ use crate::{
     draw_describe_block, draw_resource_block, draw_yaml_block, get_describe_active,
     get_resource_title, layout_block_top_border, loading, style_failure, style_primary,
     style_secondary, style_success, title_with_dual_style, ResourceTableProps, COPY_HINT,
-    DESCRIBE_AND_YAML_HINT,
+    DESCRIBE_YAML_AND_LOGS_HINT,
   },
 };
 
@@ -255,7 +255,7 @@ pub(crate) fn draw_block_as_sub(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: format!(
         "| Containers <enter> {} | back <esc> ",
-        DESCRIBE_AND_YAML_HINT
+        DESCRIBE_YAML_AND_LOGS_HINT
       ),
       resource: &mut app.data.pods,
       table_headers: vec!["Namespace", "Name", "Ready", "Status", "Restarts", "Age"],
@@ -295,7 +295,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     area,
     ResourceTableProps {
       title,
-      inline_help: format!("| Containers <enter> {}", DESCRIBE_AND_YAML_HINT),
+      inline_help: format!("| Containers <enter> {}", DESCRIBE_YAML_AND_LOGS_HINT),
       resource: &mut app.data.pods,
       table_headers: vec!["Namespace", "Name", "Ready", "Status", "Restarts", "Age"],
       column_widths: vec![

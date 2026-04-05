@@ -27,6 +27,7 @@ pub enum IoStreamEvent {
   RefreshClient,
   GetPodLogs(bool),
   GetAggregateLogs { namespace: String, selector: String },
+  GetPodAllContainerLogs,
 }
 
 #[derive(Clone)]
@@ -70,6 +71,9 @@ impl<'a> NetworkStream<'a> {
         selector,
       } => {
         self.stream_aggregate_logs(&namespace, &selector).await;
+      }
+      IoStreamEvent::GetPodAllContainerLogs => {
+        self.stream_pod_all_container_logs().await;
       }
     };
 
@@ -263,6 +267,127 @@ impl<'a> NetworkStream<'a> {
     app.is_streaming = false;
   }
 
+  /// Stream logs from all containers of the selected pod concurrently.
+  pub async fn stream_pod_all_container_logs(&self) {
+    let (namespace, pod_name, container_names, cancel_rx) = {
+      let app = self.app.lock().await;
+      let pod = app.data.pods.get_selected_item_copy();
+      let ns = pod
+        .as_ref()
+        .map(|p| p.namespace.clone())
+        .unwrap_or_else(|| std::env::var("NAMESPACE").unwrap_or_else(|_| "default".into()));
+      let name = pod.as_ref().map(|p| p.name.clone()).unwrap_or_default();
+      let containers: Vec<String> = pod
+        .as_ref()
+        .map(|p| p.containers.iter().map(|c| c.name.clone()).collect())
+        .unwrap_or_default();
+      let rx = app.new_log_cancel_rx();
+      (ns, name, containers, rx)
+    };
+
+    if pod_name.is_empty() || container_names.is_empty() {
+      return;
+    }
+
+    // Single container — delegate to the standard single-container stream
+    if container_names.len() == 1 {
+      {
+        let mut app = self.app.lock().await;
+        app.data.selected.container = Some(container_names[0].clone());
+      }
+      self.stream_container_logs(true).await;
+      return;
+    }
+
+    {
+      let mut app = self.app.lock().await;
+      app.is_streaming = true;
+    }
+
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(256);
+
+    let mut join_set = tokio::task::JoinSet::new();
+    for cont_name in container_names {
+      let client = self.client.clone();
+      let ns = namespace.clone();
+      let pod = pod_name.clone();
+      let tx = tx.clone();
+      let cancel_rx = cancel_rx.clone();
+
+      join_set.spawn(async move {
+        stream_single_pod_for_aggregate(
+          client,
+          ns,
+          pod,
+          cont_name.clone(),
+          cont_name,
+          tx,
+          cancel_rx,
+        )
+        .await;
+      });
+    }
+
+    drop(tx);
+
+    let mut batch: Vec<String> = Vec::with_capacity(BATCH_SIZE);
+    let mut last_flush = Instant::now();
+    let mut cancel_rx_collector = cancel_rx.clone();
+
+    loop {
+      let flush_deadline =
+        tokio::time::sleep_until(last_flush + Duration::from_millis(BATCH_FLUSH_MS));
+
+      tokio::select! {
+        _ = cancel_rx_collector.changed() => {
+          if *cancel_rx_collector.borrow() {
+            if !batch.is_empty() {
+              let mut app = self.app.lock().await;
+              app.data.logs.add_records(batch);
+            }
+            break;
+          }
+        }
+        line = rx.recv() => {
+          match line {
+            Some(line) => {
+              batch.push(line);
+              if batch.len() >= BATCH_SIZE {
+                let mut app = self.app.lock().await;
+                app.data.logs.add_records(std::mem::replace(
+                  &mut batch,
+                  Vec::with_capacity(BATCH_SIZE),
+                ));
+                last_flush = Instant::now();
+              }
+            }
+            None => {
+              if !batch.is_empty() {
+                let mut app = self.app.lock().await;
+                app.data.logs.add_records(batch);
+              }
+              break;
+            }
+          }
+        }
+        _ = flush_deadline => {
+          if !batch.is_empty() {
+            let mut app = self.app.lock().await;
+            app.data.logs.add_records(std::mem::replace(
+              &mut batch,
+              Vec::with_capacity(BATCH_SIZE),
+            ));
+            last_flush = Instant::now();
+          }
+        }
+      }
+    }
+
+    join_set.shutdown().await;
+    let mut app = self.app.lock().await;
+    app.is_streaming = false;
+  }
+
   /// Stream logs from all pods matching a label selector concurrently.
   /// Lines are prefixed with the pod name for disambiguation.
   pub async fn stream_aggregate_logs(&self, namespace: &str, selector: &str) {
@@ -314,27 +439,10 @@ impl<'a> NetworkStream<'a> {
       app.is_streaming = true;
     }
 
-    // Collect pod info: (pod_name, first_container_name)
-    let pod_info: Vec<(String, String)> = pods
-      .iter()
-      .filter_map(|pod| {
-        let name = pod.metadata.name.clone().unwrap_or_default();
-        let container = pod
-          .spec
-          .as_ref()
-          .and_then(|s| s.containers.first())
-          .map(|c| c.name.clone())
-          .unwrap_or_default();
-        if name.is_empty() || container.is_empty() {
-          None
-        } else {
-          Some((name, container))
-        }
-      })
-      .collect();
+    let pod_info = collect_pod_container_info(&pods);
 
     info!(
-      "Starting aggregate log stream for {} pods (selector: {})",
+      "Starting aggregate log stream for {} container streams (selector: {})",
       pod_info.len(),
       selector
     );
@@ -342,17 +450,16 @@ impl<'a> NetworkStream<'a> {
     // Use a channel to collect lines from all pod streams
     let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(256);
 
-    // Spawn a task per pod
+    // Spawn a task per container
     let mut join_set = tokio::task::JoinSet::new();
-    for (pod_name, cont_name) in pod_info {
+    for (pod_name, cont_name, prefix) in pod_info {
       let client = self.client.clone();
       let ns = namespace.to_string();
       let tx = tx.clone();
       let cancel_rx = cancel_rx.clone();
-      let short_name = short_pod_name(&pod_name);
 
       join_set.spawn(async move {
-        stream_single_pod_for_aggregate(client, ns, pod_name, cont_name, short_name, tx, cancel_rx)
+        stream_single_pod_for_aggregate(client, ns, pod_name, cont_name, prefix, tx, cancel_rx)
           .await;
       });
     }
@@ -432,6 +539,42 @@ impl<'a> NetworkStream<'a> {
 /// e.g., "myapp-deploy-abc123" → "abc123"
 fn short_pod_name(name: &str) -> String {
   name.rsplit('-').next().unwrap_or(name).to_string()
+}
+
+/// Collect (pod_name, container_name, log_line_prefix) for every container in every pod.
+/// When a pod has multiple containers, the prefix includes both pod suffix and container name.
+fn collect_pod_container_info(pods: &[Pod]) -> Vec<(String, String, String)> {
+  pods
+    .iter()
+    .filter_map(|pod| {
+      let name = pod.metadata.name.clone().unwrap_or_default();
+      let containers: Vec<String> = pod
+        .spec
+        .as_ref()
+        .map(|s| s.containers.iter().map(|c| c.name.clone()).collect())
+        .unwrap_or_default();
+      if name.is_empty() || containers.is_empty() {
+        None
+      } else {
+        let short = short_pod_name(&name);
+        let multi = containers.len() > 1;
+        Some(
+          containers
+            .into_iter()
+            .map(move |c| {
+              let prefix = if multi {
+                format!("{}:{}", short, c)
+              } else {
+                short.clone()
+              };
+              (name.clone(), c, prefix)
+            })
+            .collect::<Vec<_>>(),
+        )
+      }
+    })
+    .flatten()
+    .collect()
 }
 
 /// Stream logs from a single pod, prefixing each line and sending to the channel.
@@ -541,5 +684,112 @@ mod tests {
         selector: "app=nginx".into(),
       }
     );
+  }
+
+  fn make_pod(name: &str, containers: &[&str]) -> Pod {
+    use k8s_openapi::api::core::v1::{Container, PodSpec};
+    Pod {
+      metadata: k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta {
+        name: Some(name.into()),
+        ..Default::default()
+      },
+      spec: Some(PodSpec {
+        containers: containers
+          .iter()
+          .map(|c| Container {
+            name: c.to_string(),
+            ..Default::default()
+          })
+          .collect(),
+        ..Default::default()
+      }),
+      ..Default::default()
+    }
+  }
+
+  #[test]
+  fn test_collect_pod_container_info_single_container() {
+    let pods = vec![make_pod("myapp-deploy-abc123", &["web"])];
+    let info = collect_pod_container_info(&pods);
+
+    assert_eq!(info.len(), 1);
+    assert_eq!(info[0].0, "myapp-deploy-abc123");
+    assert_eq!(info[0].1, "web");
+    // single container: prefix is just the short pod name
+    assert_eq!(info[0].2, "abc123");
+  }
+
+  #[test]
+  fn test_collect_pod_container_info_multi_container() {
+    let pods = vec![make_pod("myapp-deploy-abc123", &["web", "sidecar"])];
+    let info = collect_pod_container_info(&pods);
+
+    assert_eq!(info.len(), 2);
+    assert_eq!(
+      info[0],
+      (
+        "myapp-deploy-abc123".into(),
+        "web".into(),
+        "abc123:web".into()
+      )
+    );
+    assert_eq!(
+      info[1],
+      (
+        "myapp-deploy-abc123".into(),
+        "sidecar".into(),
+        "abc123:sidecar".into()
+      )
+    );
+  }
+
+  #[test]
+  fn test_collect_pod_container_info_multiple_pods() {
+    let pods = vec![
+      make_pod("app-abc12", &["main"]),
+      make_pod("app-def34", &["main", "logging"]),
+    ];
+    let info = collect_pod_container_info(&pods);
+
+    assert_eq!(info.len(), 3);
+    // first pod: single container
+    assert_eq!(info[0], ("app-abc12".into(), "main".into(), "abc12".into()));
+    // second pod: multi container
+    assert_eq!(
+      info[1],
+      ("app-def34".into(), "main".into(), "def34:main".into())
+    );
+    assert_eq!(
+      info[2],
+      ("app-def34".into(), "logging".into(), "def34:logging".into())
+    );
+  }
+
+  #[test]
+  fn test_collect_pod_container_info_skips_empty_name() {
+    let pods = vec![make_pod("", &["web"])];
+    let info = collect_pod_container_info(&pods);
+    assert!(info.is_empty());
+  }
+
+  #[test]
+  fn test_collect_pod_container_info_skips_no_containers() {
+    let pods = vec![make_pod("myapp-abc123", &[])];
+    let info = collect_pod_container_info(&pods);
+    assert!(info.is_empty());
+  }
+
+  #[test]
+  fn test_collect_pod_container_info_skips_no_spec() {
+    let pod = Pod {
+      metadata: k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta {
+        name: Some("myapp".into()),
+        ..Default::default()
+      },
+      spec: None,
+      ..Default::default()
+    };
+    let info = collect_pod_container_info(&[pod]);
+    assert!(info.is_empty());
   }
 }
