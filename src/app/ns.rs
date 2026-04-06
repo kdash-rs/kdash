@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
 use k8s_openapi::api::core::v1::Namespace;
-use kube::{api::ListParams, Api};
+use kube::{api::ListParams, config::Kubeconfig, Api, Error};
 use log::warn;
 use ratatui::{
   layout::{Constraint, Rect},
@@ -62,6 +62,68 @@ impl KubeResource<Namespace> for KubeNs {
 }
 
 pub struct NamespaceResource {}
+
+fn is_forbidden_namespace_list_error(error: &Error) -> bool {
+  matches!(error, Error::Api(status) if status.is_forbidden())
+}
+
+fn kubeconfig_namespace(
+  kubeconfig: Option<&Kubeconfig>,
+  context_name: Option<&str>,
+) -> Option<String> {
+  let kubeconfig = kubeconfig?;
+  let context_name = context_name.or(kubeconfig.current_context.as_deref())?;
+
+  kubeconfig
+    .contexts
+    .iter()
+    .find(|context| context.name == context_name)
+    .and_then(|context| context.context.as_ref())
+    .and_then(|context| context.namespace.clone())
+    .filter(|namespace| !namespace.is_empty())
+}
+
+fn fallback_namespace_name(app: &App) -> String {
+  app
+    .data
+    .active_context
+    .as_ref()
+    .and_then(|context| context.namespace.clone())
+    .filter(|namespace| !namespace.is_empty())
+    .or_else(|| {
+      kubeconfig_namespace(
+        app.data.kubeconfig.as_ref(),
+        app
+          .data
+          .active_context
+          .as_ref()
+          .map(|context| context.name.as_str()),
+      )
+    })
+    .unwrap_or_else(|| "default".into())
+}
+
+fn apply_namespace_list_fallback(app: &mut App, error: &Error) -> bool {
+  if !is_forbidden_namespace_list_error(error) {
+    return false;
+  }
+
+  let namespace = fallback_namespace_name(app);
+  warn!(
+    "Failed to list namespaces ({:?}), falling back to configured namespace: {}",
+    error, namespace
+  );
+
+  app.api_error.clear();
+  app.data.namespaces.set_items(vec![KubeNs {
+    name: namespace.clone(),
+    status: UNKNOWN.into(),
+    ..Default::default()
+  }]);
+  app.data.selected.ns = Some(namespace);
+
+  true
+}
 
 #[async_trait]
 impl AppResource for NamespaceResource {
@@ -146,30 +208,8 @@ impl AppResource for NamespaceResource {
         app.data.namespaces.set_items(items);
       }
       Err(e) => {
-        // When namespace listing is forbidden (RBAC), fall back to the
-        // context namespace from kubeconfig so the user can still browse
-        // resources they have access to.
         let mut app = nw.app.lock().await;
-        let ctx_ns = app
-          .data
-          .active_context
-          .as_ref()
-          .and_then(|ctx| ctx.namespace.clone());
-        if let Some(ns_name) = ctx_ns {
-          warn!(
-            "Failed to list namespaces ({:?}), falling back to context namespace: {}",
-            e, ns_name
-          );
-          let fallback = KubeNs {
-            name: ns_name.clone(),
-            status: UNKNOWN.into(),
-            ..Default::default()
-          };
-          app.data.namespaces.set_items(vec![fallback]);
-          if app.data.selected.ns.is_none() {
-            app.data.selected.ns = Some(ns_name);
-          }
-        } else {
+        if !apply_namespace_list_fallback(&mut app, &e) {
           drop(app);
           nw.handle_error(anyhow!("Failed to get namespaces. {}", e))
             .await;
@@ -189,7 +229,11 @@ fn row_cell_mapper(s: &KubeNs) -> Row<'static> {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::app::test_utils::convert_resource_from_file;
+  use crate::app::{contexts::KubeContext, test_utils::convert_resource_from_file, App};
+  use kube::{
+    config::{Context, NamedContext},
+    core::Status,
+  };
 
   #[test]
   fn test_namespace_from_api() {
@@ -204,5 +248,80 @@ mod tests {
         k8s_obj: ns_list[0].clone()
       }
     );
+  }
+
+  #[test]
+  fn test_apply_namespace_list_fallback_uses_active_context_namespace() {
+    let mut app = App::default();
+    app.data.active_context = Some(KubeContext {
+      name: "ctx-a".into(),
+      namespace: Some("team-a".into()),
+      ..Default::default()
+    });
+    let error = Error::Api(
+      Status::failure("forbidden", "Forbidden")
+        .with_code(403)
+        .boxed(),
+    );
+
+    assert!(apply_namespace_list_fallback(&mut app, &error));
+    assert_eq!(app.data.namespaces.items.len(), 1);
+    assert_eq!(app.data.namespaces.items[0].name, "team-a");
+    assert_eq!(app.data.selected.ns.as_deref(), Some("team-a"));
+  }
+
+  #[test]
+  fn test_apply_namespace_list_fallback_uses_kubeconfig_namespace() {
+    let mut app = App::default();
+    app.data.kubeconfig = Some(Kubeconfig {
+      current_context: Some("ctx-a".into()),
+      contexts: vec![NamedContext {
+        name: "ctx-a".into(),
+        context: Some(Context {
+          namespace: Some("from-kubeconfig".into()),
+          ..Default::default()
+        }),
+      }],
+      ..Default::default()
+    });
+    let error = Error::Api(
+      Status::failure("forbidden", "Forbidden")
+        .with_code(403)
+        .boxed(),
+    );
+
+    assert!(apply_namespace_list_fallback(&mut app, &error));
+    assert_eq!(app.data.namespaces.items.len(), 1);
+    assert_eq!(app.data.namespaces.items[0].name, "from-kubeconfig");
+    assert_eq!(app.data.selected.ns.as_deref(), Some("from-kubeconfig"));
+  }
+
+  #[test]
+  fn test_apply_namespace_list_fallback_defaults_to_default_namespace() {
+    let mut app = App::default();
+    let error = Error::Api(
+      Status::failure("forbidden", "Forbidden")
+        .with_code(403)
+        .boxed(),
+    );
+
+    assert!(apply_namespace_list_fallback(&mut app, &error));
+    assert_eq!(app.data.namespaces.items.len(), 1);
+    assert_eq!(app.data.namespaces.items[0].name, "default");
+    assert_eq!(app.data.selected.ns.as_deref(), Some("default"));
+  }
+
+  #[test]
+  fn test_apply_namespace_list_fallback_ignores_non_forbidden_errors() {
+    let mut app = App::default();
+    let error = Error::Api(
+      Status::failure("boom", "InternalError")
+        .with_code(500)
+        .boxed(),
+    );
+
+    assert!(!apply_namespace_list_fallback(&mut app, &error));
+    assert!(app.data.namespaces.items.is_empty());
+    assert!(app.data.selected.ns.is_none());
   }
 }
