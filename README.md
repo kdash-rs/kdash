@@ -234,17 +234,11 @@ MIT
 
 ## TODO
 
-- [ ] R1: Better filtering impl
-  - [x] separate dedicated filter for namespaces similar to dynamic/more menu #437
-  - [x] Filter should only apply to active view instead of global and filter text should be preserved when switching between views. Maintain state by resource type in AppData
-  - [x] Move filter UI into the resource tabs (between tabs and header) and make it more visible and use / to trigger filter for consistency
-  - [x] filter for utilization, troubleshoot tab
-  - [x] Add a line below resource tabs
-  - [ ] Filter for contexts tab
-- [ ] R2: Resource counts in the tab titles are changing during drill-down
-- [ ] R3: Scroll tabs when cant fit in viewport
 - [ ] R4: Make all help text through the app same color for consistency.
+- [ ] R1: Filter in help page?
+- [ ] R3: Scroll tabs and title text when cant fit in viewport
 - [ ] R5: Open issues in docs/plans/2026-04-03-002-fix-open-issues-plan.md
 - [ ] R6: Merge https://github.com/kdash-rs/kdash/pull/504
 - [ ] R7: Add more tests where possible
 - [ ] R8: E2E tests?
+- [ ] R2: Resource counts in the tab titles are changing during drill-down: dont fix

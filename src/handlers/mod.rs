@@ -678,7 +678,11 @@ async fn handle_route_events(key: Key, app: &mut App) {
       )
     }
     RouteId::Contexts => {
-      if let Some(ctx) = handle_block_action(key, &app.data.contexts) {
+      if key == Key::Char('/') {
+        if let Some((_, filter_active, _)) = app.current_resource_filter_mut() {
+          *filter_active = true;
+        }
+      } else if let Some(ctx) = handle_block_action(key, &app.data.contexts) {
         app.data.selected.context = Some(ctx.name);
         // Pre-select the namespace from the context if one is configured (#90)
         app.data.selected.ns = ctx.namespace;
@@ -1044,6 +1048,33 @@ mod tests {
     let key_evt = KeyEvent::from(KeyCode::Esc);
     handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
     assert!(!app.ns_filter_active);
+  }
+
+  #[tokio::test]
+  async fn test_contexts_filter_key_flow() {
+    let mut app = App::default();
+    app.route_contexts();
+    assert!(!app.data.contexts.filter_active);
+    assert!(app.data.contexts.filter.is_empty());
+
+    let key_evt = KeyEvent::from(KeyCode::Char('/'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert!(app.data.contexts.filter_active);
+
+    for c in ['p', 'r', 'o', 'd'] {
+      let key_evt = KeyEvent::from(KeyCode::Char(c));
+      handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    }
+    assert_eq!(app.data.contexts.filter, "prod");
+
+    let key_evt = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert!(app.data.contexts.filter_active);
+    assert!(app.data.contexts.filter.is_empty());
+
+    let key_evt = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert!(!app.data.contexts.filter_active);
   }
 
   #[tokio::test]

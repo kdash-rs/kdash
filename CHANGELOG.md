@@ -2,16 +2,19 @@
 
 ## [1.0.0] - 2026-04-03
 
-- **NEW:** Troubleshoot tab with diagnostics and recommendations for common Kubernetes issues. Thanks to [@sed-i](https://github.com/sed-i) for the contribution! [#505](https://github.com/kdash-rs/kdash/pull/505)
+- **NEW:**: Troubleshoot tab with diagnostics and recommendations for common Kubernetes issues. Thanks to [@sed-i](https://github.com/sed-i) for the contribution! [#505](https://github.com/kdash-rs/kdash/pull/505)
   - Navigate into Pods -> Containers -> Logs/Describe/YAML views for detailed information.
-- UI improvements
+- **NEW:**: UI improvements
   - Navigate into child views like containers, logs, describe, yaml from the main resource tables.
   - See aggregate logs from containers owned by a resource like pods, deployment, statefulset, replicaset, Jobs etc.
+- **NEW:**: Add inline filter/search to all resource tables and views.
+- **NEW:**: Add inline filter/search to More and Dynamic resource menus.
 - Better error handling and messages
 - Major refactor and architecture improvements
 - Log streaming fixes and improvements. Fix #6
-- Library updates of the long standing bugs #89, #90, #484, #315, #8
+- Fix for the long standing bugs #89, #90, #484, #315, #8
 - Fixes many other bugs and improvements
+- Upgrade dependencies
 
 ## [0.6.2] - 2025-03-05
 

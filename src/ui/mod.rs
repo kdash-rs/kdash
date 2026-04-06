@@ -134,7 +134,7 @@ fn draw_app_header(f: &mut Frame<'_>, app: &App, area: Rect) {
 
 fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
   let text = match app.get_current_route().id {
-    RouteId::Contexts => vec![Line::from("<↑↓> scroll | <enter> select | <?> help ")],
+    RouteId::Contexts => vec![Line::from("<↑↓> scroll | <enter> select | </> filter | <?> help ")],
     RouteId::Home => vec![Line::from(
       "<←→> switch tabs | <char> select block | <↑↓> scroll | <enter> select | </> filter | <?> help ",
     )],

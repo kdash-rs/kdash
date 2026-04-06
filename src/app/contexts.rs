@@ -6,13 +6,16 @@ use ratatui::{
   Frame,
 };
 
-use super::{models::AppResource, ActiveBlock, App};
+use super::{
+  models::{AppResource, FilterableTable},
+  ActiveBlock, App,
+};
 use crate::{
   network::Network,
   ui::{
     utils::{
-      layout_block_active, loading, style_highlight, style_primary, style_secondary,
-      table_header_style,
+      filter_status_hint, layout_block_active, loading, style_highlight, style_primary,
+      style_secondary, table_header_style, text_matches_filter,
     },
     HIGHLIGHT,
   },
@@ -73,23 +76,57 @@ pub struct ContextResource {}
 #[async_trait]
 impl AppResource for ContextResource {
   fn render(_block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
-    let title = format!(" Contexts [{}] ", app.data.contexts.items.len());
+    let title = format!(
+      " Contexts [{}] | {} ",
+      app.data.contexts.count_label(),
+      filter_status_hint(&app.data.contexts.filter, app.data.contexts.filter_active)
+    );
     let block = layout_block_active(title.as_str(), app.light_theme);
 
     if !app.data.contexts.items.is_empty() {
-      let rows = app.data.contexts.items.iter().map(|c| {
-        let style = if c.is_active {
-          style_secondary(app.light_theme)
-        } else {
-          style_primary(app.light_theme)
-        };
-        Row::new(vec![
-          Cell::from(c.name.to_owned()),
-          Cell::from(c.cluster.to_owned()),
-          Cell::from(c.user.clone().unwrap_or("<none>".to_string())),
-        ])
-        .style(style)
-      });
+      let filter = app.data.contexts.filter.to_lowercase();
+      let has_filter = !filter.is_empty();
+      let mut filtered_indices = Vec::new();
+      let rows: Vec<_> = app
+        .data
+        .contexts
+        .items
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, c)| {
+          if !context_matches_filter(&filter, c) {
+            return None;
+          }
+
+          let style = if c.is_active {
+            style_secondary(app.light_theme)
+          } else {
+            style_primary(app.light_theme)
+          };
+          if has_filter {
+            filtered_indices.push(idx);
+          }
+
+          Some(
+            Row::new(vec![
+              Cell::from(c.name.to_owned()),
+              Cell::from(c.cluster.to_owned()),
+              Cell::from(c.user.clone().unwrap_or("<none>".to_string())),
+            ])
+            .style(style),
+          )
+        })
+        .collect();
+
+      if has_filter {
+        let max = filtered_indices.len().saturating_sub(1);
+        if let Some(sel) = app.data.contexts.state.selected() {
+          if sel > max {
+            app.data.contexts.state.select(Some(max));
+          }
+        }
+      }
+      app.data.contexts.filtered_indices = filtered_indices;
 
       let table = Table::new(
         rows,
@@ -117,6 +154,19 @@ impl AppResource for ContextResource {
     // not required
     unimplemented!()
   }
+}
+
+fn context_matches_filter(filter: &str, ctx: &KubeContext) -> bool {
+  text_matches_filter(filter, &ctx.name)
+    || text_matches_filter(filter, &ctx.cluster)
+    || ctx
+      .user
+      .as_deref()
+      .is_some_and(|user| text_matches_filter(filter, user))
+    || ctx
+      .namespace
+      .as_deref()
+      .is_some_and(|namespace| text_matches_filter(filter, namespace))
 }
 
 #[cfg(test)]
@@ -188,5 +238,23 @@ mod tests {
     let contexts = get_contexts(&config, Some("ctx-a".to_string()));
     assert!(contexts[0].is_active);
     assert!(!contexts[1].is_active);
+  }
+
+  #[test]
+  fn test_context_matches_filter() {
+    let ctx = KubeContext {
+      name: "prod".into(),
+      cluster: "cluster-a".into(),
+      user: Some("operator".into()),
+      namespace: Some("kube-system".into()),
+      is_active: false,
+    };
+
+    assert!(context_matches_filter("", &ctx));
+    assert!(context_matches_filter("prod", &ctx));
+    assert!(context_matches_filter("cluster-*", &ctx));
+    assert!(context_matches_filter("operator", &ctx));
+    assert!(context_matches_filter("kube-system", &ctx));
+    assert!(!context_matches_filter("staging", &ctx));
   }
 }
