@@ -22,8 +22,8 @@ use self::{
   },
 };
 use crate::app::{
-  contexts::ContextResource, metrics::UtilizationResource, models::AppResource,
-  troubleshoot::TroubleshootResource, ActiveBlock, App, RouteId,
+  contexts::ContextResource, key_binding::DEFAULT_KEYBINDING, metrics::UtilizationResource,
+  models::AppResource, troubleshoot::TroubleshootResource, ActiveBlock, App, RouteId,
 };
 
 pub static HIGHLIGHT: &str = "=> ";
@@ -148,21 +148,31 @@ fn draw_app_header(f: &mut Frame<'_>, app: &App, area: Rect) {
 fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
   let text = match app.get_current_route().id {
     RouteId::Contexts => vec![mixed_line(
-      [help_part("<↑↓> scroll | <enter> select | </> filter | <?> help ")],
+      [help_part(format!(
+        "<↑↓> scroll | <enter> select | {} filter | <?> help ",
+        DEFAULT_KEYBINDING.filter.key
+      ))],
       app.light_theme,
     )],
     RouteId::Home => vec![mixed_line(
-      [help_part(
-        "<←→> switch tabs | <char> select block | <↑↓> scroll | <enter> select | </> filter | <?> help ",
-      )],
+      [help_part(format!(
+        "<←→> switch tabs | <char> select block | <↑↓> scroll | <enter> select | {} filter | <?> help ",
+        DEFAULT_KEYBINDING.filter.key
+      ))],
       app.light_theme,
     )],
     RouteId::Utilization => vec![mixed_line(
-      [help_part("<↑↓> scroll | </> filter | <g> cycle through grouping | <?> help ")],
+      [help_part(format!(
+        "<↑↓> scroll | {} filter | <g> cycle through grouping | <?> help ",
+        DEFAULT_KEYBINDING.filter.key
+      ))],
       app.light_theme,
     )],
     RouteId::Troubleshoot => vec![mixed_line(
-      [help_part("<↑↓> scroll | </> filter | <?> help ")],
+      [help_part(format!(
+        "<↑↓> scroll | {} filter | <?> help ",
+        DEFAULT_KEYBINDING.filter.key
+      ))],
       app.light_theme,
     )],
     RouteId::HelpMenu => vec![],

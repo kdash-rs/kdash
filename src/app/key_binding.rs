@@ -22,6 +22,7 @@ generate_keybindings! {
   esc,
   help,
   submit,
+  filter,
   refresh,
   toggle_theme,
   cycle_main_views,
@@ -102,6 +103,12 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
     key: Key::Enter,
     alt: None,
     desc: "Select table row",
+    context: HContext::General,
+  },
+  filter: KeyBinding {
+    key: Key::Char('/'),
+    alt: None,
+    desc: "Filter current view",
     context: HContext::General,
   },
   refresh: KeyBinding {

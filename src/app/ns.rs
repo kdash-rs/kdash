@@ -87,8 +87,10 @@ impl AppResource for NamespaceResource {
         [
           default_part(" Namespaces ".to_string()),
           help_part(format!(
-            "{} | all: {} | filter </> ",
-            DEFAULT_KEYBINDING.jump_to_namespace.key, DEFAULT_KEYBINDING.select_all_namespace.key
+            "{} | all: {} | filter {} ",
+            DEFAULT_KEYBINDING.jump_to_namespace.key,
+            DEFAULT_KEYBINDING.select_all_namespace.key,
+            DEFAULT_KEYBINDING.filter.key
           )),
         ],
         app.light_theme,

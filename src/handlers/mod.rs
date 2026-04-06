@@ -141,7 +141,8 @@ pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
 
   if app.is_menu_active() && app.menu_filter_active && handle_menu_filter_key(key, app) {
     // Menu filter captured the key — done
-  } else if app.is_menu_active() && !app.menu_filter_active && key == Key::Char('/') {
+  } else if app.is_menu_active() && !app.menu_filter_active && key == DEFAULT_KEYBINDING.filter.key
+  {
     // Activate menu filter mode
     app.menu_filter_active = true;
   } else if resource_filter_active && handle_resource_filter_key(key, app) {
@@ -425,7 +426,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           app.context_tabs.previous();
           app.push_navigation_route(app.context_tabs.get_active_route().clone());
         }
-        _ if key == Key::Char('/') => {
+        _ if key == DEFAULT_KEYBINDING.filter.key => {
           if app.get_current_route().active_block == ActiveBlock::Namespaces {
             app.ns_filter_active = true;
           } else if let Some((_, filter_active, _)) = app.current_resource_filter_mut() {
@@ -678,7 +679,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
       )
     }
     RouteId::Contexts => {
-      if key == Key::Char('/') {
+      if key == DEFAULT_KEYBINDING.filter.key {
         if let Some((_, filter_active, _)) = app.current_resource_filter_mut() {
           *filter_active = true;
         }
@@ -690,7 +691,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
       }
     }
     RouteId::Utilization => {
-      if key == Key::Char('/') {
+      if key == DEFAULT_KEYBINDING.filter.key {
         if let Some((_, filter_active, _)) = app.current_resource_filter_mut() {
           *filter_active = true;
         }
@@ -710,7 +711,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
       }
     }
     RouteId::Troubleshoot => {
-      if key == Key::Char('/') {
+      if key == DEFAULT_KEYBINDING.filter.key {
         if let Some((_, filter_active, _)) = app.current_resource_filter_mut() {
           *filter_active = true;
           return;
@@ -833,7 +834,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
       }
     }
     RouteId::HelpMenu => {
-      if key == Key::Char('/') {
+      if key == DEFAULT_KEYBINDING.filter.key {
         if let Some((_, filter_active, _)) = app.current_resource_filter_mut() {
           *filter_active = true;
         }

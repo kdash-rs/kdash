@@ -13,6 +13,7 @@ use serde::Serialize;
 
 use super::HIGHLIGHT;
 use crate::app::{
+  key_binding::DEFAULT_KEYBINDING,
   models::{KubeResource, StatefulTable},
   ActiveBlock, App,
 };
@@ -401,9 +402,9 @@ fn filter_display_state(filter: &str, active: bool) -> FilterDisplayState<'_> {
 
 fn filter_display_parts(filter: &str, active: bool) -> Vec<LinePart<'_>> {
   let state = filter_display_state(filter, active);
-  let inactive_text = "filter </>";
+  let inactive_text = format!("filter {}", DEFAULT_KEYBINDING.filter.key);
   let clear_suffix = " | clear <esc> ";
-  let edit_suffix = " | edit </> ";
+  let edit_suffix = format!(" | edit {} ", DEFAULT_KEYBINDING.filter.key);
 
   match state {
     FilterDisplayState::Inactive => vec![help_part(inactive_text)],

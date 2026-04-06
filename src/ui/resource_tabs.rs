@@ -22,6 +22,7 @@ use crate::app::{
   dynamic::DynamicResource,
   ingress::IngressResource,
   jobs::JobResource,
+  key_binding::DEFAULT_KEYBINDING,
   models::{AppResource, StatefulList},
   network_policies::NetworkPolicyResource,
   nodes::NodeResource,
@@ -291,7 +292,7 @@ fn draw_menu(
     mixed_bold_line(
       [
         default_part(" Select Resource ".to_string()),
-        help_part("</> to filter ".to_string()),
+        help_part(format!("{} to filter ", DEFAULT_KEYBINDING.filter.key)),
       ],
       light_theme,
     )
