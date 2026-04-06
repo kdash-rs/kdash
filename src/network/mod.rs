@@ -9,12 +9,16 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use k8s_openapi::{api::core::v1::Pod, NamespaceResourceScope};
+use k8s_openapi::{
+  api::core::v1::Pod, apimachinery::pkg::apis::meta::v1::APIGroup as DiscoveryApiGroup,
+  NamespaceResourceScope,
+};
 use kube::{
   api::ListParams,
   config::{KubeConfigOptions, Kubeconfig},
-  discovery::verbs,
-  Api, Client, Discovery, Resource as ApiResource,
+  core::GroupVersion,
+  discovery::{pinned_group, verbs},
+  Api, Client, Resource as ApiResource,
 };
 use log::{debug, error, info, warn};
 use serde::de::DeserializeOwned;
@@ -535,8 +539,8 @@ impl<'a> Network<'a> {
 
   /// Discover and cache custom resources on the cluster
   pub async fn discover_dynamic_resources(&self) {
-    let discovery = match Discovery::new(self.client.clone()).run().await {
-      Ok(d) => d,
+    let api_groups = match self.client.list_api_groups().await {
+      Ok(groups) => groups.groups,
       Err(e) => {
         self
           .handle_error(anyhow!("Failed to get dynamic resources. {}", e))
@@ -548,7 +552,7 @@ impl<'a> Network<'a> {
     let mut dynamic_resources = vec![];
     let mut dynamic_menu = vec![];
 
-    let excluded = vec![
+    let excluded = [
       "Namespace",
       "Pod",
       "Service",
@@ -574,14 +578,35 @@ impl<'a> Network<'a> {
       "NetworkPolicy",
     ];
 
-    for group in discovery.groups() {
-      for (ar, caps) in group.recommended_resources() {
-        if !caps.supports_operation(verbs::LIST) || excluded.contains(&ar.kind.as_str()) {
-          continue;
-        }
+    for api_group in api_groups {
+      let group_name = api_group.name.clone();
+      let Some(group_version) = preferred_group_version(&api_group) else {
+        warn!(
+          "Skipping dynamic API group '{}' because it has no preferred or parseable version",
+          group_name
+        );
+        continue;
+      };
 
-        dynamic_menu.push((ar.kind.to_string(), ActiveBlock::DynamicResource));
-        dynamic_resources.push(KubeDynamicKind::new(ar, caps.scope));
+      match pinned_group(&self.client, &group_version).await {
+        Ok(group) => {
+          for (ar, caps) in group.recommended_resources() {
+            if !caps.supports_operation(verbs::LIST) || excluded.contains(&ar.kind.as_str()) {
+              continue;
+            }
+
+            dynamic_menu.push((ar.kind.to_string(), ActiveBlock::DynamicResource));
+            dynamic_resources.push(KubeDynamicKind::new(ar, caps.scope));
+          }
+        }
+        Err(e) => {
+          warn!(
+            "Skipping dynamic API group '{}' at '{}' due to discovery error: {}",
+            group_name,
+            group_version.api_version(),
+            e
+          );
+        }
       }
     }
     let mut app = self.app.lock().await;
@@ -592,9 +617,27 @@ impl<'a> Network<'a> {
   }
 }
 
+fn preferred_group_version(api_group: &DiscoveryApiGroup) -> Option<GroupVersion> {
+  api_group
+    .preferred_version
+    .as_ref()
+    .map(|version| version.group_version.as_str())
+    .or_else(|| {
+      api_group
+        .versions
+        .first()
+        .map(|version| version.group_version.as_str())
+    })
+    .and_then(|group_version| {
+      let parsed: GroupVersion = group_version.parse().ok()?;
+      (parsed.group == api_group.name && !parsed.version.is_empty()).then_some(parsed)
+    })
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
+  use k8s_openapi::apimachinery::pkg::apis::meta::v1::GroupVersionForDiscovery;
   use std::{
     fs,
     time::{SystemTime, UNIX_EPOCH},
@@ -801,5 +844,58 @@ users:
     assert_eq!(config.auth_infos.len(), 2);
 
     fs::remove_dir_all(dir).expect("temp test dir should be removed");
+  }
+
+  #[test]
+  fn test_preferred_group_version_uses_preferred_version() {
+    let api_group = DiscoveryApiGroup {
+      name: "example.io".into(),
+      preferred_version: Some(GroupVersionForDiscovery {
+        group_version: "example.io/v1".into(),
+        version: "v1".into(),
+      }),
+      server_address_by_client_cidrs: None,
+      versions: vec![GroupVersionForDiscovery {
+        group_version: "example.io/v1beta1".into(),
+        version: "v1beta1".into(),
+      }],
+    };
+
+    let group_version =
+      preferred_group_version(&api_group).expect("preferred version should parse");
+    assert_eq!(group_version.group, "example.io");
+    assert_eq!(group_version.version, "v1");
+  }
+
+  #[test]
+  fn test_preferred_group_version_falls_back_to_first_served_version() {
+    let api_group = DiscoveryApiGroup {
+      name: "example.io".into(),
+      preferred_version: None,
+      server_address_by_client_cidrs: None,
+      versions: vec![GroupVersionForDiscovery {
+        group_version: "example.io/v1beta1".into(),
+        version: "v1beta1".into(),
+      }],
+    };
+
+    let group_version = preferred_group_version(&api_group).expect("served version should parse");
+    assert_eq!(group_version.group, "example.io");
+    assert_eq!(group_version.version, "v1beta1");
+  }
+
+  #[test]
+  fn test_preferred_group_version_returns_none_for_invalid_version_string() {
+    let api_group = DiscoveryApiGroup {
+      name: "example.io".into(),
+      preferred_version: Some(GroupVersionForDiscovery {
+        group_version: "too/many/slashes".into(),
+        version: "v1".into(),
+      }),
+      server_address_by_client_cidrs: None,
+      versions: vec![],
+    };
+
+    assert!(preferred_group_version(&api_group).is_none());
   }
 }

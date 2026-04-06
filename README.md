@@ -234,10 +234,7 @@ MIT
 
 ## TODO
 
-- [ ] R1: Filter in help page?
-  - [ ] extract / keybinding to keybindings macro.
-  - [ ] close is not in help color
-  - [ ] +1 on cursor poisition
+- [ ] R1: Enter to describe in dynamic resource view
 - [ ] R3: Scroll tabs and title text when cant fit in viewport
 - [ ] R5: Open issues in docs/plans/2026-04-03-002-fix-open-issues-plan.md
 - [ ] catpuccin theme by default
