@@ -484,6 +484,8 @@ impl App {
 
   pub fn resource_table(&self, block: ActiveBlock) -> Option<&dyn FilterableTable> {
     match block {
+      ActiveBlock::Utilization => Some(&self.data.metrics),
+      ActiveBlock::Troubleshoot => Some(&self.data.troubleshoot_findings),
       ActiveBlock::Pods => Some(&self.data.pods),
       ActiveBlock::Services => Some(&self.data.services),
       ActiveBlock::Nodes => Some(&self.data.nodes),
@@ -513,6 +515,8 @@ impl App {
 
   pub fn resource_table_mut(&mut self, block: ActiveBlock) -> Option<&mut dyn FilterableTable> {
     match block {
+      ActiveBlock::Utilization => Some(&mut self.data.metrics),
+      ActiveBlock::Troubleshoot => Some(&mut self.data.troubleshoot_findings),
       ActiveBlock::Pods => Some(&mut self.data.pods),
       ActiveBlock::Services => Some(&mut self.data.services),
       ActiveBlock::Nodes => Some(&mut self.data.nodes),

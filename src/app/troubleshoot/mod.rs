@@ -7,7 +7,7 @@ use ratatui::{
 use strum::Display;
 
 use super::{
-  models::{AppResource, KubeResource},
+  models::{AppResource, FilterableTable, KubeResource},
   pods::KubePod,
   pvcs::KubePVC,
   replicasets::KubeReplicaSet,
@@ -21,9 +21,9 @@ mod pvc;
 mod rs;
 
 use crate::ui::utils::{
-  draw_describe_block, draw_resource_block, draw_yaml_block, get_describe_active,
-  get_resource_title, style_failure, style_primary, style_warning, title_with_dual_style,
-  ResourceTableProps, COPY_HINT, DESCRIBE_AND_YAML_HINT,
+  draw_describe_block, draw_resource_block, draw_yaml_block, filter_status_hint,
+  get_describe_active, get_resource_title, style_failure, style_primary, style_warning,
+  title_with_dual_style, ResourceTableProps, COPY_HINT, DESCRIBE_AND_YAML_HINT,
 };
 
 // ---------------------------------------------------------------------------
@@ -163,11 +163,15 @@ pub fn evaluate_findings(
 pub fn render_troubleshoot(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let light_theme = app.light_theme;
   let is_loading = app.is_loading();
-  let title = get_resource_title(
-    app,
-    "Troubleshoot",
-    "",
-    app.data.troubleshoot_findings.items.len(),
+  let title = format!(
+    " Troubleshoot (ns: {}) [{}] ",
+    app
+      .data
+      .selected
+      .ns
+      .as_ref()
+      .unwrap_or(&String::from("all")),
+    app.data.troubleshoot_findings.count_label(),
   );
   let findings = &mut app.data.troubleshoot_findings;
 
@@ -176,7 +180,11 @@ pub fn render_troubleshoot(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     area,
     ResourceTableProps {
       title,
-      inline_help: format!("| resource <enter> | {} ", DESCRIBE_AND_YAML_HINT),
+      inline_help: format!(
+        "| {} | resource <enter> | {} ",
+        filter_status_hint(&findings.filter, findings.filter_active),
+        DESCRIBE_AND_YAML_HINT
+      ),
       resource: findings,
       table_headers: vec!["Severity", "Type", "Reason", "Resource", "Message", "Age"],
       column_widths: vec![

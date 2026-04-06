@@ -22,11 +22,12 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::MutexGuard;
 
 use super::{models::AppResource, utils, ActiveBlock, App};
+use crate::app::models::FilterableTable;
 use crate::{
   network::Network,
   ui::utils::{
-    layout_block_active_span, loading, style_highlight, style_primary, style_success,
-    style_warning, table_header_style, title_with_dual_style,
+    filter_status_hint, layout_block_active_span, loading, style_highlight, style_primary,
+    style_success, style_warning, table_header_style, text_matches_filter, title_with_dual_style,
   },
 };
 
@@ -95,27 +96,38 @@ impl AppResource for UtilizationResource {
   fn render(_block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     let title = title_with_dual_style(
       format!(
-        " Resource Utilization (ns: [{}]) ",
+        " Resource Utilization (ns: [{}]) [{}] ",
         app
           .data
           .selected
           .ns
           .as_ref()
-          .unwrap_or(&String::from("all"))
+          .unwrap_or(&String::from("all")),
+        app.data.metrics.count_label(),
       ),
-      format!("| group by <g>: {:?} ", app.utilization_group_by),
+      format!(
+        "| group by <g>: {:?} | {} ",
+        app.utilization_group_by,
+        filter_status_hint(&app.data.metrics.filter, app.data.metrics.filter_active)
+      ),
       app.light_theme,
     );
     let block = layout_block_active_span(title, app.light_theme);
 
     if !app.data.metrics.items.is_empty() {
       let data = &app.data.metrics.items;
+      let filter = app.data.metrics.filter.to_lowercase();
+      let has_filter = !filter.is_empty();
 
       let prefixes = provide_prefix(data, |parent, item| parent.0.len() + 1 == item.0.len());
 
       // Create the table
+      let mut filtered_indices: Vec<usize> = Vec::new();
       let mut rows: Vec<Row<'_>> = vec![];
-      for ((k, oqtys), prefix) in data.iter().zip(prefixes.iter()) {
+      for (idx, ((k, oqtys), prefix)) in data.iter().zip(prefixes.iter()).enumerate() {
+        if !utilization_matches_filter(&filter, k) {
+          continue;
+        }
         let column0 = format!(
           "{} {}",
           prefix,
@@ -140,8 +152,21 @@ impl AppResource for UtilizationResource {
           ])
           .style(style);
           rows.push(row);
+          if has_filter {
+            filtered_indices.push(idx);
+          }
         }
       }
+
+      if has_filter {
+        let max = filtered_indices.len().saturating_sub(1);
+        if let Some(sel) = app.data.metrics.state.selected() {
+          if sel > max {
+            app.data.metrics.state.select(Some(max));
+          }
+        }
+      }
+      app.data.metrics.filtered_indices = filtered_indices;
 
       let table = Table::new(
         rows,
@@ -227,6 +252,14 @@ impl AppResource for UtilizationResource {
   }
 }
 
+fn utilization_matches_filter(filter: &str, qualifiers: &[String]) -> bool {
+  filter.is_empty()
+    || qualifiers
+      .iter()
+      .any(|part| text_matches_filter(filter, part))
+    || text_matches_filter(filter, &qualifiers.join(" "))
+}
+
 fn make_table_cell<'a>(oqty: &Option<Qty>, o100: &Option<Qty>) -> Cell<'a> {
   let txt = match oqty {
     None => "__".into(),
@@ -293,5 +326,23 @@ mod tests {
         mem_percent: 0f64,
       }
     );
+  }
+
+  #[test]
+  fn test_utilization_matches_filter() {
+    let qualifiers = vec![
+      "namespace-a".to_string(),
+      "pod-web-123".to_string(),
+      "container-1".to_string(),
+    ];
+
+    assert!(utilization_matches_filter("", &qualifiers));
+    assert!(utilization_matches_filter("pod-web", &qualifiers));
+    assert!(utilization_matches_filter("namespace-*", &qualifiers));
+    assert!(utilization_matches_filter(
+      "namespace-a pod-web-123",
+      &qualifiers
+    ));
+    assert!(!utilization_matches_filter("db", &qualifiers));
   }
 }

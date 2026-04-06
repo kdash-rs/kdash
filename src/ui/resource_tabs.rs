@@ -7,8 +7,8 @@ use ratatui::{
 
 use super::{
   utils::{
-    centered_rect, layout_block_default, layout_block_top_border, style_default, style_highlight,
-    style_secondary, vertical_chunks, vertical_chunks_with_margin,
+    centered_rect, filter_bar_title, layout_block_default, layout_block_top_border, style_default,
+    style_highlight, style_secondary, vertical_chunks, vertical_chunks_with_margin,
   },
   HIGHLIGHT,
 };
@@ -109,28 +109,7 @@ fn tab_count_label(app: &App, index: usize) -> String {
 
 fn draw_filter_bar(f: &mut Frame<'_>, app: &App, area: Rect, current_filter: Option<(&str, bool)>) {
   let (filter, filter_active) = current_filter.unwrap_or(("", false));
-  let title = if filter_active || !filter.is_empty() {
-    let label = if filter_active && filter.is_empty() {
-      "type to filter"
-    } else {
-      filter
-    };
-    let hint = if filter_active {
-      "| clear <esc> "
-    } else {
-      "| edit < / > "
-    };
-    Line::from(vec![
-      Span::styled(" / ", style_secondary(app.light_theme)),
-      Span::styled(label, style_default(app.light_theme)),
-      Span::styled(format!("  {}", hint), style_secondary(app.light_theme)),
-    ])
-  } else {
-    Line::from(vec![Span::styled(
-      " filter < / > ",
-      style_secondary(app.light_theme),
-    )])
-  };
+  let title = filter_bar_title(filter, filter_active, app.light_theme);
 
   f.render_widget(layout_block_top_border(title), area);
 

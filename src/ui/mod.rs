@@ -136,12 +136,12 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
   let text = match app.get_current_route().id {
     RouteId::Contexts => vec![Line::from("<↑↓> scroll | <enter> select | <?> help ")],
     RouteId::Home => vec![Line::from(
-      "<←→> switch tabs | <char> select block | <↑↓> scroll | <enter> select | <?> help ",
+      "<←→> switch tabs | <char> select block | <↑↓> scroll | <enter> select | </> filter | <?> help ",
     )],
     RouteId::Utilization => vec![Line::from(
-      "<↑↓> scroll | <g> cycle through grouping | <?> help ",
+      "<↑↓> scroll | </> filter | <g> cycle through grouping | <?> help ",
     )],
-    RouteId::Troubleshoot => vec![Line::from("<↑↓> scroll | <?> help ")],
+    RouteId::Troubleshoot => vec![Line::from("<↑↓> scroll | </> filter | <?> help ")],
     RouteId::HelpMenu => vec![],
   };
   let paragraph = Paragraph::new(text)

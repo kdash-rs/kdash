@@ -686,7 +686,11 @@ async fn handle_route_events(key: Key, app: &mut App) {
       }
     }
     RouteId::Utilization => {
-      if key == DEFAULT_KEYBINDING.cycle_group_by.key {
+      if key == Key::Char('/') {
+        if let Some((_, filter_active, _)) = app.current_resource_filter_mut() {
+          *filter_active = true;
+        }
+      } else if key == DEFAULT_KEYBINDING.cycle_group_by.key {
         if app.utilization_group_by.len() == 1 {
           app.utilization_group_by = vec![
             GroupBy::resource,
@@ -702,6 +706,13 @@ async fn handle_route_events(key: Key, app: &mut App) {
       }
     }
     RouteId::Troubleshoot => {
+      if key == Key::Char('/') {
+        if let Some((_, filter_active, _)) = app.current_resource_filter_mut() {
+          *filter_active = true;
+          return;
+        }
+      }
+
       match app.get_current_route().active_block {
         ActiveBlock::Containers => {
           if let Some(c) = handle_block_action(key, &app.data.containers) {
@@ -1033,6 +1044,60 @@ mod tests {
     let key_evt = KeyEvent::from(KeyCode::Esc);
     handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
     assert!(!app.ns_filter_active);
+  }
+
+  #[tokio::test]
+  async fn test_utilization_filter_key_flow() {
+    let mut app = App::default();
+    app.route_utilization();
+    assert!(!app.data.metrics.filter_active);
+    assert!(app.data.metrics.filter.is_empty());
+
+    let key_evt = KeyEvent::from(KeyCode::Char('/'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert!(app.data.metrics.filter_active);
+
+    for c in ['c', 'p', 'u'] {
+      let key_evt = KeyEvent::from(KeyCode::Char(c));
+      handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    }
+    assert_eq!(app.data.metrics.filter, "cpu");
+
+    let key_evt = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert!(app.data.metrics.filter_active);
+    assert!(app.data.metrics.filter.is_empty());
+
+    let key_evt = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert!(!app.data.metrics.filter_active);
+  }
+
+  #[tokio::test]
+  async fn test_troubleshoot_filter_key_flow() {
+    let mut app = App::default();
+    app.route_troubleshoot();
+    assert!(!app.data.troubleshoot_findings.filter_active);
+    assert!(app.data.troubleshoot_findings.filter.is_empty());
+
+    let key_evt = KeyEvent::from(KeyCode::Char('/'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert!(app.data.troubleshoot_findings.filter_active);
+
+    for c in ['p', 'o', 'd'] {
+      let key_evt = KeyEvent::from(KeyCode::Char(c));
+      handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    }
+    assert_eq!(app.data.troubleshoot_findings.filter, "pod");
+
+    let key_evt = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert!(app.data.troubleshoot_findings.filter_active);
+    assert!(app.data.troubleshoot_findings.filter.is_empty());
+
+    let key_evt = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert!(!app.data.troubleshoot_findings.filter_active);
   }
 
   #[tokio::test]

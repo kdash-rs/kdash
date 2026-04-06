@@ -311,6 +311,66 @@ pub fn layout_block_top_border(title: Line<'_>) -> Block<'_> {
   Block::default().borders(Borders::TOP).title(title)
 }
 
+enum FilterDisplayState<'a> {
+  Inactive,
+  EditingEmpty,
+  Value { filter: &'a str, active: bool },
+}
+
+fn filter_display_state(filter: &str, active: bool) -> FilterDisplayState<'_> {
+  if active && filter.is_empty() {
+    FilterDisplayState::EditingEmpty
+  } else if !filter.is_empty() {
+    FilterDisplayState::Value { filter, active }
+  } else {
+    FilterDisplayState::Inactive
+  }
+}
+
+pub fn filter_status_hint(filter: &str, active: bool) -> String {
+  match filter_display_state(filter, active) {
+    FilterDisplayState::Inactive => "filter < / >".to_string(),
+    FilterDisplayState::EditingEmpty => "type to filter | clear <esc>".to_string(),
+    FilterDisplayState::Value {
+      filter,
+      active: true,
+    } => format!("[{}] | clear <esc>", filter),
+    FilterDisplayState::Value {
+      filter,
+      active: false,
+    } => format!("[{}] | edit < / >", filter),
+  }
+}
+
+pub fn filter_bar_title<'a>(filter: &'a str, active: bool, light: bool) -> Line<'a> {
+  match filter_display_state(filter, active) {
+    FilterDisplayState::Inactive => {
+      Line::from(vec![Span::styled(" filter < / > ", style_secondary(light))])
+    }
+    FilterDisplayState::EditingEmpty => Line::from(vec![
+      Span::styled(" / ", style_secondary(light)),
+      Span::styled("type to filter", style_default(light)),
+      Span::styled("  | clear <esc> ", style_secondary(light)),
+    ]),
+    FilterDisplayState::Value {
+      filter,
+      active: true,
+    } => Line::from(vec![
+      Span::styled(" / ", style_secondary(light)),
+      Span::styled(filter, style_default(light)),
+      Span::styled("  | clear <esc> ", style_secondary(light)),
+    ]),
+    FilterDisplayState::Value {
+      filter,
+      active: false,
+    } => Line::from(vec![
+      Span::styled(" / ", style_secondary(light)),
+      Span::styled(filter, style_default(light)),
+      Span::styled("  | edit < / > ", style_secondary(light)),
+    ]),
+  }
+}
+
 pub fn title_with_dual_style<'a>(part_1: String, part_2: String, light: bool) -> Line<'a> {
   Line::from(vec![
     Span::styled(part_1, style_secondary(light).add_modifier(Modifier::BOLD)),
@@ -539,10 +599,14 @@ pub fn filter_by_resource_name<T: KubeResource<U>, U: Serialize>(
   }
 }
 
+pub fn text_matches_filter(filter: &str, value: &str) -> bool {
+  let filter = filter.to_lowercase();
+  let value = value.to_lowercase();
+  filter.is_empty() || glob_match(&filter, &value) || value.contains(&filter)
+}
+
 fn filter_by_name<T: KubeResource<U>, U: Serialize>(ft: &str, res: &T) -> bool {
-  ft.is_empty()
-    || glob_match(&ft.to_lowercase(), &res.get_name().to_lowercase())
-    || res.get_name().to_lowercase().contains(&ft.to_lowercase())
+  text_matches_filter(ft, res.get_name())
 }
 
 pub fn get_cluster_wide_resource_title<S: AsRef<str>>(
