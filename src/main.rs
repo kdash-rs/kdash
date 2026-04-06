@@ -3,6 +3,7 @@
 mod app;
 mod banner;
 mod cmd;
+mod config;
 mod event;
 mod handlers;
 mod network;
@@ -16,11 +17,12 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use app::App;
+use app::{key_binding::initialize_keybindings, App};
 use banner::BANNER;
 use chrono::{self};
 use clap::{builder::PossibleValuesParser, Parser};
 use cmd::{CmdRunner, IoCmdEvent};
+use config::load_config;
 use crossterm::{
   execute,
   terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
@@ -38,6 +40,7 @@ use ratatui::{
 };
 use simplelog::{Config, WriteLogger};
 use tokio::sync::{mpsc, Mutex};
+use ui::theme::initialize_theme;
 
 /// kdash CLI
 #[derive(Parser, Debug)]
@@ -100,6 +103,13 @@ async fn main() -> Result<()> {
   let (sync_io_tx, sync_io_rx) = mpsc::channel::<IoEvent>(500);
   let (sync_io_stream_tx, sync_io_stream_rx) = mpsc::channel::<IoStreamEvent>(500);
   let (sync_io_cmd_tx, sync_io_cmd_rx) = mpsc::channel::<IoCmdEvent>(500);
+  let loaded_config = load_config();
+  let mut config_warnings = vec![];
+  if let Some(warning) = loaded_config.warning.clone() {
+    config_warnings.push(warning);
+  }
+  config_warnings.extend(initialize_keybindings(&loaded_config.config));
+  config_warnings.extend(initialize_theme(&loaded_config.config));
 
   // Initialize app state
   let app = Arc::new(Mutex::new(App::new(
@@ -108,7 +118,20 @@ async fn main() -> Result<()> {
     sync_io_cmd_tx,
     cli.enhanced_graphics,
     cli.poll_rate / cli.tick_rate,
+    loaded_config.config,
   )));
+
+  {
+    let app = app.lock().await;
+    if app.config.keybindings.is_some() || app.config.theme.is_some() {
+      info!("Loaded config overrides from file");
+    }
+  }
+
+  if !config_warnings.is_empty() {
+    let mut app = app.lock().await;
+    app.handle_error(anyhow!(config_warnings.join(" | ")));
+  }
 
   // Launch network, stream, and cmd tasks on a dedicated tokio runtime running
   // on its own OS thread.  This keeps all network I/O off the main runtime so

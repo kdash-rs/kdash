@@ -8,13 +8,16 @@ use ratatui::{
 use super::{
   resource_tabs::draw_resource_tabs_block,
   utils::{
-    default_part, get_gauge_symbol, help_part, horizontal_chunks, layout_block_default,
-    layout_block_default_line, loading, mixed_bold_line, style_default, style_failure, style_logo,
-    style_primary, vertical_chunks, vertical_chunks_with_margin,
+    action_hint, default_part, get_gauge_symbol, help_part, horizontal_chunks,
+    layout_block_default, layout_block_default_line, loading, mixed_bold_line, style_failure,
+    style_logo, style_primary, style_text, vertical_chunks, vertical_chunks_with_margin,
   },
 };
 use crate::{
-  app::{metrics::KubeNodeMetrics, models::AppResource, ns::NamespaceResource, ActiveBlock, App},
+  app::{
+    key_binding::DEFAULT_KEYBINDING, metrics::KubeNodeMetrics, models::AppResource,
+    ns::NamespaceResource, ActiveBlock, App,
+  },
   banner::BANNER,
 };
 
@@ -93,7 +96,13 @@ fn draw_context_info_block(f: &mut Frame<'_>, app: &App, area: Rect) {
   );
 
   let block = layout_block_default_line(mixed_bold_line(
-    [default_part(" Context Info "), help_part("toggle <i> ")],
+    [
+      default_part(" Context Info "),
+      help_part(format!(
+        "{} ",
+        action_hint("toggle", DEFAULT_KEYBINDING.toggle_info.key)
+      )),
+    ],
     app.light_theme,
   ));
 
@@ -104,30 +113,30 @@ fn draw_context_info_block(f: &mut Frame<'_>, app: &App, area: Rect) {
       if let Some(user) = &active_context.user {
         vec![
           Line::from(vec![
-            Span::styled("Context: ", style_default(app.light_theme)),
+            Span::styled("Context: ", style_text(app.light_theme)),
             Span::styled(&active_context.name, style_primary(app.light_theme)),
           ]),
           Line::from(vec![
-            Span::styled("Cluster: ", style_default(app.light_theme)),
+            Span::styled("Cluster: ", style_text(app.light_theme)),
             Span::styled(&active_context.cluster, style_primary(app.light_theme)),
           ]),
           Line::from(vec![
-            Span::styled("User: ", style_default(app.light_theme)),
+            Span::styled("User: ", style_text(app.light_theme)),
             Span::styled(user, style_primary(app.light_theme)),
           ]),
         ]
       } else {
         vec![
           Line::from(vec![
-            Span::styled("Context: ", style_default(app.light_theme)),
+            Span::styled("Context: ", style_text(app.light_theme)),
             Span::styled(&active_context.name, style_primary(app.light_theme)),
           ]),
           Line::from(vec![
-            Span::styled("Cluster: ", style_default(app.light_theme)),
+            Span::styled("Cluster: ", style_text(app.light_theme)),
             Span::styled(&active_context.cluster, style_primary(app.light_theme)),
           ]),
           Line::from(vec![
-            Span::styled("User: ", style_default(app.light_theme)),
+            Span::styled("User: ", style_text(app.light_theme)),
             Span::styled("<none>", style_primary(app.light_theme)),
           ]),
         ]

@@ -12,7 +12,7 @@ use super::{
   },
   HIGHLIGHT,
 };
-use crate::app::{models::FilterableTable, App};
+use crate::app::{key_binding::DEFAULT_KEYBINDING, models::FilterableTable, App};
 
 pub fn draw_help(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let chunks = vertical_chunks(vec![Constraint::Percentage(100)], area);
@@ -32,7 +32,10 @@ pub fn draw_help(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     app.help_docs.filter_active,
   ));
   if !app.help_docs.filter_active {
-    title_parts.push(help_part(" | close <esc> ".to_string()));
+    title_parts.push(help_part(format!(
+      " | close {} ",
+      DEFAULT_KEYBINDING.esc.key
+    )));
   }
 
   let filter = app.help_docs.filter.to_lowercase();
@@ -97,7 +100,7 @@ mod tests {
   use ratatui::{backend::TestBackend, style::Modifier, Terminal};
 
   use super::*;
-  use crate::ui::utils::{COLOR_CYAN, COLOR_LIGHT_BLUE, COLOR_WHITE, COLOR_YELLOW};
+  use crate::ui::utils::{MACCHIATO_BLUE, MACCHIATO_MAUVE, MACCHIATO_TEXT, MACCHIATO_YELLOW};
 
   #[test]
   fn test_draw_help() {
@@ -124,7 +127,7 @@ mod tests {
     assert_eq!(
       lines,
       vec![
-        "┌ Help [39] filter </> | close <esc> ──────────────────────────────────────────────────────────────┐",
+        "┌ Help [39] filter </> | close <Esc> ──────────────────────────────────────────────────────────────┐",
         "│   Key                                               Action                                  Conte│",
         "│=> <Ctrl+c> | <q>                                    Quit                                    Gener│",
         "│   <Esc>                                             Close child page/Go back                Gener│",
@@ -134,17 +137,17 @@ mod tests {
       ]
     );
 
-    assert_eq!(buffer[(0, 0)].fg, COLOR_YELLOW);
-    assert_eq!(buffer[(1, 0)].fg, COLOR_WHITE);
+    assert_eq!(buffer[(0, 0)].fg, MACCHIATO_YELLOW);
+    assert_eq!(buffer[(1, 0)].fg, MACCHIATO_TEXT);
     assert!(buffer[(1, 0)].modifier.contains(Modifier::BOLD));
-    assert_eq!(buffer[(12, 0)].fg, COLOR_LIGHT_BLUE);
+    assert_eq!(buffer[(12, 0)].fg, MACCHIATO_BLUE);
     assert!(buffer[(12, 0)].modifier.contains(Modifier::BOLD));
-    assert_eq!(buffer[(23, 0)].fg, COLOR_LIGHT_BLUE);
+    assert_eq!(buffer[(23, 0)].fg, MACCHIATO_BLUE);
     assert!(buffer[(23, 0)].modifier.contains(Modifier::BOLD));
-    assert_eq!(buffer[(1, 2)].fg, COLOR_CYAN);
+    assert_eq!(buffer[(1, 2)].fg, MACCHIATO_MAUVE);
     assert!(buffer[(1, 2)].modifier.contains(Modifier::REVERSED));
-    assert_eq!(buffer[(1, 3)].fg, COLOR_CYAN);
-    assert_eq!(buffer[(99, 6)].fg, COLOR_YELLOW);
+    assert_eq!(buffer[(1, 3)].fg, MACCHIATO_MAUVE);
+    assert_eq!(buffer[(99, 6)].fg, MACCHIATO_YELLOW);
   }
 
   #[test]
@@ -168,7 +171,7 @@ mod tests {
       .map(|col| buffer[(col, 0)].symbol())
       .collect();
 
-    assert!(first_line.contains("Help [1/39] [pod] | clear <esc>"));
-    assert!(!first_line.contains("close <esc>"));
+    assert!(first_line.contains("Help [1/39] [pod] | clear <Esc>"));
+    assert!(!first_line.contains("close <Esc>"));
   }
 }

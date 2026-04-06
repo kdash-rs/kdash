@@ -12,6 +12,7 @@ use ratatui::{
 };
 
 use super::{
+  key_binding::DEFAULT_KEYBINDING,
   models::{AppResource, KubeResource},
   utils::{self, UNKNOWN},
   ActiveBlock, App,
@@ -19,10 +20,10 @@ use super::{
 use crate::{
   network::Network,
   ui::utils::{
-    copy_and_escape_title_line, draw_describe_block, draw_resource_block, draw_yaml_block,
-    get_describe_active, get_resource_title, help_bold_line, help_part, layout_block_top_border,
-    loading, mixed_bold_line, style_failure, style_primary, style_secondary, style_success,
-    title_with_dual_style, ResourceTableProps, DESCRIBE_YAML_AND_LOGS_HINT,
+    action_hint, copy_and_escape_title_line, describe_yaml_and_logs_hint, draw_describe_block,
+    draw_resource_block, draw_yaml_block, get_describe_active, get_resource_title, help_bold_line,
+    help_part, layout_block_top_border, loading, mixed_bold_line, style_caution, style_failure,
+    style_primary, style_success, title_with_dual_style, ResourceTableProps,
   },
 };
 
@@ -255,8 +256,10 @@ pub(crate) fn draw_block_as_sub(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: help_bold_line(
         format!(
-          "Containers <enter> | {} | back <esc> ",
-          DESCRIBE_YAML_AND_LOGS_HINT
+          "{} | {} | back {} ",
+          action_hint("Containers", DEFAULT_KEYBINDING.submit.key),
+          describe_yaml_and_logs_hint().trim_end(),
+          DEFAULT_KEYBINDING.esc.key
         ),
         app.light_theme,
       ),
@@ -298,7 +301,11 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     ResourceTableProps {
       title,
       inline_help: help_bold_line(
-        format!("Containers <enter> | {}", DESCRIBE_YAML_AND_LOGS_HINT),
+        format!(
+          "{} | {}",
+          action_hint("Containers", DEFAULT_KEYBINDING.submit.key),
+          describe_yaml_and_logs_hint()
+        ),
         app.light_theme,
       ),
       resource: &mut app.data.pods,
@@ -340,9 +347,12 @@ pub(crate) fn draw_containers_block(f: &mut Frame<'_>, app: &mut App, area: Rect
       title,
       inline_help: mixed_bold_line(
         [
-          help_part("logs <enter> | "),
+          help_part(format!(
+            "{} | ",
+            action_hint("logs", DEFAULT_KEYBINDING.submit.key)
+          )),
           help_part(PODS_TITLE),
-          help_part(" <esc> "),
+          help_part(format!(" {} ", DEFAULT_KEYBINDING.esc.key)),
         ],
         app.light_theme,
       ),
@@ -413,7 +423,14 @@ pub(crate) fn draw_logs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     let agg_name = app.data.logs.id.strip_prefix("agg:").unwrap_or_default();
     (
       format!(" {} -> Logs ({}) ", resource, agg_name),
-      help_bold_line("copy <c> | back <esc> ", app.light_theme),
+      help_bold_line(
+        format!(
+          "{} | back {} ",
+          action_hint("copy", DEFAULT_KEYBINDING.copy_to_clipboard.key),
+          DEFAULT_KEYBINDING.esc.key
+        ),
+        app.light_theme,
+      ),
     )
   } else {
     let selected_container = app.data.selected.container.clone();
@@ -461,7 +478,7 @@ fn get_resource_row_style(status: &str, ready: (i32, i32), light: bool) -> Style
   ]
   .contains(&status)
   {
-    style_secondary(light)
+    style_caution(light)
   } else {
     style_failure(light)
   }
@@ -805,33 +822,38 @@ mod tests {
         k8s_obj: pods_list[3].clone()
       }
     );
+    let out_of_cpu_pod = &pods[4];
+    assert_eq!(out_of_cpu_pod.namespace, "default");
+    assert_eq!(out_of_cpu_pod.name, "frontend-5c4745dfdb-6k8wf");
+    assert_eq!(out_of_cpu_pod.ready, (0, 0));
+    assert_eq!(out_of_cpu_pod.status, "OutOfcpu");
+    assert_eq!(out_of_cpu_pod.restarts, 0);
+    assert_eq!(out_of_cpu_pod.cpu, "");
+    assert_eq!(out_of_cpu_pod.mem, "");
     assert_eq!(
-      pods[4],
-      KubePod {
-        namespace: "default".into(),
-        name: "frontend-5c4745dfdb-6k8wf".into(),
-        ready: (0, 0),
-        status: "OutOfcpu".into(),
+      out_of_cpu_pod.age,
+      utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now())
+    );
+    assert_eq!(
+      out_of_cpu_pod.containers,
+      vec![KubeContainer {
+        name: "server".into(),
+        image: "gcr.io/google-samples/microservices-demo/frontend:v0.2.2".into(),
+        ready: "false".into(),
+        status: "<none>".into(),
         restarts: 0,
-        cpu: "".into(),
-        mem: "".into(),
+        liveliness_probe: true,
+        readiness_probe: true,
+        ports: "8080".into(),
         age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
-        containers: vec![KubeContainer {
-          name: "server".into(),
-          image: "gcr.io/google-samples/microservices-demo/frontend:v0.2.2".into(),
-          ready: "false".into(),
-          status: "<none>".into(),
-          restarts: 0,
-          liveliness_probe: true,
-          readiness_probe: true,
-          ports: "8080".into(),
-          age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
-          pod_name: "frontend-5c4745dfdb-6k8wf".into(),
-          k8s_obj: None,
-          init: false,
-        }],
-        k8s_obj: pods_list[4].clone()
-      }
+        pod_name: "frontend-5c4745dfdb-6k8wf".into(),
+        k8s_obj: None,
+        init: false,
+      }]
+    );
+    assert_eq!(
+      out_of_cpu_pod.k8s_obj.metadata.name.as_deref(),
+      Some("frontend-5c4745dfdb-6k8wf")
     );
     assert_eq!(
       pods[5],

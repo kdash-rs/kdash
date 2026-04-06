@@ -2,12 +2,13 @@ use rand::RngExt;
 mod help;
 mod overview;
 pub mod resource_tabs;
+pub mod theme;
 pub mod utils;
 
 use ratatui::{
   layout::{Alignment, Constraint, Rect},
   style::Modifier,
-  text::{Line, Span, Text},
+  text::{Line, Text},
   widgets::{Block, Borders, Paragraph, Tabs, Wrap},
   Frame,
 };
@@ -16,9 +17,9 @@ use self::{
   help::draw_help,
   overview::draw_overview,
   utils::{
-    default_part, help_part, horizontal_chunks_with_margin, mixed_bold_line, mixed_line,
-    split_hint_suffix, style_failure, style_header, style_header_text, style_main_background,
-    style_primary, style_secondary, vertical_chunks,
+    action_hint, default_part, help_part, horizontal_chunks_with_margin, key_hints,
+    mixed_bold_line, mixed_line, split_hint_suffix, style_failure, style_header,
+    style_main_background, style_primary, style_secondary, vertical_chunks,
   },
 };
 use crate::app::{
@@ -81,13 +82,10 @@ pub fn draw(f: &mut Frame<'_>, app: &mut App) {
 }
 
 fn draw_app_title(f: &mut Frame<'_>, app: &App, area: Rect) {
-  let title = Paragraph::new(Span::styled(
-    app.title,
-    style_header_text(app.light_theme).add_modifier(Modifier::BOLD),
-  ))
-  .style(style_header())
-  .block(Block::default())
-  .alignment(Alignment::Left);
+  let title = Paragraph::new(app.title)
+    .style(style_header(app.light_theme).add_modifier(Modifier::BOLD))
+    .block(Block::default())
+    .alignment(Alignment::Left);
   f.render_widget(title, area);
 
   let text = format!(
@@ -96,8 +94,8 @@ fn draw_app_title(f: &mut Frame<'_>, app: &App, area: Rect) {
     nw_loading_indicator(app.is_loading())
   );
 
-  let meta = Paragraph::new(Span::styled(text, style_header_text(app.light_theme)))
-    .style(style_header())
+  let meta = Paragraph::new(text)
+    .style(style_header(app.light_theme))
     .block(Block::default())
     .alignment(Alignment::Right);
   f.render_widget(meta, area);
@@ -149,29 +147,41 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
   let text = match app.get_current_route().id {
     RouteId::Contexts => vec![mixed_line(
       [help_part(format!(
-        "<↑↓> scroll | <enter> select | {} filter | <?> help ",
-        DEFAULT_KEYBINDING.filter.key
+        "{} scroll | {} select | {} | {} ",
+        key_hints(&[DEFAULT_KEYBINDING.up.key, DEFAULT_KEYBINDING.down.key]),
+        DEFAULT_KEYBINDING.submit.key,
+        action_hint("filter", DEFAULT_KEYBINDING.filter.key),
+        action_hint("help", DEFAULT_KEYBINDING.help.key)
       ))],
       app.light_theme,
     )],
     RouteId::Home => vec![mixed_line(
       [help_part(format!(
-        "<←→> switch tabs | <char> select block | <↑↓> scroll | <enter> select | {} filter | <?> help ",
-        DEFAULT_KEYBINDING.filter.key
+        "{} switch tabs | <char> select block | {} scroll | {} select | {} | {} ",
+        key_hints(&[DEFAULT_KEYBINDING.left.key, DEFAULT_KEYBINDING.right.key]),
+        key_hints(&[DEFAULT_KEYBINDING.up.key, DEFAULT_KEYBINDING.down.key]),
+        DEFAULT_KEYBINDING.submit.key,
+        action_hint("filter", DEFAULT_KEYBINDING.filter.key),
+        action_hint("help", DEFAULT_KEYBINDING.help.key)
       ))],
       app.light_theme,
     )],
     RouteId::Utilization => vec![mixed_line(
       [help_part(format!(
-        "<↑↓> scroll | {} filter | <g> cycle through grouping | <?> help ",
-        DEFAULT_KEYBINDING.filter.key
+        "{} scroll | {} | {} | {} ",
+        key_hints(&[DEFAULT_KEYBINDING.up.key, DEFAULT_KEYBINDING.down.key]),
+        action_hint("filter", DEFAULT_KEYBINDING.filter.key),
+        action_hint("cycle grouping", DEFAULT_KEYBINDING.cycle_group_by.key),
+        action_hint("help", DEFAULT_KEYBINDING.help.key)
       ))],
       app.light_theme,
     )],
     RouteId::Troubleshoot => vec![mixed_line(
       [help_part(format!(
-        "<↑↓> scroll | {} filter | <?> help ",
-        DEFAULT_KEYBINDING.filter.key
+        "{} scroll | {} | {} ",
+        key_hints(&[DEFAULT_KEYBINDING.up.key, DEFAULT_KEYBINDING.down.key]),
+        action_hint("filter", DEFAULT_KEYBINDING.filter.key),
+        action_hint("help", DEFAULT_KEYBINDING.help.key)
       ))],
       app.light_theme,
     )],
@@ -186,7 +196,10 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
 fn draw_app_error(f: &mut Frame<'_>, app: &App, size: Rect) {
   let block = Block::default()
     .title(mixed_bold_line(
-      [default_part(" Error "), help_part("| close <esc> ")],
+      [
+        default_part(" Error "),
+        help_part(format!("| close {} ", DEFAULT_KEYBINDING.esc.key)),
+      ],
       app.light_theme,
     ))
     .style(style_failure(app.light_theme))

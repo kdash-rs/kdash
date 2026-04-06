@@ -146,6 +146,44 @@ kdash
 
 Press `?` while running the app to see keybindings
 
+## Configuration
+
+KDash supports config-based keybinding and theme overrides.
+
+By default it reads config from:
+
+- `~/.config/kdash/config.yaml`
+
+You can also point it at a specific file with:
+
+```bash
+KDASH_CONFIG=/path/to/config.yaml kdash
+```
+
+Theme overrides support separate light and dark values:
+
+```yaml
+theme:
+  dark:
+    primary: "#89B4FA"
+    background: "#11111B"
+  light:
+    primary: "#D20F39"
+    background: "#FAF7F0"
+```
+
+Keybindings are overridden by binding name:
+
+```yaml
+keybindings:
+  filter: f
+  help: h
+  describe_resource: i
+  resource_yaml: v
+```
+
+See the sample config in [assets/kdash.sample-config.yaml](assets/kdash.sample-config.yaml) for a complete example with both custom keybindings and custom light/dark theme overrides.
+
 ## FLAGS:
 
 - `-h, --help`: Prints help information
@@ -178,6 +216,7 @@ Press `?` while running the app to see keybindings
 - Resources utilizations for nodes, pods and namespaces based on metrics server. Requires [metrics-server](https://kubernetes.io/docs/tasks/debug-application-cluster/resource-metrics-pipeline/#metrics-server) to be deployed on the cluster.
 - Dark/Light themes
 - Sensible keyboard shortcuts
+- Configurable keybindings and theme overrides
 - Global glob filtering for resource names
 
 ## Screenshots
@@ -236,6 +275,7 @@ MIT
 
 - [ ] R1: Enter to describe in dynamic resource view
 - [ ] Troubleshoot might be missinng borders when empty
+- [ ] ctrl_r doesnt reset active tab in resource view
 - [ ] R3: Scroll tabs and title text when cant fit in viewport
 - [ ] R5: Open issues in docs/plans/2026-04-03-002-fix-open-issues-plan.md
 - [ ] catpuccin theme by default

@@ -1,16 +1,49 @@
-use std::fmt;
+use std::{fmt, ops::Deref, sync::OnceLock};
 
+use log::warn;
+
+use crate::config::KdashConfig;
 use crate::event::Key;
 
 // using a macro so that we can automatically generate an iterable vector for bindings. This beats reflection :)
 macro_rules! generate_keybindings {
   ($($field:ident),+) => {
+    #[derive(Clone)]
     pub struct KeyBindings { $(pub $field: KeyBinding),+ }
     impl KeyBindings {
       pub fn as_iter(&self) -> Vec<&KeyBinding> {
         vec![
             $(&self.$field),+
         ]
+      }
+
+      pub fn with_overrides(&self, config: &KdashConfig) -> (Self, Vec<String>) {
+        let mut updated = self.clone();
+        let mut warnings = vec![];
+
+        if let Some(overrides) = &config.keybindings {
+          $(
+            if let Some(value) = overrides.values.get(stringify!($field)) {
+              match value.parse::<Key>() {
+                Ok(key) => updated.$field.key = key,
+                Err(error) => warnings.push(format!(
+                  "Invalid keybinding override for {}: {} ({})",
+                  stringify!($field),
+                  value,
+                  error
+                )),
+              }
+            }
+          )+
+
+          for field in overrides.values.keys() {
+            if ![ $(stringify!($field)),+ ].contains(&field.as_str()) {
+              warnings.push(format!("Unknown keybinding override: {}", field));
+            }
+          }
+        }
+
+        (updated, warnings)
       }
     }
   };
@@ -80,7 +113,7 @@ pub struct KeyBinding {
   pub context: HContext,
 }
 
-pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
+const DEFAULT_KEYBINDINGS: KeyBindings = KeyBindings {
   quit: KeyBinding {
     key: Key::Ctrl('c'),
     alt: Some(Key::Char('q')),
@@ -317,6 +350,31 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
   },
 };
 
+static ACTIVE_KEYBINDINGS: OnceLock<KeyBindings> = OnceLock::new();
+
+pub struct ActiveKeyBindings;
+
+impl Deref for ActiveKeyBindings {
+  type Target = KeyBindings;
+
+  fn deref(&self) -> &Self::Target {
+    ACTIVE_KEYBINDINGS.get_or_init(|| DEFAULT_KEYBINDINGS.clone())
+  }
+}
+
+pub static DEFAULT_KEYBINDING: ActiveKeyBindings = ActiveKeyBindings;
+
+pub fn initialize_keybindings(config: &KdashConfig) -> Vec<String> {
+  let (keybindings, warnings) = DEFAULT_KEYBINDINGS.with_overrides(config);
+  let _ = ACTIVE_KEYBINDINGS.set(keybindings);
+
+  for warning in &warnings {
+    warn!("{}", warning);
+  }
+
+  warnings
+}
+
 pub fn get_help_docs() -> Vec<Vec<String>> {
   let items = DEFAULT_KEYBINDING.as_iter();
 
@@ -337,10 +395,46 @@ fn help_row(item: &KeyBinding) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-  use super::DEFAULT_KEYBINDING;
+  use super::{DEFAULT_KEYBINDINGS, *};
+  use crate::config::{KdashConfig, KeybindingOverrides};
+  use std::collections::BTreeMap;
 
   #[test]
   fn test_as_iter() {
     assert!(DEFAULT_KEYBINDING.as_iter().len() >= 28);
+  }
+
+  #[test]
+  fn test_with_overrides_updates_known_binding() {
+    let config = KdashConfig {
+      keybindings: Some(KeybindingOverrides {
+        values: BTreeMap::from([("quit".into(), "ctrl+q".into())]),
+      }),
+      ..Default::default()
+    };
+
+    let (keybindings, warnings) = DEFAULT_KEYBINDINGS.with_overrides(&config);
+
+    assert_eq!(keybindings.quit.key, Key::Ctrl('q'));
+    assert!(warnings.is_empty());
+  }
+
+  #[test]
+  fn test_with_overrides_warns_on_invalid_or_unknown_binding() {
+    let config = KdashConfig {
+      keybindings: Some(KeybindingOverrides {
+        values: BTreeMap::from([
+          ("quit".into(), "shift+tab".into()),
+          ("made_up".into(), "x".into()),
+        ]),
+      }),
+      ..Default::default()
+    };
+
+    let (_, warnings) = DEFAULT_KEYBINDINGS.with_overrides(&config);
+
+    assert_eq!(warnings.len(), 2);
+    assert!(warnings.iter().any(|warning| warning.contains("quit")));
+    assert!(warnings.iter().any(|warning| warning.contains("made_up")));
   }
 }

@@ -9,6 +9,9 @@
   - See aggregate logs from containers owned by a resource like pods, deployment, statefulset, replicaset, Jobs etc.
 - **NEW:**: Add inline filter/search to all resource tables and views.
 - **NEW:**: Add inline filter/search to More and Dynamic resource menus.
+- **NEW:**: Custom themes support.
+- **NEW:**: Custom keybindings support.
+- Defaults to catppuccin macchiato/latte theme
 - Better error handling and messages
 - Major refactor and architecture improvements
 - Log streaming fixes and improvements. Fix #6

@@ -16,9 +16,9 @@ use crate::{
   draw_resource_tab,
   network::Network,
   ui::utils::{
-    draw_describe_block, draw_resource_block, draw_yaml_block, get_describe_active,
-    get_resource_title, help_bold_line, style_primary, title_with_dual_style, ResourceTableProps,
-    DESCRIBE_AND_YAML_HINT,
+    describe_and_yaml_hint, draw_describe_block, draw_resource_block, draw_yaml_block,
+    get_describe_active, get_resource_title, help_bold_line, style_caution, style_primary,
+    title_with_dual_style, ResourceTableProps,
   },
 };
 
@@ -122,7 +122,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     area,
     ResourceTableProps {
       title,
-      inline_help: help_bold_line(DESCRIBE_AND_YAML_HINT, app.light_theme),
+      inline_help: help_bold_line(describe_and_yaml_hint(), app.light_theme),
       resource: &mut app.data.services,
       table_headers: vec![
         "Namespace",
@@ -144,6 +144,11 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       ],
     },
     |c| {
+      let style = if c.external_ip == "<pending>" {
+        style_caution(app.light_theme)
+      } else {
+        style_primary(app.light_theme)
+      };
       Row::new(vec![
         Cell::from(c.namespace.to_owned()),
         Cell::from(c.name.to_owned()),
@@ -153,7 +158,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
         Cell::from(c.ports.to_owned()),
         Cell::from(c.age.to_owned()),
       ])
-      .style(style_primary(app.light_theme))
+      .style(style)
     },
     app.light_theme,
     is_loading,

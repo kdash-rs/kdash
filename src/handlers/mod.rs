@@ -161,10 +161,19 @@ pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
       _ if key == DEFAULT_KEYBINDING.quit.key || key == DEFAULT_KEYBINDING.quit.alt.unwrap() => {
         app.should_quit = true;
       }
-      _ if key == DEFAULT_KEYBINDING.up.key || key == DEFAULT_KEYBINDING.up.alt.unwrap() => {
+      // Keep raw arrow navigation working even with remapped keybindings.
+      // In alternate-screen mode without mouse capture, some terminals translate
+      // mouse wheel scrolling into Up/Down key events.
+      _ if key == DEFAULT_KEYBINDING.up.key
+        || key == DEFAULT_KEYBINDING.up.alt.unwrap()
+        || key == Key::Up =>
+      {
         handle_block_scroll(app, true, false, false).await;
       }
-      _ if key == DEFAULT_KEYBINDING.down.key || key == DEFAULT_KEYBINDING.down.alt.unwrap() => {
+      _ if key == DEFAULT_KEYBINDING.down.key
+        || key == DEFAULT_KEYBINDING.down.alt.unwrap()
+        || key == Key::Down =>
+      {
         handle_block_scroll(app, false, false, false).await;
       }
       _ if key == DEFAULT_KEYBINDING.pg_up.key => {
@@ -415,13 +424,17 @@ async fn handle_route_events(key: Key, app: &mut App) {
     RouteId::Home => {
       match key {
         _ if key == DEFAULT_KEYBINDING.right.key
-          || key == DEFAULT_KEYBINDING.right.alt.unwrap() =>
+          || key == DEFAULT_KEYBINDING.right.alt.unwrap()
+          || key == Key::Right =>
         {
           app.deactivate_current_resource_filter();
           app.context_tabs.next();
           app.push_navigation_route(app.context_tabs.get_active_route().clone());
         }
-        _ if key == DEFAULT_KEYBINDING.left.key || key == DEFAULT_KEYBINDING.left.alt.unwrap() => {
+        _ if key == DEFAULT_KEYBINDING.left.key
+          || key == DEFAULT_KEYBINDING.left.alt.unwrap()
+          || key == Key::Left =>
+        {
           app.deactivate_current_resource_filter();
           app.context_tabs.previous();
           app.push_navigation_route(app.context_tabs.get_active_route().clone());

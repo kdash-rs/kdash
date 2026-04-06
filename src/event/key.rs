@@ -1,5 +1,6 @@
 // from https://github.com/Rigellute/spotify-tui
 use std::fmt;
+use std::str::FromStr;
 
 use crossterm::event;
 
@@ -104,6 +105,81 @@ impl fmt::Display for Key {
       _ => write!(f, "<{:?}>", self),
     }
   }
+}
+
+impl FromStr for Key {
+  type Err = String;
+
+  fn from_str(input: &str) -> Result<Self, Self::Err> {
+    let normalized = input.trim().trim_matches(['<', '>']);
+    if normalized.is_empty() {
+      return Err("key cannot be empty".into());
+    }
+
+    if normalized.chars().count() == 1 {
+      return Ok(Key::Char(
+        normalized
+          .chars()
+          .next()
+          .expect("single-character string must have one char"),
+      ));
+    }
+
+    let lower = normalized.to_lowercase();
+    let key = match lower.as_str() {
+      "enter" | "return" => Key::Enter,
+      "tab" => Key::Tab,
+      "backspace" => Key::Backspace,
+      "esc" | "escape" => Key::Esc,
+      "left" | "leftarrow" | "left-arrow" => Key::Left,
+      "right" | "rightarrow" | "right-arrow" => Key::Right,
+      "up" | "uparrow" | "up-arrow" => Key::Up,
+      "down" | "downarrow" | "down-arrow" => Key::Down,
+      "insert" | "ins" => Key::Ins,
+      "delete" | "del" => Key::Delete,
+      "home" => Key::Home,
+      "end" => Key::End,
+      "pageup" | "page-up" => Key::PageUp,
+      "pagedown" | "page-down" => Key::PageDown,
+      "space" => Key::Char(' '),
+      _ => {
+        if let Some(rest) = lower.strip_prefix("ctrl+") {
+          return parse_modified_char(rest, Key::Ctrl);
+        }
+        if let Some(rest) = lower.strip_prefix("alt+") {
+          return parse_modified_char(rest, Key::Alt);
+        }
+        if let Some(rest) = lower.strip_prefix('f') {
+          let value = rest
+            .parse::<u8>()
+            .map_err(|_| format!("unsupported key '{}'", input))?;
+          if value <= 12 {
+            return Ok(Key::from_f(value));
+          }
+        }
+        return Err(format!("unsupported key '{}'", input));
+      }
+    };
+
+    Ok(key)
+  }
+}
+
+fn parse_modified_char(input: &str, wrap: fn(char) -> Key) -> Result<Key, String> {
+  let value = if input == "space" { " " } else { input };
+  if value.chars().count() != 1 {
+    return Err(format!(
+      "modified key '{}' must target a single character",
+      input
+    ));
+  }
+
+  Ok(wrap(
+    value
+      .chars()
+      .next()
+      .expect("single-character string must have one char"),
+  ))
 }
 
 impl From<event::KeyEvent> for Key {
@@ -237,5 +313,16 @@ mod tests {
       }),
       Key::Ctrl('c')
     );
+  }
+
+  #[test]
+  fn test_key_from_str() {
+    assert_eq!("q".parse::<Key>(), Ok(Key::Char('q')));
+    assert_eq!("ctrl+q".parse::<Key>(), Ok(Key::Ctrl('q')));
+    assert_eq!("alt+x".parse::<Key>(), Ok(Key::Alt('x')));
+    assert_eq!("space".parse::<Key>(), Ok(Key::Char(' ')));
+    assert_eq!("page-down".parse::<Key>(), Ok(Key::PageDown));
+    assert_eq!("F10".parse::<Key>(), Ok(Key::F10));
+    assert!("shift+tab".parse::<Key>().is_err());
   }
 }

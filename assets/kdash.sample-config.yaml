@@ -1,0 +1,60 @@
+keybindings:
+  quit: ctrl+c
+  esc: esc
+  help: "?"
+  submit: enter
+  filter: /
+  refresh: ctrl+r
+  toggle_theme: t
+  cycle_main_views: tab
+  jump_to_current_context: A
+  jump_to_all_context: C
+  jump_to_utilization: U
+  jump_to_troubleshoot: T
+  copy_to_clipboard: c
+  pg_up: pageup
+  pg_down: pagedown
+  up: up
+  down: down
+  left: left
+  right: right
+  toggle_info: i
+  log_auto_scroll: s
+  select_all_namespace: a
+  jump_to_namespace: n
+  describe_resource: d
+  resource_yaml: "y"
+  decode_secret: x
+  jump_to_pods: "1"
+  jump_to_services: "2"
+  jump_to_nodes: "3"
+  jump_to_configmaps: "4"
+  jump_to_statefulsets: "5"
+  jump_to_replicasets: "6"
+  jump_to_deployments: "7"
+  jump_to_jobs: "8"
+  jump_to_daemonsets: "9"
+  jump_to_more_resources: "0"
+  jump_to_dynamic_resources: "-"
+  cycle_group_by: g
+  aggregate_logs: o
+
+theme:
+  dark:
+    text: "#FFFFFF"
+    failure: "#F9A7A4"
+    warning: "#FFAA42"
+    success: "#48D596"
+    primary: "#00E6E6"
+    secondary: "#F9E571"
+    help: "#8AC4FF"
+    background: "#233237"
+  light:
+    text: "#5B5757"
+    failure: "#AD1914"
+    warning: "#B8310F"
+    success: "#146149"
+    primary: "#0052A3"
+    secondary: "#991AED"
+    help: "#0052A3"
+    background: "#FFFFFF"

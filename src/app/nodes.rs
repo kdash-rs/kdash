@@ -21,11 +21,12 @@ use super::{
   ActiveBlock, App,
 };
 use crate::{
+  app::key_binding::DEFAULT_KEYBINDING,
   network::Network,
   ui::utils::{
-    copy_and_escape_title_line, draw_describe_block, draw_resource_block, draw_yaml_block,
-    get_cluster_wide_resource_title, get_describe_active, help_bold_line, style_failure,
-    style_primary, title_with_dual_style, ResourceTableProps, DESCRIBE_AND_YAML_HINT,
+    action_hint, copy_and_escape_title_line, describe_and_yaml_hint, draw_describe_block,
+    draw_resource_block, draw_yaml_block, get_cluster_wide_resource_title, get_describe_active,
+    help_bold_line, style_failure, style_primary, title_with_dual_style, ResourceTableProps,
   },
 };
 
@@ -290,7 +291,11 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     ResourceTableProps {
       title,
       inline_help: help_bold_line(
-        format!("Pods <enter> | {}", DESCRIBE_AND_YAML_HINT),
+        format!(
+          "{} | {}",
+          action_hint("Pods", DEFAULT_KEYBINDING.submit.key),
+          describe_and_yaml_hint()
+        ),
         app.light_theme,
       ),
       resource: &mut app.data.nodes,

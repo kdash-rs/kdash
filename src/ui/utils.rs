@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::BTreeMap, rc::Rc, sync::OnceLock};
+use std::{borrow::Cow, collections::BTreeMap, io::Cursor, rc::Rc, sync::OnceLock};
 
 use glob_match::glob_match;
 use ratatui::{
@@ -17,15 +17,9 @@ use crate::app::{
   models::{KubeResource, StatefulTable},
   ActiveBlock, App,
 };
+use crate::event::Key;
+use crate::ui::theme::override_color;
 // Utils
-
-pub static DESCRIBE_AND_YAML_HINT: &str = "describe <d> | yaml <y> ";
-pub static DESCRIBE_YAML_AND_LOGS_HINT: &str = "describe <d> | yaml <y> | logs <o> ";
-pub static DESCRIBE_YAML_LOGS_AND_ESC_HINT: &str =
-  "describe <d> | yaml <y> | logs <o> | back to menu <esc> ";
-pub static DESCRIBE_YAML_AND_ESC_HINT: &str = "describe <d> | yaml <y> | back to menu <esc> ";
-pub static DESCRIBE_YAML_DECODE_AND_ESC_HINT: &str =
-  "describe <d> | yaml <y> | decode <x> | back to menu <esc> ";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LinePart<'a> {
@@ -33,32 +27,27 @@ pub enum LinePart<'a> {
   Help(Cow<'a, str>),
 }
 
-// default colors
-pub const COLOR_TEAL: Color = Color::Rgb(35, 50, 55);
-pub const COLOR_CYAN: Color = Color::Rgb(0, 230, 230);
-pub const COLOR_LIGHT_BLUE: Color = Color::Rgb(138, 196, 255);
-pub const COLOR_YELLOW: Color = Color::Rgb(249, 229, 113);
-pub const COLOR_GREEN: Color = Color::Rgb(72, 213, 150);
-pub const COLOR_RED: Color = Color::Rgb(249, 167, 164);
-pub const COLOR_ORANGE: Color = Color::Rgb(255, 170, 66);
-pub const COLOR_WHITE: Color = Color::Rgb(255, 255, 255);
-pub const COLOR_MAGENTA: Color = Color::Rgb(199, 146, 234);
-pub const COLOR_DARK_GRAY: Color = Color::Rgb(50, 50, 50);
-// light theme colors
-pub const COLOR_MAGENTA_DARK: Color = Color::Rgb(153, 26, 237);
-pub const COLOR_GRAY: Color = Color::Rgb(91, 87, 87);
-pub const COLOR_BLUE: Color = Color::Rgb(0, 82, 163);
-pub const COLOR_GREEN_DARK: Color = Color::Rgb(20, 97, 73);
-pub const COLOR_RED_DARK: Color = Color::Rgb(173, 25, 20);
-pub const COLOR_ORANGE_DARK: Color = Color::Rgb(184, 49, 15);
-// YAML background colors
-const YAML_BACKGROUND_LIGHT: syntect::highlighting::Color = syntect::highlighting::Color::WHITE;
-const YAML_BACKGROUND_DARK: syntect::highlighting::Color = syntect::highlighting::Color {
-  r: 35,
-  g: 50,
-  b: 55,
-  a: 255,
-}; // corresponds to TEAL
+// Catppuccin Macchiato (dark)
+pub const MACCHIATO_BASE: Color = Color::Rgb(36, 39, 58);
+pub const MACCHIATO_BLUE: Color = Color::Rgb(138, 173, 244);
+pub const MACCHIATO_GREEN: Color = Color::Rgb(166, 218, 149);
+pub const MACCHIATO_RED: Color = Color::Rgb(237, 135, 150);
+pub const MACCHIATO_YELLOW: Color = Color::Rgb(238, 212, 159);
+pub const MACCHIATO_PEACH: Color = Color::Rgb(245, 169, 127);
+pub const MACCHIATO_TEXT: Color = Color::Rgb(202, 211, 245);
+pub const MACCHIATO_MAUVE: Color = Color::Rgb(198, 160, 246);
+// Catppuccin Latte (light)
+pub const LATTE_MAUVE: Color = Color::Rgb(136, 57, 239);
+pub const LATTE_TEXT: Color = Color::Rgb(76, 79, 105);
+pub const LATTE_BLUE: Color = Color::Rgb(30, 102, 245);
+pub const LATTE_MAROON: Color = Color::Rgb(230, 69, 83);
+pub const LATTE_GREEN: Color = Color::Rgb(64, 160, 43);
+pub const LATTE_RED: Color = Color::Rgb(210, 15, 57);
+pub const LATTE_PEACH: Color = Color::Rgb(254, 100, 11);
+pub const LATTE_BASE: Color = Color::Rgb(239, 241, 245);
+const CATPPUCCIN_MACCHIATO_THEME: &[u8] =
+  include_bytes!("../../assets/themes/CatppuccinMacchiato.tmTheme");
+const CATPPUCCIN_LATTE_THEME: &[u8] = include_bytes!("../../assets/themes/CatppuccinLatte.tmTheme");
 
 /// Convert a syntect highlight segment into an owned ratatui Span.
 fn syntect_to_ratatui_span_owned(
@@ -127,20 +116,20 @@ struct YamlThemes {
 fn get_yaml_themes() -> &'static YamlThemes {
   static YAML_THEMES: OnceLock<YamlThemes> = OnceLock::new();
   YAML_THEMES.get_or_init(|| {
-    let ts = syntect::highlighting::ThemeSet::load_defaults();
-    let mut dark = ts.themes["Solarized (dark)"].clone();
-    dark.settings.background = Some(YAML_BACKGROUND_DARK);
-    let mut light = ts.themes["Solarized (light)"].clone();
-    light.settings.background = Some(YAML_BACKGROUND_LIGHT);
+    let dark = load_embedded_theme(CATPPUCCIN_MACCHIATO_THEME);
+    let light = load_embedded_theme(CATPPUCCIN_LATTE_THEME);
     YamlThemes { dark, light }
   })
 }
 
+fn load_embedded_theme(theme_bytes: &[u8]) -> syntect::highlighting::Theme {
+  syntect::highlighting::ThemeSet::load_from_reader(&mut Cursor::new(theme_bytes))
+    .expect("embedded theme should load")
+}
+
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Styles {
-  Default,
-  Header,
-  Logo,
+  Text,
   Failure,
   Warning,
   Success,
@@ -151,39 +140,46 @@ pub enum Styles {
 }
 
 pub fn theme_styles(light: bool) -> BTreeMap<Styles, Style> {
-  if light {
+  let mut styles = if light {
     BTreeMap::from([
-      (Styles::Default, Style::default().fg(COLOR_GRAY)),
-      (Styles::Header, Style::default().fg(COLOR_DARK_GRAY)),
-      (Styles::Logo, Style::default().fg(COLOR_GREEN_DARK)),
-      (Styles::Failure, Style::default().fg(COLOR_RED_DARK)),
-      (Styles::Warning, Style::default().fg(COLOR_ORANGE_DARK)),
-      (Styles::Success, Style::default().fg(COLOR_GREEN_DARK)),
-      (Styles::Primary, Style::default().fg(COLOR_BLUE)),
-      (Styles::Secondary, Style::default().fg(COLOR_MAGENTA_DARK)),
-      (Styles::Help, Style::default().fg(COLOR_BLUE)),
+      (Styles::Text, Style::default().fg(LATTE_TEXT)),
+      (Styles::Failure, Style::default().fg(LATTE_RED)),
+      (Styles::Warning, Style::default().fg(LATTE_PEACH)),
+      (Styles::Success, Style::default().fg(LATTE_GREEN)),
+      (Styles::Primary, Style::default().fg(LATTE_MAUVE)),
+      (Styles::Secondary, Style::default().fg(LATTE_MAROON)),
+      (Styles::Help, Style::default().fg(LATTE_BLUE)),
       (
         Styles::Background,
-        Style::default().bg(COLOR_WHITE).fg(COLOR_GRAY),
+        Style::default().bg(LATTE_BASE).fg(LATTE_TEXT),
       ),
     ])
   } else {
     BTreeMap::from([
-      (Styles::Default, Style::default().fg(COLOR_WHITE)),
-      (Styles::Header, Style::default().fg(COLOR_DARK_GRAY)),
-      (Styles::Logo, Style::default().fg(COLOR_GREEN)),
-      (Styles::Failure, Style::default().fg(COLOR_RED)),
-      (Styles::Warning, Style::default().fg(COLOR_ORANGE)),
-      (Styles::Success, Style::default().fg(COLOR_GREEN)),
-      (Styles::Primary, Style::default().fg(COLOR_CYAN)),
-      (Styles::Secondary, Style::default().fg(COLOR_YELLOW)),
-      (Styles::Help, Style::default().fg(COLOR_LIGHT_BLUE)),
+      (Styles::Text, Style::default().fg(MACCHIATO_TEXT)),
+      (Styles::Failure, Style::default().fg(MACCHIATO_RED)),
+      (Styles::Warning, Style::default().fg(MACCHIATO_PEACH)),
+      (Styles::Success, Style::default().fg(MACCHIATO_GREEN)),
+      (Styles::Primary, Style::default().fg(MACCHIATO_MAUVE)),
+      (Styles::Secondary, Style::default().fg(MACCHIATO_YELLOW)),
+      (Styles::Help, Style::default().fg(MACCHIATO_BLUE)),
       (
         Styles::Background,
-        Style::default().bg(COLOR_TEAL).fg(COLOR_WHITE),
+        Style::default().bg(MACCHIATO_BASE).fg(MACCHIATO_TEXT),
       ),
     ])
-  }
+  };
+
+  apply_theme_override(&mut styles, Styles::Text, "text", false, light);
+  apply_theme_override(&mut styles, Styles::Failure, "failure", false, light);
+  apply_theme_override(&mut styles, Styles::Warning, "warning", false, light);
+  apply_theme_override(&mut styles, Styles::Success, "success", false, light);
+  apply_theme_override(&mut styles, Styles::Primary, "primary", false, light);
+  apply_theme_override(&mut styles, Styles::Secondary, "secondary", false, light);
+  apply_theme_override(&mut styles, Styles::Help, "help", false, light);
+  apply_theme_override(&mut styles, Styles::Background, "background", true, light);
+
+  styles
 }
 
 pub fn title_style(txt: &str) -> Span<'_> {
@@ -198,29 +194,28 @@ pub fn help_part<'a, S: Into<Cow<'a, str>>>(text: S) -> LinePart<'a> {
   LinePart::Help(text.into())
 }
 
-pub fn style_header_text(light: bool) -> Style {
-  *theme_styles(light).get(&Styles::Header).unwrap()
-}
-
-pub fn style_header() -> Style {
-  Style::default().bg(COLOR_MAGENTA)
+pub fn style_header(light: bool) -> Style {
+  style_primary(light).add_modifier(Modifier::REVERSED)
 }
 
 pub fn style_bold() -> Style {
   Style::default().add_modifier(Modifier::BOLD)
 }
 
-pub fn style_default(light: bool) -> Style {
-  *theme_styles(light).get(&Styles::Default).unwrap()
+pub fn style_text(light: bool) -> Style {
+  *theme_styles(light).get(&Styles::Text).unwrap()
 }
 pub fn style_logo(light: bool) -> Style {
-  *theme_styles(light).get(&Styles::Logo).unwrap()
+  style_primary(light)
 }
 pub fn style_failure(light: bool) -> Style {
   *theme_styles(light).get(&Styles::Failure).unwrap()
 }
 pub fn style_warning(light: bool) -> Style {
   *theme_styles(light).get(&Styles::Warning).unwrap()
+}
+pub fn style_caution(light: bool) -> Style {
+  style_warning(light)
 }
 pub fn style_success(light: bool) -> Style {
   *theme_styles(light).get(&Styles::Success).unwrap()
@@ -246,13 +241,30 @@ pub fn style_highlight() -> Style {
 
 fn line_part_style(part: &LinePart<'_>, light: bool, bold: bool) -> Style {
   let style = match part {
-    LinePart::Default(_) => style_default(light),
+    LinePart::Default(_) => style_text(light),
     LinePart::Help(_) => style_help(light),
   };
   if bold {
     style.add_modifier(Modifier::BOLD)
   } else {
     style
+  }
+}
+
+fn apply_theme_override(
+  styles: &mut BTreeMap<Styles, Style>,
+  slot: Styles,
+  config_key: &str,
+  background: bool,
+  light: bool,
+) {
+  if let Some(color) = override_color(config_key, light) {
+    let style = styles.entry(slot).or_default();
+    *style = if background {
+      style.bg(color)
+    } else {
+      style.fg(color)
+    };
   }
 }
 
@@ -272,6 +284,59 @@ where
 
 pub fn help_bold_line<'a, S: Into<Cow<'a, str>>>(text: S, light: bool) -> Line<'a> {
   mixed_bold_line([help_part(text)], light)
+}
+
+pub fn key_hints(keys: &[Key]) -> String {
+  keys
+    .iter()
+    .map(ToString::to_string)
+    .collect::<Vec<_>>()
+    .join("/")
+}
+
+pub fn action_hint(action: &str, key: Key) -> String {
+  format!("{} {}", action, key)
+}
+
+pub fn describe_and_yaml_hint() -> String {
+  format!(
+    "{} | {} ",
+    action_hint("describe", DEFAULT_KEYBINDING.describe_resource.key),
+    action_hint("yaml", DEFAULT_KEYBINDING.resource_yaml.key)
+  )
+}
+
+pub fn describe_yaml_and_logs_hint() -> String {
+  format!(
+    "{} | {} ",
+    describe_and_yaml_hint().trim_end(),
+    action_hint("logs", DEFAULT_KEYBINDING.aggregate_logs.key)
+  )
+}
+
+pub fn describe_yaml_logs_and_esc_hint() -> String {
+  format!(
+    "{} | back to menu {} ",
+    describe_yaml_and_logs_hint().trim_end(),
+    DEFAULT_KEYBINDING.esc.key
+  )
+}
+
+pub fn describe_yaml_and_esc_hint() -> String {
+  format!(
+    "{} | back to menu {} ",
+    describe_and_yaml_hint().trim_end(),
+    DEFAULT_KEYBINDING.esc.key
+  )
+}
+
+pub fn describe_yaml_decode_and_esc_hint() -> String {
+  format!(
+    "{} | {} | back to menu {} ",
+    describe_and_yaml_hint().trim_end(),
+    action_hint("decode", DEFAULT_KEYBINDING.decode_secret.key),
+    DEFAULT_KEYBINDING.esc.key
+  )
 }
 
 pub fn filter_cursor_position(area: Rect, prefix_width: usize, filter: &str) -> Position {
@@ -308,7 +373,7 @@ pub fn get_gauge_symbol(enhanced_graphics: bool) -> &'static str {
 }
 
 pub fn table_header_style(cells: Vec<&str>, light: bool) -> Row<'_> {
-  Row::new(cells).style(style_default(light)).bottom_margin(0)
+  Row::new(cells).style(style_text(light)).bottom_margin(0)
 }
 
 pub fn horizontal_chunks(constraints: Vec<Constraint>, size: Rect) -> Rc<[Rect]> {
@@ -402,8 +467,8 @@ fn filter_display_state(filter: &str, active: bool) -> FilterDisplayState<'_> {
 
 fn filter_display_parts(filter: &str, active: bool) -> Vec<LinePart<'_>> {
   let state = filter_display_state(filter, active);
-  let inactive_text = format!("filter {}", DEFAULT_KEYBINDING.filter.key);
-  let clear_suffix = " | clear <esc> ";
+  let inactive_text = action_hint("filter", DEFAULT_KEYBINDING.filter.key);
+  let clear_suffix = format!(" | clear {} ", DEFAULT_KEYBINDING.esc.key);
   let edit_suffix = format!(" | edit {} ", DEFAULT_KEYBINDING.filter.key);
 
   match state {
@@ -451,9 +516,12 @@ pub fn title_with_dual_style<'a>(part_1: String, part_2: Line<'a>, light: bool) 
 pub fn copy_and_escape_title_line<'a, S: Into<Cow<'a, str>>>(target: S, light: bool) -> Line<'a> {
   mixed_bold_line(
     [
-      help_part("copy <c> | "),
+      help_part(format!(
+        "{} | ",
+        action_hint("copy", DEFAULT_KEYBINDING.copy_to_clipboard.key)
+      )),
       help_part(target),
-      help_part(" <esc> "),
+      help_part(format!(" {} ", DEFAULT_KEYBINDING.esc.key)),
     ],
     light,
   )
@@ -750,7 +818,7 @@ mod tests {
   };
 
   use super::*;
-  use crate::ui::utils::{COLOR_CYAN, COLOR_LIGHT_BLUE, COLOR_YELLOW};
+  use crate::ui::utils::{MACCHIATO_BLUE, MACCHIATO_MAUVE, MACCHIATO_TEXT, MACCHIATO_YELLOW};
 
   #[test]
   fn test_draw_resource_block() {
@@ -841,14 +909,14 @@ mod tests {
         0..=3 => {
           expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
-              .fg(COLOR_YELLOW)
+              .fg(MACCHIATO_YELLOW)
               .add_modifier(Modifier::BOLD),
           );
         }
         4..=14 => {
           expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
-              .fg(COLOR_LIGHT_BLUE)
+              .fg(MACCHIATO_BLUE)
               .add_modifier(Modifier::BOLD),
           );
         }
@@ -861,13 +929,13 @@ mod tests {
       expected
         .cell_mut(Position::new(col, 1))
         .unwrap()
-        .set_style(Style::default().fg(COLOR_WHITE));
+        .set_style(Style::default().fg(MACCHIATO_TEXT));
     }
     // first table data row style
     for col in 0..=99 {
       expected.cell_mut(Position::new(col, 2)).unwrap().set_style(
         Style::default()
-          .fg(COLOR_CYAN)
+          .fg(MACCHIATO_MAUVE)
           .add_modifier(Modifier::REVERSED),
       );
     }
@@ -877,7 +945,7 @@ mod tests {
         expected
           .cell_mut(Position::new(col, row))
           .unwrap()
-          .set_style(Style::default().fg(COLOR_CYAN));
+          .set_style(Style::default().fg(MACCHIATO_MAUVE));
       }
     }
 
@@ -974,14 +1042,14 @@ mod tests {
         0..=3 => {
           expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
-              .fg(COLOR_YELLOW)
+              .fg(MACCHIATO_YELLOW)
               .add_modifier(Modifier::BOLD),
           );
         }
         4..=14 => {
           expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
-              .fg(COLOR_LIGHT_BLUE)
+              .fg(MACCHIATO_BLUE)
               .add_modifier(Modifier::BOLD),
           );
         }
@@ -994,13 +1062,13 @@ mod tests {
       expected
         .cell_mut(Position::new(col, 1))
         .unwrap()
-        .set_style(Style::default().fg(COLOR_WHITE));
+        .set_style(Style::default().fg(MACCHIATO_TEXT));
     }
     // first table data row style
     for col in 0..=99 {
       expected.cell_mut(Position::new(col, 2)).unwrap().set_style(
         Style::default()
-          .fg(COLOR_CYAN)
+          .fg(MACCHIATO_MAUVE)
           .add_modifier(Modifier::REVERSED),
       );
     }
@@ -1010,7 +1078,7 @@ mod tests {
         expected
           .cell_mut(Position::new(col, row))
           .unwrap()
-          .set_style(Style::default().fg(COLOR_CYAN));
+          .set_style(Style::default().fg(MACCHIATO_MAUVE));
       }
     }
 
@@ -1107,14 +1175,14 @@ mod tests {
         0..=3 => {
           expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
-              .fg(COLOR_YELLOW)
+              .fg(MACCHIATO_YELLOW)
               .add_modifier(Modifier::BOLD),
           );
         }
         4..=14 => {
           expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
-              .fg(COLOR_LIGHT_BLUE)
+              .fg(MACCHIATO_BLUE)
               .add_modifier(Modifier::BOLD),
           );
         }
@@ -1127,13 +1195,13 @@ mod tests {
       expected
         .cell_mut(Position::new(col, 1))
         .unwrap()
-        .set_style(Style::default().fg(COLOR_WHITE));
+        .set_style(Style::default().fg(MACCHIATO_TEXT));
     }
     // first table data row style
     for col in 0..=99 {
       expected.cell_mut(Position::new(col, 2)).unwrap().set_style(
         Style::default()
-          .fg(COLOR_CYAN)
+          .fg(MACCHIATO_MAUVE)
           .add_modifier(Modifier::REVERSED),
       );
     }
@@ -1143,7 +1211,7 @@ mod tests {
         expected
           .cell_mut(Position::new(col, row))
           .unwrap()
-          .set_style(Style::default().fg(COLOR_CYAN));
+          .set_style(Style::default().fg(MACCHIATO_MAUVE));
       }
     }
 

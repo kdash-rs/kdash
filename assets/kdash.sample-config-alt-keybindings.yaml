@@ -1,0 +1,60 @@
+keybindings:
+  quit: ctrl+x
+  esc: delete
+  help: h
+  submit: l
+  filter: f
+  refresh: ctrl+y
+  toggle_theme: z
+  cycle_main_views: f1
+  jump_to_current_context: q
+  jump_to_all_context: w
+  jump_to_utilization: e
+  jump_to_troubleshoot: r
+  copy_to_clipboard: p
+  pg_up: home
+  pg_down: end
+  up: k
+  down: j
+  left: u
+  right: o
+  toggle_info: b
+  log_auto_scroll: m
+  select_all_namespace: "!"
+  jump_to_namespace: v
+  describe_resource: ";"
+  resource_yaml: "."
+  decode_secret: "="
+  jump_to_pods: f2
+  jump_to_services: f3
+  jump_to_nodes: f4
+  jump_to_configmaps: f5
+  jump_to_statefulsets: f6
+  jump_to_replicasets: f7
+  jump_to_deployments: f8
+  jump_to_jobs: f9
+  jump_to_daemonsets: f10
+  jump_to_more_resources: f11
+  jump_to_dynamic_resources: f12
+  cycle_group_by: x
+  aggregate_logs: s
+
+theme:
+  dark:
+    text: "#FFFFFF"
+    failure: "#F9A7A4"
+    warning: "#FFAA42"
+    success: "#48D596"
+    primary: "#00E6E6"
+    secondary: "#F9E571"
+    help: "#8AC4FF"
+    background: "#233237"
+  light:
+    text: "#5B5757"
+    failure: "#AD1914"
+    warning: "#B8310F"
+    success: "#146149"
+    primary: "#0052A3"
+    secondary: "#991AED"
+    help: "#0052A3"
+    background: "#FFFFFF"

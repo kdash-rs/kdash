@@ -64,6 +64,7 @@ use self::{
 };
 use super::{
   cmd::IoCmdEvent,
+  config::KdashConfig,
   network::{stream::IoStreamEvent, IoEvent},
 };
 
@@ -221,6 +222,7 @@ pub struct App {
   pub utilization_group_by: Vec<GroupBy>,
   pub help_docs: StatefulTable<Vec<String>>,
   background_cache_pending: bool,
+  pub config: KdashConfig,
   pub data: Data,
 }
 
@@ -463,6 +465,7 @@ impl Default for App {
       ],
       help_docs: StatefulTable::with_items(key_binding::get_help_docs()),
       background_cache_pending: false,
+      config: KdashConfig::default(),
       data: Data::default(),
     }
   }
@@ -571,6 +574,7 @@ impl App {
     io_cmd_tx: Sender<IoCmdEvent>,
     enhanced_graphics: bool,
     tick_until_poll: u64,
+    config: KdashConfig,
   ) -> Self {
     App {
       io_tx: Some(io_tx),
@@ -578,6 +582,7 @@ impl App {
       io_cmd_tx: Some(io_cmd_tx),
       enhanced_graphics,
       tick_until_poll,
+      config,
       ..App::default()
     }
   }

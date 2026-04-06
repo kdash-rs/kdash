@@ -12,12 +12,13 @@ use super::{
   utils, ActiveBlock, App,
 };
 use crate::{
+  app::key_binding::DEFAULT_KEYBINDING,
   draw_resource_tab,
   network::Network,
   ui::utils::{
-    draw_describe_block, draw_resource_block, draw_yaml_block, get_describe_active,
-    get_resource_title, help_bold_line, style_primary, title_with_dual_style, ResourceTableProps,
-    DESCRIBE_YAML_AND_LOGS_HINT,
+    action_hint, describe_yaml_and_logs_hint, draw_describe_block, draw_resource_block,
+    draw_yaml_block, get_describe_active, get_resource_title, help_bold_line, style_primary,
+    title_with_dual_style, ResourceTableProps,
   },
 };
 
@@ -117,7 +118,11 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     ResourceTableProps {
       title,
       inline_help: help_bold_line(
-        format!("Pods <enter> | {}", DESCRIBE_YAML_AND_LOGS_HINT),
+        format!(
+          "{} | {}",
+          action_hint("Pods", DEFAULT_KEYBINDING.submit.key),
+          describe_yaml_and_logs_hint()
+        ),
         app.light_theme,
       ),
       resource: &mut app.data.deployments,

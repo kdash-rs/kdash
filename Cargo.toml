@@ -80,6 +80,7 @@ rand = "0.10.0"
 copypasta = "0.10.2"
 log = "0.4.29"
 simplelog = { version = "0.12.2", default-features = false }
+dirs = "6.0.0"
 
 [dev-dependencies.cargo-husky]
 version = "1"

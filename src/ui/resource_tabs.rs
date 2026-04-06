@@ -334,7 +334,7 @@ mod tests {
   use super::*;
   use crate::{
     app::pods::KubePod,
-    ui::utils::{COLOR_LIGHT_BLUE, COLOR_RED, COLOR_WHITE, COLOR_YELLOW},
+    ui::utils::{MACCHIATO_BLUE, MACCHIATO_RED, MACCHIATO_TEXT, MACCHIATO_YELLOW},
   };
 
   #[test]
@@ -373,7 +373,7 @@ mod tests {
         "│                                                                                                  │",
         "│ filter </> ──────────────────────────────────────────────────────────────────────────────────────│",
         "│                                                                                                  │",
-        "│ Pods (ns: all) [1] Containers <enter> | describe <d> | yaml <y> | logs <o> ──────────────────────│",
+        "│ Pods (ns: all) [1] Containers <Enter> | describe <d> | yaml <y> | logs <o> ──────────────────────│",
         "│   Namespace                Name                         Ready      Status    Restarts   Age      │",
         "│=> pod namespace test       pod name test                0/2        Failed    0          6h52m    │",
         "│                                                                                                  │",
@@ -381,22 +381,22 @@ mod tests {
       ]
     );
 
-    assert_eq!(buffer[(0, 0)].fg, COLOR_YELLOW);
-    assert_eq!(buffer[(1, 0)].fg, COLOR_YELLOW);
+    assert_eq!(buffer[(0, 0)].fg, MACCHIATO_YELLOW);
+    assert_eq!(buffer[(1, 0)].fg, MACCHIATO_YELLOW);
     assert!(buffer[(1, 0)].modifier.contains(Modifier::BOLD));
-    assert_eq!(buffer[(17, 1)].fg, COLOR_WHITE);
-    assert_eq!(buffer[(1, 3)].fg, COLOR_LIGHT_BLUE);
-    assert_eq!(buffer[(0, 4)].fg, COLOR_YELLOW);
-    assert_eq!(buffer[(99, 4)].fg, COLOR_YELLOW);
-    assert_eq!(buffer[(1, 5)].fg, COLOR_YELLOW);
+    assert_eq!(buffer[(17, 1)].fg, MACCHIATO_TEXT);
+    assert_eq!(buffer[(1, 3)].fg, MACCHIATO_BLUE);
+    assert_eq!(buffer[(0, 4)].fg, MACCHIATO_YELLOW);
+    assert_eq!(buffer[(99, 4)].fg, MACCHIATO_YELLOW);
+    assert_eq!(buffer[(1, 5)].fg, MACCHIATO_YELLOW);
     assert!(buffer[(1, 5)].modifier.contains(Modifier::BOLD));
-    assert_eq!(buffer[(21, 5)].fg, COLOR_LIGHT_BLUE);
+    assert_eq!(buffer[(21, 5)].fg, MACCHIATO_BLUE);
     assert!(buffer[(21, 5)].modifier.contains(Modifier::BOLD));
-    assert_eq!(buffer[(79, 5)].fg, COLOR_YELLOW);
-    assert_eq!(buffer[(1, 6)].fg, COLOR_WHITE);
-    assert_eq!(buffer[(99, 6)].fg, COLOR_YELLOW);
-    assert_eq!(buffer[(1, 7)].fg, COLOR_RED);
+    assert_eq!(buffer[(79, 5)].fg, MACCHIATO_YELLOW);
+    assert_eq!(buffer[(1, 6)].fg, MACCHIATO_TEXT);
+    assert_eq!(buffer[(99, 6)].fg, MACCHIATO_YELLOW);
+    assert_eq!(buffer[(1, 7)].fg, MACCHIATO_RED);
     assert!(buffer[(1, 7)].modifier.contains(Modifier::REVERSED));
-    assert_eq!(buffer[(99, 7)].fg, COLOR_YELLOW);
+    assert_eq!(buffer[(99, 7)].fg, MACCHIATO_YELLOW);
   }
 }

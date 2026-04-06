@@ -20,11 +20,12 @@ mod pod;
 mod pvc;
 mod rs;
 
+use crate::app::key_binding::DEFAULT_KEYBINDING;
 use crate::ui::utils::{
-  copy_and_escape_title_line, draw_describe_block, draw_resource_block, draw_yaml_block,
-  filter_cursor_position, filter_status_parts, get_describe_active, get_resource_title, help_part,
-  mixed_bold_line, style_failure, style_primary, style_warning, title_with_dual_style,
-  ResourceTableProps, DESCRIBE_AND_YAML_HINT,
+  action_hint, copy_and_escape_title_line, describe_and_yaml_hint, draw_describe_block,
+  draw_resource_block, draw_yaml_block, filter_cursor_position, filter_status_parts,
+  get_describe_active, get_resource_title, help_part, mixed_bold_line, style_caution,
+  style_failure, style_primary, title_with_dual_style, ResourceTableProps,
 };
 
 // ---------------------------------------------------------------------------
@@ -182,8 +183,11 @@ pub fn render_troubleshoot(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let mut inline_help = vec![];
   inline_help.extend(filter_status_parts(&filter, filter_active));
   inline_help.extend([
-    help_part(" | resource <enter> | "),
-    help_part(DESCRIBE_AND_YAML_HINT),
+    help_part(format!(
+      " | {} | ",
+      action_hint("resource", DEFAULT_KEYBINDING.submit.key)
+    )),
+    help_part(describe_and_yaml_hint()),
   ]);
 
   draw_resource_block(
@@ -206,7 +210,7 @@ pub fn render_troubleshoot(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     |c| {
       let style = match c.severity {
         Finding::Error(()) => style_failure(light_theme),
-        Finding::Warn(()) => style_warning(light_theme),
+        Finding::Warn(()) => style_caution(light_theme),
         Finding::Info(()) => style_primary(light_theme),
       };
 
