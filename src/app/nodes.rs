@@ -23,9 +23,9 @@ use super::{
 use crate::{
   network::Network,
   ui::utils::{
-    draw_describe_block, draw_resource_block, draw_yaml_block, get_cluster_wide_resource_title,
-    get_describe_active, style_failure, style_primary, title_with_dual_style, ResourceTableProps,
-    COPY_HINT, DESCRIBE_AND_YAML_HINT,
+    copy_and_escape_title_line, draw_describe_block, draw_resource_block, draw_yaml_block,
+    get_cluster_wide_resource_title, get_describe_active, help_bold_line, style_failure,
+    style_primary, title_with_dual_style, ResourceTableProps, DESCRIBE_AND_YAML_HINT,
   },
 };
 
@@ -197,7 +197,7 @@ impl AppResource for NodeResource {
             app.data.nodes.items.len(),
             get_describe_active(block),
           ),
-          format!("{} | {} <esc> ", COPY_HINT, NODES_TITLE),
+          copy_and_escape_title_line(NODES_TITLE, app.light_theme),
           app.light_theme,
         ),
       ),
@@ -211,7 +211,7 @@ impl AppResource for NodeResource {
             app.data.nodes.items.len(),
             get_describe_active(block),
           ),
-          format!("{} | {} <esc> ", COPY_HINT, NODES_TITLE),
+          copy_and_escape_title_line(NODES_TITLE, app.light_theme),
           app.light_theme,
         ),
       ),
@@ -289,7 +289,10 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     area,
     ResourceTableProps {
       title,
-      inline_help: format!("| Pods <enter> {}", DESCRIBE_AND_YAML_HINT),
+      inline_help: help_bold_line(
+        format!("Pods <enter> | {}", DESCRIBE_AND_YAML_HINT),
+        app.light_theme,
+      ),
       resource: &mut app.data.nodes,
       table_headers: vec![
         "Name", "Status", "Roles", "Version", "Pods", "CPU", "Mem", "CPU %", "Mem %", "CPU/A",

@@ -1,14 +1,16 @@
 use ratatui::{
-  layout::{Constraint, Position, Rect},
-  text::{Line, Span},
+  layout::{Constraint, Rect},
+  text::Line,
   widgets::{List, ListItem, ListState, Tabs},
   Frame,
 };
 
 use super::{
   utils::{
-    centered_rect, filter_bar_title, layout_block_default, layout_block_top_border, style_default,
-    style_highlight, style_secondary, vertical_chunks, vertical_chunks_with_margin,
+    centered_rect, default_part, filter_bar_title, filter_cursor_position, help_part,
+    layout_block_default, layout_block_default_line, layout_block_top_border, mixed_bold_line,
+    mixed_line, split_hint_suffix, style_highlight, style_secondary, vertical_chunks,
+    vertical_chunks_with_margin,
   },
   HIGHLIGHT,
 };
@@ -56,20 +58,27 @@ pub fn draw_resource_tabs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     block = block.style(style_secondary(app.light_theme))
   }
 
-  let titles: Vec<_> = app
+  let titles: Vec<Line<'_>> = app
     .context_tabs
     .items
     .iter()
     .enumerate()
     .map(|(i, t)| {
       let count = tab_count_label(app, i);
-      let label = if let Some(pos) = t.title.find('<') {
-        let (name, hint) = t.title.split_at(pos);
-        format!("{}[{}] {}", name, count, hint)
+      let (name, hint) = split_hint_suffix(&t.title);
+      if i == app.context_tabs.index {
+        Line::from(format!("{} [{}]", name, count))
+      } else if let Some(hint) = hint {
+        mixed_line(
+          [
+            default_part(format!("{} [{}]", name, count)),
+            help_part(format!(" {}", hint)),
+          ],
+          app.light_theme,
+        )
       } else {
-        format!("{} [{}]", t.title, count)
-      };
-      Line::from(Span::styled(label, style_default(app.light_theme)))
+        Line::from(format!("{} [{}]", t.title, count))
+      }
     })
     .collect();
   let tabs = Tabs::new(titles)
@@ -114,15 +123,7 @@ fn draw_filter_bar(f: &mut Frame<'_>, app: &App, area: Rect, current_filter: Opt
   f.render_widget(layout_block_top_border(title), area);
 
   if filter_active {
-    let cursor_offset = if filter.is_empty() {
-      3
-    } else {
-      3 + filter.chars().count() as u16
-    };
-    f.set_cursor_position(Position {
-      x: area.x + cursor_offset.min(area.width.saturating_sub(2)),
-      y: area.y,
-    });
+    f.set_cursor_position(filter_cursor_position(area, 1, filter));
   }
 }
 
@@ -178,6 +179,7 @@ fn draw_more(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
       &app.menu_filter,
       app.menu_filter_active,
       &counts,
+      app.light_theme,
       area,
     ),
     ActiveBlock::DynamicView => draw_menu(
@@ -186,6 +188,7 @@ fn draw_more(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
       &app.menu_filter,
       app.menu_filter_active,
       &counts,
+      app.light_theme,
       area,
     ),
     ActiveBlock::CronJobs => CronJobResource::render(block, f, app, area),
@@ -244,6 +247,7 @@ fn draw_menu(
   filter: &str,
   filter_active: bool,
   counts: &[(ActiveBlock, usize)],
+  light_theme: bool,
   area: Rect,
 ) {
   use crate::handlers::filter_menu_items;
@@ -268,11 +272,29 @@ fn draw_menu(
     .collect();
 
   let title = if filter_active && !filter.is_empty() {
-    format!(" Select Resource [{}] ", filter)
+    mixed_bold_line(
+      [
+        default_part(" Select Resource ".to_string()),
+        default_part(format!("[{}] ", filter)),
+      ],
+      light_theme,
+    )
   } else if filter_active {
-    " Select Resource (type to filter) ".to_string()
+    mixed_bold_line(
+      [
+        default_part(" Select Resource ".to_string()),
+        help_part("[type to filter] ".to_string()),
+      ],
+      light_theme,
+    )
   } else {
-    " Select Resource (< / > to filter) ".to_string()
+    mixed_bold_line(
+      [
+        default_part(" Select Resource ".to_string()),
+        help_part("</> to filter ".to_string()),
+      ],
+      light_theme,
+    )
   };
 
   // Use a local ListState so selection operates within filtered bounds
@@ -285,12 +307,20 @@ fn draw_menu(
 
   f.render_stateful_widget(
     List::new(items)
-      .block(layout_block_default(&title))
+      .block(layout_block_default_line(title))
       .highlight_style(style_highlight())
       .highlight_symbol(HIGHLIGHT),
     area,
     &mut local_state,
   );
+
+  if filter_active {
+    f.set_cursor_position(filter_cursor_position(
+      area,
+      " Select Resource [".chars().count(),
+      filter,
+    ));
+  }
 
   // Sync the clamped selection back
   more_resources_menu.state.select(local_state.selected());
@@ -303,7 +333,7 @@ mod tests {
   use super::*;
   use crate::{
     app::pods::KubePod,
-    ui::utils::{COLOR_RED, COLOR_WHITE, COLOR_YELLOW},
+    ui::utils::{COLOR_LIGHT_BLUE, COLOR_RED, COLOR_WHITE, COLOR_YELLOW},
   };
 
   #[test]
@@ -340,9 +370,9 @@ mod tests {
         "┌ Resources ───────────────────────────────────────────────────────────────────────────────────────┐",
         "│ Pods [1] <1> │ Services [0] <2> │ Nodes [0] <3> │ ConfigMaps [0] <4> │ StatefulSets [0] <5> │ Rep│",
         "│                                                                                                  │",
-        "│ filter < / > ────────────────────────────────────────────────────────────────────────────────────│",
+        "│ filter </> ──────────────────────────────────────────────────────────────────────────────────────│",
         "│                                                                                                  │",
-        "│ Pods (ns: all) [1] | Containers <enter> | describe <d> | yaml <y> | logs <o> ────────────────────│",
+        "│ Pods (ns: all) [1] Containers <enter> | describe <d> | yaml <y> | logs <o> ──────────────────────│",
         "│   Namespace                Name                         Ready      Status    Restarts   Age      │",
         "│=> pod namespace test       pod name test                0/2        Failed    0          6h52m    │",
         "│                                                                                                  │",
@@ -355,12 +385,12 @@ mod tests {
     assert!(buffer[(1, 0)].modifier.contains(Modifier::BOLD));
     assert_eq!(buffer[(17, 1)].fg, COLOR_WHITE);
     assert_eq!(buffer[(33, 1)].fg, COLOR_YELLOW);
-    assert_eq!(buffer[(1, 3)].fg, COLOR_YELLOW);
+    assert_eq!(buffer[(1, 3)].fg, COLOR_LIGHT_BLUE);
     assert_eq!(buffer[(0, 4)].fg, COLOR_YELLOW);
     assert_eq!(buffer[(99, 4)].fg, COLOR_YELLOW);
     assert_eq!(buffer[(1, 5)].fg, COLOR_YELLOW);
     assert!(buffer[(1, 5)].modifier.contains(Modifier::BOLD));
-    assert_eq!(buffer[(21, 5)].fg, COLOR_WHITE);
+    assert_eq!(buffer[(21, 5)].fg, COLOR_LIGHT_BLUE);
     assert!(buffer[(21, 5)].modifier.contains(Modifier::BOLD));
     assert_eq!(buffer[(79, 5)].fg, COLOR_YELLOW);
     assert_eq!(buffer[(1, 6)].fg, COLOR_WHITE);

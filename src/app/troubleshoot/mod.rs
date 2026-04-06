@@ -21,9 +21,10 @@ mod pvc;
 mod rs;
 
 use crate::ui::utils::{
-  draw_describe_block, draw_resource_block, draw_yaml_block, filter_status_hint,
-  get_describe_active, get_resource_title, style_failure, style_primary, style_warning,
-  title_with_dual_style, ResourceTableProps, COPY_HINT, DESCRIBE_AND_YAML_HINT,
+  copy_and_escape_title_line, draw_describe_block, draw_resource_block, draw_yaml_block,
+  filter_cursor_position, filter_status_parts, get_describe_active, get_resource_title, help_part,
+  mixed_bold_line, style_failure, style_primary, style_warning, title_with_dual_style,
+  ResourceTableProps, DESCRIBE_AND_YAML_HINT,
 };
 
 // ---------------------------------------------------------------------------
@@ -173,18 +174,24 @@ pub fn render_troubleshoot(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       .unwrap_or(&String::from("all")),
     app.data.troubleshoot_findings.count_label(),
   );
+  let title_width = title.chars().count();
   let findings = &mut app.data.troubleshoot_findings;
+  let filter = findings.filter.clone();
+  let filter_active = findings.filter_active;
+
+  let mut inline_help = vec![];
+  inline_help.extend(filter_status_parts(&filter, filter_active));
+  inline_help.extend([
+    help_part(" | resource <enter> | "),
+    help_part(DESCRIBE_AND_YAML_HINT),
+  ]);
 
   draw_resource_block(
     f,
     area,
     ResourceTableProps {
       title,
-      inline_help: format!(
-        "| {} | resource <enter> | {} ",
-        filter_status_hint(&findings.filter, findings.filter_active),
-        DESCRIBE_AND_YAML_HINT
-      ),
+      inline_help: mixed_bold_line(inline_help, app.light_theme),
       resource: findings,
       table_headers: vec!["Severity", "Type", "Reason", "Resource", "Message", "Age"],
       column_widths: vec![
@@ -216,6 +223,10 @@ pub fn render_troubleshoot(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     light_theme,
     is_loading,
   );
+
+  if filter_active {
+    f.set_cursor_position(filter_cursor_position(area, title_width, &filter));
+  }
 }
 
 pub struct TroubleshootResource;
@@ -237,7 +248,7 @@ impl AppResource for TroubleshootResource {
             get_describe_active(block),
             app.data.troubleshoot_findings.items.len(),
           ),
-          format!("{} | Troubleshoot <esc> ", COPY_HINT),
+          copy_and_escape_title_line("Troubleshoot", app.light_theme),
           app.light_theme,
         ),
       ),
@@ -252,7 +263,7 @@ impl AppResource for TroubleshootResource {
             get_describe_active(block),
             app.data.troubleshoot_findings.items.len(),
           ),
-          format!("{} | Troubleshoot <esc> ", COPY_HINT),
+          copy_and_escape_title_line("Troubleshoot", app.light_theme),
           app.light_theme,
         ),
       ),

@@ -16,8 +16,9 @@ use self::{
   help::draw_help,
   overview::draw_overview,
   utils::{
-    horizontal_chunks_with_margin, style_default, style_failure, style_header, style_header_text,
-    style_help, style_main_background, style_primary, style_secondary, vertical_chunks,
+    default_part, help_part, horizontal_chunks_with_margin, mixed_bold_line, mixed_line,
+    split_hint_suffix, style_failure, style_header, style_header_text, style_main_background,
+    style_primary, style_secondary, vertical_chunks,
   },
 };
 use crate::app::{
@@ -117,11 +118,23 @@ fn draw_app_header(f: &mut Frame<'_>, app: &App, area: Rect) {
   let chunks =
     horizontal_chunks_with_margin(vec![Constraint::Length(75), Constraint::Min(0)], area, 1);
 
-  let titles: Vec<_> = app
+  let titles: Vec<Line<'_>> = app
     .main_tabs
     .items
     .iter()
-    .map(|t| Line::from(Span::styled(&t.title, style_default(app.light_theme))))
+    .enumerate()
+    .map(|(i, t)| {
+      let (label, hint) = split_hint_suffix(&t.title);
+      if i == app.main_tabs.index {
+        Line::from(label.to_string())
+      } else {
+        let mut parts = vec![default_part(label.to_string())];
+        if let Some(hint) = hint {
+          parts.push(help_part(format!(" {}", hint)));
+        }
+        mixed_line(parts, app.light_theme)
+      }
+    })
     .collect();
   let tabs = Tabs::new(titles)
     .block(Block::default().borders(Borders::ALL))
@@ -134,18 +147,27 @@ fn draw_app_header(f: &mut Frame<'_>, app: &App, area: Rect) {
 
 fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
   let text = match app.get_current_route().id {
-    RouteId::Contexts => vec![Line::from("<↑↓> scroll | <enter> select | </> filter | <?> help ")],
-    RouteId::Home => vec![Line::from(
-      "<←→> switch tabs | <char> select block | <↑↓> scroll | <enter> select | </> filter | <?> help ",
+    RouteId::Contexts => vec![mixed_line(
+      [help_part("<↑↓> scroll | <enter> select | </> filter | <?> help ")],
+      app.light_theme,
     )],
-    RouteId::Utilization => vec![Line::from(
-      "<↑↓> scroll | </> filter | <g> cycle through grouping | <?> help ",
+    RouteId::Home => vec![mixed_line(
+      [help_part(
+        "<←→> switch tabs | <char> select block | <↑↓> scroll | <enter> select | </> filter | <?> help ",
+      )],
+      app.light_theme,
     )],
-    RouteId::Troubleshoot => vec![Line::from("<↑↓> scroll | </> filter | <?> help ")],
+    RouteId::Utilization => vec![mixed_line(
+      [help_part("<↑↓> scroll | </> filter | <g> cycle through grouping | <?> help ")],
+      app.light_theme,
+    )],
+    RouteId::Troubleshoot => vec![mixed_line(
+      [help_part("<↑↓> scroll | </> filter | <?> help ")],
+      app.light_theme,
+    )],
     RouteId::HelpMenu => vec![],
   };
   let paragraph = Paragraph::new(text)
-    .style(style_help(app.light_theme))
     .block(Block::default())
     .alignment(Alignment::Right);
   f.render_widget(paragraph, area);
@@ -153,7 +175,10 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
 
 fn draw_app_error(f: &mut Frame<'_>, app: &App, size: Rect) {
   let block = Block::default()
-    .title(" Error | close <esc> ")
+    .title(mixed_bold_line(
+      [default_part(" Error "), help_part("| close <esc> ")],
+      app.light_theme,
+    ))
     .style(style_failure(app.light_theme))
     .borders(Borders::ALL);
 

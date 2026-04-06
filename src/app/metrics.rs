@@ -26,8 +26,9 @@ use crate::app::models::FilterableTable;
 use crate::{
   network::Network,
   ui::utils::{
-    filter_status_hint, layout_block_active_span, loading, style_highlight, style_primary,
-    style_success, style_warning, table_header_style, text_matches_filter, title_with_dual_style,
+    default_part, filter_cursor_position, filter_status_parts, help_part, layout_block_active_span,
+    loading, mixed_bold_line, style_highlight, style_primary, style_success, style_warning,
+    table_header_style, text_matches_filter, title_with_dual_style,
   },
 };
 
@@ -94,22 +95,28 @@ pub struct UtilizationResource {}
 #[async_trait]
 impl AppResource for UtilizationResource {
   fn render(_block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
+    let left_title = format!(
+      " Resource Utilization (ns: [{}]) [{}] ",
+      app
+        .data
+        .selected
+        .ns
+        .as_ref()
+        .unwrap_or(&String::from("all")),
+      app.data.metrics.count_label(),
+    );
+    let group_by_value = format!(": {:?}", app.utilization_group_by);
     let title = title_with_dual_style(
-      format!(
-        " Resource Utilization (ns: [{}]) [{}] ",
-        app
-          .data
-          .selected
-          .ns
-          .as_ref()
-          .unwrap_or(&String::from("all")),
-        app.data.metrics.count_label(),
-      ),
-      format!(
-        "| group by <g>: {:?} | {} ",
-        app.utilization_group_by,
-        filter_status_hint(&app.data.metrics.filter, app.data.metrics.filter_active)
-      ),
+      left_title.clone(),
+      {
+        let mut parts =
+          filter_status_parts(&app.data.metrics.filter, app.data.metrics.filter_active);
+        parts.push(help_part(" | ".to_string()));
+        parts.push(help_part("group by <g>".to_string()));
+        parts.push(default_part(group_by_value.clone()));
+        parts.push(default_part(" ".to_string()));
+        mixed_bold_line(parts, app.light_theme)
+      },
       app.light_theme,
     );
     let block = layout_block_active_span(title, app.light_theme);
@@ -196,6 +203,14 @@ impl AppResource for UtilizationResource {
       f.render_stateful_widget(table, area, &mut app.data.metrics.state);
     } else {
       loading(f, block, area, app.is_loading(), app.light_theme);
+    }
+
+    if app.data.metrics.filter_active {
+      f.set_cursor_position(filter_cursor_position(
+        area,
+        left_title.chars().count() + 1,
+        &app.data.metrics.filter,
+      ));
     }
   }
 

@@ -17,8 +17,8 @@ use crate::{
   network::Network,
   ui::utils::{
     draw_describe_block, draw_resource_block, draw_yaml_block, get_cluster_wide_resource_title,
-    get_describe_active, get_resource_title, style_primary, title_with_dual_style,
-    ResourceTableProps, COPY_HINT, DESCRIBE_YAML_AND_ESC_HINT,
+    get_describe_active, get_resource_title, help_bold_line, style_primary, title_with_dual_style,
+    ResourceTableProps, DESCRIBE_YAML_AND_ESC_HINT,
   },
 };
 
@@ -102,7 +102,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     area,
     ResourceTableProps {
       title,
-      inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
+      inline_help: help_bold_line(DESCRIBE_YAML_AND_ESC_HINT, app.light_theme),
       resource: &mut app.data.storage_classes,
       table_headers: vec![
         "Name",

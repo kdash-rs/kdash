@@ -8,8 +8,9 @@ use ratatui::{
 use super::{
   resource_tabs::draw_resource_tabs_block,
   utils::{
-    get_gauge_symbol, horizontal_chunks, layout_block_default, loading, style_default,
-    style_failure, style_logo, style_primary, vertical_chunks, vertical_chunks_with_margin,
+    default_part, get_gauge_symbol, help_part, horizontal_chunks, layout_block_default,
+    layout_block_default_line, loading, mixed_bold_line, style_default, style_failure, style_logo,
+    style_primary, vertical_chunks, vertical_chunks_with_margin,
   },
 };
 use crate::{
@@ -91,7 +92,10 @@ fn draw_context_info_block(f: &mut Frame<'_>, app: &App, area: Rect) {
     1,
   );
 
-  let block = layout_block_default(" Context Info | toggle <i> ");
+  let block = layout_block_default_line(mixed_bold_line(
+    [default_part(" Context Info "), help_part("toggle <i> ")],
+    app.light_theme,
+  ));
 
   f.render_widget(block, area);
 

@@ -19,10 +19,10 @@ use super::{
 use crate::{
   network::Network,
   ui::utils::{
-    draw_describe_block, draw_resource_block, draw_yaml_block, get_describe_active,
-    get_resource_title, layout_block_top_border, loading, style_failure, style_primary,
-    style_secondary, style_success, title_with_dual_style, ResourceTableProps, COPY_HINT,
-    DESCRIBE_YAML_AND_LOGS_HINT,
+    copy_and_escape_title_line, draw_describe_block, draw_resource_block, draw_yaml_block,
+    get_describe_active, get_resource_title, help_bold_line, help_part, layout_block_top_border,
+    loading, mixed_bold_line, style_failure, style_primary, style_secondary, style_success,
+    title_with_dual_style, ResourceTableProps, DESCRIBE_YAML_AND_LOGS_HINT,
   },
 };
 
@@ -183,7 +183,7 @@ impl AppResource for PodResource {
             get_describe_active(block),
             app.data.pods.items.len(),
           ),
-          format!("{} | {} <esc> ", COPY_HINT, PODS_TITLE),
+          copy_and_escape_title_line(PODS_TITLE, app.light_theme),
           app.light_theme,
         ),
       ),
@@ -198,7 +198,7 @@ impl AppResource for PodResource {
             get_describe_active(block),
             app.data.pods.items.len(),
           ),
-          format!("{} | {} <esc> ", COPY_HINT, PODS_TITLE),
+          copy_and_escape_title_line(PODS_TITLE, app.light_theme),
           app.light_theme,
         ),
       ),
@@ -253,9 +253,12 @@ pub(crate) fn draw_block_as_sub(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     area,
     ResourceTableProps {
       title,
-      inline_help: format!(
-        "| Containers <enter> {} | back <esc> ",
-        DESCRIBE_YAML_AND_LOGS_HINT
+      inline_help: help_bold_line(
+        format!(
+          "Containers <enter> | {} | back <esc> ",
+          DESCRIBE_YAML_AND_LOGS_HINT
+        ),
+        app.light_theme,
       ),
       resource: &mut app.data.pods,
       table_headers: vec!["Namespace", "Name", "Ready", "Status", "Restarts", "Age"],
@@ -294,7 +297,10 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     area,
     ResourceTableProps {
       title,
-      inline_help: format!("| Containers <enter> {}", DESCRIBE_YAML_AND_LOGS_HINT),
+      inline_help: help_bold_line(
+        format!("Containers <enter> | {}", DESCRIBE_YAML_AND_LOGS_HINT),
+        app.light_theme,
+      ),
       resource: &mut app.data.pods,
       table_headers: vec!["Namespace", "Name", "Ready", "Status", "Restarts", "Age"],
       column_widths: vec![
@@ -332,7 +338,14 @@ pub(crate) fn draw_containers_block(f: &mut Frame<'_>, app: &mut App, area: Rect
     area,
     ResourceTableProps {
       title,
-      inline_help: format!("| logs <enter> | {} <esc> ", PODS_TITLE),
+      inline_help: mixed_bold_line(
+        [
+          help_part("logs <enter> | "),
+          help_part(PODS_TITLE),
+          help_part(" <esc> "),
+        ],
+        app.light_theme,
+      ),
       resource: &mut app.data.containers,
       table_headers: vec![
         "Name",
@@ -400,7 +413,7 @@ pub(crate) fn draw_logs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     let agg_name = app.data.logs.id.strip_prefix("agg:").unwrap_or_default();
     (
       format!(" {} -> Logs ({}) ", resource, agg_name),
-      "| copy <c> | back <esc> ".to_string(),
+      help_bold_line("copy <c> | back <esc> ", app.light_theme),
     )
   } else {
     let selected_container = app.data.selected.container.clone();
@@ -411,7 +424,7 @@ pub(crate) fn draw_logs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
         app.data.containers.items.len(),
         format!("-> Logs ({}) ", container_name),
       ),
-      "| copy <c> | Containers <esc> ".to_string(),
+      copy_and_escape_title_line("Containers", app.light_theme),
     )
   };
 

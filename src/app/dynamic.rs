@@ -21,7 +21,7 @@ use crate::{
   network::Network,
   ui::utils::{
     draw_describe_block, draw_resource_block, draw_yaml_block, get_describe_active,
-    get_resource_title, style_primary, title_with_dual_style, ResourceTableProps, COPY_HINT,
+    get_resource_title, help_bold_line, style_primary, title_with_dual_style, ResourceTableProps,
     DESCRIBE_YAML_AND_ESC_HINT,
   },
 };
@@ -84,13 +84,15 @@ pub struct DynamicResource {}
 #[async_trait]
 impl AppResource for DynamicResource {
   fn render(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
-    let title = if let Some(res) = &app.data.selected.dynamic_kind {
-      res.kind.as_str()
-    } else {
-      ""
-    };
+    let title = app
+      .data
+      .selected
+      .dynamic_kind
+      .as_ref()
+      .map(|res| res.kind.clone())
+      .unwrap_or_default();
     draw_resource_tab!(
-      title,
+      title.as_str(),
       block,
       f,
       app,
@@ -162,7 +164,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     area,
     ResourceTableProps {
       title,
-      inline_help: DESCRIBE_YAML_AND_ESC_HINT.into(),
+      inline_help: help_bold_line(DESCRIBE_YAML_AND_ESC_HINT, app.light_theme),
       resource: &mut app.data.dynamic_resources,
       table_headers,
       column_widths,

@@ -19,7 +19,8 @@ use crate::{
   network::Network,
   ui::{
     utils::{
-      filter_by_resource_name, layout_block_default, loading, style_highlight, style_primary,
+      default_part, filter_by_resource_name, filter_cursor_position, help_part,
+      layout_block_default_line, loading, mixed_bold_line, style_highlight, style_primary,
       style_secondary, table_header_style,
     },
     HIGHLIGHT,
@@ -66,16 +67,34 @@ pub struct NamespaceResource {}
 impl AppResource for NamespaceResource {
   fn render(_block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     let title = if app.ns_filter_active && !app.ns_filter.is_empty() {
-      format!(" Namespaces [{}] | type to filter ", app.ns_filter)
+      mixed_bold_line(
+        [
+          default_part(" Namespaces ".to_string()),
+          default_part(format!("[{}]", app.ns_filter)),
+        ],
+        app.light_theme,
+      )
     } else if app.ns_filter_active {
-      " Namespaces | type to filter ".to_string()
+      mixed_bold_line(
+        [
+          default_part(" Namespaces ".to_string()),
+          help_part("[type to filter] ".to_string()),
+        ],
+        app.light_theme,
+      )
     } else {
-      format!(
-        " Namespaces {} | all: {} | filter < / > ",
-        DEFAULT_KEYBINDING.jump_to_namespace.key, DEFAULT_KEYBINDING.select_all_namespace.key
+      mixed_bold_line(
+        [
+          default_part(" Namespaces ".to_string()),
+          help_part(format!(
+            "{} | all: {} | filter </> ",
+            DEFAULT_KEYBINDING.jump_to_namespace.key, DEFAULT_KEYBINDING.select_all_namespace.key
+          )),
+        ],
+        app.light_theme,
       )
     };
-    let mut block = layout_block_default(title.as_str());
+    let mut block = layout_block_default_line(title);
 
     if app.get_current_route().active_block == ActiveBlock::Namespaces {
       block = block.style(style_secondary(app.light_theme))
@@ -103,6 +122,14 @@ impl AppResource for NamespaceResource {
       f.render_stateful_widget(table, area, &mut app.data.namespaces.state);
     } else {
       loading(f, block, area, app.is_loading(), app.light_theme);
+    }
+
+    if app.ns_filter_active {
+      f.set_cursor_position(filter_cursor_position(
+        area,
+        " Namespaces [".chars().count(),
+        &app.ns_filter,
+      ));
     }
   }
 

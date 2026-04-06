@@ -14,8 +14,9 @@ use crate::{
   network::Network,
   ui::{
     utils::{
-      filter_status_hint, layout_block_active, loading, style_highlight, style_primary,
-      style_secondary, table_header_style, text_matches_filter,
+      default_part, filter_cursor_position, filter_status_parts, layout_block_active_line, loading,
+      mixed_bold_line, style_highlight, style_primary, style_secondary, table_header_style,
+      text_matches_filter,
     },
     HIGHLIGHT,
   },
@@ -76,13 +77,17 @@ pub struct ContextResource {}
 #[async_trait]
 impl AppResource for ContextResource {
   fn render(_block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
-    let title = format!(
-      " Contexts [{}] | {} ",
-      app.data.contexts.count_label(),
-      filter_status_hint(&app.data.contexts.filter, app.data.contexts.filter_active)
+    let title = format!(" Contexts [{}] ", app.data.contexts.count_label());
+    let mut title_parts = vec![default_part(&title)];
+    title_parts.extend(filter_status_parts(
+      &app.data.contexts.filter,
+      app.data.contexts.filter_active,
+    ));
+    title_parts.push(default_part(" ".to_string()));
+    let block = layout_block_active_line(
+      mixed_bold_line(title_parts, app.light_theme),
+      app.light_theme,
     );
-    let block = layout_block_active(title.as_str(), app.light_theme);
-
     if !app.data.contexts.items.is_empty() {
       let filter = app.data.contexts.filter.to_lowercase();
       let has_filter = !filter.is_empty();
@@ -147,6 +152,14 @@ impl AppResource for ContextResource {
       f.render_stateful_widget(table, area, &mut app.data.contexts.state);
     } else {
       loading(f, block, area, app.is_loading(), app.light_theme);
+    }
+
+    if app.data.contexts.filter_active {
+      f.set_cursor_position(filter_cursor_position(
+        area,
+        title.chars().count() + 1,
+        &app.data.contexts.filter,
+      ));
     }
   }
 

@@ -6,8 +6,8 @@ use ratatui::{
 
 use super::{
   utils::{
-    layout_block_active_span, style_highlight, style_primary, style_secondary,
-    title_with_dual_style, vertical_chunks,
+    default_part, layout_block_active_span, mixed_bold_line, style_highlight, style_primary,
+    style_secondary, title_with_dual_style, vertical_chunks,
   },
   HIGHLIGHT,
 };
@@ -36,7 +36,11 @@ pub fn draw_help(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     .iter()
     .map(|item| Row::new(item.clone()).style(style_primary(app.light_theme)));
 
-  let title = title_with_dual_style(" Help ".into(), "| close <esc> ".into(), app.light_theme);
+  let title = title_with_dual_style(
+    " Help ".into(),
+    mixed_bold_line([default_part("| close <esc> ")], app.light_theme),
+    app.light_theme,
+  );
 
   let help_menu = Table::new(rows, [Constraint::Percentage(100)])
     .header(

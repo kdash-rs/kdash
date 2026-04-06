@@ -1,8 +1,8 @@
-use std::{collections::BTreeMap, rc::Rc, sync::OnceLock};
+use std::{borrow::Cow, collections::BTreeMap, rc::Rc, sync::OnceLock};
 
 use glob_match::glob_match;
 use ratatui::{
-  layout::{Constraint, Direction, Layout, Rect},
+  layout::{Constraint, Direction, Layout, Position, Rect},
   style::{Color, Modifier, Style},
   symbols,
   text::{Line, Span, Text},
@@ -18,14 +18,19 @@ use crate::app::{
 };
 // Utils
 
-pub static COPY_HINT: &str = "| copy <c>";
-pub static DESCRIBE_AND_YAML_HINT: &str = "| describe <d> | yaml <y> ";
-pub static DESCRIBE_YAML_AND_LOGS_HINT: &str = "| describe <d> | yaml <y> | logs <o> ";
+pub static DESCRIBE_AND_YAML_HINT: &str = "describe <d> | yaml <y> ";
+pub static DESCRIBE_YAML_AND_LOGS_HINT: &str = "describe <d> | yaml <y> | logs <o> ";
 pub static DESCRIBE_YAML_LOGS_AND_ESC_HINT: &str =
-  "| describe <d> | yaml <y> | logs <o> | back to menu <esc> ";
-pub static DESCRIBE_YAML_AND_ESC_HINT: &str = "| describe <d> | yaml <y> | back to menu <esc> ";
+  "describe <d> | yaml <y> | logs <o> | back to menu <esc> ";
+pub static DESCRIBE_YAML_AND_ESC_HINT: &str = "describe <d> | yaml <y> | back to menu <esc> ";
 pub static DESCRIBE_YAML_DECODE_AND_ESC_HINT: &str =
-  "| describe <d> | yaml <y> | decode <x> | back to menu <esc> ";
+  "describe <d> | yaml <y> | decode <x> | back to menu <esc> ";
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum LinePart<'a> {
+  Default(Cow<'a, str>),
+  Help(Cow<'a, str>),
+}
 
 // default colors
 pub const COLOR_TEAL: Color = Color::Rgb(35, 50, 55);
@@ -184,6 +189,14 @@ pub fn title_style(txt: &str) -> Span<'_> {
   Span::styled(txt, style_bold())
 }
 
+pub fn default_part<'a, S: Into<Cow<'a, str>>>(text: S) -> LinePart<'a> {
+  LinePart::Default(text.into())
+}
+
+pub fn help_part<'a, S: Into<Cow<'a, str>>>(text: S) -> LinePart<'a> {
+  LinePart::Help(text.into())
+}
+
 pub fn style_header_text(light: bool) -> Style {
   *theme_styles(light).get(&Styles::Header).unwrap()
 }
@@ -228,6 +241,61 @@ pub fn style_main_background(light: bool) -> Style {
 
 pub fn style_highlight() -> Style {
   Style::default().add_modifier(Modifier::REVERSED)
+}
+
+fn line_part_style(part: &LinePart<'_>, light: bool, bold: bool) -> Style {
+  let style = match part {
+    LinePart::Default(_) => style_default(light),
+    LinePart::Help(_) => style_help(light),
+  };
+  if bold {
+    style.add_modifier(Modifier::BOLD)
+  } else {
+    style
+  }
+}
+
+pub fn mixed_line<'a, I>(parts: I, light: bool) -> Line<'a>
+where
+  I: IntoIterator<Item = LinePart<'a>>,
+{
+  styled_line(parts, light, false)
+}
+
+pub fn mixed_bold_line<'a, I>(parts: I, light: bool) -> Line<'a>
+where
+  I: IntoIterator<Item = LinePart<'a>>,
+{
+  styled_line(parts, light, true)
+}
+
+pub fn help_bold_line<'a, S: Into<Cow<'a, str>>>(text: S, light: bool) -> Line<'a> {
+  mixed_bold_line([help_part(text)], light)
+}
+
+pub fn filter_cursor_position(area: Rect, prefix_width: usize, filter: &str) -> Position {
+  Position {
+    x: area.x
+      + (prefix_width as u16 + 1 + filter.chars().count() as u16).min(area.width.saturating_sub(2)),
+    y: area.y,
+  }
+}
+
+fn styled_line<'a, I>(parts: I, light: bool, bold: bool) -> Line<'a>
+where
+  I: IntoIterator<Item = LinePart<'a>>,
+{
+  Line::from(
+    parts
+      .into_iter()
+      .map(|part| {
+        let style = line_part_style(&part, light, bold);
+        match part {
+          LinePart::Default(text) | LinePart::Help(text) => Span::styled(text, style),
+        }
+      })
+      .collect::<Vec<_>>(),
+  )
 }
 
 pub fn get_gauge_symbol(enhanced_graphics: bool) -> &'static str {
@@ -296,15 +364,19 @@ pub fn layout_block_default(title: &str) -> Block<'_> {
   layout_block(title_style(title))
 }
 
-pub fn layout_block_active(title: &str, light: bool) -> Block<'_> {
-  layout_block(title_style(title)).style(style_secondary(light))
+pub fn layout_block_default_line(title: Line<'_>) -> Block<'_> {
+  Block::default().borders(Borders::ALL).title(title)
 }
 
-pub fn layout_block_active_span(title: Line<'_>, light: bool) -> Block<'_> {
+pub fn layout_block_active_line(title: Line<'_>, light: bool) -> Block<'_> {
   Block::default()
     .borders(Borders::ALL)
     .title(title)
     .style(style_secondary(light))
+}
+
+pub fn layout_block_active_span(title: Line<'_>, light: bool) -> Block<'_> {
+  layout_block_active_line(title, light)
 }
 
 pub fn layout_block_top_border(title: Line<'_>) -> Block<'_> {
@@ -327,55 +399,71 @@ fn filter_display_state(filter: &str, active: bool) -> FilterDisplayState<'_> {
   }
 }
 
-pub fn filter_status_hint(filter: &str, active: bool) -> String {
-  match filter_display_state(filter, active) {
-    FilterDisplayState::Inactive => "filter < / >".to_string(),
-    FilterDisplayState::EditingEmpty => "type to filter | clear <esc>".to_string(),
+fn filter_display_parts(filter: &str, active: bool) -> Vec<LinePart<'_>> {
+  let state = filter_display_state(filter, active);
+  let inactive_text = "filter </>";
+  let clear_suffix = " | clear <esc> ";
+  let edit_suffix = " | edit </> ";
+
+  match state {
+    FilterDisplayState::Inactive => vec![help_part(inactive_text)],
+    FilterDisplayState::EditingEmpty => {
+      vec![help_part("[type to filter]"), help_part(clear_suffix)]
+    }
     FilterDisplayState::Value {
       filter,
       active: true,
-    } => format!("[{}] | clear <esc>", filter),
+    } => vec![
+      default_part(format!("[{}]", filter)),
+      help_part(clear_suffix),
+    ],
     FilterDisplayState::Value {
       filter,
       active: false,
-    } => format!("[{}] | edit < / >", filter),
+    } => vec![
+      default_part(format!("[{}]", filter)),
+      help_part(edit_suffix),
+    ],
   }
+}
+
+pub fn filter_status_parts(filter: &str, active: bool) -> Vec<LinePart<'_>> {
+  filter_display_parts(filter, active)
 }
 
 pub fn filter_bar_title<'a>(filter: &'a str, active: bool, light: bool) -> Line<'a> {
-  match filter_display_state(filter, active) {
-    FilterDisplayState::Inactive => {
-      Line::from(vec![Span::styled(" filter < / > ", style_secondary(light))])
-    }
-    FilterDisplayState::EditingEmpty => Line::from(vec![
-      Span::styled(" / ", style_secondary(light)),
-      Span::styled("type to filter", style_default(light)),
-      Span::styled("  | clear <esc> ", style_secondary(light)),
-    ]),
-    FilterDisplayState::Value {
-      filter,
-      active: true,
-    } => Line::from(vec![
-      Span::styled(" / ", style_secondary(light)),
-      Span::styled(filter, style_default(light)),
-      Span::styled("  | clear <esc> ", style_secondary(light)),
-    ]),
-    FilterDisplayState::Value {
-      filter,
-      active: false,
-    } => Line::from(vec![
-      Span::styled(" / ", style_secondary(light)),
-      Span::styled(filter, style_default(light)),
-      Span::styled("  | edit < / > ", style_secondary(light)),
-    ]),
-  }
+  let mut parts = vec![help_part(" ")];
+  parts.extend(filter_display_parts(filter, active));
+  parts.push(help_part(" "));
+  mixed_line(parts, light)
 }
 
-pub fn title_with_dual_style<'a>(part_1: String, part_2: String, light: bool) -> Line<'a> {
-  Line::from(vec![
-    Span::styled(part_1, style_secondary(light).add_modifier(Modifier::BOLD)),
-    Span::styled(part_2, style_default(light).add_modifier(Modifier::BOLD)),
-  ])
+pub fn title_with_dual_style<'a>(part_1: String, part_2: Line<'a>, light: bool) -> Line<'a> {
+  let mut spans = vec![Span::styled(
+    part_1,
+    style_secondary(light).add_modifier(Modifier::BOLD),
+  )];
+  spans.extend(part_2.spans);
+  Line::from(spans)
+}
+
+pub fn copy_and_escape_title_line<'a, S: Into<Cow<'a, str>>>(target: S, light: bool) -> Line<'a> {
+  mixed_bold_line(
+    [
+      help_part("copy <c> | "),
+      help_part(target),
+      help_part(" <esc> "),
+    ],
+    light,
+  )
+}
+
+pub fn split_hint_suffix(text: &str) -> (&str, Option<&str>) {
+  if let Some(pos) = text.rfind(" <") {
+    (&text[..pos], Some(&text[(pos + 1)..]))
+  } else {
+    (text, None)
+  }
 }
 
 /// helper function to create a centered rect using up
@@ -442,7 +530,7 @@ macro_rules! draw_resource_tab {
         $area,
         title_with_dual_style(
           get_resource_title($app, $title, get_describe_active($block), $res.items.len()),
-          format!("{} | {} <esc> ", COPY_HINT, $title),
+          $crate::ui::utils::copy_and_escape_title_line($title, $app.light_theme),
           $app.light_theme,
         ),
       ),
@@ -452,7 +540,7 @@ macro_rules! draw_resource_tab {
         $area,
         title_with_dual_style(
           get_resource_title($app, $title, get_describe_active($block), $res.items.len()),
-          format!("{} | {} <esc> ", COPY_HINT, $title),
+          $crate::ui::utils::copy_and_escape_title_line($title, $app.light_theme),
           $app.light_theme,
         ),
       ),
@@ -467,7 +555,7 @@ macro_rules! draw_resource_tab {
 
 pub struct ResourceTableProps<'a, T> {
   pub title: String,
-  pub inline_help: String,
+  pub inline_help: Line<'a>,
   pub resource: &'a mut StatefulTable<T>,
   pub table_headers: Vec<&'a str>,
   pub column_widths: Vec<Constraint>,
@@ -661,7 +749,7 @@ mod tests {
   };
 
   use super::*;
-  use crate::ui::utils::{COLOR_CYAN, COLOR_WHITE, COLOR_YELLOW};
+  use crate::ui::utils::{COLOR_CYAN, COLOR_LIGHT_BLUE, COLOR_YELLOW};
 
   #[test]
   fn test_draw_resource_block() {
@@ -712,7 +800,7 @@ mod tests {
           size,
           ResourceTableProps {
             title: "Test".into(),
-            inline_help: "-> yaml <y>".into(),
+            inline_help: help_bold_line("-> yaml <y>", false),
             resource: &mut resource,
             table_headers: vec!["Namespace", "Name", "Data", "Age"],
             column_widths: vec![
@@ -759,7 +847,7 @@ mod tests {
         4..=14 => {
           expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
-              .fg(COLOR_WHITE)
+              .fg(COLOR_LIGHT_BLUE)
               .add_modifier(Modifier::BOLD),
           );
         }
@@ -845,7 +933,7 @@ mod tests {
           size,
           ResourceTableProps {
             title: "Test".into(),
-            inline_help: "-> yaml <y>".into(),
+            inline_help: help_bold_line("-> yaml <y>", false),
             resource: &mut resource,
             table_headers: vec!["Namespace", "Name", "Data", "Age"],
             column_widths: vec![
@@ -892,7 +980,7 @@ mod tests {
         4..=14 => {
           expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
-              .fg(COLOR_WHITE)
+              .fg(COLOR_LIGHT_BLUE)
               .add_modifier(Modifier::BOLD),
           );
         }
@@ -978,7 +1066,7 @@ mod tests {
           size,
           ResourceTableProps {
             title: "Test".into(),
-            inline_help: "-> yaml <y>".into(),
+            inline_help: help_bold_line("-> yaml <y>", false),
             resource: &mut resource,
             table_headers: vec!["Namespace", "Name", "Data", "Age"],
             column_widths: vec![
@@ -1025,7 +1113,7 @@ mod tests {
         4..=14 => {
           expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
-              .fg(COLOR_WHITE)
+              .fg(COLOR_LIGHT_BLUE)
               .add_modifier(Modifier::BOLD),
           );
         }
