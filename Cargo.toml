@@ -45,6 +45,7 @@ clap = { version = "4.6", default-features = false, features = [
 ] }
 tokio = { version = "1.50.0", default-features = false, features = [
     "macros",
+    "process",
     "rt-multi-thread",
 ] }
 tokio-stream = { version = "0.1.18", default-features = false, features = [

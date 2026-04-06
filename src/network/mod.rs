@@ -5,10 +5,12 @@ use std::{
   env, fmt,
   io::ErrorKind,
   path::{Path, PathBuf},
+  process::Stdio,
   sync::Arc,
+  time::Duration,
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use k8s_openapi::{
   api::core::v1::Pod, apimachinery::pkg::apis::meta::v1::APIGroup as DiscoveryApiGroup,
   NamespaceResourceScope,
@@ -22,7 +24,7 @@ use kube::{
 };
 use log::{debug, error, info, warn};
 use serde::de::DeserializeOwned;
-use tokio::sync::Mutex;
+use tokio::{process::Command, sync::Mutex, time::timeout};
 
 use crate::app::{
   configmaps::ConfigMapResource,
@@ -89,24 +91,75 @@ pub enum IoEvent {
 }
 
 async fn refresh_kube_config(context: &Option<String>) -> Result<kube::Client> {
-  // HACK force refresh token by calling "kubectl cluster-info before loading configuration"
-  let mut args = vec!["cluster-info"];
+  match get_client(context.clone()).await {
+    Ok(client) => Ok(client),
+    Err(err) if should_retry_kubectl_refresh(&err) => {
+      warn!(
+        "Initial client refresh failed with auth-related error, retrying after `kubectl cluster-info`: {:#}",
+        err
+      );
+      run_kubectl_cluster_info(context, Duration::from_secs(3)).await?;
+      get_client(context.clone()).await
+    }
+    Err(err) => Err(err),
+  }
+}
+
+fn should_retry_kubectl_refresh(error: &anyhow::Error) -> bool {
+  error.chain().any(|cause| {
+    cause
+      .downcast_ref::<kube::Error>()
+      .is_some_and(|error| match error {
+        kube::Error::Auth(_) => true,
+        kube::Error::Api(status) => status.code == 401 || status.reason == "Unauthorized",
+        _ => false,
+      })
+      || {
+        let message = cause.to_string().to_lowercase();
+        message.contains("auth exec")
+          || message.contains("failed exec auth")
+          || message.contains("exec-plugin")
+          || message.contains("oidc")
+          || message.contains("oauth")
+          || message.contains("unauthorized")
+      }
+  })
+}
+
+async fn run_kubectl_cluster_info(context: &Option<String>, max_wait: Duration) -> Result<()> {
+  let mut command = Command::new("kubectl");
+  command
+    .arg("cluster-info")
+    .stderr(Stdio::null())
+    .stdout(Stdio::null())
+    .kill_on_drop(true);
 
   if let Some(context) = context {
-    args.push("--context");
-    args.push(context.as_str());
+    command.arg("--context").arg(context);
   }
-  let out = duct::cmd("kubectl", &args)
-    .stderr_null()
-    // we don't care about the output
-    .stdout_null()
-    .read();
 
-  if out.is_err() {
-    error!("Running `kubectl cluster-info` failed");
-    return Err(anyhow!("Running `kubectl cluster-info` failed",));
+  let mut child = command
+    .spawn()
+    .context("Failed to start `kubectl cluster-info`")?;
+  match timeout(max_wait, child.wait()).await {
+    Ok(Ok(status)) if status.success() => Ok(()),
+    Ok(Ok(status)) => Err(anyhow!(
+      "`kubectl cluster-info` exited with status {}",
+      status
+    )),
+    Ok(Err(err)) => Err(anyhow!(
+      "Failed to wait for `kubectl cluster-info`. {}",
+      err
+    )),
+    Err(_) => {
+      let _ = child.kill().await;
+      let _ = child.wait().await;
+      Err(anyhow!(
+        "`kubectl cluster-info` timed out after {} seconds",
+        max_wait.as_secs()
+      ))
+    }
   }
-  get_client(context.to_owned()).await
 }
 
 fn is_blank_kubeconfig(config: &Kubeconfig) -> bool {
@@ -210,7 +263,7 @@ async fn load_client_config(context: Option<String>) -> Result<kube::Config> {
   if let Some(kubeconfig) = load_local_kubeconfig()? {
     return kube::Config::from_custom_kubeconfig(kubeconfig, &options)
       .await
-      .map_err(|e| anyhow!("Failed to load Kubernetes config. {}", e));
+      .context("Failed to load Kubernetes config");
   }
 
   if let Some(context) = context {
@@ -219,7 +272,7 @@ async fn load_client_config(context: Option<String>) -> Result<kube::Config> {
       context
     ))
   } else {
-    kube::Config::incluster().map_err(|e| anyhow!("Failed to load Kubernetes config. {}", e))
+    kube::Config::incluster().context("Failed to load Kubernetes config")
   }
 }
 
@@ -237,7 +290,7 @@ pub async fn get_client(context: Option<String>) -> Result<kube::Client> {
   };
   debug!("Kubernetes client config: {:?}", client_config);
   info!("Kubernetes client connected");
-  Ok(kube::Client::try_from(client_config)?)
+  kube::Client::try_from(client_config).context("Failed to create Kubernetes client")
 }
 
 #[derive(Clone)]
@@ -638,6 +691,7 @@ fn preferred_group_version(api_group: &DiscoveryApiGroup) -> Option<GroupVersion
 mod tests {
   use super::*;
   use k8s_openapi::apimachinery::pkg::apis::meta::v1::GroupVersionForDiscovery;
+  use kube::{client::AuthError, core::Status};
   use std::{
     fs,
     time::{SystemTime, UNIX_EPOCH},
@@ -897,5 +951,32 @@ users:
     };
 
     assert!(preferred_group_version(&api_group).is_none());
+  }
+
+  #[test]
+  fn test_should_retry_kubectl_refresh_for_auth_error() {
+    let error = anyhow!(kube::Error::Auth(AuthError::AuthExec(
+      "refresh failed".into()
+    )));
+
+    assert!(should_retry_kubectl_refresh(&error));
+  }
+
+  #[test]
+  fn test_should_retry_kubectl_refresh_for_unauthorized_api_error() {
+    let error = anyhow!(kube::Error::Api(
+      Status::failure("unauthorized", "Unauthorized")
+        .with_code(401)
+        .boxed()
+    ));
+
+    assert!(should_retry_kubectl_refresh(&error));
+  }
+
+  #[test]
+  fn test_should_not_retry_kubectl_refresh_for_non_auth_error() {
+    let error = anyhow!("Failed to load Kubernetes config");
+
+    assert!(!should_retry_kubectl_refresh(&error));
   }
 }
