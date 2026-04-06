@@ -368,7 +368,7 @@ mod tests {
       lines,
       vec![
         "┌ Resources ───────────────────────────────────────────────────────────────────────────────────────┐",
-        "│ Pods [1] <1> │ Services [0] <2> │ Nodes [0] <3> │ ConfigMaps [0] <4> │ StatefulSets [0] <5> │ Rep│",
+        "│ Pods [1] │ Services [0] <2> │ Nodes [0] <3> │ ConfigMaps [0] <4> │ StatefulSets [0] <5> │ Replica│",
         "│                                                                                                  │",
         "│ filter </> ──────────────────────────────────────────────────────────────────────────────────────│",
         "│                                                                                                  │",
@@ -384,7 +384,6 @@ mod tests {
     assert_eq!(buffer[(1, 0)].fg, COLOR_YELLOW);
     assert!(buffer[(1, 0)].modifier.contains(Modifier::BOLD));
     assert_eq!(buffer[(17, 1)].fg, COLOR_WHITE);
-    assert_eq!(buffer[(33, 1)].fg, COLOR_YELLOW);
     assert_eq!(buffer[(1, 3)].fg, COLOR_LIGHT_BLUE);
     assert_eq!(buffer[(0, 4)].fg, COLOR_YELLOW);
     assert_eq!(buffer[(99, 4)].fg, COLOR_YELLOW);

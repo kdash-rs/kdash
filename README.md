@@ -234,11 +234,10 @@ MIT
 
 ## TODO
 
-- [ ] R4: Make all help text through the app same color for consistency.
-  - [ ] Remove help text from active tab labels
-  - [ ] Resource tab views not in help style
-  - [ ] / before the type to filter should not be help style
 - [ ] R1: Filter in help page?
+  - [ ] extract / keybinding to keybindings macro.
+  - [ ] close is not in help color
+  - [ ] +1 on cursor poisition
 - [ ] R3: Scroll tabs and title text when cant fit in viewport
 - [ ] R5: Open issues in docs/plans/2026-04-03-002-fix-open-issues-plan.md
 - [ ] catpuccin theme by default

@@ -832,7 +832,13 @@ async fn handle_route_events(key: Key, app: &mut App) {
         _ => {}
       }
     }
-    RouteId::HelpMenu => { /* Do nothing */ }
+    RouteId::HelpMenu => {
+      if key == Key::Char('/') {
+        if let Some((_, filter_active, _)) = app.current_resource_filter_mut() {
+          *filter_active = true;
+        }
+      }
+    }
   }
   // reset tick_count so that network requests are made faster
   if key == DEFAULT_KEYBINDING.submit.key {
@@ -1129,6 +1135,33 @@ mod tests {
     let key_evt = KeyEvent::from(KeyCode::Esc);
     handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
     assert!(!app.data.troubleshoot_findings.filter_active);
+  }
+
+  #[tokio::test]
+  async fn test_help_filter_key_flow() {
+    let mut app = App::default();
+    app.push_navigation_stack(RouteId::HelpMenu, ActiveBlock::Help);
+    assert!(!app.help_docs.filter_active);
+    assert!(app.help_docs.filter.is_empty());
+
+    let key_evt = KeyEvent::from(KeyCode::Char('/'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert!(app.help_docs.filter_active);
+
+    for c in ['h', 'e', 'l', 'p'] {
+      let key_evt = KeyEvent::from(KeyCode::Char(c));
+      handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    }
+    assert_eq!(app.help_docs.filter, "help");
+
+    let key_evt = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert!(app.help_docs.filter_active);
+    assert!(app.help_docs.filter.is_empty());
+
+    let key_evt = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert!(!app.help_docs.filter_active);
   }
 
   #[tokio::test]
