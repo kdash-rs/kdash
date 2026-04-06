@@ -55,7 +55,7 @@ use crate::app::{
   ActiveBlock, App,
 };
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum IoEvent {
   GetKubeConfig,
   GetNodes,

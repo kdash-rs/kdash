@@ -220,6 +220,7 @@ pub struct App {
   pub log_auto_scroll: bool,
   pub utilization_group_by: Vec<GroupBy>,
   pub help_docs: StatefulTable<Vec<String>>,
+  background_cache_pending: bool,
   pub data: Data,
 }
 
@@ -461,6 +462,7 @@ impl Default for App {
         GroupBy::pod,
       ],
       help_docs: StatefulTable::with_items(key_binding::get_help_docs()),
+      background_cache_pending: false,
       data: Data::default(),
     }
   }
@@ -823,33 +825,115 @@ impl App {
     self.refresh = true;
   }
 
-  pub async fn cache_all_resource_data(&mut self) {
-    info!("Caching all resource data");
+  pub fn queue_background_resource_cache(&mut self) {
+    self.background_cache_pending = true;
+  }
+
+  fn background_home_resource_events() -> &'static [IoEvent] {
+    &[
+      IoEvent::GetPods,
+      IoEvent::GetServices,
+      IoEvent::GetConfigMaps,
+      IoEvent::GetStatefulSets,
+      IoEvent::GetReplicaSets,
+      IoEvent::GetDeployments,
+      IoEvent::GetJobs,
+      IoEvent::GetDaemonSets,
+      IoEvent::GetCronJobs,
+      IoEvent::GetSecrets,
+      IoEvent::GetReplicationControllers,
+      IoEvent::GetStorageClasses,
+      IoEvent::GetRoles,
+      IoEvent::GetRoleBindings,
+      IoEvent::GetClusterRoles,
+      IoEvent::GetClusterRoleBinding,
+      IoEvent::GetIngress,
+      IoEvent::GetPvcs,
+      IoEvent::GetPvs,
+      IoEvent::GetServiceAccounts,
+      IoEvent::GetNetworkPolicies,
+    ]
+  }
+
+  fn active_home_cache_block(&self) -> ActiveBlock {
+    match self.get_current_route().active_block {
+      ActiveBlock::Namespaces | ActiveBlock::Describe | ActiveBlock::Yaml | ActiveBlock::Logs => {
+        self.get_prev_route().active_block
+      }
+      active_block => active_block,
+    }
+  }
+
+  fn background_home_event_to_skip(&self) -> Option<IoEvent> {
+    match self.active_home_cache_block() {
+      ActiveBlock::Pods | ActiveBlock::Containers => Some(IoEvent::GetPods),
+      ActiveBlock::Services => Some(IoEvent::GetServices),
+      ActiveBlock::ConfigMaps => Some(IoEvent::GetConfigMaps),
+      ActiveBlock::StatefulSets => Some(IoEvent::GetStatefulSets),
+      ActiveBlock::ReplicaSets => Some(IoEvent::GetReplicaSets),
+      ActiveBlock::Deployments => Some(IoEvent::GetDeployments),
+      ActiveBlock::Jobs => Some(IoEvent::GetJobs),
+      ActiveBlock::DaemonSets => Some(IoEvent::GetDaemonSets),
+      ActiveBlock::CronJobs => Some(IoEvent::GetCronJobs),
+      ActiveBlock::Secrets => Some(IoEvent::GetSecrets),
+      ActiveBlock::ReplicationControllers => Some(IoEvent::GetReplicationControllers),
+      ActiveBlock::StorageClasses => Some(IoEvent::GetStorageClasses),
+      ActiveBlock::Roles => Some(IoEvent::GetRoles),
+      ActiveBlock::RoleBindings => Some(IoEvent::GetRoleBindings),
+      ActiveBlock::ClusterRoles => Some(IoEvent::GetClusterRoles),
+      ActiveBlock::ClusterRoleBindings => Some(IoEvent::GetClusterRoleBinding),
+      ActiveBlock::Ingresses => Some(IoEvent::GetIngress),
+      ActiveBlock::PersistentVolumeClaims => Some(IoEvent::GetPvcs),
+      ActiveBlock::PersistentVolumes => Some(IoEvent::GetPvs),
+      ActiveBlock::ServiceAccounts => Some(IoEvent::GetServiceAccounts),
+      ActiveBlock::NetworkPolicies => Some(IoEvent::GetNetworkPolicies),
+      _ => None,
+    }
+  }
+
+  pub async fn cache_essential_data(&mut self) {
+    info!("Caching essential resource data");
     self.dispatch(IoEvent::GetNamespaces).await;
-    self.dispatch(IoEvent::GetPods).await;
-    self.dispatch(IoEvent::DiscoverDynamicRes).await;
-    self.dispatch(IoEvent::GetServices).await;
     self.dispatch(IoEvent::GetNodes).await;
-    self.dispatch(IoEvent::GetConfigMaps).await;
-    self.dispatch(IoEvent::GetStatefulSets).await;
-    self.dispatch(IoEvent::GetReplicaSets).await;
-    self.dispatch(IoEvent::GetDeployments).await;
-    self.dispatch(IoEvent::GetJobs).await;
-    self.dispatch(IoEvent::GetDaemonSets).await;
-    self.dispatch(IoEvent::GetCronJobs).await;
-    self.dispatch(IoEvent::GetSecrets).await;
-    self.dispatch(IoEvent::GetReplicationControllers).await;
-    self.dispatch(IoEvent::GetStorageClasses).await;
-    self.dispatch(IoEvent::GetRoles).await;
-    self.dispatch(IoEvent::GetRoleBindings).await;
-    self.dispatch(IoEvent::GetClusterRoles).await;
-    self.dispatch(IoEvent::GetClusterRoleBinding).await;
-    self.dispatch(IoEvent::GetIngress).await;
-    self.dispatch(IoEvent::GetPvcs).await;
-    self.dispatch(IoEvent::GetPvs).await;
-    self.dispatch(IoEvent::GetServiceAccounts).await;
-    self.dispatch(IoEvent::GetNetworkPolicies).await;
-    self.dispatch(IoEvent::GetMetrics).await;
+
+    match self.get_current_route().id {
+      RouteId::Home => {
+        self
+          .dispatch_by_active_block(self.active_home_cache_block())
+          .await;
+      }
+      RouteId::Utilization => {
+        self.dispatch(IoEvent::GetMetrics).await;
+      }
+      RouteId::Troubleshoot => {
+        if self.get_current_route().active_block == ActiveBlock::Troubleshoot {
+          self.dispatch(IoEvent::GetTroubleshootFindings).await;
+        }
+      }
+      _ => {}
+    }
+  }
+
+  pub async fn cache_background_resource_data(&mut self) {
+    info!("Caching background resource data");
+    self.dispatch(IoEvent::DiscoverDynamicRes).await;
+
+    let skip_home_event = if self.get_current_route().id == RouteId::Home {
+      self.background_home_event_to_skip()
+    } else {
+      None
+    };
+
+    for event in Self::background_home_resource_events() {
+      if skip_home_event.as_ref() == Some(event) {
+        continue;
+      }
+      self.dispatch(event.clone()).await;
+    }
+
+    if self.get_current_route().id != RouteId::Utilization {
+      self.dispatch(IoEvent::GetMetrics).await;
+    }
   }
 
   pub async fn dispatch_by_active_block(&mut self, active_block: ActiveBlock) {
@@ -941,15 +1025,22 @@ impl App {
 
   pub async fn on_tick(&mut self, first_render: bool) {
     // Make one time requests on first render or refresh
+    let mut did_refresh = false;
     if self.refresh {
       if !first_render {
         self.dispatch(IoEvent::RefreshClient).await;
         self.dispatch_stream(IoStreamEvent::RefreshClient).await;
       }
       self.dispatch(IoEvent::GetKubeConfig).await;
-      // call these once to pre-load data
-      self.cache_all_resource_data().await;
+      self.cache_essential_data().await;
+      self.queue_background_resource_cache();
       self.refresh = false;
+      did_refresh = true;
+    }
+
+    if self.background_cache_pending && !first_render && !did_refresh {
+      self.cache_background_resource_data().await;
+      self.background_cache_pending = false;
     }
 
     // make network requests only in intervals to avoid hogging up the network
@@ -1075,17 +1166,84 @@ mod tests {
     };
 
     assert_eq!(app.tick_count, 0);
-    // test first render — cache_all_resource_data pre-loads everything
+    // test first render — essential data loads immediately, background cache is deferred
     app.on_tick(true).await;
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetKubeConfig);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
+    // periodic polling also fires (tick_count 0 % 2 == 0), fetching active tab data
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
+
+    assert_eq!(sync_io_cmd_rx.recv().await.unwrap(), IoCmdEvent::GetCliInfo);
+
+    assert!(!app.refresh);
+    assert!(app.background_cache_pending);
+    assert!(!app.is_routing);
+    assert_eq!(app.tick_count, 1);
+  }
+  #[tokio::test]
+  async fn test_on_tick_refresh_tick_limit() {
+    let (sync_io_tx, mut sync_io_rx) = mpsc::channel::<IoEvent>(500);
+    let (sync_io_stream_tx, mut sync_io_stream_rx) = mpsc::channel::<IoStreamEvent>(500);
+    let (sync_io_cmd_tx, mut sync_io_cmd_rx) = mpsc::channel::<IoCmdEvent>(500);
+
+    let mut app = App {
+      tick_until_poll: 2,
+      tick_count: 2,
+      refresh: true,
+      io_tx: Some(sync_io_tx),
+      io_stream_tx: Some(sync_io_stream_tx),
+      io_cmd_tx: Some(sync_io_cmd_tx),
+      ..App::default()
+    };
+
+    assert_eq!(app.tick_count, 2);
+    // test refresh (non-first-render) — essential data loads now, background cache waits
+    app.on_tick(false).await;
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::RefreshClient);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetKubeConfig);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
+
+    assert_eq!(
+      sync_io_stream_rx.recv().await.unwrap(),
+      IoStreamEvent::RefreshClient
+    );
+    assert_eq!(sync_io_cmd_rx.recv().await.unwrap(), IoCmdEvent::GetCliInfo);
+
+    assert!(!app.refresh);
+    assert!(app.background_cache_pending);
+    assert!(!app.is_routing);
+    assert_eq!(app.tick_count, 3);
+  }
+
+  #[tokio::test]
+  async fn test_on_tick_dispatches_background_cache_on_followup_tick() {
+    let (sync_io_tx, mut sync_io_rx) = mpsc::channel::<IoEvent>(500);
+
+    let mut app = App {
+      tick_until_poll: 5,
+      tick_count: 1,
+      refresh: false,
+      background_cache_pending: true,
+      io_tx: Some(sync_io_tx),
+      ..App::default()
+    };
+
+    app.on_tick(false).await;
+
     assert_eq!(
       sync_io_rx.recv().await.unwrap(),
       IoEvent::DiscoverDynamicRes
     );
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetServices);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetConfigMaps);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetStatefulSets);
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetReplicaSets);
@@ -1118,60 +1276,9 @@ mod tests {
       IoEvent::GetNetworkPolicies
     );
     assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetMetrics);
-    // periodic polling also fires (tick_count 0 % 2 == 0), fetching active tab data
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
 
-    assert_eq!(sync_io_cmd_rx.recv().await.unwrap(), IoCmdEvent::GetCliInfo);
-
-    assert!(!app.refresh);
-    assert!(!app.is_routing);
-    assert_eq!(app.tick_count, 1);
-  }
-  #[tokio::test]
-  async fn test_on_tick_refresh_tick_limit() {
-    let (sync_io_tx, mut sync_io_rx) = mpsc::channel::<IoEvent>(500);
-    let (sync_io_stream_tx, mut sync_io_stream_rx) = mpsc::channel::<IoStreamEvent>(500);
-    let (sync_io_cmd_tx, mut sync_io_cmd_rx) = mpsc::channel::<IoCmdEvent>(500);
-
-    let mut app = App {
-      tick_until_poll: 2,
-      tick_count: 2,
-      refresh: true,
-      io_tx: Some(sync_io_tx),
-      io_stream_tx: Some(sync_io_stream_tx),
-      io_cmd_tx: Some(sync_io_cmd_tx),
-      ..App::default()
-    };
-
+    assert!(!app.background_cache_pending);
     assert_eq!(app.tick_count, 2);
-    // test refresh (non-first-render) — cache_all_resource_data pre-loads everything
-    app.on_tick(false).await;
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::RefreshClient);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetKubeConfig);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetPods);
-    assert_eq!(
-      sync_io_rx.recv().await.unwrap(),
-      IoEvent::DiscoverDynamicRes
-    );
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetServices);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetConfigMaps);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetStatefulSets);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetReplicaSets);
-    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetDeployments);
-
-    assert_eq!(
-      sync_io_stream_rx.recv().await.unwrap(),
-      IoStreamEvent::RefreshClient
-    );
-    assert_eq!(sync_io_cmd_rx.recv().await.unwrap(), IoCmdEvent::GetCliInfo);
-
-    assert!(!app.refresh);
-    assert!(!app.is_routing);
-    assert_eq!(app.tick_count, 3);
   }
   #[tokio::test]
   async fn test_on_tick_routing() {
