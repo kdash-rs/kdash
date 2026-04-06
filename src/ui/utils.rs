@@ -681,23 +681,19 @@ pub fn draw_yaml_block(f: &mut Frame<'_>, app: &mut App, area: Rect, title: Line
   }
 }
 
-/// Draw a kubernetes resource overview tab
-pub fn draw_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
+fn draw_resource_table<'a, T: KubeResource<U>, F, U: Serialize>(
   f: &mut Frame<'_>,
   area: Rect,
   table_props: ResourceTableProps<'a, T>,
   row_cell_mapper: F,
   light_theme: bool,
   is_loading: bool,
+  block: Block<'a>,
 ) where
   F: Fn(&T) -> Row<'a>,
 {
-  let title = title_with_dual_style(table_props.title, table_props.inline_help, light_theme);
-  let block = layout_block_top_border(title);
-
   if !table_props.resource.items.is_empty() {
     let filter = table_props.resource.filter.to_lowercase();
-    // Build filtered rows and track the mapping from visible index → items index.
     let has_filter = !filter.is_empty();
     let mut filtered_indices: Vec<usize> = Vec::new();
     let rows: Vec<Row<'a>> = table_props
@@ -721,7 +717,6 @@ pub fn draw_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
       })
       .collect();
 
-    // Clamp selection to the filtered list length.
     if has_filter {
       let max = filtered_indices.len().saturating_sub(1);
       if let Some(sel) = table_props.resource.state.selected() {
@@ -742,6 +737,79 @@ pub fn draw_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
   } else {
     loading(f, block, area, is_loading, light_theme);
   }
+}
+
+/// Draw a kubernetes resource overview tab
+pub fn draw_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
+  f: &mut Frame<'_>,
+  area: Rect,
+  table_props: ResourceTableProps<'a, T>,
+  row_cell_mapper: F,
+  light_theme: bool,
+  is_loading: bool,
+) where
+  F: Fn(&T) -> Row<'a>,
+{
+  let ResourceTableProps {
+    title,
+    inline_help,
+    resource,
+    table_headers,
+    column_widths,
+  } = table_props;
+  let title = title_with_dual_style(title, inline_help, light_theme);
+  let block = layout_block_top_border(title);
+  draw_resource_table(
+    f,
+    area,
+    ResourceTableProps {
+      title: String::new(),
+      inline_help: Line::default(),
+      resource,
+      table_headers,
+      column_widths,
+    },
+    row_cell_mapper,
+    light_theme,
+    is_loading,
+    block,
+  );
+}
+
+pub fn draw_route_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
+  f: &mut Frame<'_>,
+  area: Rect,
+  table_props: ResourceTableProps<'a, T>,
+  row_cell_mapper: F,
+  light_theme: bool,
+  is_loading: bool,
+) where
+  F: Fn(&T) -> Row<'a>,
+{
+  let ResourceTableProps {
+    title,
+    inline_help,
+    resource,
+    table_headers,
+    column_widths,
+  } = table_props;
+  let title = title_with_dual_style(title, inline_help, light_theme);
+  let block = layout_block_active_span(title, light_theme);
+  draw_resource_table(
+    f,
+    area,
+    ResourceTableProps {
+      title: String::new(),
+      inline_help: Line::default(),
+      resource,
+      table_headers,
+      column_widths,
+    },
+    row_cell_mapper,
+    light_theme,
+    is_loading,
+    block,
+  );
 }
 
 pub fn filter_by_resource_name<T: KubeResource<U>, U: Serialize>(

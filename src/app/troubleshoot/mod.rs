@@ -23,7 +23,7 @@ mod rs;
 use crate::app::key_binding::DEFAULT_KEYBINDING;
 use crate::ui::utils::{
   action_hint, copy_and_escape_title_line, describe_and_yaml_hint, draw_describe_block,
-  draw_resource_block, draw_yaml_block, filter_cursor_position, filter_status_parts,
+  draw_route_resource_block, draw_yaml_block, filter_cursor_position, filter_status_parts,
   get_describe_active, get_resource_title, help_part, mixed_bold_line, style_caution,
   style_failure, style_primary, title_with_dual_style, ResourceTableProps,
 };
@@ -190,7 +190,7 @@ pub fn render_troubleshoot(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     help_part(describe_and_yaml_hint()),
   ]);
 
-  draw_resource_block(
+  draw_route_resource_block(
     f,
     area,
     ResourceTableProps {
