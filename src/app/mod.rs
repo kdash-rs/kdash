@@ -118,7 +118,7 @@ pub enum RouteId {
   HelpMenu,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Route {
   pub id: RouteId,
   pub active_block: ActiveBlock,
@@ -462,12 +462,7 @@ impl Default for App {
       refresh: true,
       log_auto_scroll: true,
       log_tail_lines: DEFAULT_LOG_TAIL_LINES,
-      utilization_group_by: vec![
-        GroupBy::resource,
-        GroupBy::node,
-        GroupBy::namespace,
-        GroupBy::pod,
-      ],
+      utilization_group_by: Self::default_utilization_group_by(),
       help_docs: StatefulTable::with_items(key_binding::get_help_docs()),
       background_cache_pending: false,
       config: KdashConfig::default(),
@@ -477,6 +472,15 @@ impl Default for App {
 }
 
 impl App {
+  fn default_utilization_group_by() -> Vec<GroupBy> {
+    vec![
+      GroupBy::resource,
+      GroupBy::node,
+      GroupBy::namespace,
+      GroupBy::pod,
+    ]
+  }
+
   fn resource_block_for_context_tab(index: usize) -> Option<ActiveBlock> {
     match index {
       0 => Some(ActiveBlock::Pods),
@@ -644,6 +648,7 @@ impl App {
     self.loading_counter = 0;
     self.tick_count = 0;
     self.api_error = String::new();
+    self.utilization_group_by = Self::default_utilization_group_by();
     self.data = Data::default();
     self.route_home();
   }
@@ -861,6 +866,25 @@ impl App {
 
   pub fn refresh(&mut self) {
     self.refresh = true;
+  }
+
+  pub fn restore_route_state(
+    &mut self,
+    main_tab_index: usize,
+    context_tab_index: usize,
+    route: Route,
+  ) {
+    self.main_tabs.set_index(main_tab_index);
+    self.context_tabs.set_index(context_tab_index);
+    self.navigation_stack = vec![route];
+    self.is_routing = true;
+  }
+
+  pub fn refresh_restore_route(&self) -> Route {
+    match self.main_tabs.index {
+      0 => self.context_tabs.get_active_route().clone(),
+      _ => self.main_tabs.get_active_route().clone(),
+    }
   }
 
   pub fn queue_background_resource_cache(&mut self) {
@@ -1431,6 +1455,86 @@ mod tests {
   fn test_loading_counter_default() {
     let app = App::default();
     assert!(!app.is_loading());
+  }
+
+  #[test]
+  fn test_refresh_restore_route_uses_parent_for_transient_home_views() {
+    let mut app = App::default();
+    app.context_tabs.set_index(1);
+    app.push_navigation_route(app.context_tabs.get_active_route().clone());
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
+
+    assert_eq!(
+      app.refresh_restore_route(),
+      Route {
+        id: RouteId::Home,
+        active_block: ActiveBlock::Services,
+      }
+    );
+  }
+
+  #[test]
+  fn test_refresh_restore_route_uses_parent_for_help_menu() {
+    let mut app = App::default();
+    app.route_contexts();
+    app.push_navigation_stack(RouteId::HelpMenu, ActiveBlock::Help);
+
+    assert_eq!(
+      app.refresh_restore_route(),
+      Route {
+        id: RouteId::Contexts,
+        active_block: ActiveBlock::Contexts,
+      }
+    );
+  }
+
+  #[test]
+  fn test_refresh_restore_route_uses_parent_for_filtered_pod_drilldown() {
+    let mut app = App::default();
+    app.context_tabs.set_index(6);
+    app.push_navigation_route(app.context_tabs.get_active_route().clone());
+    app.data.selected.pod_selector = Some("app=nginx".into());
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Pods);
+
+    assert_eq!(
+      app.refresh_restore_route(),
+      Route {
+        id: RouteId::Home,
+        active_block: ActiveBlock::Deployments,
+      }
+    );
+  }
+
+  #[test]
+  fn test_refresh_restore_route_uses_more_menu_for_more_resources() {
+    let mut app = App::default();
+    app.context_tabs.set_index(9);
+    app.push_navigation_route(app.context_tabs.get_active_route().clone());
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Secrets);
+
+    assert_eq!(
+      app.refresh_restore_route(),
+      Route {
+        id: RouteId::Home,
+        active_block: ActiveBlock::More,
+      }
+    );
+  }
+
+  #[test]
+  fn test_refresh_restore_route_uses_dynamic_menu_for_dynamic_resources() {
+    let mut app = App::default();
+    app.context_tabs.set_index(10);
+    app.push_navigation_route(app.context_tabs.get_active_route().clone());
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::DynamicResource);
+
+    assert_eq!(
+      app.refresh_restore_route(),
+      Route {
+        id: RouteId::Home,
+        active_block: ActiveBlock::DynamicView,
+      }
+    );
   }
 
   #[tokio::test]

@@ -312,13 +312,16 @@ impl<'a> Network<'a> {
   }
 
   pub async fn refresh_client(&mut self) {
-    let (context, ns) = {
+    let (context, ns, main_tab_index, context_tab_index, route) = {
       let mut app = self.app.lock().await;
       let context = app.data.selected.context.clone();
       let ns = app.data.selected.ns.clone();
+      let main_tab_index = app.main_tabs.index;
+      let context_tab_index = app.context_tabs.index;
+      let route = app.refresh_restore_route();
       // so that if refresh fails we dont see mixed results
       app.data.selected.context = None;
-      (context, ns)
+      (context, ns, main_tab_index, context_tab_index, route)
     };
 
     match refresh_kube_config(&context).await {
@@ -328,6 +331,7 @@ impl<'a> Network<'a> {
         app.reset();
         app.data.selected.context = context;
         app.data.selected.ns = ns;
+        app.restore_route_state(main_tab_index, context_tab_index, route);
       }
       Err(e) => {
         self
@@ -721,12 +725,13 @@ fn preferred_group_version(api_group: &DiscoveryApiGroup) -> Option<GroupVersion
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::app::{ActiveBlock, App, RouteId};
   use k8s_openapi::apimachinery::pkg::apis::meta::v1::GroupVersionForDiscovery;
   use kube::{client::AuthError, core::Status};
   use std::{
     ffi::OsString,
     fs,
-    sync::{Mutex, OnceLock},
+    sync::{Mutex as StdMutex, OnceLock},
     time::{SystemTime, UNIX_EPOCH},
   };
 
@@ -750,9 +755,9 @@ mod tests {
   }
 
   fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    static LOCK: OnceLock<StdMutex<()>> = OnceLock::new();
     LOCK
-      .get_or_init(|| Mutex::new(()))
+      .get_or_init(|| StdMutex::new(()))
       .lock()
       .unwrap_or_else(|poisoned| poisoned.into_inner())
   }
@@ -1174,5 +1179,46 @@ users:
     let error = anyhow!("Failed to load Kubernetes config");
 
     assert!(!should_retry_kubectl_refresh(&error));
+  }
+
+  #[allow(clippy::await_holding_lock)]
+  #[tokio::test]
+  async fn test_refresh_client_restores_home_route_and_resource_tab_state() {
+    let _env_lock = env_lock();
+    let previous_kubeconfig = env::var_os("KUBECONFIG");
+    let dir = temp_test_dir("refresh-route-state");
+    let kubeconfig_path = dir.join("config");
+    write_kubeconfig(&kubeconfig_path, valid_kubeconfig());
+    env::set_var("KUBECONFIG", &kubeconfig_path);
+
+    let client = get_client(None)
+      .await
+      .expect("test kubeconfig should produce a client");
+    let app = Arc::new(Mutex::new(App::default()));
+
+    {
+      let mut app = app.lock().await;
+      app.data.selected.context = Some("test-context".into());
+      app.data.selected.ns = Some("team-a".into());
+      let route = app.context_tabs.set_index(1).route.clone();
+      app.push_navigation_route(route);
+    }
+
+    let mut network = Network::new(client, &app);
+    network.refresh_client().await;
+
+    let app = app.lock().await;
+    assert_eq!(app.main_tabs.index, 0);
+    assert_eq!(app.context_tabs.index, 1);
+    assert_eq!(app.get_current_route().id, RouteId::Home);
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Services);
+    assert_eq!(app.data.selected.context.as_deref(), Some("test-context"));
+    assert_eq!(app.data.selected.ns.as_deref(), Some("team-a"));
+
+    match previous_kubeconfig {
+      Some(value) => env::set_var("KUBECONFIG", value),
+      None => env::remove_var("KUBECONFIG"),
+    }
+    fs::remove_dir_all(dir).expect("temp test dir should be removed");
   }
 }

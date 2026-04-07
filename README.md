@@ -280,7 +280,6 @@ MIT
 
 ## TODO
 
-- [ ] R2: ctrl_r doesnt reset active tab in resource view
 - [ ] R3: Scroll tabs and title text when cant fit in viewport
 - [ ] R5: Open issues in docs/plans/2026-04-03-002-fix-open-issues-plan.md
 - [ ] R6: Merge https://github.com/kdash-rs/kdash/pull/504
