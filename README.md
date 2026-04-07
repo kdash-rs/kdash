@@ -182,6 +182,12 @@ keybindings:
   resource_yaml: v
 ```
 
+Log streaming history can also be tuned:
+
+```yaml
+log_tail_lines: 250
+```
+
 See the sample config in [assets/kdash.sample-config.yaml](assets/kdash.sample-config.yaml) for a complete example with both custom keybindings and custom light/dark theme overrides.
 
 ## FLAGS:
@@ -190,6 +196,7 @@ See the sample config in [assets/kdash.sample-config.yaml](assets/kdash.sample-c
 - `-V, --version`: Prints version information
 - `-t, --tick-rate <tick-rate>`: Set the tick rate (milliseconds): the lower the number the higher the FPS.
 - `-p, --poll-rate <poll-rate>`: Set the network call polling rate (milliseconds, should be multiples of tick-rate): the lower the number the higher the network calls.
+- `--log-tail-lines <log-tail-lines>`: Set how many historical log lines to fetch before live streaming starts.
 - `-d, --debug[=<debug>]`: Enables debug mode and writes logs to `kdash-debug-<timestamp>.log` file in the current directory. Default behavior is to write INFO logs. Pass a log level to overwrite the default [possible values: info, debug, trace, warn, error]
 
 ## Limitations/Known issues

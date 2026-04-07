@@ -13,8 +13,6 @@ use tokio_stream::StreamExt;
 
 use super::refresh_kube_config;
 use crate::app::App;
-
-const INITIAL_TAIL_LINES: i64 = 100;
 const BATCH_SIZE: usize = 50;
 const BATCH_FLUSH_MS: u64 = 100;
 const RECONNECT_OVERLAP_SECS: i64 = 5;
@@ -88,7 +86,7 @@ impl<'a> NetworkStream<'a> {
   }
 
   pub async fn stream_container_logs(&self, tail: bool) {
-    let (namespace, pod_name, cont_name, cancel_rx) = {
+    let (namespace, pod_name, cont_name, tail_lines, cancel_rx) = {
       let app = self.app.lock().await;
       let ns = app
         .data
@@ -103,8 +101,9 @@ impl<'a> NetworkStream<'a> {
         .map(|p| p.name)
         .unwrap_or_default();
       let cont = app.data.selected.container.clone().unwrap_or_default();
+      let tail_lines = app.initial_log_tail_lines();
       let rx = app.new_log_cancel_rx();
-      (ns, pod, cont, rx)
+      (ns, pod, cont, tail_lines, rx)
     };
 
     if pod_name.is_empty() || cont_name.is_empty() {
@@ -126,7 +125,7 @@ impl<'a> NetworkStream<'a> {
         follow: true,
         previous: false,
         tail_lines: if since_seconds.is_none() && tail {
-          Some(INITIAL_TAIL_LINES)
+          Some(tail_lines)
         } else {
           None
         },
@@ -269,7 +268,7 @@ impl<'a> NetworkStream<'a> {
 
   /// Stream logs from all containers of the selected pod concurrently.
   pub async fn stream_pod_all_container_logs(&self) {
-    let (namespace, pod_name, container_names, cancel_rx) = {
+    let (namespace, pod_name, container_names, tail_lines, cancel_rx) = {
       let app = self.app.lock().await;
       let pod = app.data.pods.get_selected_item_copy();
       let ns = pod
@@ -281,8 +280,9 @@ impl<'a> NetworkStream<'a> {
         .as_ref()
         .map(|p| p.containers.iter().map(|c| c.name.clone()).collect())
         .unwrap_or_default();
+      let tail_lines = app.initial_log_tail_lines();
       let rx = app.new_log_cancel_rx();
-      (ns, name, containers, rx)
+      (ns, name, containers, tail_lines, rx)
     };
 
     if pod_name.is_empty() || container_names.is_empty() {
@@ -317,10 +317,13 @@ impl<'a> NetworkStream<'a> {
       join_set.spawn(async move {
         stream_single_pod_for_aggregate(
           client,
-          ns,
-          pod,
-          cont_name.clone(),
-          cont_name,
+          AggregateStreamTarget {
+            namespace: ns,
+            pod_name: pod,
+            container_name: cont_name.clone(),
+            short_name: cont_name,
+          },
+          tail_lines,
           tx,
           cancel_rx,
         )
@@ -391,9 +394,9 @@ impl<'a> NetworkStream<'a> {
   /// Stream logs from all pods matching a label selector concurrently.
   /// Lines are prefixed with the pod name for disambiguation.
   pub async fn stream_aggregate_logs(&self, namespace: &str, selector: &str) {
-    let cancel_rx = {
+    let (tail_lines, cancel_rx) = {
       let app = self.app.lock().await;
-      app.new_log_cancel_rx()
+      (app.initial_log_tail_lines(), app.new_log_cancel_rx())
     };
 
     // Fetch pods matching the selector
@@ -459,8 +462,19 @@ impl<'a> NetworkStream<'a> {
       let cancel_rx = cancel_rx.clone();
 
       join_set.spawn(async move {
-        stream_single_pod_for_aggregate(client, ns, pod_name, cont_name, prefix, tx, cancel_rx)
-          .await;
+        stream_single_pod_for_aggregate(
+          client,
+          AggregateStreamTarget {
+            namespace: ns,
+            pod_name,
+            container_name: cont_name,
+            short_name: prefix,
+          },
+          tail_lines,
+          tx,
+          cancel_rx,
+        )
+        .await;
       });
     }
 
@@ -577,22 +591,33 @@ fn collect_pod_container_info(pods: &[Pod]) -> Vec<(String, String, String)> {
     .collect()
 }
 
+struct AggregateStreamTarget {
+  namespace: String,
+  pod_name: String,
+  container_name: String,
+  short_name: String,
+}
+
 /// Stream logs from a single pod, prefixing each line and sending to the channel.
 async fn stream_single_pod_for_aggregate(
   client: Client,
-  namespace: String,
-  pod_name: String,
-  cont_name: String,
-  short_name: String,
+  stream_target: AggregateStreamTarget,
+  tail_lines: i64,
   tx: tokio::sync::mpsc::Sender<String>,
   cancel_rx: tokio::sync::watch::Receiver<bool>,
 ) {
+  let AggregateStreamTarget {
+    namespace,
+    pod_name,
+    container_name,
+    short_name,
+  } = stream_target;
   let api: Api<Pod> = Api::namespaced(client, &namespace);
   let lp = LogParams {
-    container: Some(cont_name.clone()),
+    container: Some(container_name.clone()),
     follow: true,
     previous: false,
-    tail_lines: Some(INITIAL_TAIL_LINES),
+    tail_lines: Some(tail_lines),
     ..Default::default()
   };
 
@@ -620,11 +645,14 @@ async fn stream_single_pod_for_aggregate(
                 }
               }
               Some(Err(e)) => {
-                warn!("Aggregate stream error for {}/{}: {}", pod_name, cont_name, e);
+                warn!(
+                  "Aggregate stream error for {}/{}: {}",
+                  pod_name, container_name, e
+                );
                 return;
               }
               None => {
-                debug!("Aggregate stream ended for {}/{}", pod_name, cont_name);
+                debug!("Aggregate stream ended for {}/{}", pod_name, container_name);
                 return;
               }
             }
@@ -635,7 +663,7 @@ async fn stream_single_pod_for_aggregate(
     Err(e) => {
       warn!(
         "Failed to open aggregate log stream for {}/{}: {}",
-        pod_name, cont_name, e
+        pod_name, container_name, e
       );
       let _ = tx
         .send(format!(

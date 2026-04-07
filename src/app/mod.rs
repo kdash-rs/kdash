@@ -69,6 +69,7 @@ use super::{
 };
 
 const MAX_NAV_STACK: usize = 128;
+pub const DEFAULT_LOG_TAIL_LINES: u32 = 100;
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub enum ActiveBlock {
@@ -220,6 +221,7 @@ pub struct App {
   pub light_theme: bool,
   pub refresh: bool,
   pub log_auto_scroll: bool,
+  pub log_tail_lines: u32,
   pub utilization_group_by: Vec<GroupBy>,
   pub help_docs: StatefulTable<Vec<String>>,
   background_cache_pending: bool,
@@ -459,6 +461,7 @@ impl Default for App {
       light_theme: false,
       refresh: true,
       log_auto_scroll: true,
+      log_tail_lines: DEFAULT_LOG_TAIL_LINES,
       utilization_group_by: vec![
         GroupBy::resource,
         GroupBy::node,
@@ -576,6 +579,7 @@ impl App {
     io_cmd_tx: Sender<IoCmdEvent>,
     enhanced_graphics: bool,
     tick_until_poll: u64,
+    log_tail_lines: u32,
     config: KdashConfig,
   ) -> Self {
     App {
@@ -584,6 +588,7 @@ impl App {
       io_cmd_tx: Some(io_cmd_tx),
       enhanced_graphics,
       tick_until_poll,
+      log_tail_lines,
       config,
       ..App::default()
     }
@@ -628,6 +633,10 @@ impl App {
   pub fn new_log_cancel_rx(&self) -> watch::Receiver<bool> {
     let _ = self.log_cancel_tx.send(false);
     self.log_cancel_tx.subscribe()
+  }
+
+  pub fn initial_log_tail_lines(&self) -> i64 {
+    i64::from(self.log_tail_lines)
   }
 
   pub fn reset(&mut self) {

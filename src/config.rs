@@ -15,6 +15,7 @@ use serde::Deserialize;
 pub struct KdashConfig {
   pub keybindings: Option<KeybindingOverrides>,
   pub theme: Option<ThemeConfig>,
+  pub log_tail_lines: Option<u32>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
@@ -142,7 +143,7 @@ mod tests {
     let path = dir.join("config.yaml");
     fs::write(
       &path,
-      "keybindings:\n  quit: ctrl+q\ntheme:\n  dark:\n    primary: green\n  light:\n    primary: blue\n",
+      "keybindings:\n  quit: ctrl+q\nlog_tail_lines: 250\ntheme:\n  dark:\n    primary: green\n  light:\n    primary: blue\n",
     )
     .expect("config fixture should be written");
 
@@ -181,6 +182,7 @@ mod tests {
         "blue".to_string()
       )]))
     );
+    assert_eq!(loaded.config.log_tail_lines, Some(250));
     assert!(loaded.warning.is_none());
 
     fs::remove_dir_all(dir).expect("temp test dir should be removed");
@@ -226,6 +228,7 @@ mod tests {
 
     assert!(loaded.config.keybindings.is_some());
     assert!(loaded.config.theme.is_none());
+    assert!(loaded.config.log_tail_lines.is_none());
     assert!(loaded.warning.is_none());
 
     fs::remove_dir_all(dir).expect("temp test dir should be removed");

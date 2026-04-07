@@ -17,7 +17,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use app::{key_binding::initialize_keybindings, App};
+use app::{key_binding::initialize_keybindings, App, DEFAULT_LOG_TAIL_LINES};
 use banner::BANNER;
 use chrono::{self};
 use clap::{builder::PossibleValuesParser, Parser};
@@ -69,6 +69,9 @@ pub struct Cli {
     value_parser = PossibleValuesParser::new(&["info", "debug", "trace", "warn", "error"])
   )]
   pub debug: Option<String>,
+  /// Set how many historical log lines to fetch before live streaming starts.
+  #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
+  pub log_tail_lines: Option<u32>,
 }
 
 #[tokio::main]
@@ -104,6 +107,7 @@ async fn main() -> Result<()> {
   let (sync_io_stream_tx, sync_io_stream_rx) = mpsc::channel::<IoStreamEvent>(500);
   let (sync_io_cmd_tx, sync_io_cmd_rx) = mpsc::channel::<IoCmdEvent>(500);
   let loaded_config = load_config();
+  let log_tail_lines = resolve_log_tail_lines(cli.log_tail_lines, &loaded_config.config);
   let mut config_warnings = vec![];
   if let Some(warning) = loaded_config.warning.clone() {
     config_warnings.push(warning);
@@ -118,6 +122,7 @@ async fn main() -> Result<()> {
     sync_io_cmd_tx,
     cli.enhanced_graphics,
     cli.poll_rate / cli.tick_rate,
+    log_tail_lines,
     loaded_config.config,
   )));
 
@@ -193,6 +198,12 @@ async fn start_network(mut io_rx: mpsc::Receiver<IoEvent>, app: &Arc<Mutex<App>>
       app.handle_error(anyhow!("Unable to obtain Kubernetes client. {}", e));
     }
   }
+}
+
+fn resolve_log_tail_lines(cli_value: Option<u32>, config: &config::KdashConfig) -> u32 {
+  cli_value
+    .or(config.log_tail_lines)
+    .unwrap_or(DEFAULT_LOG_TAIL_LINES)
 }
 
 async fn start_stream_network(mut io_rx: mpsc::Receiver<IoStreamEvent>, app: &Arc<Mutex<App>>) {
@@ -388,4 +399,35 @@ fn get_panic_info(info: &PanicHookInfo<'_>) -> (String, String) {
   };
 
   (msg.to_string(), format!("{}", location))
+}
+
+#[cfg(test)]
+mod tests {
+  use super::resolve_log_tail_lines;
+  use crate::config::KdashConfig;
+
+  #[test]
+  fn test_resolve_log_tail_lines_uses_default() {
+    assert_eq!(resolve_log_tail_lines(None, &KdashConfig::default()), 100);
+  }
+
+  #[test]
+  fn test_resolve_log_tail_lines_uses_config_when_cli_missing() {
+    let config = KdashConfig {
+      log_tail_lines: Some(250),
+      ..KdashConfig::default()
+    };
+
+    assert_eq!(resolve_log_tail_lines(None, &config), 250);
+  }
+
+  #[test]
+  fn test_resolve_log_tail_lines_prefers_cli() {
+    let config = KdashConfig {
+      log_tail_lines: Some(250),
+      ..KdashConfig::default()
+    };
+
+    assert_eq!(resolve_log_tail_lines(Some(500), &config), 500);
+  }
 }

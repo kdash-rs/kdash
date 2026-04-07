@@ -20,10 +20,11 @@ use super::{
 use crate::{
   network::Network,
   ui::utils::{
-    action_hint, copy_and_escape_title_line, describe_yaml_and_logs_hint, draw_describe_block,
-    draw_resource_block, draw_yaml_block, get_describe_active, get_resource_title, help_bold_line,
-    help_part, layout_block_top_border, loading, mixed_bold_line, style_caution, style_failure,
-    style_primary, style_success, title_with_dual_style, ResourceTableProps,
+    action_hint, copy_and_escape_title_line, copy_scroll_and_escape_title_line,
+    describe_yaml_and_logs_hint, draw_describe_block, draw_resource_block, draw_yaml_block,
+    get_describe_active, get_resource_title, help_bold_line, help_part, layout_block_top_border,
+    loading, mixed_bold_line, style_caution, style_failure, style_primary, style_success,
+    title_with_dual_style, ResourceTableProps,
   },
 };
 
@@ -425,8 +426,16 @@ pub(crate) fn draw_logs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       format!(" {} -> Logs ({}) ", resource, agg_name),
       help_bold_line(
         format!(
-          "{} | back {} ",
+          "{} | {} | back {} ",
           action_hint("copy", DEFAULT_KEYBINDING.copy_to_clipboard.key),
+          action_hint(
+            if app.log_auto_scroll {
+              "pause scroll"
+            } else {
+              "resume scroll"
+            },
+            DEFAULT_KEYBINDING.log_auto_scroll.key
+          ),
           DEFAULT_KEYBINDING.esc.key
         ),
         app.light_theme,
@@ -441,7 +450,7 @@ pub(crate) fn draw_logs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
         app.data.containers.items.len(),
         format!("-> Logs ({}) ", container_name),
       ),
-      copy_and_escape_title_line("Containers", app.light_theme),
+      copy_scroll_and_escape_title_line("Containers", app.log_auto_scroll, app.light_theme),
     )
   };
 

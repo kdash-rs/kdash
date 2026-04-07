@@ -620,6 +620,9 @@ async fn handle_route_events(key: Key, app: &mut App) {
           }
       ActiveBlock::Logs => {
         if key == DEFAULT_KEYBINDING.log_auto_scroll.key {
+          if app.log_auto_scroll {
+            app.data.logs.freeze_follow_position();
+          }
           app.log_auto_scroll = !app.log_auto_scroll;
         } else if key == DEFAULT_KEYBINDING.copy_to_clipboard.key {
           copy_to_clipboard(app.data.logs.get_plain_text(), app);
@@ -745,6 +748,9 @@ async fn handle_route_events(key: Key, app: &mut App) {
         }
         ActiveBlock::Logs => {
           if key == DEFAULT_KEYBINDING.log_auto_scroll.key {
+            if app.log_auto_scroll {
+              app.data.logs.freeze_follow_position();
+            }
             app.log_auto_scroll = !app.log_auto_scroll;
           } else if key == DEFAULT_KEYBINDING.copy_to_clipboard.key {
             copy_to_clipboard(app.data.logs.get_plain_text(), app);
@@ -919,7 +925,10 @@ async fn handle_block_scroll(app: &mut App, up: bool, is_mouse: bool, page: bool
         handle_menu_scroll(&mut app.dynamic_resources_menu, up, page, filtered_len);
       }
       ActiveBlock::Logs => {
-        app.log_auto_scroll = false;
+        if app.log_auto_scroll {
+          app.data.logs.freeze_follow_position();
+          app.log_auto_scroll = false;
+        }
         app.data.logs.handle_scroll(inverse_dir(up, is_mouse), page);
       }
       ActiveBlock::Describe | ActiveBlock::Yaml => app

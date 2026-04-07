@@ -527,6 +527,30 @@ pub fn copy_and_escape_title_line<'a, S: Into<Cow<'a, str>>>(target: S, light: b
   )
 }
 
+pub fn copy_scroll_and_escape_title_line<'a, S: Into<Cow<'a, str>>>(
+  target: S,
+  auto_scroll: bool,
+  light: bool,
+) -> Line<'a> {
+  let auto_scroll_action = if auto_scroll {
+    "pause scroll"
+  } else {
+    "resume scroll"
+  };
+  mixed_bold_line(
+    [
+      help_part(format!(
+        "{} | {} | ",
+        action_hint("copy", DEFAULT_KEYBINDING.copy_to_clipboard.key),
+        action_hint(auto_scroll_action, DEFAULT_KEYBINDING.log_auto_scroll.key)
+      )),
+      help_part(target),
+      help_part(format!(" {} ", DEFAULT_KEYBINDING.esc.key)),
+    ],
+    light,
+  )
+}
+
 pub fn split_hint_suffix(text: &str) -> (&str, Option<&str>) {
   if let Some(pos) = text.rfind(" <") {
     (&text[..pos], Some(&text[(pos + 1)..]))

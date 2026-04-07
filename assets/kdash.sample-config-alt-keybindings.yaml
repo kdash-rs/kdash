@@ -1,8 +1,10 @@
+log_tail_lines: 2500
+
 keybindings:
   quit: ctrl+x
   esc: delete
   help: h
-  submit: l
+  submit: enter
   filter: f
   refresh: ctrl+y
   toggle_theme: z
