@@ -75,40 +75,21 @@ macro_rules! handle_resource_action {
       $(
         $block => {
           if let Some(res) = handle_block_action($key, &$app.data.$field) {
-            let describe_action = IoCmdEvent::GetDescribe {
-              kind: $kind.to_owned(),
-              value: res.name.to_owned(),
-              ns: Some(res.namespace.to_owned()),
-            };
-            let ok = handle_describe_decode_or_yaml_action(
-              $key, $app, &res, describe_action.clone(),
-            ).await;
-            // Enter key runs describe for resources without child views
-            if !ok && $key == DEFAULT_KEYBINDING.submit.key {
-              $app.data.describe_out = ScrollableTxt::new();
-              $app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
-              $app.dispatch_cmd(describe_action).await;
-            }
+            handle_leaf_resource_action(
+              $key,
+              $app,
+              &res,
+              $kind.to_owned(),
+              Some(res.namespace.to_owned()),
+            )
+            .await;
           }
         }
       )*
       $(
         $cblock => {
           if let Some(res) = handle_block_action($key, &$app.data.$cfield) {
-            let describe_action = IoCmdEvent::GetDescribe {
-              kind: $ckind.to_owned(),
-              value: res.name.to_owned(),
-              ns: None,
-            };
-            let ok = handle_describe_decode_or_yaml_action(
-              $key, $app, &res, describe_action.clone(),
-            ).await;
-            // Enter key runs describe for cluster-scoped resources without child views
-            if !ok && $key == DEFAULT_KEYBINDING.submit.key {
-              $app.data.describe_out = ScrollableTxt::new();
-              $app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
-              $app.dispatch_cmd(describe_action).await;
-            }
+            handle_leaf_resource_action($key, $app, &res, $ckind.to_owned(), None).await;
           }
         }
       )*
@@ -416,6 +397,38 @@ where
   }
 }
 
+async fn handle_leaf_resource_action<T, S>(
+  key: Key,
+  app: &mut App,
+  res: &T,
+  kind: String,
+  ns: Option<String>,
+) where
+  T: KubeResource<S> + 'static,
+  S: Serialize,
+{
+  let describe_action = IoCmdEvent::GetDescribe {
+    kind,
+    value: res.get_name().to_owned(),
+    ns,
+  };
+  let handled = handle_describe_decode_or_yaml_action(key, app, res, describe_action.clone()).await;
+  dispatch_describe_on_submit(key, app, handled, describe_action).await;
+}
+
+async fn dispatch_describe_on_submit(
+  key: Key,
+  app: &mut App,
+  handled: bool,
+  describe_action: IoCmdEvent,
+) {
+  if !handled && key == DEFAULT_KEYBINDING.submit.key {
+    app.data.describe_out = ScrollableTxt::new();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
+    app.dispatch_cmd(describe_action).await;
+  }
+}
+
 // Handle event for the current active block
 async fn handle_route_events(key: Key, app: &mut App) {
   // route specific events
@@ -679,17 +692,19 @@ async fn handle_route_events(key: Key, app: &mut App) {
           ActiveBlock::DynamicResource => {
             if let Some(dynamic_res) = app.data.selected.dynamic_kind.as_ref() {
               if let Some(res) = handle_block_action(key, &app.data.dynamic_resources) {
-                let _ok = handle_describe_decode_or_yaml_action(
+                let describe_action = IoCmdEvent::GetDescribe {
+                  kind: dynamic_res.kind.to_owned(),
+                  value: res.name.to_owned(),
+                  ns: res.namespace.to_owned(),
+                };
+                let ok = handle_describe_decode_or_yaml_action(
                   key,
                   app,
                   &res,
-                  IoCmdEvent::GetDescribe {
-                    kind: dynamic_res.kind.to_owned(),
-                    value: res.name.to_owned(),
-                    ns: res.namespace.to_owned(),
-                  },
+                  describe_action.clone(),
                 )
                 .await;
+                dispatch_describe_on_submit(key, app, ok, describe_action).await;
               }
             }
           }
@@ -1005,6 +1020,7 @@ mod tests {
     core::{ApiResource, DynamicObject},
     discovery::Scope,
   };
+  use tokio::sync::mpsc;
 
   use super::*;
   use crate::app::{
@@ -1833,5 +1849,57 @@ mod tests {
       Some("Widget")
     );
     assert_eq!(app.data.dynamic_resources.items, cached_items);
+  }
+
+  #[tokio::test]
+  async fn test_enter_on_dynamic_resource_runs_describe() {
+    let (sync_io_tx, _sync_io_rx) = mpsc::channel(10);
+    let (sync_io_stream_tx, _sync_io_stream_rx) = mpsc::channel(10);
+    let (sync_io_cmd_tx, mut sync_io_cmd_rx) = mpsc::channel::<IoCmdEvent>(10);
+    let mut app = App::new(
+      sync_io_tx,
+      sync_io_stream_tx,
+      sync_io_cmd_tx,
+      false,
+      1,
+      App::default().log_tail_lines,
+      crate::config::KdashConfig::default(),
+    );
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::DynamicResource);
+
+    let kind = KubeDynamicKind::new(
+      ApiResource {
+        group: "example.com".into(),
+        version: "v1".into(),
+        api_version: "example.com/v1".into(),
+        kind: "Widget".into(),
+        plural: "widgets".into(),
+      },
+      Scope::Namespaced,
+    );
+    app.data.selected.dynamic_kind = Some(kind);
+    app.data.dynamic_resources =
+      StatefulTable::with_items(vec![KubeDynamicResource::from(DynamicObject {
+        types: None,
+        metadata: ObjectMeta {
+          name: Some("widget-1".into()),
+          namespace: Some("team-a".into()),
+          ..Default::default()
+        },
+        data: Default::default(),
+      })]);
+
+    let key_evt = KeyEvent::from(KeyCode::Enter);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Describe);
+    assert_eq!(
+      sync_io_cmd_rx.recv().await.unwrap(),
+      IoCmdEvent::GetDescribe {
+        kind: "Widget".into(),
+        value: "widget-1".into(),
+        ns: Some("team-a".into()),
+      }
+    );
   }
 }
