@@ -158,7 +158,11 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
     RouteId::Home => vec![mixed_line(
       [help_part(format!(
         "{} switch tabs | <char> select block | {} scroll | {} select | {} | {} ",
-        key_hints(&[DEFAULT_KEYBINDING.left.key, DEFAULT_KEYBINDING.right.key]),
+        key_hints(&[
+          DEFAULT_KEYBINDING.cycle_main_views.key,
+          DEFAULT_KEYBINDING.left.key,
+          DEFAULT_KEYBINDING.right.key
+        ]),
         key_hints(&[DEFAULT_KEYBINDING.up.key, DEFAULT_KEYBINDING.down.key]),
         DEFAULT_KEYBINDING.submit.key,
         action_hint("filter", DEFAULT_KEYBINDING.filter.key),

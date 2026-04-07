@@ -52,8 +52,17 @@ fn draw_logo_block(f: &mut Frame<'_>, app: &App, area: Rect) {
   // Banner text with correct styling
   let text = Text::from(BANNER);
   let text = text.patch_style(style_logo(app.light_theme));
+  let block = Block::default()
+    .borders(Borders::ALL)
+    .title(mixed_bold_line(
+      [help_part(format!(
+        " {} ",
+        action_hint("theme", DEFAULT_KEYBINDING.toggle_theme.key)
+      ))],
+      app.light_theme,
+    ));
   // Contains the banner
-  let paragraph = Paragraph::new(text).block(Block::default().borders(Borders::ALL));
+  let paragraph = Paragraph::new(text).block(block);
   f.render_widget(paragraph, area);
 }
 

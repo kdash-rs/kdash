@@ -101,7 +101,10 @@ impl fmt::Display for Key {
       Key::Alt(c) => write!(f, "<Alt+{}>", c),
       Key::Ctrl(c) => write!(f, "<Ctrl+{}>", c),
       Key::Char(c) => write!(f, "<{}>", c),
-      Key::Left | Key::Right | Key::Up | Key::Down => write!(f, "<{:?} Arrow Key>", self),
+      Key::Left => write!(f, "<←>"),
+      Key::Right => write!(f, "<→>"),
+      Key::Up => write!(f, "<↑>"),
+      Key::Down => write!(f, "<↓>"),
       _ => write!(f, "<{:?}>", self),
     }
   }
@@ -274,7 +277,10 @@ mod tests {
 
   #[test]
   fn test_key_fmt() {
-    assert_eq!(format!("{}", Key::Left), "<Left Arrow Key>");
+    assert_eq!(format!("{}", Key::Left), "<←>");
+    assert_eq!(format!("{}", Key::Right), "<→>");
+    assert_eq!(format!("{}", Key::Up), "<↑>");
+    assert_eq!(format!("{}", Key::Down), "<↓>");
     assert_eq!(format!("{}", Key::Alt(' ')), "<Alt+Space>");
     assert_eq!(format!("{}", Key::Alt('c')), "<Alt+c>");
     assert_eq!(format!("{}", Key::Char('c')), "<c>");
