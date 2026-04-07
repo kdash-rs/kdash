@@ -18,8 +18,8 @@ use k8s_openapi::{
 use kube::{
   api::ListParams,
   config::{KubeConfigOptions, Kubeconfig},
-  core::GroupVersion,
-  discovery::{pinned_group, verbs},
+  core::{DynamicObject, GroupVersion},
+  discovery::{pinned_group, verbs, Scope},
   Api, Client, Resource as ApiResource,
 };
 use log::{debug, error, info, warn};
@@ -588,6 +588,30 @@ impl<'a> Network<'a> {
           .await;
       }
     }
+  }
+
+  pub async fn get_dynamic_resources(
+    &self,
+    drs: &KubeDynamicKind,
+    namespace: Option<&str>,
+  ) -> Result<Vec<crate::app::dynamic::KubeDynamicResource>> {
+    let api: Api<DynamicObject> = if drs.scope == Scope::Cluster {
+      Api::all_with(self.client.clone(), &drs.api_resource)
+    } else {
+      match namespace {
+        Some(ns) => Api::namespaced_with(self.client.clone(), ns, &drs.api_resource),
+        None => Api::all_with(self.client.clone(), &drs.api_resource),
+      }
+    };
+
+    let list = api.list(&Default::default()).await?;
+    Ok(
+      list
+        .items
+        .into_iter()
+        .map(crate::app::dynamic::KubeDynamicResource::from)
+        .collect(),
+    )
   }
 
   /// Discover and cache custom resources on the cluster

@@ -39,7 +39,7 @@ use self::{
   cronjobs::KubeCronJob,
   daemonsets::KubeDaemonSet,
   deployments::KubeDeployment,
-  dynamic::{KubeDynamicKind, KubeDynamicResource},
+  dynamic::{DynamicResourceCache, KubeDynamicKind, KubeDynamicResource},
   ingress::KubeIngress,
   jobs::KubeJob,
   key_binding::DEFAULT_KEYBINDING,
@@ -173,6 +173,7 @@ pub struct Data {
   pub service_accounts: StatefulTable<KubeSvcAcct>,
   pub dynamic_kinds: Vec<KubeDynamicKind>,
   pub dynamic_resources: StatefulTable<KubeDynamicResource>,
+  pub dynamic_resource_cache: DynamicResourceCache,
 }
 
 /// selected data items
@@ -274,6 +275,7 @@ impl Default for Data {
       service_accounts: StatefulTable::new(),
       dynamic_kinds: vec![],
       dynamic_resources: StatefulTable::new(),
+      dynamic_resource_cache: DynamicResourceCache::default(),
     }
   }
 }
@@ -635,6 +637,28 @@ impl App {
     self.api_error = String::new();
     self.data = Data::default();
     self.route_home();
+  }
+
+  pub fn selected_dynamic_cache_key(&self) -> Option<String> {
+    self
+      .data
+      .selected
+      .dynamic_kind
+      .as_ref()
+      .map(|kind| dynamic::dynamic_cache_key(kind, self.data.selected.ns.as_deref()))
+  }
+
+  pub fn apply_cached_dynamic_resources(&mut self) -> bool {
+    let Some(cache_key) = self.selected_dynamic_cache_key() else {
+      return false;
+    };
+
+    let Some(items) = self.data.dynamic_resource_cache.get_cloned(&cache_key) else {
+      return false;
+    };
+
+    self.data.dynamic_resources.set_items(items);
+    true
   }
 
   // Send a network event to the network thread

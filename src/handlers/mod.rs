@@ -667,7 +667,9 @@ async fn handle_route_events(key: Key, app: &mut App) {
                 });
                 let selected = app.data.dynamic_kinds.iter().find(|it| it.kind == title);
                 app.data.selected.dynamic_kind = selected.cloned();
-                app.data.dynamic_resources.set_items(vec![]);
+                if !app.apply_cached_dynamic_resources() {
+                  app.data.dynamic_resources.set_items(vec![]);
+                }
               }
             }
           }
@@ -989,9 +991,18 @@ fn inverse_dir(up: bool, is_mouse: bool) -> bool {
 mod tests {
   use crossterm::event::KeyCode;
   use k8s_openapi::ByteString;
+  use kube::{
+    api::ObjectMeta,
+    core::{ApiResource, DynamicObject},
+    discovery::Scope,
+  };
 
   use super::*;
-  use crate::app::{contexts::KubeContext, pods::KubePod};
+  use crate::app::{
+    contexts::KubeContext,
+    dynamic::{dynamic_cache_key, KubeDynamicKind, KubeDynamicResource},
+    pods::KubePod,
+  };
 
   #[test]
   fn test_inverse_dir() {
@@ -1759,5 +1770,59 @@ mod tests {
     assert_eq!(app.data.selected.pod_selector_ns, None);
     assert_eq!(app.data.selected.pod_selector_resource, Some("node".into()));
     assert_eq!(app.get_current_route().active_block, ActiveBlock::Pods);
+  }
+
+  #[tokio::test]
+  async fn test_dynamic_view_selection_uses_cached_items_immediately() {
+    let mut app = App::default();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::DynamicView);
+    app.dynamic_resources_menu =
+      StatefulList::with_items(vec![("Widget".into(), ActiveBlock::DynamicResource)]);
+    app.dynamic_resources_menu.state.select(Some(0));
+
+    let kind = KubeDynamicKind::new(
+      ApiResource {
+        group: "example.com".into(),
+        version: "v1".into(),
+        api_version: "example.com/v1".into(),
+        kind: "Widget".into(),
+        plural: "widgets".into(),
+      },
+      Scope::Namespaced,
+    );
+    app.data.dynamic_kinds = vec![kind.clone()];
+    app.data.selected.ns = Some("team-a".into());
+
+    let cached_items = vec![KubeDynamicResource::from(DynamicObject {
+      types: None,
+      metadata: ObjectMeta {
+        name: Some("widget-1".into()),
+        namespace: Some("team-a".into()),
+        ..Default::default()
+      },
+      data: Default::default(),
+    })];
+    app.data.dynamic_resource_cache.insert(
+      dynamic_cache_key(&kind, Some("team-a")),
+      cached_items.clone(),
+    );
+
+    let key_evt = KeyEvent::from(KeyCode::Enter);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+
+    assert_eq!(
+      app.get_current_route().active_block,
+      ActiveBlock::DynamicResource
+    );
+    assert_eq!(
+      app
+        .data
+        .selected
+        .dynamic_kind
+        .as_ref()
+        .map(|it| it.kind.as_str()),
+      Some("Widget")
+    );
+    assert_eq!(app.data.dynamic_resources.items, cached_items);
   }
 }

@@ -4,13 +4,14 @@ use chrono::Utc;
 use kube::{
   core::DynamicObject,
   discovery::{ApiResource, Scope},
-  Api, ResourceExt,
+  ResourceExt,
 };
 use ratatui::{
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
   Frame,
 };
+use std::collections::{BTreeMap, VecDeque};
 
 use super::{
   models::{AppResource, KubeResource},
@@ -79,7 +80,73 @@ impl KubeResource<DynamicObject> for KubeDynamicResource {
   }
 }
 
+const DYNAMIC_CACHE_LIMIT: usize = 20;
+
+#[derive(Debug, Clone, Default)]
+pub struct DynamicResourceCache {
+  entries: BTreeMap<String, Vec<KubeDynamicResource>>,
+  order: VecDeque<String>,
+}
+
+impl DynamicResourceCache {
+  fn touch(&mut self, key: &str) {
+    self.order.retain(|entry| entry != key);
+    self.order.push_back(key.to_owned());
+  }
+
+  pub fn get_cloned(&mut self, key: &str) -> Option<Vec<KubeDynamicResource>> {
+    let items = self.entries.get(key).cloned()?;
+    self.touch(key);
+    Some(items)
+  }
+
+  pub fn insert(&mut self, key: String, items: Vec<KubeDynamicResource>) {
+    self.entries.insert(key.clone(), items);
+    self.touch(&key);
+
+    while self.entries.len() > DYNAMIC_CACHE_LIMIT {
+      if let Some(oldest) = self.order.pop_front() {
+        if self.entries.remove(&oldest).is_some() {
+          continue;
+        }
+      } else {
+        break;
+      }
+    }
+  }
+
+  #[cfg(test)]
+  fn contains_key(&self, key: &str) -> bool {
+    self.entries.contains_key(key)
+  }
+
+  #[cfg(test)]
+  fn len(&self) -> usize {
+    self.entries.len()
+  }
+
+  #[cfg(test)]
+  fn order(&self) -> Vec<String> {
+    self.order.iter().cloned().collect()
+  }
+}
+
 pub struct DynamicResource {}
+
+pub fn dynamic_cache_key(kind: &KubeDynamicKind, namespace: Option<&str>) -> String {
+  match kind.scope {
+    Scope::Cluster => format!(
+      "cluster:{}:{}",
+      kind.api_resource.api_version, kind.api_resource.plural
+    ),
+    Scope::Namespaced => format!(
+      "ns:{}:{}:{}",
+      namespace.unwrap_or("*"),
+      kind.api_resource.api_version,
+      kind.api_resource.plural
+    ),
+  }
+}
 
 #[async_trait]
 impl AppResource for DynamicResource {
@@ -105,30 +172,34 @@ impl AppResource for DynamicResource {
 
   /// fetch entries for a custom resource from the cluster
   async fn get_resource(nw: &Network<'_>) {
+    let (selected_kind, selected_ns) = {
+      let app = nw.app.lock().await;
+      (
+        app.data.selected.dynamic_kind.clone(),
+        app.data.selected.ns.clone(),
+      )
+    };
+
+    let Some(drs) = selected_kind else {
+      return;
+    };
+
+    let cache_key = dynamic_cache_key(&drs, selected_ns.as_deref());
+    let items = match nw.get_dynamic_resources(&drs, selected_ns.as_deref()).await {
+      Ok(items) => items,
+      Err(e) => {
+        nw.handle_error(anyhow!("Failed to get dynamic resources. {}", e))
+          .await;
+        return;
+      }
+    };
+
     let mut app = nw.app.lock().await;
-
-    if let Some(drs) = &app.data.selected.dynamic_kind {
-      let api: Api<DynamicObject> = if drs.scope == Scope::Cluster {
-        Api::all_with(nw.client.clone(), &drs.api_resource)
-      } else {
-        match &app.data.selected.ns {
-          Some(ns) => Api::namespaced_with(nw.client.clone(), ns, &drs.api_resource),
-          None => Api::all_with(nw.client.clone(), &drs.api_resource),
-        }
-      };
-
-      let items = match api.list(&Default::default()).await {
-        Ok(list) => list
-          .items
-          .iter()
-          .map(|item| KubeDynamicResource::from(item.clone()))
-          .collect::<Vec<KubeDynamicResource>>(),
-        Err(e) => {
-          nw.handle_error(anyhow!("Failed to get dynamic resources. {}", e))
-            .await;
-          return;
-        }
-      };
+    app
+      .data
+      .dynamic_resource_cache
+      .insert(cache_key.clone(), items.clone());
+    if app.selected_dynamic_cache_key().as_deref() == Some(cache_key.as_str()) {
       app.data.dynamic_resources.set_items(items);
     }
   }
@@ -193,6 +264,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
 mod tests {
   use super::*;
   use crate::app::test_utils::*;
+  use kube::{core::ApiResource, discovery::Scope};
 
   #[test]
   fn test_dynamic_resource_from_api() {
@@ -209,5 +281,76 @@ mod tests {
         k8s_obj: res_list[0].clone(),
       }
     );
+  }
+
+  #[test]
+  fn test_dynamic_cache_key_uses_namespace_for_namespaced_resources() {
+    let kind = KubeDynamicKind::new(
+      ApiResource {
+        group: "example.com".into(),
+        version: "v1".into(),
+        api_version: "example.com/v1".into(),
+        kind: "Widget".into(),
+        plural: "widgets".into(),
+      },
+      Scope::Namespaced,
+    );
+
+    assert_eq!(
+      dynamic_cache_key(&kind, Some("team-a")),
+      "ns:team-a:example.com/v1:widgets"
+    );
+    assert_eq!(
+      dynamic_cache_key(&kind, Some("team-b")),
+      "ns:team-b:example.com/v1:widgets"
+    );
+  }
+
+  #[test]
+  fn test_dynamic_cache_key_ignores_namespace_for_cluster_resources() {
+    let kind = KubeDynamicKind::new(
+      ApiResource {
+        group: "example.com".into(),
+        version: "v1".into(),
+        api_version: "example.com/v1".into(),
+        kind: "ClusterWidget".into(),
+        plural: "clusterwidgets".into(),
+      },
+      Scope::Cluster,
+    );
+
+    assert_eq!(
+      dynamic_cache_key(&kind, Some("team-a")),
+      "cluster:example.com/v1:clusterwidgets"
+    );
+    assert_eq!(
+      dynamic_cache_key(&kind, Some("team-b")),
+      "cluster:example.com/v1:clusterwidgets"
+    );
+  }
+
+  #[test]
+  fn test_dynamic_resource_cache_evicts_oldest_entry_after_limit() {
+    let mut cache = DynamicResourceCache::default();
+
+    for idx in 0..=DYNAMIC_CACHE_LIMIT {
+      cache.insert(format!("key-{idx}"), vec![]);
+    }
+
+    assert_eq!(cache.len(), DYNAMIC_CACHE_LIMIT);
+    assert!(!cache.contains_key("key-0"));
+    assert!(cache.contains_key(&format!("key-{}", DYNAMIC_CACHE_LIMIT)));
+  }
+
+  #[test]
+  fn test_dynamic_resource_cache_get_refreshes_lru_order() {
+    let mut cache = DynamicResourceCache::default();
+    cache.insert("a".into(), vec![]);
+    cache.insert("b".into(), vec![]);
+    cache.insert("c".into(), vec![]);
+
+    let _ = cache.get_cloned("a");
+
+    assert_eq!(cache.order(), vec!["b", "c", "a"]);
   }
 }
