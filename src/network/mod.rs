@@ -261,9 +261,7 @@ async fn load_client_config(context: Option<String>) -> Result<kube::Config> {
   };
 
   if let Some(kubeconfig) = load_local_kubeconfig()? {
-    return kube::Config::from_custom_kubeconfig(kubeconfig, &options)
-      .await
-      .context("Failed to load Kubernetes config");
+    return load_client_config_from_kubeconfig(kubeconfig, options).await;
   }
 
   if let Some(context) = context {
@@ -274,6 +272,15 @@ async fn load_client_config(context: Option<String>) -> Result<kube::Config> {
   } else {
     kube::Config::incluster().context("Failed to load Kubernetes config")
   }
+}
+
+async fn load_client_config_from_kubeconfig(
+  kubeconfig: Kubeconfig,
+  options: KubeConfigOptions,
+) -> Result<kube::Config> {
+  kube::Config::from_custom_kubeconfig(kubeconfig, &options)
+    .await
+    .context("Failed to load Kubernetes config")
 }
 
 pub async fn get_client(context: Option<String>) -> Result<kube::Client> {
@@ -717,7 +724,9 @@ mod tests {
   use k8s_openapi::apimachinery::pkg::apis::meta::v1::GroupVersionForDiscovery;
   use kube::{client::AuthError, core::Status};
   use std::{
+    ffi::OsString,
     fs,
+    sync::{Mutex, OnceLock},
     time::{SystemTime, UNIX_EPOCH},
   };
 
@@ -740,6 +749,68 @@ mod tests {
     fs::write(path, contents).expect("kubeconfig fixture should be written");
   }
 
+  fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK
+      .get_or_init(|| Mutex::new(()))
+      .lock()
+      .unwrap_or_else(|poisoned| poisoned.into_inner())
+  }
+
+  struct ProxyEnvGuard {
+    https_proxy: Option<OsString>,
+    https_proxy_lower: Option<OsString>,
+  }
+
+  impl ProxyEnvGuard {
+    fn capture() -> Self {
+      Self {
+        https_proxy: env::var_os("HTTPS_PROXY"),
+        https_proxy_lower: env::var_os("https_proxy"),
+      }
+    }
+  }
+
+  impl Drop for ProxyEnvGuard {
+    fn drop(&mut self) {
+      match &self.https_proxy {
+        Some(value) => env::set_var("HTTPS_PROXY", value),
+        None => env::remove_var("HTTPS_PROXY"),
+      }
+
+      match &self.https_proxy_lower {
+        Some(value) => env::set_var("https_proxy", value),
+        None => env::remove_var("https_proxy"),
+      }
+    }
+  }
+
+  fn kubeconfig_with_proxy(proxy_url: Option<&str>) -> String {
+    let proxy_yaml = proxy_url
+      .map(|proxy| format!("      proxy-url: {}\n", proxy))
+      .unwrap_or_default();
+
+    format!(
+      r#"apiVersion: v1
+kind: Config
+clusters:
+  - name: test-cluster
+    cluster:
+      server: https://127.0.0.1:6443
+{proxy_yaml}contexts:
+  - name: test-context
+    context:
+      cluster: test-cluster
+      user: test-user
+current-context: test-context
+users:
+  - name: test-user
+    user:
+      token: test-token
+"#
+    )
+  }
+
   fn valid_kubeconfig() -> &'static str {
     r#"apiVersion: v1
 kind: Config
@@ -758,6 +829,107 @@ users:
     user:
       token: test-token
 "#
+  }
+
+  #[test]
+  fn test_load_client_config_from_kubeconfig_uses_cluster_proxy_url() {
+    let _env_lock = env_lock();
+    let _proxy_env = ProxyEnvGuard::capture();
+    env::remove_var("HTTPS_PROXY");
+    env::remove_var("https_proxy");
+
+    let kubeconfig: Kubeconfig = serde_yaml::from_str(&kubeconfig_with_proxy(Some(
+      "http://cluster-proxy.internal:8443",
+    )))
+    .expect("proxy kubeconfig should deserialize");
+
+    let config = tokio::runtime::Runtime::new()
+      .expect("runtime should build")
+      .block_on(load_client_config_from_kubeconfig(
+        kubeconfig,
+        KubeConfigOptions::default(),
+      ))
+      .expect("config should load");
+
+    assert_eq!(
+      config.proxy_url.as_ref().map(ToString::to_string),
+      Some("http://cluster-proxy.internal:8443/".to_string())
+    );
+  }
+
+  #[test]
+  fn test_load_client_config_from_kubeconfig_uses_https_proxy_env_var() {
+    let _env_lock = env_lock();
+    let _proxy_env = ProxyEnvGuard::capture();
+    env::set_var("HTTPS_PROXY", "http://env-proxy.internal:8080");
+    env::remove_var("https_proxy");
+
+    let kubeconfig: Kubeconfig = serde_yaml::from_str(&kubeconfig_with_proxy(None))
+      .expect("base kubeconfig should deserialize");
+
+    let config = tokio::runtime::Runtime::new()
+      .expect("runtime should build")
+      .block_on(load_client_config_from_kubeconfig(
+        kubeconfig,
+        KubeConfigOptions::default(),
+      ))
+      .expect("config should load");
+
+    assert_eq!(
+      config.proxy_url.as_ref().map(ToString::to_string),
+      Some("http://env-proxy.internal:8080/".to_string())
+    );
+  }
+
+  #[test]
+  fn test_load_client_config_from_kubeconfig_prefers_cluster_proxy_over_env_var() {
+    let _env_lock = env_lock();
+    let _proxy_env = ProxyEnvGuard::capture();
+    env::set_var("HTTPS_PROXY", "http://env-proxy.internal:8080");
+    env::remove_var("https_proxy");
+
+    let kubeconfig: Kubeconfig = serde_yaml::from_str(&kubeconfig_with_proxy(Some(
+      "http://cluster-proxy.internal:8443",
+    )))
+    .expect("proxy kubeconfig should deserialize");
+
+    let config = tokio::runtime::Runtime::new()
+      .expect("runtime should build")
+      .block_on(load_client_config_from_kubeconfig(
+        kubeconfig,
+        KubeConfigOptions::default(),
+      ))
+      .expect("config should load");
+
+    assert_eq!(
+      config.proxy_url.as_ref().map(ToString::to_string),
+      Some("http://cluster-proxy.internal:8443/".to_string())
+    );
+  }
+
+  #[test]
+  fn test_get_client_supports_http_proxy_configuration() {
+    let _env_lock = env_lock();
+    let _proxy_env = ProxyEnvGuard::capture();
+    env::remove_var("HTTPS_PROXY");
+    env::remove_var("https_proxy");
+
+    let kubeconfig: Kubeconfig = serde_yaml::from_str(&kubeconfig_with_proxy(Some(
+      "http://cluster-proxy.internal:8443",
+    )))
+    .expect("proxy kubeconfig should deserialize");
+
+    let config = tokio::runtime::Runtime::new()
+      .expect("runtime should build")
+      .block_on(load_client_config_from_kubeconfig(
+        kubeconfig,
+        KubeConfigOptions::default(),
+      ))
+      .expect("config should load");
+    let runtime = tokio::runtime::Runtime::new().expect("runtime should build");
+    let _enter = runtime.enter();
+
+    Client::try_from(config).expect("http proxy support should be enabled");
   }
 
   #[test]
