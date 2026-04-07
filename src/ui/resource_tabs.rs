@@ -373,7 +373,7 @@ mod tests {
         "│                                                                                                  │",
         "│ filter </> ──────────────────────────────────────────────────────────────────────────────────────│",
         "│                                                                                                  │",
-        "│ Pods (ns: all) [1] Containers <Enter> | describe <d> | yaml <y> | logs <o> ──────────────────────│",
+        "│ Pods (ns: all) [1] Containers <Enter> | describe <d> | yaml <y> | logs <L> ──────────────────────│",
         "│   Namespace                Name                         Ready      Status    Restarts   Age      │",
         "│=> pod namespace test       pod name test                0/2        Failed    0          6h52m    │",
         "│                                                                                                  │",

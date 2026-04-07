@@ -64,6 +64,7 @@ generate_keybindings! {
   jump_to_utilization,
   jump_to_troubleshoot,
   copy_to_clipboard,
+  dump_error_log,
   pg_up,
   pg_down,
   up,
@@ -190,6 +191,12 @@ const DEFAULT_KEYBINDINGS: KeyBindings = KeyBindings {
     key: Key::Char('c'),
     alt: None,
     desc: "Copy log/output to clipboard",
+    context: HContext::General,
+  },
+  dump_error_log: KeyBinding {
+    key: Key::Char('D'),
+    alt: None,
+    desc: "Dump recent errors to file",
     context: HContext::General,
   },
   down: KeyBinding {
@@ -343,7 +350,7 @@ const DEFAULT_KEYBINDINGS: KeyBindings = KeyBindings {
     context: HContext::Utilization,
   },
   aggregate_logs: KeyBinding {
-    key: Key::Char('o'),
+    key: Key::Char('L'),
     alt: None,
     desc: "Aggregate logs for resource",
     context: HContext::Overview,

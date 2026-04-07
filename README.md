@@ -278,13 +278,17 @@ MIT
 
 ## [Contributors](https://github.com/kdash-rs/kdash/graphs/contributors)
 
-## TODO
+## v1.0.0 TODO
 
-- [ ] R3: Scroll tabs and title text when cant fit in viewport
-- [ ] R5: Open issues in docs/plans/2026-04-03-002-fix-open-issues-plan.md
-- [ ] R6: Merge https://github.com/kdash-rs/kdash/pull/504
-- [ ] wide command for all resources. auto appear on bigger viewports
-- [ ] R7: Add more tests where possible
-- [ ] R8: E2E tests? complex view fake render (recreate current pods view, utilization view etc)
-- [ ] R9: support custom them for yaml/describe
-- [ ] screenshots.
+- Impl Shift for keybindings where it makes sense. For example, `L` for aggregate logs instead of `o` and `D` for dump error logs instead of `Ctrl + D`. This would make the keybindings more intuitive and easier to remember. #350 #358
+- Info msg on refresh 
+- [ ] 1: Open issues in docs/plans/2026-04-03-002-fix-open-issues-plan.md
+- [ ] 2: wide command for all resources. auto appear on bigger viewports
+- [ ] 3: Scroll tabs and title text when cant fit in viewport
+- [ ] 4: Shell into pod/container (#213)
+- [ ] 5: Merge https://github.com/kdash-rs/kdash/pull/504
+- [ ] 6: Add more tests where possible
+- [ ] 7: E2E tests? complex view fake render (recreate current pods view, utilization view etc)
+- [ ] 8: support custom them for yaml/describe
+- [ ] 9: screenshots.
+- [ ] 10. Document all new feature after 0.6.2. Update changelog as well. Add to readme if needed.

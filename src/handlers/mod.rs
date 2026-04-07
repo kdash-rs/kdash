@@ -1,6 +1,10 @@
 use crossterm::event::{KeyEvent, MouseEvent, MouseEventKind};
 use kubectl_view_allocations::GroupBy;
 use serde::Serialize;
+use std::{
+  fs,
+  path::{Path, PathBuf},
+};
 
 use crate::{
   app::{
@@ -169,6 +173,9 @@ pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
       _ if key == DEFAULT_KEYBINDING.refresh.key => {
         app.refresh();
       }
+      _ if key == DEFAULT_KEYBINDING.dump_error_log.key => {
+        dump_error_history(app, None);
+      }
       _ if key == DEFAULT_KEYBINDING.help.key => {
         if app.get_current_route().active_block != ActiveBlock::Help {
           app.push_navigation_stack(RouteId::HelpMenu, ActiveBlock::Help);
@@ -207,6 +214,8 @@ fn handle_escape(app: &mut App) {
   // dismiss error
   if !app.api_error.is_empty() {
     app.api_error = String::default();
+  } else if !app.status_message.is_empty() {
+    app.status_message = String::default();
   }
 
   // If menu filter is active, deactivate it first (clear text if any, else deactivate)
@@ -1002,6 +1011,45 @@ fn copy_to_clipboard(content: String, app: &mut App) {
   };
 }
 
+fn dump_error_history(app: &mut App, output_dir: Option<&Path>) {
+  match write_error_history_file(&app.error_history, output_dir) {
+    Ok(path) => app.set_status_message(format!("Saved recent errors to {}", path.display())),
+    Err(error) => app.handle_error(anyhow::anyhow!("Unable to write error log: {}", error)),
+  }
+}
+
+fn write_error_history_file(
+  history: &std::collections::VecDeque<crate::app::ErrorRecord>,
+  output_dir: Option<&Path>,
+) -> std::io::Result<PathBuf> {
+  let dir = match output_dir {
+    Some(path) => path.to_path_buf(),
+    None => std::env::current_dir()?,
+  };
+
+  let path = dir.join(format!(
+    "kdash-errors-{}.log",
+    chrono::Local::now().format("%Y%m%d%H%M%S")
+  ));
+
+  fs::write(&path, format_error_history(history))?;
+  Ok(path)
+}
+
+fn format_error_history(history: &std::collections::VecDeque<crate::app::ErrorRecord>) -> String {
+  if history.is_empty() {
+    "No errors recorded\n".to_owned()
+  } else {
+    let mut rendered = history
+      .iter()
+      .map(|record| format!("[{}] {}", record.timestamp, record.message))
+      .collect::<Vec<_>>()
+      .join("\n");
+    rendered.push('\n');
+    rendered
+  }
+}
+
 /// inverse direction for natural scrolling on mouse and keyboard
 fn inverse_dir(up: bool, is_mouse: bool) -> bool {
   if is_mouse {
@@ -1020,6 +1068,10 @@ mod tests {
     core::{ApiResource, DynamicObject},
     discovery::Scope,
   };
+  use std::{
+    fs,
+    time::{SystemTime, UNIX_EPOCH},
+  };
   use tokio::sync::mpsc;
 
   use super::*;
@@ -1033,6 +1085,67 @@ mod tests {
   fn test_inverse_dir() {
     assert!(inverse_dir(true, false));
     assert!(!inverse_dir(true, true));
+  }
+
+  fn temp_test_dir(name: &str) -> std::path::PathBuf {
+    let suffix = SystemTime::now()
+      .duration_since(UNIX_EPOCH)
+      .unwrap()
+      .as_nanos();
+    let path = std::env::temp_dir().join(format!("kdash-{name}-{suffix}"));
+    fs::create_dir_all(&path).expect("temp test dir should be created");
+    path
+  }
+
+  #[test]
+  fn test_write_error_history_file_writes_recent_errors() {
+    let dir = temp_test_dir("error-dump");
+    let mut app = App::default();
+    app.record_error("first error".into());
+    app.record_error("second error".into());
+
+    let path = write_error_history_file(&app.error_history, Some(&dir)).unwrap();
+    let contents = fs::read_to_string(path).unwrap();
+
+    assert!(contents.contains("first error"));
+    assert!(contents.contains("second error"));
+  }
+
+  #[test]
+  fn test_write_error_history_file_writes_empty_message_when_no_errors() {
+    let dir = temp_test_dir("empty-error-dump");
+    let app = App::default();
+
+    let path = write_error_history_file(&app.error_history, Some(&dir)).unwrap();
+    let contents = fs::read_to_string(path).unwrap();
+
+    assert_eq!(contents, "No errors recorded\n");
+  }
+
+  #[tokio::test]
+  async fn test_dump_error_key_creates_file_and_sets_status_message() {
+    let dir = temp_test_dir("dump-key");
+    let original_dir = std::env::current_dir().unwrap();
+    std::env::set_current_dir(&dir).unwrap();
+
+    let mut app = App::default();
+    app.record_error("boom".into());
+
+    let key_evt = KeyEvent::from(KeyCode::Char('D'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+
+    let created_files = fs::read_dir(&dir)
+      .unwrap()
+      .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+      .collect::<Vec<_>>();
+
+    std::env::set_current_dir(original_dir).unwrap();
+
+    assert!(created_files
+      .iter()
+      .any(|name| name.starts_with("kdash-errors-") && name.ends_with(".log")));
+    assert!(app.api_error.is_empty());
+    assert!(app.status_message.contains("Saved recent errors to"));
   }
 
   #[tokio::test]

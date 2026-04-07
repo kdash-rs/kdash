@@ -19,7 +19,7 @@ use self::{
   utils::{
     action_hint, default_part, help_part, horizontal_chunks_with_margin, key_hints,
     mixed_bold_line, mixed_line, split_hint_suffix, style_failure, style_header,
-    style_main_background, style_primary, style_secondary, vertical_chunks,
+    style_main_background, style_primary, style_secondary, style_success, vertical_chunks,
   },
 };
 use crate::app::{
@@ -33,17 +33,21 @@ pub fn draw(f: &mut Frame<'_>, app: &mut App) {
   let block = Block::default().style(style_main_background(app.light_theme));
   f.render_widget(block, f.area());
 
-  let chunks = if !app.api_error.is_empty() {
+  let chunks = if !app.api_error.is_empty() || !app.status_message.is_empty() {
     let chunks = vertical_chunks(
       vec![
         Constraint::Length(1), // title
         Constraint::Length(3), // header tabs
-        Constraint::Length(3), // error
+        Constraint::Length(3), // banner
         Constraint::Min(0),    // main tabs
       ],
       f.area(),
     );
-    draw_app_error(f, app, chunks[2]);
+    if !app.api_error.is_empty() {
+      draw_app_error(f, app, chunks[2]);
+    } else {
+      draw_app_status(f, app, chunks[2]);
+    }
     chunks
   } else {
     vertical_chunks(
@@ -211,6 +215,28 @@ fn draw_app_error(f: &mut Frame<'_>, app: &App, size: Rect) {
 
   let text = Text::from(app.api_error.clone());
   let text = text.patch_style(style_failure(app.light_theme));
+
+  let paragraph = Paragraph::new(text)
+    .style(style_primary(app.light_theme))
+    .block(block)
+    .wrap(Wrap { trim: true });
+  f.render_widget(paragraph, size);
+}
+
+fn draw_app_status(f: &mut Frame<'_>, app: &App, size: Rect) {
+  let block = Block::default()
+    .title(mixed_bold_line(
+      [
+        default_part(" Info "),
+        help_part(format!("| close {} ", DEFAULT_KEYBINDING.esc.key)),
+      ],
+      app.light_theme,
+    ))
+    .style(style_success(app.light_theme))
+    .borders(Borders::ALL);
+
+  let text = Text::from(app.status_message.clone());
+  let text = text.patch_style(style_success(app.light_theme));
 
   let paragraph = Paragraph::new(text)
     .style(style_primary(app.light_theme))

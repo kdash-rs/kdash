@@ -27,10 +27,12 @@ pub(crate) mod troubleshoot;
 pub(crate) mod utils;
 
 use anyhow::anyhow;
+use chrono::Local;
 use kube::config::Kubeconfig;
 use kubectl_view_allocations::{GroupBy, QtyByQualifier};
 use log::{error, info};
 use ratatui::layout::Rect;
+use std::collections::VecDeque;
 use tokio::sync::{mpsc::Sender, watch};
 
 use self::{
@@ -70,6 +72,13 @@ use super::{
 
 const MAX_NAV_STACK: usize = 128;
 pub const DEFAULT_LOG_TAIL_LINES: u32 = 100;
+pub const MAX_ERROR_HISTORY: usize = 100;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ErrorRecord {
+  pub timestamp: String,
+  pub message: String,
+}
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub enum ActiveBlock {
@@ -218,6 +227,7 @@ pub struct App {
   pub enhanced_graphics: bool,
   pub size: Rect,
   pub api_error: String,
+  pub status_message: String,
   pub light_theme: bool,
   pub refresh: bool,
   pub log_auto_scroll: bool,
@@ -225,6 +235,7 @@ pub struct App {
   pub utilization_group_by: Vec<GroupBy>,
   pub help_docs: StatefulTable<Vec<String>>,
   background_cache_pending: bool,
+  pub error_history: VecDeque<ErrorRecord>,
   pub config: KdashConfig,
   pub data: Data,
 }
@@ -458,6 +469,7 @@ impl Default for App {
       //   confirm: false,
       size: Rect::default(),
       api_error: String::new(),
+      status_message: String::new(),
       light_theme: false,
       refresh: true,
       log_auto_scroll: true,
@@ -465,6 +477,7 @@ impl Default for App {
       utilization_group_by: Self::default_utilization_group_by(),
       help_docs: StatefulTable::with_items(key_binding::get_help_docs()),
       background_cache_pending: false,
+      error_history: VecDeque::with_capacity(MAX_ERROR_HISTORY),
       config: KdashConfig::default(),
       data: Data::default(),
     }
@@ -648,6 +661,7 @@ impl App {
     self.loading_counter = 0;
     self.tick_count = 0;
     self.api_error = String::new();
+    self.status_message = String::new();
     self.utilization_group_by = Self::default_utilization_group_by();
     self.data = Data::default();
     self.route_home();
@@ -726,7 +740,26 @@ impl App {
     // Log the full debug output for diagnostics
     error!("{:?}", e);
     // Show a cleaned-up message in the UI
-    self.api_error = crate::app::utils::sanitize_error_message(&e);
+    let message = crate::app::utils::sanitize_error_message(&e);
+    self.record_error(message.clone());
+    self.status_message.clear();
+    self.api_error = message;
+  }
+
+  pub fn record_error(&mut self, message: String) {
+    self.error_history.push_back(ErrorRecord {
+      timestamp: Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+      message,
+    });
+
+    while self.error_history.len() > MAX_ERROR_HISTORY {
+      self.error_history.pop_front();
+    }
+  }
+
+  pub fn set_status_message(&mut self, message: impl Into<String>) {
+    self.api_error.clear();
+    self.status_message = message.into();
   }
 
   pub fn push_navigation_stack(&mut self, id: RouteId, active_block: ActiveBlock) {
@@ -1211,6 +1244,7 @@ mod test_utils {
 
 #[cfg(test)]
 mod tests {
+  use anyhow::anyhow;
   use tokio::sync::mpsc;
 
   use super::*;
@@ -1245,6 +1279,20 @@ mod tests {
     assert!(app.background_cache_pending);
     assert!(!app.is_routing);
     assert_eq!(app.tick_count, 1);
+  }
+
+  #[test]
+  fn test_handle_error_preserves_only_last_100_errors() {
+    let mut app = App::default();
+
+    for i in 0..105 {
+      app.handle_error(anyhow!("error {}", i));
+    }
+
+    assert_eq!(app.error_history.len(), MAX_ERROR_HISTORY);
+    assert_eq!(app.error_history.front().unwrap().message, "error 5");
+    assert_eq!(app.error_history.back().unwrap().message, "error 104");
+    assert_eq!(app.api_error, "error 104");
   }
   #[tokio::test]
   async fn test_on_tick_refresh_tick_limit() {
