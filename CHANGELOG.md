@@ -2,20 +2,19 @@
 
 ## [Unreleased]
 
-- Open a shell in the selected pod container from the Containers view with `s`
-- Restore the KDash UI cleanly after leaving an interactive container shell
-- Fall back from `/bin/bash` to `/bin/sh` automatically when opening a pod shell
-
 ## [1.0.0] - 2026-04-08
 
 ### Added
 
-- **NEW:**: Troubleshoot tab with diagnostics and recommendations for common Kubernetes issues across Pods, PVCs, and ReplicaSets, plus direct drill-down into containers, logs, describe, and YAML views. Thanks to [@sed-i](https://github.com/sed-i) for the contribution! [#505](https://github.com/kdash-rs/kdash/pull/505)
-- **NEW:**: Inline filter/search across resource tables and views, including Contexts, Help, Utilization, Troubleshoot, More, and Dynamic resource menus
-- **NEW:**: Aggregate logs for workload resources, so you can view logs from all owned pods in one stream
-- **NEW:**: Deeper navigation from resource tables into child views such as Pods, Containers, Logs, Describe, and YAML
-- **NEW:**: Custom config support for keybinding overrides, theme overrides, and configurable initial log history via `log_tail_lines`
-- **NEW:**: In-app action to dump recent errors to a file for debugging
+- **NEW:** Shell into container directly from the UI with `s` keybinding
+  - Restore the KDash UI cleanly after leaving an interactive container shell
+  - Fall back from `/bin/bash` to `/bin/sh` automatically when opening a pod shell
+- **NEW:** Troubleshoot tab with diagnostics and recommendations for common Kubernetes issues across Pods, PVCs, and ReplicaSets, plus direct drill-down into containers, logs, describe, and YAML views. Thanks to [@sed-i](https://github.com/sed-i) for the contribution! [#505](https://github.com/kdash-rs/kdash/pull/505)
+- **NEW:** Inline filter/search across resource tables and views, including Contexts, Help, Utilization, Troubleshoot, More, and Dynamic resource menus
+- **NEW:** Aggregate logs for workload resources, so you can view logs from all owned pods in one stream
+- **NEW:** Deeper navigation from resource tables into child views such as Pods, Containers, Logs, Describe, and YAML
+- **NEW:** Custom config support for keybinding overrides, theme overrides, and configurable initial log history via `log_tail_lines`
+- **NEW:** In-app action to dump recent errors to a file for debugging
 - Resource counts in resource tabs and menus
 - Events tab with namespaced Kubernetes events, counts, ages, and describe/YAML views. Thanks to [@sed-i](https://github.com/sed-i) for the contribution! [#504](https://github.com/kdash-rs/kdash/pull/504)
 
