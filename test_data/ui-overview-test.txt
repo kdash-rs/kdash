@@ -1,4 +1,4 @@
-KDash - A simple Kubernetes dashboard                                                                                                                        v0.6.2 with ♥ in Rust  
+KDash - A simple Kubernetes dashboard                                                                                                                        v1.0.0 with ♥ in Rust  
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │ Active Context │ All Contexts <C> │ Utilization <U> │ Troubleshoot <T>    <Tab>/<←>/<→> switch tabs | <char> select block | <↑>/<↓> scroll | <Enter> select | filter </> | help <│
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
