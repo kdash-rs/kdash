@@ -278,9 +278,34 @@ async fn load_client_config_from_kubeconfig(
   kubeconfig: Kubeconfig,
   options: KubeConfigOptions,
 ) -> Result<kube::Config> {
-  kube::Config::from_custom_kubeconfig(kubeconfig, &options)
+  let mut config = kube::Config::from_custom_kubeconfig(kubeconfig, &options)
     .await
-    .context("Failed to load Kubernetes config")
+    .context("Failed to load Kubernetes config")?;
+
+  if config.proxy_url.is_none() {
+    if let Some(proxy_url) = env_https_proxy_url() {
+      match proxy_url.parse() {
+        Ok(parsed) => config.proxy_url = Some(parsed),
+        Err(error) => warn!(
+          "Ignoring invalid HTTPS proxy URL {:?}: {}",
+          proxy_url, error
+        ),
+      }
+    }
+  }
+
+  Ok(config)
+}
+
+fn env_https_proxy_url() -> Option<String> {
+  env::vars_os().find_map(|(key, value)| {
+    let normalized = key.to_string_lossy();
+    if normalized.eq_ignore_ascii_case("HTTPS_PROXY") {
+      Some(value.to_string_lossy().into_owned())
+    } else {
+      None
+    }
+  })
 }
 
 pub async fn get_client(context: Option<String>) -> Result<kube::Client> {
@@ -880,6 +905,33 @@ users:
         KubeConfigOptions::default(),
       ))
       .expect("config should load");
+
+    assert_eq!(
+      config.proxy_url.as_ref().map(ToString::to_string),
+      Some("http://env-proxy.internal:8080/".to_string())
+    );
+  }
+
+  #[test]
+  fn test_load_client_config_from_kubeconfig_uses_https_proxy_env_var_case_insensitively() {
+    let _env_lock = env_lock();
+    let _proxy_env = ProxyEnvGuard::capture();
+    env::remove_var("HTTPS_PROXY");
+    env::remove_var("https_proxy");
+    env::set_var("Https_PrOxY", "http://env-proxy.internal:8080");
+
+    let kubeconfig: Kubeconfig = serde_yaml::from_str(&kubeconfig_with_proxy(None))
+      .expect("base kubeconfig should deserialize");
+
+    let config = tokio::runtime::Runtime::new()
+      .expect("runtime should build")
+      .block_on(load_client_config_from_kubeconfig(
+        kubeconfig,
+        KubeConfigOptions::default(),
+      ))
+      .expect("config should load");
+
+    env::remove_var("Https_PrOxY");
 
     assert_eq!(
       config.proxy_url.as_ref().map(ToString::to_string),
