@@ -244,3 +244,342 @@ fn draw_app_status(f: &mut Frame<'_>, app: &App, size: Rect) {
     .wrap(Wrap { trim: true });
   f.render_widget(paragraph, size);
 }
+
+#[cfg(test)]
+mod tests {
+  use std::iter;
+
+  use k8s_openapi::api::{
+    apps::v1::{DaemonSet, Deployment, ReplicaSet},
+    batch::v1::Job,
+    core::v1::{ConfigMap, Node, Pod, Service},
+  };
+  use k8s_openapi::apimachinery::pkg::apis::meta::v1::ListMeta;
+  use kube::{api::ObjectList, core::TypeMeta};
+  use ratatui::{backend::TestBackend, style::Modifier, Terminal};
+
+  use super::*;
+  use crate::{
+    app::{
+      configmaps::KubeConfigMap, contexts::KubeContext, daemonsets::KubeDaemonSet,
+      deployments::KubeDeployment, jobs::KubeJob, metrics::KubeNodeMetrics, nodes::KubeNode,
+      ns::KubeNs, pods::KubePod, replicasets::KubeReplicaSet, svcs::KubeSvc, Cli,
+    },
+    ui::utils::{MACCHIATO_BLUE, MACCHIATO_RED, MACCHIATO_TEXT, MACCHIATO_YELLOW},
+  };
+
+  const OVERVIEW_FIXTURE: &str = include_str!("../../test_data/ui-overview-test.txt");
+
+  #[test]
+  fn test_draw_overview_full_screen_fixture() {
+    let backend = TestBackend::new(180, 51);
+    let mut terminal = Terminal::new(backend).unwrap();
+
+    terminal
+      .draw(|f| {
+        let mut app = seeded_overview_app();
+        draw(f, &mut app);
+      })
+      .unwrap();
+
+    let buffer = terminal.backend().buffer();
+    let lines = buffer_lines(buffer);
+    let expected_lines: Vec<String> = OVERVIEW_FIXTURE
+      .lines()
+      .map(|line| line.to_string())
+      .collect();
+
+    assert_eq!(lines, expected_lines);
+
+    assert_eq!(buffer[(1, 13)].fg, MACCHIATO_YELLOW);
+    assert!(buffer[(1, 13)].modifier.contains(Modifier::BOLD));
+
+    assert_eq!(buffer[(1, 16)].fg, MACCHIATO_BLUE);
+    assert_eq!(buffer[(1, 19)].fg, MACCHIATO_TEXT);
+
+    assert_eq!(buffer[(1, 20)].fg, MACCHIATO_RED);
+    assert!(buffer[(1, 20)].modifier.contains(Modifier::REVERSED));
+  }
+
+  fn seeded_overview_app() -> App {
+    let mut app = App::default();
+    app.title = "KDash - A simple Kubernetes dashboard";
+    app.enhanced_graphics = true;
+
+    app.data.namespaces.set_items(vec![
+      kube_ns("default", "Active"),
+      kube_ns("kdash-demo", "Active"),
+      kube_ns("kdash-log-test", "Active"),
+      kube_ns("kdash-rbac-test", "Active"),
+      kube_ns("kube-node-lease", "Active"),
+      kube_ns("kube-public", "Active"),
+    ]);
+
+    app.data.active_context = Some(KubeContext {
+      name: "k3d-mycluster".into(),
+      cluster: "k3d-mycluster".into(),
+      user: Some("admin@k3d-mycluster".into()),
+      namespace: Some("default".into()),
+      is_active: true,
+    });
+
+    app.data.node_metrics = vec![KubeNodeMetrics {
+      name: "k3d-mycluster-agent-0".into(),
+      cpu_percent: 0.0,
+      mem_percent: 1.0,
+      ..KubeNodeMetrics::default()
+    }];
+
+    app.data.clis = vec![
+      Cli {
+        name: "kubectl client".into(),
+        version: "v1.35.3".into(),
+        status: true,
+      },
+      Cli {
+        name: "kubectl server".into(),
+        version: "v1.33.6+k3s1".into(),
+        status: true,
+      },
+      Cli {
+        name: "docker".into(),
+        version: "v29.3.1".into(),
+        status: true,
+      },
+      Cli {
+        name: "docker-compose".into(),
+        version: "v5.1.1".into(),
+        status: true,
+      },
+      Cli {
+        name: "kind".into(),
+        version: "v0.31.0".into(),
+        status: true,
+      },
+      Cli {
+        name: "helm".into(),
+        version: "Not found".into(),
+        status: false,
+      },
+      Cli {
+        name: "istioctl".into(),
+        version: "Not found".into(),
+        status: false,
+      },
+    ];
+
+    app.data.pods.set_items(seeded_pods());
+    app
+      .data
+      .services
+      .set_items(repeat_items(4, KubeSvc::from(Service::default())));
+    app.data.nodes.set_items(vec![kube_node()]);
+    app
+      .data
+      .config_maps
+      .set_items(repeat_items(15, KubeConfigMap::from(ConfigMap::default())));
+    app
+      .data
+      .replica_sets
+      .set_items(repeat_items(6, KubeReplicaSet::from(ReplicaSet::default())));
+    app
+      .data
+      .deployments
+      .set_items(repeat_items(6, KubeDeployment::from(Deployment::default())));
+    app
+      .data
+      .jobs
+      .set_items(repeat_items(2, KubeJob::from(Job::default())));
+    app
+      .data
+      .daemon_sets
+      .set_items(repeat_items(1, KubeDaemonSet::from(DaemonSet::default())));
+
+    app
+  }
+
+  fn repeat_items<T: Clone>(count: usize, item: T) -> Vec<T> {
+    iter::repeat_n(item, count).collect()
+  }
+
+  fn kube_ns(name: &str, status: &str) -> KubeNs {
+    let mut ns = KubeNs::default();
+    ns.name = name.into();
+    ns.status = status.into();
+    ns
+  }
+
+  fn kube_pod(namespace: &str, name: &str, ready: (i32, i32), status: &str, age: &str) -> KubePod {
+    kube_pod_with_restarts(namespace, name, ready, status, age, 0)
+  }
+
+  fn kube_pod_with_restarts(
+    namespace: &str,
+    name: &str,
+    ready: (i32, i32),
+    status: &str,
+    age: &str,
+    restarts: i32,
+  ) -> KubePod {
+    let mut pod = KubePod::default();
+    pod.namespace = namespace.into();
+    pod.name = name.into();
+    pod.ready = ready;
+    pod.status = status.into();
+    pod.age = age.into();
+    pod.restarts = restarts;
+    pod
+  }
+
+  fn kube_node() -> KubeNode {
+    let seed_app = tokio::sync::Mutex::new(App::default());
+    let mut guard = seed_app.blocking_lock();
+    let pods = ObjectList::<Pod> {
+      types: TypeMeta {
+        api_version: "v1".into(),
+        kind: "List".into(),
+      },
+      metadata: ListMeta::default(),
+      items: vec![],
+    };
+    KubeNode::from_api_with_pods(&Node::default(), &pods, &mut guard)
+  }
+
+  fn seeded_pods() -> Vec<KubePod> {
+    vec![
+      kube_pod("default", "bad-image", (0, 1), "ImagePullBackOff", "4d21h"),
+      kube_pod(
+        "default",
+        "kdash-test-multi-6bccdcf865-hrr8t",
+        (2, 2),
+        "Running",
+        "4d4h",
+      ),
+      kube_pod(
+        "default",
+        "kdash-test-multi-6bccdcf865-lsc59",
+        (2, 2),
+        "Running",
+        "4d4h",
+      ),
+      kube_pod(
+        "default",
+        "kdash-test-multi-6bccdcf865-s2qbp",
+        (2, 2),
+        "Running",
+        "4d4h",
+      ),
+      kube_pod(
+        "default",
+        "kdash-test-nginx-776f75c995-27pf7",
+        (1, 1),
+        "Running",
+        "4d4h",
+      ),
+      kube_pod(
+        "default",
+        "kdash-test-nginx-776f75c995-5fqvt",
+        (1, 1),
+        "Running",
+        "4d4h",
+      ),
+      kube_pod(
+        "default",
+        "kdash-test-nginx-776f75c995-sh92q",
+        (1, 1),
+        "Running",
+        "4d4h",
+      ),
+      kube_pod("default", "pending-pod", (0, 1), "Pending", "4d21h"),
+      kube_pod(
+        "kdash-demo",
+        "bad-image",
+        (0, 1),
+        "ImagePullBackOff",
+        "4d21h",
+      ),
+      kube_pod("kdash-demo", "pending-pod", (0, 1), "Pending", "4d21h"),
+      kube_pod(
+        "kdash-log-test",
+        "kdash-log-fast",
+        (1, 1),
+        "Running",
+        "23h34m",
+      ),
+      kube_pod(
+        "kdash-log-test",
+        "kdash-log-stream",
+        (1, 1),
+        "Running",
+        "23h38m",
+      ),
+      kube_pod(
+        "kdash-rbac-test",
+        "kdash-rbac-demo",
+        (1, 1),
+        "Running",
+        "2d1h",
+      ),
+      kube_pod(
+        "kube-system",
+        "coredns-6d668d687-wqqjq",
+        (1, 1),
+        "Running",
+        "5d3h",
+      ),
+      kube_pod(
+        "kube-system",
+        "helm-install-traefik-crd-r5h8c",
+        (0, 1),
+        "Completed",
+        "5d3h",
+      ),
+      kube_pod_with_restarts(
+        "kube-system",
+        "helm-install-traefik-vhdr6",
+        (0, 1),
+        "Completed",
+        "5d3h",
+        1,
+      ),
+      kube_pod(
+        "kube-system",
+        "local-path-provisioner-869c44bfbd-pfxd6",
+        (1, 1),
+        "Running",
+        "5d3h",
+      ),
+      kube_pod(
+        "kube-system",
+        "metrics-server-7bfffcd44-ftxdj",
+        (1, 1),
+        "Running",
+        "5d3h",
+      ),
+      kube_pod(
+        "kube-system",
+        "svclb-traefik-207900ce-62q7c",
+        (2, 2),
+        "Running",
+        "5d3h",
+      ),
+      kube_pod(
+        "kube-system",
+        "traefik-865bd56545-4htnx",
+        (1, 1),
+        "Running",
+        "5d3h",
+      ),
+    ]
+  }
+
+  fn buffer_lines(buffer: &ratatui::buffer::Buffer) -> Vec<String> {
+    (0..buffer.area.height)
+      .map(|row| {
+        (0..buffer.area.width)
+          .map(|col| buffer[(col, row)].symbol())
+          .collect::<String>()
+      })
+      .collect()
+  }
+}
