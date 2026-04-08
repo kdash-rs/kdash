@@ -337,6 +337,7 @@ mod tests {
 
   use super::*;
   use crate::{
+    app::models::StatefulList,
     app::pods::KubePod,
     ui::utils::{MACCHIATO_BLUE, MACCHIATO_RED, MACCHIATO_TEXT, MACCHIATO_YELLOW},
   };
@@ -402,5 +403,121 @@ mod tests {
     assert_eq!(buffer[(1, 7)].fg, MACCHIATO_RED);
     assert!(buffer[(1, 7)].modifier.contains(Modifier::REVERSED));
     assert_eq!(buffer[(99, 7)].fg, MACCHIATO_YELLOW);
+  }
+
+  #[test]
+  fn test_tab_count_label_returns_zero_for_unknown_index() {
+    let app = App::default();
+
+    assert_eq!(tab_count_label(&app, 99), "0");
+  }
+
+  #[test]
+  fn test_tab_count_label_uses_visible_table_count() {
+    let mut app = App::default();
+    app.data.pods.set_items(vec![KubePod::default(), KubePod::default()]);
+
+    assert_eq!(tab_count_label(&app, 0), "2");
+  }
+
+  #[test]
+  fn test_draw_menu_shows_filter_prompt_when_active_without_text() {
+    let lines = render_menu_lines(
+      StatefulList::with_items(vec![("Secrets".into(), ActiveBlock::Secrets)]),
+      "",
+      true,
+      &[],
+    );
+    let joined = lines.join("\n");
+
+    assert!(joined.contains("Select Resource"));
+    assert!(joined.contains("[type to filter]"));
+  }
+
+  #[test]
+  fn test_draw_menu_shows_filter_text_and_counts() {
+    let lines = render_menu_lines(
+      StatefulList::with_items(vec![
+        ("Secrets".into(), ActiveBlock::Secrets),
+        ("Events".into(), ActiveBlock::Events),
+      ]),
+      "e",
+      true,
+      &[(ActiveBlock::Secrets, 3), (ActiveBlock::Events, 0)],
+    );
+    let joined = lines.join("\n");
+
+    assert!(joined.contains("Select Resource [e]"));
+    assert!(joined.contains("Secrets [3]"));
+    assert!(joined.contains("Events"));
+    assert!(!joined.contains("Events [0]"));
+  }
+
+  #[test]
+  fn test_draw_menu_shows_filter_hint_when_inactive() {
+    let lines = render_menu_lines(
+      StatefulList::with_items(vec![("Secrets".into(), ActiveBlock::Secrets)]),
+      "",
+      false,
+      &[],
+    );
+    let joined = lines.join("\n");
+
+    assert!(joined.contains("Select Resource"));
+    assert!(joined.contains("to filter"));
+    assert!(joined.contains("</>"));
+  }
+
+  #[test]
+  fn test_draw_menu_clamps_selection_to_filtered_items() {
+    let mut menu = StatefulList::with_items(vec![
+      ("Secrets".into(), ActiveBlock::Secrets),
+      ("Events".into(), ActiveBlock::Events),
+    ]);
+    menu.state.select(Some(1));
+
+    let backend = TestBackend::new(60, 10);
+    let mut terminal = Terminal::new(backend).unwrap();
+
+    terminal
+      .draw(|f| {
+        draw_menu(f, &mut menu, "sec", true, &[], false, f.area());
+      })
+      .unwrap();
+
+    assert_eq!(menu.state.selected(), Some(0));
+  }
+
+  fn render_menu_lines(
+    mut menu: StatefulList<(String, ActiveBlock)>,
+    filter: &str,
+    filter_active: bool,
+    counts: &[(ActiveBlock, usize)],
+  ) -> Vec<String> {
+    let backend = TestBackend::new(60, 10);
+    let mut terminal = Terminal::new(backend).unwrap();
+
+    terminal
+      .draw(|f| {
+        draw_menu(
+          f,
+          &mut menu,
+          filter,
+          filter_active,
+          counts,
+          false,
+          f.area(),
+        );
+      })
+      .unwrap();
+
+    let buffer = terminal.backend().buffer();
+    (0..buffer.area.height)
+      .map(|row| {
+        (0..buffer.area.width)
+          .map(|col| buffer[(col, row)].symbol())
+          .collect::<String>()
+      })
+      .collect()
   }
 }

@@ -1631,6 +1631,99 @@ mod tests {
   }
 
   #[test]
+  fn test_pop_navigation_stack_on_default_route_returns_none() {
+    let mut app = App::default();
+
+    assert_eq!(app.pop_navigation_stack(), None);
+    assert!(app.is_routing);
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Pods);
+  }
+
+  #[test]
+  fn test_get_prev_route_with_single_route_returns_default_route() {
+    let app = App::default();
+
+    assert_eq!(app.get_prev_route().active_block, ActiveBlock::Pods);
+    assert_eq!(app.get_nth_route_from_last(99).active_block, ActiveBlock::Pods);
+  }
+
+  #[test]
+  fn test_route_helpers_switch_main_tabs() {
+    let mut app = App::default();
+
+    app.route_contexts();
+    assert_eq!(app.main_tabs.index, 1);
+    assert_eq!(app.get_current_route().id, RouteId::Contexts);
+
+    app.route_utilization();
+    assert_eq!(app.main_tabs.index, 2);
+    assert_eq!(app.get_current_route().id, RouteId::Utilization);
+
+    app.route_troubleshoot();
+    assert_eq!(app.main_tabs.index, 3);
+    assert_eq!(app.get_current_route().id, RouteId::Troubleshoot);
+
+    app.route_home();
+    assert_eq!(app.main_tabs.index, 0);
+    assert_eq!(app.get_current_route().id, RouteId::Home);
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Pods);
+  }
+
+  #[test]
+  fn test_restore_route_state_replaces_stack_and_sets_indices() {
+    let mut app = App::default();
+
+    app.restore_route_state(
+      2,
+      6,
+      Route {
+        id: RouteId::Utilization,
+        active_block: ActiveBlock::Utilization,
+      },
+    );
+
+    assert_eq!(app.main_tabs.index, 2);
+    assert_eq!(app.context_tabs.index, 6);
+    assert_eq!(app.navigation_stack.len(), 1);
+    assert_eq!(app.get_current_route().id, RouteId::Utilization);
+    assert!(app.is_routing);
+  }
+
+  #[test]
+  fn test_set_and_clear_status_message_manage_api_error() {
+    let mut app = App {
+      api_error: "boom".into(),
+      ..App::default()
+    };
+
+    app.set_status_message("all good");
+    assert!(app.api_error.is_empty());
+    assert_eq!(app.status_message.text(), "all good");
+
+    app.clear_status_message();
+    assert!(app.status_message.is_empty());
+  }
+
+  #[test]
+  fn test_active_home_cache_block_uses_previous_route_for_logs() {
+    let mut app = App::default();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Events);
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Logs);
+
+    assert_eq!(app.active_home_cache_block(), ActiveBlock::Events);
+    assert_eq!(app.background_home_event_to_skip(), Some(IoEvent::GetEvents));
+  }
+
+  #[test]
+  fn test_background_home_event_to_skip_returns_none_for_non_resource_blocks() {
+    let mut app = App::default();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::More);
+
+    assert_eq!(app.active_home_cache_block(), ActiveBlock::More);
+    assert_eq!(app.background_home_event_to_skip(), None);
+  }
+
+  #[test]
   fn test_loading_counter_default() {
     let app = App::default();
     assert!(!app.is_loading());
@@ -1741,6 +1834,128 @@ mod tests {
     app.dispatch_cmd(IoCmdEvent::GetCliInfo).await;
 
     assert!(!app.is_loading());
+  }
+
+  #[tokio::test]
+  async fn test_dispatch_pod_logs_enqueues_all_container_logs_and_routes_to_logs() {
+    let (sync_io_stream_tx, mut sync_io_stream_rx) = mpsc::channel::<IoStreamEvent>(16);
+
+    let mut app = App {
+      io_stream_tx: Some(sync_io_stream_tx),
+      ..App::default()
+    };
+
+    app.dispatch_pod_logs("pod-a".into(), RouteId::Home).await;
+
+    assert_eq!(app.data.logs.id, "agg:pod-a");
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Logs);
+    assert_eq!(
+      sync_io_stream_rx.recv().await.unwrap(),
+      IoStreamEvent::GetPodAllContainerLogs
+    );
+  }
+
+  #[tokio::test]
+  async fn test_dispatch_container_logs_enqueues_container_log_stream() {
+    let (sync_io_stream_tx, mut sync_io_stream_rx) = mpsc::channel::<IoStreamEvent>(16);
+
+    let mut app = App {
+      io_stream_tx: Some(sync_io_stream_tx),
+      ..App::default()
+    };
+
+    app
+      .dispatch_container_logs("pod-a/container-1".into(), RouteId::Home)
+      .await;
+
+    assert_eq!(app.data.logs.id, "pod-a/container-1");
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Logs);
+    assert_eq!(
+      sync_io_stream_rx.recv().await.unwrap(),
+      IoStreamEvent::GetPodLogs(true)
+    );
+  }
+
+  #[tokio::test]
+  async fn test_dispatch_by_active_block_uses_selector_for_pod_drilldown() {
+    let (sync_io_tx, mut sync_io_rx) = mpsc::channel::<IoEvent>(16);
+
+    let mut app = App {
+      io_tx: Some(sync_io_tx),
+      ..App::default()
+    };
+    app.data.selected.pod_selector = Some("app=nginx".into());
+    app.data.selected.pod_selector_ns = Some("default".into());
+
+    app.dispatch_by_active_block(ActiveBlock::Pods).await;
+
+    assert_eq!(
+      sync_io_rx.recv().await.unwrap(),
+      IoEvent::GetPodsBySelector {
+        namespace: "default".into(),
+        selector: "app=nginx".into(),
+      }
+    );
+  }
+
+  #[tokio::test]
+  async fn test_dispatch_by_active_block_logs_dispatches_only_when_not_streaming() {
+    let (sync_io_stream_tx, mut sync_io_stream_rx) = mpsc::channel::<IoStreamEvent>(16);
+
+    let mut app = App {
+      io_stream_tx: Some(sync_io_stream_tx),
+      is_streaming: false,
+      ..App::default()
+    };
+
+    app.dispatch_by_active_block(ActiveBlock::Logs).await;
+
+    assert_eq!(
+      sync_io_stream_rx.recv().await.unwrap(),
+      IoStreamEvent::GetPodLogs(false)
+    );
+
+    app.is_streaming = true;
+    app.dispatch_by_active_block(ActiveBlock::Logs).await;
+
+    assert!(sync_io_stream_rx.try_recv().is_err());
+  }
+
+  #[tokio::test]
+  async fn test_cache_essential_data_on_utilization_route_fetches_metrics() {
+    let (sync_io_tx, mut sync_io_rx) = mpsc::channel::<IoEvent>(16);
+
+    let mut app = App {
+      io_tx: Some(sync_io_tx),
+      ..App::default()
+    };
+    app.route_utilization();
+
+    app.cache_essential_data().await;
+
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetMetrics);
+  }
+
+  #[tokio::test]
+  async fn test_cache_essential_data_on_troubleshoot_route_fetches_findings() {
+    let (sync_io_tx, mut sync_io_rx) = mpsc::channel::<IoEvent>(16);
+
+    let mut app = App {
+      io_tx: Some(sync_io_tx),
+      ..App::default()
+    };
+    app.route_troubleshoot();
+
+    app.cache_essential_data().await;
+
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNamespaces);
+    assert_eq!(sync_io_rx.recv().await.unwrap(), IoEvent::GetNodes);
+    assert_eq!(
+      sync_io_rx.recv().await.unwrap(),
+      IoEvent::GetTroubleshootFindings
+    );
   }
 
   #[test]

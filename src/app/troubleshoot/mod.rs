@@ -416,4 +416,44 @@ mod tests {
     assert_eq!(findings[2].severity, Finding::Warn(()));
     assert_eq!(findings[2].resource_name, "b-pvc");
   }
+
+  #[test]
+  fn test_display_finding_resource_ref_includes_namespace_when_present() {
+    let finding = DisplayFinding {
+      severity: Finding::Warn(()),
+      reason: "Pending".into(),
+      resource_kind: ResourceKind::Pod,
+      namespace: Some("ns-1".into()),
+      resource_name: "pod-a".into(),
+      message: "pod is pending".into(),
+      age: "5m".into(),
+      describe_kind: "Pod".into(),
+      describe_name: "pod-a".into(),
+      describe_namespace: Some("ns-1".into()),
+      k8s_obj: (),
+    };
+
+    assert_eq!(finding.resource_ref(), "ns-1/pod-a");
+    assert_eq!(finding.describe_target(), ("Pod", "pod-a", Some("ns-1")));
+  }
+
+  #[test]
+  fn test_display_finding_resource_ref_omits_empty_namespace() {
+    let finding = DisplayFinding {
+      severity: Finding::Info(()),
+      reason: "Info".into(),
+      resource_kind: ResourceKind::ReplicaSet,
+      namespace: Some(String::new()),
+      resource_name: "rs-a".into(),
+      message: "all good".into(),
+      age: "1m".into(),
+      describe_kind: "ReplicaSet".into(),
+      describe_name: "rs-a".into(),
+      describe_namespace: None,
+      k8s_obj: (),
+    };
+
+    assert_eq!(finding.resource_ref(), "rs-a");
+    assert_eq!(finding.describe_target(), ("ReplicaSet", "rs-a", None));
+  }
 }

@@ -301,6 +301,78 @@ mod tests {
     assert!(buffer[(1, 20)].modifier.contains(Modifier::REVERSED));
   }
 
+  #[test]
+  fn test_nw_loading_indicator_is_empty_when_not_loading() {
+    assert_eq!(nw_loading_indicator(false), "");
+  }
+
+  #[test]
+  fn test_nw_loading_indicator_uses_known_spinner_frames_when_loading() {
+    assert!(FRAMES.contains(&nw_loading_indicator(true)));
+  }
+
+  #[test]
+  fn test_draw_renders_status_banner() {
+    let mut app = App::default();
+    app.set_status_message("Saved recent errors to /tmp/kdash-errors.log");
+
+    let lines = render_lines(&mut app, 120, 20);
+    let joined = lines.join("\n");
+
+    assert!(joined.contains("Info"));
+    assert!(joined.contains("Saved recent errors to /tmp/kdash-errors.log"));
+  }
+
+  #[test]
+  fn test_draw_renders_error_banner() {
+    let mut app = App::default();
+    app.api_error = "Kubernetes API unavailable".into();
+
+    let lines = render_lines(&mut app, 120, 20);
+    let joined = lines.join("\n");
+
+    assert!(joined.contains("Error"));
+    assert!(joined.contains("Kubernetes API unavailable"));
+  }
+
+  #[test]
+  fn test_draw_contexts_route_renders_context_header_hints() {
+    let mut app = App::default();
+    app.push_navigation_stack(RouteId::Contexts, ActiveBlock::Contexts);
+
+    let lines = render_lines(&mut app, 140, 20);
+    let joined = lines.join("\n");
+
+    assert!(joined.contains("scroll"));
+    assert!(joined.contains("filter </>"));
+    assert!(joined.contains("help <?>"));
+  }
+
+  #[test]
+  fn test_draw_utilization_route_renders_grouping_hint() {
+    let mut app = App::default();
+    app.push_navigation_stack(RouteId::Utilization, ActiveBlock::Utilization);
+
+    let lines = render_lines(&mut app, 140, 20);
+    let joined = lines.join("\n");
+
+    assert!(joined.contains("cycle grouping <g>"));
+    assert!(joined.contains("filter </>"));
+  }
+
+  #[test]
+  fn test_draw_troubleshoot_route_renders_troubleshoot_header_hints() {
+    let mut app = App::default();
+    app.push_navigation_stack(RouteId::Troubleshoot, ActiveBlock::Troubleshoot);
+
+    let lines = render_lines(&mut app, 140, 20);
+    let joined = lines.join("\n");
+
+    assert!(joined.contains("Troubleshoot"));
+    assert!(joined.contains("filter </>"));
+    assert!(joined.contains("help <?>"));
+  }
+
   fn seeded_overview_app() -> App {
     let mut app = App::default();
     app.title = "KDash - A simple Kubernetes dashboard";
@@ -581,5 +653,14 @@ mod tests {
           .collect::<String>()
       })
       .collect()
+  }
+
+  fn render_lines(app: &mut App, width: u16, height: u16) -> Vec<String> {
+    let backend = TestBackend::new(width, height);
+    let mut terminal = Terminal::new(backend).unwrap();
+
+    terminal.draw(|f| draw(f, app)).unwrap();
+
+    buffer_lines(terminal.backend().buffer())
   }
 }
