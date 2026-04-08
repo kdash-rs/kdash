@@ -1364,7 +1364,7 @@ mod tests {
 
     assert_eq!(
       app.error_history.back().unwrap().message,
-      "Failed to get namespaced resource kdash::app::pods::KubePod. timeout"
+      "Failed to get namespaced resource Pod. timeout"
     );
     assert_eq!(
       app.api_error,
