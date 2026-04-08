@@ -453,11 +453,11 @@ impl<'a> Network<'a> {
       IoEvent::GetServiceAccounts => {
         SvcAcctResource::get_resource(self).await;
       }
-      IoEvent::GetEvents => {
-        EventResource::get_resource(self).await;
-      }
       IoEvent::GetNetworkPolicies => {
         NetworkPolicyResource::get_resource(self).await;
+      }
+      IoEvent::GetEvents => {
+        EventResource::get_resource(self).await;
       }
       IoEvent::DiscoverDynamicRes => {
         self.discover_dynamic_resources().await;

@@ -651,11 +651,11 @@ async fn handle_route_events(key: Key, app: &mut App) {
               copy_to_clipboard(app.data.logs.get_plain_text(), app);
             }
           }
-      ActiveBlock::Describe | ActiveBlock::Yaml => {
-        if key == DEFAULT_KEYBINDING.copy_to_clipboard.key {
-          copy_to_clipboard(app.data.describe_out.get_txt().to_owned(), app);
-        }
-      }
+          ActiveBlock::Describe | ActiveBlock::Yaml => {
+            if key == DEFAULT_KEYBINDING.copy_to_clipboard.key {
+              copy_to_clipboard(app.data.describe_out.get_txt().to_owned(), app);
+            }
+          }
           ActiveBlock::More => {
             if key == DEFAULT_KEYBINDING.submit.key {
               let filtered = filter_menu_items(&app.more_resources_menu.items, &app.menu_filter);

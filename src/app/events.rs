@@ -1,6 +1,9 @@
 use async_trait::async_trait;
 use chrono::Utc;
-use k8s_openapi::api::core::v1::Event;
+use k8s_openapi::{
+  api::core::v1::Event,
+  apimachinery::pkg::apis::meta::v1::{MicroTime, Time},
+};
 use ratatui::{
   layout::{Constraint, Rect},
   widgets::{Cell, Row},
@@ -37,8 +40,9 @@ impl From<Event> for KubeEvent {
   fn from(event: Event) -> Self {
     let count = event
       .count
-      .or_else(|| event.series.as_ref().map(|series| series.count))
+      .or_else(|| event.series.as_ref().and_then(|series| series.count))
       .unwrap_or_default();
+    let age = utils::to_age(event_timestamp(&event).as_ref(), Utc::now());
 
     KubeEvent {
       name: event.metadata.name.clone().unwrap_or_default(),
@@ -47,10 +51,24 @@ impl From<Event> for KubeEvent {
       reason: event.reason.clone().unwrap_or_default(),
       message: event.message.clone().unwrap_or_default(),
       count,
-      age: utils::to_age(event.metadata.creation_timestamp.as_ref(), Utc::now()),
+      age,
       k8s_obj: utils::sanitize_obj(event),
     }
   }
+}
+
+fn event_timestamp(event: &Event) -> Option<Time> {
+  event
+    .series
+    .as_ref()
+    .and_then(|series| series.last_observed_time.as_ref().map(micro_time_to_time))
+    .or_else(|| event.last_timestamp.clone())
+    .or_else(|| event.event_time.as_ref().map(micro_time_to_time))
+    .or_else(|| event.metadata.creation_timestamp.clone())
+}
+
+fn micro_time_to_time(time: &MicroTime) -> Time {
+  Time(time.0)
 }
 
 impl KubeResource<Event> for KubeEvent {
@@ -145,39 +163,38 @@ mod tests {
   };
 
   use super::*;
-  use crate::app::test_utils::get_time;
+  use crate::app::test_utils::{convert_resource_from_file, get_time};
 
   #[test]
   fn test_event_from_api() {
-    let event = Event {
-      metadata: ObjectMeta {
-        name: Some("pod.123".into()),
-        namespace: Some("default".into()),
-        creation_timestamp: Some(get_time("2023-06-30T17:27:23Z")),
-        ..Default::default()
-      },
-      involved_object: ObjectReference {
-        kind: Some("Pod".into()),
-        name: Some("pod-1".into()),
-        ..Default::default()
-      },
-      reason: Some("Scheduled".into()),
-      message: Some("Successfully assigned".into()),
-      count: Some(3),
-      ..Default::default()
-    };
+    let (events, events_list): (Vec<KubeEvent>, Vec<_>) = convert_resource_from_file("events");
 
+    assert_eq!(events.len(), 2);
     assert_eq!(
-      KubeEvent::from(event.clone()),
+      events[0],
       KubeEvent {
-        name: "pod.123".into(),
-        namespace: "default".into(),
+        name: "ga-edge-0.18931e4c1f3244cf".into(),
+        namespace: "gagent".into(),
         involved_kind: "Pod".into(),
-        reason: "Scheduled".into(),
-        message: "Successfully assigned".into(),
-        count: 3,
-        age: utils::to_age(Some(&get_time("2023-06-30T17:27:23Z")), Utc::now()),
-        k8s_obj: utils::sanitize_obj(event),
+        reason: "FailedScheduling".into(),
+        message: "0/1 nodes are available: 1 node(s) didn't match Pod's node affinity/selector. preemption: 0/1 nodes are available: 1 Preemption is not helpful for scheduling."
+          .into(),
+        count: 3432,
+        age: utils::to_age(Some(&get_micro_time("2026-02-23T04:41:50.537584Z")), Utc::now()),
+        k8s_obj: utils::sanitize_obj(events_list[0].clone()),
+      }
+    );
+    assert_eq!(
+      events[1],
+      KubeEvent {
+        name: "ga-edge-data-8a821b67-ga-edge-0.18931e4cb66ce46b".into(),
+        namespace: "gagent".into(),
+        involved_kind: "PersistentVolumeClaim".into(),
+        reason: "WaitForPodScheduled".into(),
+        message: "waiting for pod ga-edge-0 to be scheduled".into(),
+        count: 68646,
+        age: utils::to_age(Some(&get_time("2026-02-23T04:46:45Z")), Utc::now()),
+        k8s_obj: utils::sanitize_obj(events_list[1].clone()),
       }
     );
   }
@@ -198,5 +215,32 @@ mod tests {
     };
 
     assert_eq!(KubeEvent::from(event).count, 3432);
+  }
+
+  #[test]
+  fn test_event_age_prefers_latest_observed_timestamp() {
+    let event = Event {
+      metadata: ObjectMeta {
+        creation_timestamp: Some(get_time("2023-06-30T17:27:23Z")),
+        ..Default::default()
+      },
+      event_time: Some(MicroTime(get_time("2023-07-01T17:27:23Z").0)),
+      last_timestamp: Some(get_time("2023-07-02T17:27:23Z")),
+      involved_object: ObjectReference::default(),
+      series: Some(EventSeries {
+        count: Some(1),
+        last_observed_time: Some(MicroTime(get_time("2023-07-03T17:27:23Z").0)),
+      }),
+      ..Default::default()
+    };
+
+    assert_eq!(
+      KubeEvent::from(event).age,
+      utils::to_age(Some(&get_time("2023-07-03T17:27:23Z")), Utc::now())
+    );
+  }
+
+  fn get_micro_time(s: &str) -> Time {
+    Time(s.parse().unwrap())
   }
 }
