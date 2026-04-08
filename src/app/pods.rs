@@ -349,8 +349,9 @@ pub(crate) fn draw_containers_block(f: &mut Frame<'_>, app: &mut App, area: Rect
       inline_help: mixed_bold_line(
         [
           help_part(format!(
-            "{} | ",
-            action_hint("logs", DEFAULT_KEYBINDING.submit.key)
+            "{} | {} |",
+            action_hint("logs", DEFAULT_KEYBINDING.submit.key),
+            action_hint("shell", DEFAULT_KEYBINDING.shell_exec.key),
           )),
           help_part(PODS_TITLE),
           help_part(format!(" {} ", DEFAULT_KEYBINDING.esc.key)),

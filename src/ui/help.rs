@@ -127,7 +127,7 @@ mod tests {
     assert_eq!(
       lines,
       vec![
-        "┌ Help [40] filter </> | close <Esc> ──────────────────────────────────────────────────────────────┐",
+        "┌ Help [41] filter </> | close <Esc> ──────────────────────────────────────────────────────────────┐",
         "│   Key                                               Action                                  Conte│",
         "│=> <Ctrl+c> | <q>                                    Quit                                    Gener│",
         "│   <Esc>                                             Close child page/Go back                Gener│",
@@ -171,7 +171,7 @@ mod tests {
       .map(|col| buffer[(col, 0)].symbol())
       .collect();
 
-    assert!(first_line.contains("Help [1/40] [pod] | clear <Esc>"));
+    assert!(first_line.contains("Help [1/41] [pod] | clear <Esc>"));
     assert!(!first_line.contains("close <Esc>"));
   }
 }

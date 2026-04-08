@@ -156,6 +156,8 @@ kdash
 
 Press `?` while running the app to see keybindings
 
+From `Pods -> Containers`, press `s` to open a shell in the selected container. KDash temporarily suspends the UI while the interactive shell is active and restores it when you exit.
+
 ## Configuration
 
 KDash supports config-based keybinding and theme overrides, plus a configurable default for historical log lines fetched before live streaming starts.
@@ -228,6 +230,7 @@ See the sample config in [assets/kdash.sample-config.yaml](assets/kdash.sample-c
 - Stream container logs
 - Aggregate workload logs
 - Drill down from workloads/nodes to Pods and from Pods to Containers
+- Open a shell in the selected pod container from the Containers view
 - Context
   - Context info
   - Context watch

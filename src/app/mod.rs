@@ -84,6 +84,13 @@ pub struct ErrorRecord {
   pub message: String,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PendingShellExec {
+  pub namespace: String,
+  pub pod: String,
+  pub container: String,
+}
+
 #[derive(Clone, Debug)]
 pub struct StatusMessage {
   pub text: String,
@@ -289,6 +296,7 @@ pub struct App {
   pub utilization_group_by: Vec<GroupBy>,
   pub help_docs: StatefulTable<Vec<String>>,
   pub error_history: VecDeque<ErrorRecord>,
+  pending_shell_exec: Option<PendingShellExec>,
   pub config: KdashConfig,
   pub data: Data,
 }
@@ -533,6 +541,7 @@ impl Default for App {
       help_docs: StatefulTable::with_items(key_binding::get_help_docs()),
       background_cache_pending: false,
       error_history: VecDeque::with_capacity(MAX_ERROR_HISTORY),
+      pending_shell_exec: None,
       config: KdashConfig::default(),
       data: Data::default(),
     }
@@ -815,6 +824,19 @@ impl App {
   pub fn set_status_message(&mut self, message: impl Into<String>) {
     self.api_error.clear();
     self.status_message.show(message);
+  }
+
+  pub fn queue_shell_exec(&mut self, request: PendingShellExec) {
+    self.pending_shell_exec = Some(request);
+  }
+
+  pub fn take_pending_shell_exec(&mut self) -> Option<PendingShellExec> {
+    self.pending_shell_exec.take()
+  }
+
+  #[cfg(test)]
+  pub fn pending_shell_exec(&self) -> Option<&PendingShellExec> {
+    self.pending_shell_exec.as_ref()
   }
 
   pub fn clear_status_message(&mut self) {

@@ -72,6 +72,7 @@ generate_keybindings! {
   left,
   right,
   toggle_info,
+  shell_exec,
   log_auto_scroll,
   select_all_namespace,
   jump_to_namespace,
@@ -239,6 +240,12 @@ const DEFAULT_KEYBINDINGS: KeyBindings = KeyBindings {
     key: Key::Char('i'),
     alt: None,
     desc: "Show/Hide info bar",
+    context: HContext::Overview,
+  },
+  shell_exec: KeyBinding {
+    key: Key::Char('s'),
+    alt: None,
+    desc: "Open shell in selected container",
     context: HContext::Overview,
   },
   log_auto_scroll: KeyBinding {

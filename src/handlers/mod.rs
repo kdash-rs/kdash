@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use crossterm::event::{KeyEvent, MouseEvent, MouseEventKind};
 use kubectl_view_allocations::GroupBy;
 use serde::Serialize;
@@ -14,7 +15,7 @@ use crate::{
     },
     secrets::KubeSecret,
     troubleshoot::ResourceKind,
-    ActiveBlock, App, Route, RouteId,
+    ActiveBlock, App, PendingShellExec, Route, RouteId,
   },
   cmd::IoCmdEvent,
   event::Key,
@@ -636,7 +637,9 @@ async fn handle_route_events(key: Key, app: &mut App) {
             }
           }
           ActiveBlock::Containers => {
-            if let Some(c) = handle_block_action(key, &app.data.containers) {
+            if key == DEFAULT_KEYBINDING.shell_exec.key {
+              queue_selected_container_shell_exec(app);
+            } else if let Some(c) = handle_block_action(key, &app.data.containers) {
               app.data.selected.container = Some(c.name.clone());
               app.dispatch_container_logs(c.name, RouteId::Home).await;
             }
@@ -894,6 +897,60 @@ async fn handle_route_events(key: Key, app: &mut App) {
   }
 }
 
+fn queue_selected_container_shell_exec(app: &mut App) {
+  let Some(pod) = app.data.pods.get_selected_item_copy() else {
+    app.handle_error(anyhow!("No pod selected for shell exec"));
+    return;
+  };
+
+  let Some(container) = resolve_shell_container(app, &pod) else {
+    app.handle_error(anyhow!(
+      "No container selected for shell exec on pod {}",
+      pod.name
+    ));
+    return;
+  };
+
+  app.queue_shell_exec(PendingShellExec {
+    namespace: pod.namespace,
+    pod: pod.name,
+    container: container.name,
+  });
+}
+
+fn resolve_shell_container(
+  app: &App,
+  pod: &crate::app::pods::KubePod,
+) -> Option<crate::app::pods::KubeContainer> {
+  if let Some(container) = app.data.containers.get_selected_item_copy() {
+    return Some(container);
+  }
+
+  if let Some(selected_name) = app.data.selected.container.as_ref() {
+    if let Some(container) = pod
+      .containers
+      .iter()
+      .find(|container| container.name == *selected_name)
+    {
+      return Some(container.clone());
+    }
+  }
+
+  let mut non_init = pod.containers.iter().filter(|container| !container.init);
+  let first_non_init = non_init.next();
+  if let Some(container) = first_non_init {
+    if non_init.next().is_none() {
+      return Some(container.clone());
+    }
+  }
+
+  if pod.containers.len() == 1 {
+    return pod.containers.first().cloned();
+  }
+
+  None
+}
+
 fn handle_block_action<T: Clone>(key: Key, item: &StatefulTable<T>) -> Option<T> {
   match key {
     _ if key == DEFAULT_KEYBINDING.submit.key
@@ -1080,7 +1137,8 @@ mod tests {
   use crate::app::{
     contexts::KubeContext,
     dynamic::{dynamic_cache_key, KubeDynamicKind, KubeDynamicResource},
-    pods::KubePod,
+    pods::{KubeContainer, KubePod},
+    PendingShellExec,
   };
 
   #[test]
@@ -1153,6 +1211,177 @@ mod tests {
       .any(|name| name.starts_with("kdash-errors-") && name.ends_with(".log")));
     assert!(app.api_error.is_empty());
     assert!(app.status_message.text().contains("Saved recent errors to"));
+  }
+
+  #[tokio::test]
+  async fn test_shell_exec_key_in_containers_queues_request() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
+    let mut pod = KubePod::default();
+    pod.namespace = "team-a".into();
+    pod.name = "pod-1".into();
+    app.data.pods.set_items(vec![pod]);
+    let mut container = KubeContainer::default();
+    container.name = "app".into();
+    app.data.containers.set_items(vec![container]);
+
+    let key_evt = KeyEvent::from(KeyCode::Char('s'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+
+    assert_eq!(
+      app.pending_shell_exec(),
+      Some(&PendingShellExec {
+        namespace: "team-a".into(),
+        pod: "pod-1".into(),
+        container: "app".into(),
+      })
+    );
+    assert!(app.api_error.is_empty());
+  }
+
+  #[tokio::test]
+  async fn test_shell_exec_key_in_containers_requires_selected_container() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
+    let mut pod = KubePod::default();
+    pod.namespace = "team-a".into();
+    pod.name = "pod-1".into();
+    app.data.pods.set_items(vec![pod]);
+
+    let key_evt = KeyEvent::from(KeyCode::Char('s'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+
+    assert_eq!(app.pending_shell_exec(), None);
+    assert_eq!(
+      app.api_error,
+      "No container selected for shell exec on pod pod-1"
+    );
+  }
+
+  #[tokio::test]
+  async fn test_shell_exec_key_in_containers_uses_selected_container_fallback() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
+    let mut pod = KubePod::default();
+    pod.namespace = "team-a".into();
+    pod.name = "pod-1".into();
+    let mut sidecar = KubeContainer::default();
+    sidecar.name = "sidecar".into();
+    sidecar.pod_name = "pod-1".into();
+    let mut app_container = KubeContainer::default();
+    app_container.name = "app".into();
+    app_container.pod_name = "pod-1".into();
+    pod.containers = vec![app_container.clone(), sidecar];
+    app.data.pods.set_items(vec![pod]);
+    app.data.selected.container = Some("app".into());
+    app.data.containers.items.clear();
+
+    let key_evt = KeyEvent::from(KeyCode::Char('s'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+
+    assert_eq!(
+      app.pending_shell_exec(),
+      Some(&PendingShellExec {
+        namespace: "team-a".into(),
+        pod: "pod-1".into(),
+        container: "app".into(),
+      })
+    );
+    assert!(app.api_error.is_empty());
+  }
+
+  #[tokio::test]
+  async fn test_shell_exec_key_in_containers_uses_single_non_init_container_fallback() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
+    let mut pod = KubePod::default();
+    pod.namespace = "team-a".into();
+    pod.name = "pod-1".into();
+    let mut app_container = KubeContainer::default();
+    app_container.name = "app".into();
+    app_container.pod_name = "pod-1".into();
+    let mut init_container = KubeContainer::default();
+    init_container.name = "init-db".into();
+    init_container.pod_name = "pod-1".into();
+    init_container.init = true;
+    pod.containers = vec![app_container, init_container];
+    app.data.pods.set_items(vec![pod]);
+    app.data.containers.items.clear();
+
+    let key_evt = KeyEvent::from(KeyCode::Char('s'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+
+    assert_eq!(
+      app.pending_shell_exec(),
+      Some(&PendingShellExec {
+        namespace: "team-a".into(),
+        pod: "pod-1".into(),
+        container: "app".into(),
+      })
+    );
+    assert!(app.api_error.is_empty());
+  }
+
+  #[tokio::test]
+  async fn test_shell_exec_key_in_containers_requires_selection_when_multiple_main_containers() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
+    let mut pod = KubePod::default();
+    pod.namespace = "team-a".into();
+    pod.name = "pod-1".into();
+    let mut app_container = KubeContainer::default();
+    app_container.name = "app".into();
+    app_container.pod_name = "pod-1".into();
+    let mut sidecar = KubeContainer::default();
+    sidecar.name = "sidecar".into();
+    sidecar.pod_name = "pod-1".into();
+    pod.containers = vec![app_container, sidecar];
+    app.data.pods.set_items(vec![pod]);
+    app.data.containers.items.clear();
+
+    let key_evt = KeyEvent::from(KeyCode::Char('s'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+
+    assert_eq!(app.pending_shell_exec(), None);
+    assert_eq!(
+      app.api_error,
+      "No container selected for shell exec on pod pod-1"
+    );
+  }
+
+  #[tokio::test]
+  async fn test_shell_exec_key_in_containers_requires_selected_pod() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
+    let mut container = KubeContainer::default();
+    container.name = "app".into();
+    app.data.containers.set_items(vec![container]);
+
+    let key_evt = KeyEvent::from(KeyCode::Char('s'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+
+    assert_eq!(app.pending_shell_exec(), None);
+    assert_eq!(app.api_error, "No pod selected for shell exec");
+  }
+
+  #[tokio::test]
+  async fn test_shell_exec_key_does_not_replace_log_auto_scroll_in_logs() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Logs);
+    assert!(app.log_auto_scroll);
+
+    let key_evt = KeyEvent::from(KeyCode::Char('s'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+
+    assert!(!app.log_auto_scroll);
+    assert_eq!(app.pending_shell_exec(), None);
   }
 
   #[tokio::test]

@@ -21,7 +21,10 @@ use app::{key_binding::initialize_keybindings, App, DEFAULT_LOG_TAIL_LINES};
 use banner::BANNER;
 use chrono::{self};
 use clap::{builder::PossibleValuesParser, Parser};
-use cmd::{CmdRunner, IoCmdEvent};
+use cmd::{
+  shell::{prepare_shell_exec, run_shell_exec, ShellExecTarget},
+  CmdRunner, IoCmdEvent,
+};
 use config::load_config;
 use crossterm::{
   execute,
@@ -246,7 +249,7 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
   terminal.clear()?;
   terminal.hide_cursor()?;
   // custom events
-  let events = event::Events::new(cli.tick_rate);
+  let mut events = event::Events::new(cli.tick_rate);
   let mut is_first_render = true;
   // main UI loop
   loop {
@@ -254,48 +257,59 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
     // This is the blocking call — no reason to hold the mutex while waiting.
     let event = events.next()?;
 
-    let mut app = app.lock().await;
-    // Get the size of the screen on each loop to account for resize event
-    if let Ok(size) = terminal.backend().size() {
-      // Reset the help menu if the terminal was resized
-      if app.refresh || app.size.as_size() != size {
-        app.size.width = size.width;
-        app.size.height = size.height;
+    let (pending_shell_exec, should_quit) = {
+      let mut app = app.lock().await;
+      // Get the size of the screen on each loop to account for resize event
+      if let Ok(size) = terminal.backend().size() {
+        // Reset the help menu if the terminal was resized
+        if app.refresh || app.size.as_size() != size {
+          app.size.width = size.width;
+          app.size.height = size.height;
+        }
+      };
+
+      // draw the UI layout
+      terminal.draw(|f| ui::draw(f, &mut app))?;
+
+      // handle events
+      match event {
+        event::Event::Input(key_event) => {
+          info!("Input event received: {:?}", key_event);
+          // quit on CTRL + C
+          let key = Key::from(key_event);
+
+          if key == Key::Ctrl('c') {
+            break;
+          }
+          // handle all other keys
+          handlers::handle_key_events(key, key_event, &mut app).await
+        }
+        // handle mouse events
+        event::Event::MouseInput(mouse) => handlers::handle_mouse_events(mouse, &mut app).await,
+        // handle tick events
+        event::Event::Tick => {
+          app.on_tick(is_first_render).await;
+        }
+        // handle kubeconfig file changes (live sync)
+        event::Event::KubeConfigChange => {
+          info!("Kubeconfig change detected, reloading");
+          app.dispatch(IoEvent::GetKubeConfig).await;
+        }
       }
+
+      is_first_render = false;
+      let pending_shell_exec = app.take_pending_shell_exec();
+      let should_quit = app.should_quit;
+      (pending_shell_exec, should_quit)
     };
 
-    // draw the UI layout
-    terminal.draw(|f| ui::draw(f, &mut app))?;
-
-    // handle events
-    match event {
-      event::Event::Input(key_event) => {
-        info!("Input event received: {:?}", key_event);
-        // quit on CTRL + C
-        let key = Key::from(key_event);
-
-        if key == Key::Ctrl('c') {
-          break;
-        }
-        // handle all other keys
-        handlers::handle_key_events(key, key_event, &mut app).await
-      }
-      // handle mouse events
-      event::Event::MouseInput(mouse) => handlers::handle_mouse_events(mouse, &mut app).await,
-      // handle tick events
-      event::Event::Tick => {
-        app.on_tick(is_first_render).await;
-      }
-      // handle kubeconfig file changes (live sync)
-      event::Event::KubeConfigChange => {
-        info!("Kubeconfig change detected, reloading");
-        app.dispatch(IoEvent::GetKubeConfig).await;
-      }
+    if let Some(request) = pending_shell_exec {
+      drop(events);
+      execute_pending_shell_exec(app, &mut terminal, request).await?;
+      events = event::Events::new(cli.tick_rate);
     }
 
-    is_first_render = false;
-
-    if app.should_quit {
+    if should_quit {
       break;
     }
   }
@@ -312,6 +326,99 @@ fn shutdown(mut terminal: Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
   execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
   terminal.show_cursor()?;
   Ok(())
+}
+
+fn suspend_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
+  disable_raw_mode()?;
+  execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+  terminal.show_cursor()?;
+  Ok(())
+}
+
+fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
+  enable_raw_mode()?;
+  execute!(terminal.backend_mut(), EnterAlternateScreen)?;
+  terminal.hide_cursor()?;
+  terminal.clear()?;
+  Ok(())
+}
+
+trait ShellTerminal {
+  fn suspend(&mut self) -> Result<()>;
+  fn restore(&mut self) -> Result<()>;
+}
+
+impl ShellTerminal for Terminal<CrosstermBackend<Stdout>> {
+  fn suspend(&mut self) -> Result<()> {
+    suspend_terminal(self)
+  }
+
+  fn restore(&mut self) -> Result<()> {
+    restore_terminal(self)
+  }
+}
+
+async fn execute_pending_shell_exec(
+  app: &Arc<Mutex<App>>,
+  terminal: &mut Terminal<CrosstermBackend<Stdout>>,
+  request: app::PendingShellExec,
+) -> Result<()> {
+  execute_pending_shell_exec_with(app, terminal, request, |request| {
+    let target = ShellExecTarget {
+      namespace: request.namespace,
+      pod: request.pod,
+      container: request.container,
+    };
+    let command = prepare_shell_exec(&target).map_err(|error| anyhow!(error.to_string()))?;
+    let shell = command.shell.clone();
+    run_shell_exec(&command).map_err(|error| anyhow!(error.to_string()))?;
+    Ok(shell)
+  })
+  .await
+}
+
+async fn execute_pending_shell_exec_with<F, T>(
+  app: &Arc<Mutex<App>>,
+  terminal: &mut T,
+  request: app::PendingShellExec,
+  run_shell: F,
+) -> Result<()>
+where
+  F: FnOnce(app::PendingShellExec) -> Result<String>,
+  T: ShellTerminal,
+{
+  terminal.suspend()?;
+  let shell_result = run_shell(request.clone());
+  let restore_result = terminal.restore();
+
+  let mut app = app.lock().await;
+
+  if let Err(error) = restore_result {
+    app.handle_error(anyhow!(
+      "Unable to restore terminal after shell exec: {}",
+      error
+    ));
+    return Err(error);
+  }
+
+  match shell_result {
+    Ok(shell) => {
+      app.set_status_message(format!(
+        "Closed {} shell for {}/{}",
+        shell, request.pod, request.container
+      ));
+      Ok(())
+    }
+    Err(error) => {
+      app.handle_error(anyhow!(
+        "Unable to open shell for {}/{}: {}",
+        request.pod,
+        request.container,
+        error
+      ));
+      Ok(())
+    }
+  }
 }
 
 fn setup_logging(debug: Option<String>) -> Result<(), SetLoggerError> {
@@ -403,8 +510,23 @@ fn get_panic_info(info: &PanicHookInfo<'_>) -> (String, String) {
 
 #[cfg(test)]
 mod tests {
-  use super::resolve_log_tail_lines;
-  use crate::config::KdashConfig;
+  use super::{execute_pending_shell_exec_with, resolve_log_tail_lines};
+  use crate::{app::App, config::KdashConfig};
+  use anyhow::anyhow;
+  use std::sync::Arc;
+  use tokio::sync::Mutex;
+
+  struct StubTerminal;
+
+  impl super::ShellTerminal for StubTerminal {
+    fn suspend(&mut self) -> anyhow::Result<()> {
+      Ok(())
+    }
+
+    fn restore(&mut self) -> anyhow::Result<()> {
+      Ok(())
+    }
+  }
 
   #[test]
   fn test_resolve_log_tail_lines_uses_default() {
@@ -429,5 +551,60 @@ mod tests {
     };
 
     assert_eq!(resolve_log_tail_lines(Some(500), &config), 500);
+  }
+
+  #[tokio::test]
+  async fn test_execute_pending_shell_exec_with_sets_success_status_and_clears_request() {
+    let app = Arc::new(Mutex::new(App::default()));
+    let mut terminal = StubTerminal;
+
+    let result = execute_pending_shell_exec_with(
+      &app,
+      &mut terminal,
+      crate::app::PendingShellExec {
+        namespace: "default".into(),
+        pod: "api-123".into(),
+        container: "web".into(),
+      },
+      |_| Ok("/bin/sh".into()),
+    )
+    .await;
+
+    assert!(result.is_ok());
+
+    let app = app.lock().await;
+    assert!(app.api_error.is_empty());
+    assert_eq!(
+      app.status_message.text(),
+      "Closed /bin/sh shell for api-123/web"
+    );
+    assert!(app.pending_shell_exec().is_none());
+  }
+
+  #[tokio::test]
+  async fn test_execute_pending_shell_exec_with_reports_shell_errors_after_restoring_terminal() {
+    let app = Arc::new(Mutex::new(App::default()));
+    let mut terminal = StubTerminal;
+
+    let result = execute_pending_shell_exec_with(
+      &app,
+      &mut terminal,
+      crate::app::PendingShellExec {
+        namespace: "default".into(),
+        pod: "api-123".into(),
+        container: "web".into(),
+      },
+      |_| Err(anyhow!("probe failed")),
+    )
+    .await;
+
+    assert!(result.is_ok());
+
+    let app = app.lock().await;
+    assert_eq!(
+      app.api_error,
+      "Unable to open shell for api-123/web: probe failed"
+    );
+    assert!(app.status_message.is_empty());
   }
 }

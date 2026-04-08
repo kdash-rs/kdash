@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+- Open a shell in the selected pod container from the Containers view with `s`
+- Restore the KDash UI cleanly after leaving an interactive container shell
+- Fall back from `/bin/bash` to `/bin/sh` automatically when opening a pod shell
+
 ## [1.0.0] - 2026-04-08
 
 ### Added
