@@ -1,0 +1,61 @@
+apiVersion: v1
+items:
+  - action: Scheduling
+    apiVersion: v1
+    eventTime: "2026-02-11T06:46:30.776466Z"
+    firstTimestamp: null
+    involvedObject:
+      apiVersion: v1
+      kind: Pod
+      name: ga-edge-0
+      namespace: gagent
+      resourceVersion: "47825881"
+      uid: 3cc307c0-5312-4da8-bd20-0be2feac6b15
+    kind: Event
+    lastTimestamp: null
+    message:
+      "0/1 nodes are available: 1 node(s) didn't match Pod's node affinity/selector.
+      preemption: 0/1 nodes are available: 1 Preemption is not helpful for scheduling."
+    metadata:
+      creationTimestamp: "2026-02-23T04:45:43Z"
+      name: ga-edge-0.18931e4c1f3244cf
+      namespace: gagent
+      resourceVersion: "61489216"
+      uid: 1f82edef-1042-4adb-b76f-b8297107e016
+    reason: FailedScheduling
+    reportingComponent: default-scheduler
+    reportingInstance: default-scheduler-sidekick
+    series:
+      count: 3432
+      lastObservedTime: "2026-02-23T04:41:50.537584Z"
+    source: {}
+    type: Warning
+  - apiVersion: v1
+    count: 68646
+    eventTime: null
+    firstTimestamp: "2026-02-11T06:46:33Z"
+    involvedObject:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: ga-edge-data-8a821b67-ga-edge-0
+      namespace: gagent
+      resourceVersion: "47825875"
+      uid: 266e2a69-58ee-491a-aec7-4f7f11fcd8d1
+    kind: Event
+    lastTimestamp: "2026-02-23T04:46:45Z"
+    message: waiting for pod ga-edge-0 to be scheduled
+    metadata:
+      creationTimestamp: "2026-02-11T06:46:44Z"
+      name: ga-edge-data-8a821b67-ga-edge-0.18931e4cb66ce46b
+      namespace: gagent
+      resourceVersion: "61489358"
+      uid: 453f7bcc-b0c1-4ff5-b930-7e682e4a28ef
+    reason: WaitForPodScheduled
+    reportingComponent: persistentvolume-controller
+    reportingInstance: ""
+    source:
+      component: persistentvolume-controller
+    type: Normal
+kind: List
+metadata:
+  resourceVersion: ""

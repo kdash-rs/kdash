@@ -33,6 +33,7 @@ use crate::app::{
   daemonsets::DaemonSetResource,
   deployments::DeploymentResource,
   dynamic::{DynamicResource, KubeDynamicKind},
+  events::EventResource,
   ingress::IngressResource,
   jobs::JobResource,
   metrics::UtilizationResource,
@@ -80,6 +81,7 @@ pub enum IoEvent {
   GetPvcs,
   GetPvs,
   GetServiceAccounts,
+  GetEvents,
   GetMetrics,
   GetTroubleshootFindings,
   RefreshClient,
@@ -454,6 +456,9 @@ impl<'a> Network<'a> {
       IoEvent::GetNetworkPolicies => {
         NetworkPolicyResource::get_resource(self).await;
       }
+      IoEvent::GetEvents => {
+        EventResource::get_resource(self).await;
+      }
       IoEvent::DiscoverDynamicRes => {
         self.discover_dynamic_resources().await;
       }
@@ -689,6 +694,7 @@ impl<'a> Network<'a> {
       "ClusterRoleBinding",
       "ServiceAccount",
       "Ingress",
+      "Event",
       "NetworkPolicy",
     ];
 

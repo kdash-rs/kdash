@@ -1,3 +1,10 @@
+//! Dynamic resources are discovered and accessed at runtime via the Kubernetes
+//! discovery API and handled as untyped `DynamicObject`s.
+//!
+//! This is a client-side concept (not a Kubernetes kind). It lets kdash render
+//! arbitrary resources (including CRDs) without hardcoded Rust types.
+//! Typed resources like pods/services are modeled explicitly elsewhere for
+//! richer, schema-aware views.
 use anyhow::anyhow;
 use async_trait::async_trait;
 use chrono::Utc;

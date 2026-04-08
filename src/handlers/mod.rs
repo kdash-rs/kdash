@@ -551,6 +551,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
           (ActiveBlock::Ingresses, ingress, "ingress"),
           (ActiveBlock::PersistentVolumeClaims, persistent_volume_claims, "persistentvolumeclaims"),
           (ActiveBlock::ServiceAccounts, service_accounts, "serviceaccounts"),
+          (ActiveBlock::Events, events, "event"),
           (ActiveBlock::NetworkPolicies, network_policies, "networkpolicy"),
         ],
         cluster: [
@@ -640,21 +641,21 @@ async fn handle_route_events(key: Key, app: &mut App) {
               app.dispatch_container_logs(c.name, RouteId::Home).await;
             }
           }
-      ActiveBlock::Logs => {
-        if key == DEFAULT_KEYBINDING.log_auto_scroll.key {
-          if app.log_auto_scroll {
-            app.data.logs.freeze_follow_position();
+          ActiveBlock::Logs => {
+            if key == DEFAULT_KEYBINDING.log_auto_scroll.key {
+              if app.log_auto_scroll {
+                app.data.logs.freeze_follow_position();
+              }
+              app.log_auto_scroll = !app.log_auto_scroll;
+            } else if key == DEFAULT_KEYBINDING.copy_to_clipboard.key {
+              copy_to_clipboard(app.data.logs.get_plain_text(), app);
+            }
           }
-          app.log_auto_scroll = !app.log_auto_scroll;
-        } else if key == DEFAULT_KEYBINDING.copy_to_clipboard.key {
-          copy_to_clipboard(app.data.logs.get_plain_text(), app);
-        }
-      }
-      ActiveBlock::Describe | ActiveBlock::Yaml => {
-        if key == DEFAULT_KEYBINDING.copy_to_clipboard.key {
-          copy_to_clipboard(app.data.describe_out.get_txt().to_owned(), app);
-        }
-      }
+          ActiveBlock::Describe | ActiveBlock::Yaml => {
+            if key == DEFAULT_KEYBINDING.copy_to_clipboard.key {
+              copy_to_clipboard(app.data.describe_out.get_txt().to_owned(), app);
+            }
+          }
           ActiveBlock::More => {
             if key == DEFAULT_KEYBINDING.submit.key {
               let filtered = filter_menu_items(&app.more_resources_menu.items, &app.menu_filter);
@@ -932,6 +933,7 @@ async fn handle_block_scroll(app: &mut App, up: bool, is_mouse: bool, page: bool
       (ActiveBlock::PersistentVolumes, persistent_volumes),
       (ActiveBlock::Ingresses, ingress),
       (ActiveBlock::ServiceAccounts, service_accounts),
+      (ActiveBlock::Events, events),
       (ActiveBlock::NetworkPolicies, network_policies),
       (ActiveBlock::DynamicResource, dynamic_resources),
     ],
