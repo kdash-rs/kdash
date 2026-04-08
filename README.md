@@ -280,9 +280,6 @@ MIT
 
 ## v1.0.0 TODO
 
-- Impl Shift for keybindings where it makes sense. For example, `L` for aggregate logs instead of `o` and `D` for dump error logs instead of `Ctrl + D`. This would make the keybindings more intuitive and easier to remember. #350 #358
-- Info msg on refresh 
-- [ ] 1: Open issues in docs/plans/2026-04-03-002-fix-open-issues-plan.md
 - [ ] 2: wide command for all resources. auto appear on bigger viewports
 - [ ] 3: Scroll tabs and title text when cant fit in viewport
 - [ ] 4: Shell into pod/container (#213)

@@ -89,8 +89,8 @@ generate_keybindings! {
   jump_to_daemonsets,
   jump_to_more_resources,
   jump_to_dynamic_resources,
-  cycle_group_by,
-  aggregate_logs
+  aggregate_logs,
+  cycle_group_by
 }
 
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Debug)]
@@ -158,25 +158,25 @@ const DEFAULT_KEYBINDINGS: KeyBindings = KeyBindings {
     context: HContext::General,
   },
   jump_to_current_context: KeyBinding {
-    key: Key::Char('A'),
+    key: Key::Shift('a'),
     alt: None,
     desc: "Switch to active context view",
     context: HContext::General,
   },
   jump_to_all_context: KeyBinding {
-    key: Key::Char('C'),
+    key: Key::Shift('c'),
     alt: None,
     desc: "Switch to all contexts view",
     context: HContext::General,
   },
   jump_to_utilization: KeyBinding {
-    key: Key::Char('U'),
+    key: Key::Shift('u'),
     alt: None,
     desc: "Switch to resource utilization view",
     context: HContext::General,
   },
   jump_to_troubleshoot: KeyBinding {
-    key: Key::Char('T'),
+    key: Key::Shift('t'),
     alt: None,
     desc: "Switch to troubleshoot view",
     context: HContext::General,
@@ -194,7 +194,7 @@ const DEFAULT_KEYBINDINGS: KeyBindings = KeyBindings {
     context: HContext::General,
   },
   dump_error_log: KeyBinding {
-    key: Key::Char('D'),
+    key: Key::Shift('d'),
     alt: None,
     desc: "Dump recent errors to file",
     context: HContext::General,
@@ -343,17 +343,17 @@ const DEFAULT_KEYBINDINGS: KeyBindings = KeyBindings {
     desc: "Select dynamic resources",
     context: HContext::Overview,
   },
+  aggregate_logs: KeyBinding {
+    key: Key::Shift('l'),
+    alt: None,
+    desc: "Aggregate logs for resource",
+    context: HContext::Overview,
+  },
   cycle_group_by: KeyBinding {
     key: Key::Char('g'),
     alt: None,
     desc: "Cycle through grouping",
     context: HContext::Utilization,
-  },
-  aggregate_logs: KeyBinding {
-    key: Key::Char('L'),
-    alt: None,
-    desc: "Aggregate logs for resource",
-    context: HContext::Overview,
   },
 };
 
@@ -424,6 +424,33 @@ mod tests {
 
     assert_eq!(keybindings.quit.key, Key::Ctrl('q'));
     assert!(warnings.is_empty());
+  }
+
+  #[test]
+  fn test_with_overrides_treats_uppercase_and_shift_equally() {
+    let uppercase = KdashConfig {
+      keybindings: Some(KeybindingOverrides {
+        values: BTreeMap::from([("dump_error_log".into(), "D".into())]),
+      }),
+      ..Default::default()
+    };
+    let shifted = KdashConfig {
+      keybindings: Some(KeybindingOverrides {
+        values: BTreeMap::from([("dump_error_log".into(), "shift+d".into())]),
+      }),
+      ..Default::default()
+    };
+
+    let (uppercase_bindings, uppercase_warnings) = DEFAULT_KEYBINDINGS.with_overrides(&uppercase);
+    let (shifted_bindings, shifted_warnings) = DEFAULT_KEYBINDINGS.with_overrides(&shifted);
+
+    assert_eq!(uppercase_bindings.dump_error_log.key, Key::Shift('d'));
+    assert_eq!(
+      uppercase_bindings.dump_error_log.key,
+      shifted_bindings.dump_error_log.key
+    );
+    assert!(uppercase_warnings.is_empty());
+    assert!(shifted_warnings.is_empty());
   }
 
   #[test]

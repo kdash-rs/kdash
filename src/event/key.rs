@@ -61,6 +61,7 @@ pub enum Key {
   Char(char),
   Ctrl(char),
   Alt(char),
+  Shift(char),
   Unknown,
 }
 
@@ -97,9 +98,12 @@ impl fmt::Display for Key {
     match *self {
       Key::Alt(' ') => write!(f, "<Alt+Space>"),
       Key::Ctrl(' ') => write!(f, "<Ctrl+Space>"),
+      Key::Shift(' ') => write!(f, "<Shift+Space>"),
       Key::Char(' ') => write!(f, "<Space>"),
       Key::Alt(c) => write!(f, "<Alt+{}>", c),
       Key::Ctrl(c) => write!(f, "<Ctrl+{}>", c),
+      Key::Shift(c) if c.is_ascii_alphabetic() => write!(f, "<{}>", c.to_ascii_uppercase()),
+      Key::Shift(c) => write!(f, "<Shift+{}>", c),
       Key::Char(c) => write!(f, "<{}>", c),
       Key::Left => write!(f, "<←>"),
       Key::Right => write!(f, "<→>"),
@@ -120,12 +124,15 @@ impl FromStr for Key {
     }
 
     if normalized.chars().count() == 1 {
-      return Ok(Key::Char(
-        normalized
-          .chars()
-          .next()
-          .expect("single-character string must have one char"),
-      ));
+      let c = normalized
+        .chars()
+        .next()
+        .expect("single-character string must have one char");
+      return if c.is_ascii_uppercase() {
+        Ok(Key::Shift(c.to_ascii_lowercase()))
+      } else {
+        Ok(Key::Char(c))
+      };
     }
 
     let lower = normalized.to_lowercase();
@@ -151,6 +158,9 @@ impl FromStr for Key {
         }
         if let Some(rest) = lower.strip_prefix("alt+") {
           return parse_modified_char(rest, Key::Alt);
+        }
+        if let Some(rest) = lower.strip_prefix("shift+") {
+          return parse_modified_char(rest, Key::Shift);
         }
         if let Some(rest) = lower.strip_prefix('f') {
           let value = rest
@@ -248,23 +258,27 @@ impl From<event::KeyEvent> for Key {
         code: event::KeyCode::Tab,
         ..
       } => Key::Tab,
+      event::KeyEvent {
+        code: event::KeyCode::Char(c),
+        modifiers,
+        ..
+      } => {
+        let normalized = if c.is_ascii_uppercase() {
+          c.to_ascii_lowercase()
+        } else {
+          c
+        };
 
-      // First check for char + modifier
-      event::KeyEvent {
-        code: event::KeyCode::Char(c),
-        modifiers: event::KeyModifiers::ALT,
-        ..
-      } => Key::Alt(c),
-      event::KeyEvent {
-        code: event::KeyCode::Char(c),
-        modifiers: event::KeyModifiers::CONTROL,
-        ..
-      } => Key::Ctrl(c),
-
-      event::KeyEvent {
-        code: event::KeyCode::Char(c),
-        ..
-      } => Key::Char(c),
+        if modifiers.contains(event::KeyModifiers::CONTROL) {
+          Key::Ctrl(normalized)
+        } else if modifiers.contains(event::KeyModifiers::ALT) {
+          Key::Alt(normalized)
+        } else if modifiers.contains(event::KeyModifiers::SHIFT) {
+          Key::Shift(normalized)
+        } else {
+          Key::Char(c)
+        }
+      }
 
       _ => Key::Unknown,
     }
@@ -282,7 +296,9 @@ mod tests {
     assert_eq!(format!("{}", Key::Up), "<↑>");
     assert_eq!(format!("{}", Key::Down), "<↓>");
     assert_eq!(format!("{}", Key::Alt(' ')), "<Alt+Space>");
+    assert_eq!(format!("{}", Key::Shift(' ')), "<Shift+Space>");
     assert_eq!(format!("{}", Key::Alt('c')), "<Alt+c>");
+    assert_eq!(format!("{}", Key::Shift('d')), "<D>");
     assert_eq!(format!("{}", Key::Char('c')), "<c>");
     assert_eq!(format!("{}", Key::Enter), "<Enter>");
     assert_eq!(format!("{}", Key::F10), "<F10>");
@@ -300,6 +316,15 @@ mod tests {
     assert_eq!(
       Key::from(event::KeyEvent::from(event::KeyCode::Char('J'))),
       Key::Char('J')
+    );
+    assert_eq!(
+      Key::from(event::KeyEvent {
+        code: event::KeyCode::Char('D'),
+        modifiers: event::KeyModifiers::SHIFT,
+        kind: event::KeyEventKind::Press,
+        state: event::KeyEventState::NONE,
+      }),
+      Key::Shift('d')
     );
     assert_eq!(
       Key::from(event::KeyEvent {
@@ -326,9 +351,16 @@ mod tests {
     assert_eq!("q".parse::<Key>(), Ok(Key::Char('q')));
     assert_eq!("ctrl+q".parse::<Key>(), Ok(Key::Ctrl('q')));
     assert_eq!("alt+x".parse::<Key>(), Ok(Key::Alt('x')));
+    assert_eq!("D".parse::<Key>(), Ok(Key::Shift('d')));
+    assert_eq!("shift+d".parse::<Key>(), Ok(Key::Shift('d')));
     assert_eq!("space".parse::<Key>(), Ok(Key::Char(' ')));
     assert_eq!("page-down".parse::<Key>(), Ok(Key::PageDown));
     assert_eq!("F10".parse::<Key>(), Ok(Key::F10));
     assert!("shift+tab".parse::<Key>().is_err());
+  }
+
+  #[test]
+  fn test_uppercase_and_shift_string_parse_equally() {
+    assert_eq!("D".parse::<Key>(), "shift+d".parse::<Key>());
   }
 }

@@ -1131,7 +1131,12 @@ mod tests {
     let mut app = App::default();
     app.record_error("boom".into());
 
-    let key_evt = KeyEvent::from(KeyCode::Char('D'));
+    let key_evt = KeyEvent {
+      code: KeyCode::Char('D'),
+      modifiers: crossterm::event::KeyModifiers::SHIFT,
+      kind: crossterm::event::KeyEventKind::Press,
+      state: crossterm::event::KeyEventState::NONE,
+    };
     handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
 
     let created_files = fs::read_dir(&dir)
