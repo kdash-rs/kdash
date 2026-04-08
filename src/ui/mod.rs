@@ -235,7 +235,7 @@ fn draw_app_status(f: &mut Frame<'_>, app: &App, size: Rect) {
     .style(style_success(app.light_theme))
     .borders(Borders::ALL);
 
-  let text = Text::from(app.status_message.clone());
+  let text = Text::from(app.status_message.text().to_owned());
   let text = text.patch_style(style_success(app.light_theme));
 
   let paragraph = Paragraph::new(text)

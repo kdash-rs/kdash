@@ -332,6 +332,7 @@ impl<'a> Network<'a> {
         app.data.selected.context = context;
         app.data.selected.ns = ns;
         app.restore_route_state(main_tab_index, context_tab_index, route);
+        app.status_message.show("Refresh complete!");
       }
       Err(e) => {
         self

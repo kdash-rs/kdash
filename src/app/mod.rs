@@ -33,6 +33,7 @@ use kubectl_view_allocations::{GroupBy, QtyByQualifier};
 use log::{error, info};
 use ratatui::layout::Rect;
 use std::collections::VecDeque;
+use std::time::{Duration, Instant};
 use tokio::sync::{mpsc::Sender, watch};
 
 use self::{
@@ -71,6 +72,7 @@ use super::{
 };
 
 const MAX_NAV_STACK: usize = 128;
+const STATUS_MESSAGE_DURATION: Duration = Duration::from_secs(5);
 pub const DEFAULT_LOG_TAIL_LINES: u32 = 100;
 pub const MAX_ERROR_HISTORY: usize = 100;
 
@@ -78,6 +80,53 @@ pub const MAX_ERROR_HISTORY: usize = 100;
 pub struct ErrorRecord {
   pub timestamp: String,
   pub message: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct StatusMessage {
+  pub text: String,
+  pub duration: Duration,
+  expires_at: Option<Instant>,
+}
+
+impl Default for StatusMessage {
+  fn default() -> Self {
+    Self {
+      text: String::new(),
+      duration: STATUS_MESSAGE_DURATION,
+      expires_at: None,
+    }
+  }
+}
+
+impl StatusMessage {
+  pub fn is_empty(&self) -> bool {
+    self.text.is_empty()
+  }
+
+  pub fn text(&self) -> &str {
+    &self.text
+  }
+
+  pub fn show(&mut self, message: impl Into<String>) {
+    self.show_at(message, Instant::now());
+  }
+
+  pub fn show_at(&mut self, message: impl Into<String>, now: Instant) {
+    self.text = message.into();
+    self.expires_at = Some(now + self.duration);
+  }
+
+  pub fn clear(&mut self) {
+    self.text.clear();
+    self.expires_at = None;
+  }
+
+  pub fn clear_if_expired(&mut self, now: Instant) {
+    if self.expires_at.is_some_and(|expires_at| now >= expires_at) {
+      self.clear();
+    }
+  }
 }
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
@@ -209,6 +258,7 @@ pub struct App {
   io_cmd_tx: Option<Sender<IoCmdEvent>>,
   log_cancel_tx: watch::Sender<bool>,
   loading_counter: u32,
+  background_cache_pending: bool,
   pub title: &'static str,
   pub should_quit: bool,
   pub main_tabs: TabsState,
@@ -227,14 +277,13 @@ pub struct App {
   pub enhanced_graphics: bool,
   pub size: Rect,
   pub api_error: String,
-  pub status_message: String,
+  pub status_message: StatusMessage,
   pub light_theme: bool,
   pub refresh: bool,
   pub log_auto_scroll: bool,
   pub log_tail_lines: u32,
   pub utilization_group_by: Vec<GroupBy>,
   pub help_docs: StatefulTable<Vec<String>>,
-  background_cache_pending: bool,
   pub error_history: VecDeque<ErrorRecord>,
   pub config: KdashConfig,
   pub data: Data,
@@ -469,7 +518,7 @@ impl Default for App {
       //   confirm: false,
       size: Rect::default(),
       api_error: String::new(),
-      status_message: String::new(),
+      status_message: StatusMessage::default(),
       light_theme: false,
       refresh: true,
       log_auto_scroll: true,
@@ -661,7 +710,7 @@ impl App {
     self.loading_counter = 0;
     self.tick_count = 0;
     self.api_error = String::new();
-    self.status_message = String::new();
+    self.status_message.clear();
     self.utilization_group_by = Self::default_utilization_group_by();
     self.data = Data::default();
     self.route_home();
@@ -759,7 +808,15 @@ impl App {
 
   pub fn set_status_message(&mut self, message: impl Into<String>) {
     self.api_error.clear();
-    self.status_message = message.into();
+    self.status_message.show(message);
+  }
+
+  pub fn clear_status_message(&mut self) {
+    self.status_message.clear();
+  }
+
+  fn clear_expired_status_message(&mut self, now: Instant) {
+    self.status_message.clear_if_expired(now);
   }
 
   pub fn push_navigation_stack(&mut self, id: RouteId, active_block: ActiveBlock) {
@@ -1119,6 +1176,8 @@ impl App {
   }
 
   pub async fn on_tick(&mut self, first_render: bool) {
+    self.clear_expired_status_message(Instant::now());
+
     // Make one time requests on first render or refresh
     let mut did_refresh = false;
     if self.refresh {
@@ -1294,6 +1353,44 @@ mod tests {
     assert_eq!(app.error_history.back().unwrap().message, "error 104");
     assert_eq!(app.api_error, "error 104");
   }
+
+  #[test]
+  fn test_handle_error_stores_unsanitized_history_but_sanitizes_ui_message() {
+    let mut app = App::default();
+
+    app.handle_error(anyhow!(
+      "Failed to get namespaced resource kdash::app::pods::KubePod. timeout"
+    ));
+
+    assert_eq!(
+      app.error_history.back().unwrap().message,
+      "Failed to get namespaced resource kdash::app::pods::KubePod. timeout"
+    );
+    assert_eq!(
+      app.api_error,
+      "Failed to get namespaced resource Pod. timeout"
+    );
+  }
+
+  #[test]
+  fn test_status_message_expires_after_5_seconds() {
+    let mut app = App::default();
+    let now = Instant::now();
+    app.status_message.duration = Duration::from_secs(5);
+    app
+      .status_message
+      .show_at("Saved recent errors to /tmp/kdash-errors.log", now);
+
+    app.clear_expired_status_message(now + Duration::from_secs(4));
+    assert_eq!(
+      app.status_message.text(),
+      "Saved recent errors to /tmp/kdash-errors.log"
+    );
+
+    app.clear_expired_status_message(now + Duration::from_secs(5));
+    assert!(app.status_message.is_empty());
+  }
+
   #[tokio::test]
   async fn test_on_tick_refresh_tick_limit() {
     let (sync_io_tx, mut sync_io_rx) = mpsc::channel::<IoEvent>(500);

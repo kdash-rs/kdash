@@ -215,7 +215,7 @@ fn handle_escape(app: &mut App) {
   if !app.api_error.is_empty() {
     app.api_error = String::default();
   } else if !app.status_message.is_empty() {
-    app.status_message = String::default();
+    app.clear_status_message();
   }
 
   // If menu filter is active, deactivate it first (clear text if any, else deactivate)
@@ -1145,7 +1145,7 @@ mod tests {
       .iter()
       .any(|name| name.starts_with("kdash-errors-") && name.ends_with(".log")));
     assert!(app.api_error.is_empty());
-    assert!(app.status_message.contains("Saved recent errors to"));
+    assert!(app.status_message.text().contains("Saved recent errors to"));
   }
 
   #[tokio::test]
