@@ -20,6 +20,16 @@ A simple terminal dashboard for Kubernetes built with Rust [![Follow @kdashrs](h
 
 ![UI](screenshots/ui.gif)
 
+## New since v0.6.2
+
+- **Troubleshoot tab** surfaces severity-ranked findings for Pods, PVCs, and ReplicaSets, then lets you jump straight into containers, logs, describe, and YAML.
+- **Events tab** shows Kubernetes events with namespace, involved kind, reason, count, message, and age, with the same describe/YAML workflows as other resources.
+- **Deeper drill-down navigation** lets you move from workloads to owned Pods, from Pods to Containers, and from Nodes to the Pods scheduled on them.
+- **Aggregate workload logs** combine logs from all pods owned by a workload into a single stream.
+- **Inline `/` filtering** now works across resource tables and views, including Contexts, Help, Utilization, Troubleshoot, More, and Dynamic resource menus.
+- **Configurable keybindings and themes** let you override shortcuts and colors, and `log_tail_lines` lets you set the initial history fetched before live log streaming starts.
+- **Better diagnostics and reliability** include recent-error dump to file, kubeconfig live reload, friendlier errors, and smoother log/render performance.
+
 ## Sponsors
 
 Thanks to the sponsors of [@deepu105](https://github.com/sponsors/deepu105) who makes maintaining projects like KDash sustainable. Consider [sponsoring](https://github.com/sponsors/deepu105) if you like the work.
@@ -148,7 +158,7 @@ Press `?` while running the app to see keybindings
 
 ## Configuration
 
-KDash supports config-based keybinding and theme overrides.
+KDash supports config-based keybinding and theme overrides, plus a configurable default for historical log lines fetched before live streaming starts.
 
 By default it reads config from:
 
@@ -212,19 +222,22 @@ See the sample config in [assets/kdash.sample-config.yaml](assets/kdash.sample-c
 - Node metrics
 - Resource watch (configurable polling interval with `-p` flag)
 - Custom resource definitions
+- Troubleshoot tab for Pods, PVCs, and ReplicaSets
 - Describe resources & copy the output
 - Get YAML for resources & copy the output
 - Stream container logs
+- Aggregate workload logs
+- Drill down from workloads/nodes to Pods and from Pods to Containers
 - Context
   - Context info
   - Context watch
   - Change namespace
   - Context switch
 - Resources utilizations for nodes, pods and namespaces based on metrics server. Requires [metrics-server](https://kubernetes.io/docs/tasks/debug-application-cluster/resource-metrics-pipeline/#metrics-server) to be deployed on the cluster.
-- Dark/Light themes
+- Dark/Light themes (Catppuccin Macchiato/Latte by default)
 - Sensible keyboard shortcuts
-- Configurable keybindings and theme overrides
-- Global glob filtering for resource names
+- Configurable keybindings, theme overrides, and log tail defaults
+- Inline filtering across resource views and menus
 
 ## Screenshots
 
@@ -277,15 +290,3 @@ MIT
 - [Deepu K Sasidharan](https://deepu.tech/)
 
 ## [Contributors](https://github.com/kdash-rs/kdash/graphs/contributors)
-
-## v1.0.0 TODO
-
-- [ ] 2: wide command for all resources. auto appear on bigger viewports
-- [ ] 3: Scroll tabs and title text when cant fit in viewport
-- [ ] 4: Shell into pod/container (#213)
-- [ ] 5: Merge https://github.com/kdash-rs/kdash/pull/504
-- [ ] 6: Add more tests where possible
-- [ ] 7: E2E tests? complex view fake render (recreate current pods view, utilization view etc)
-- [ ] 8: support custom them for yaml/describe
-- [ ] 9: screenshots.
-- [ ] 10. Document all new feature after 0.6.2. Update changelog as well. Add to readme if needed.
