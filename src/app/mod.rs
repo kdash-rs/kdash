@@ -1644,7 +1644,10 @@ mod tests {
     let app = App::default();
 
     assert_eq!(app.get_prev_route().active_block, ActiveBlock::Pods);
-    assert_eq!(app.get_nth_route_from_last(99).active_block, ActiveBlock::Pods);
+    assert_eq!(
+      app.get_nth_route_from_last(99).active_block,
+      ActiveBlock::Pods
+    );
   }
 
   #[test]
@@ -1711,7 +1714,10 @@ mod tests {
     app.push_navigation_stack(RouteId::Home, ActiveBlock::Logs);
 
     assert_eq!(app.active_home_cache_block(), ActiveBlock::Events);
-    assert_eq!(app.background_home_event_to_skip(), Some(IoEvent::GetEvents));
+    assert_eq!(
+      app.background_home_event_to_skip(),
+      Some(IoEvent::GetEvents)
+    );
   }
 
   #[test]

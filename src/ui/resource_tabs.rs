@@ -415,7 +415,10 @@ mod tests {
   #[test]
   fn test_tab_count_label_uses_visible_table_count() {
     let mut app = App::default();
-    app.data.pods.set_items(vec![KubePod::default(), KubePod::default()]);
+    app
+      .data
+      .pods
+      .set_items(vec![KubePod::default(), KubePod::default()]);
 
     assert_eq!(tab_count_label(&app, 0), "2");
   }
@@ -499,15 +502,7 @@ mod tests {
 
     terminal
       .draw(|f| {
-        draw_menu(
-          f,
-          &mut menu,
-          filter,
-          filter_active,
-          counts,
-          false,
-          f.area(),
-        );
+        draw_menu(f, &mut menu, filter, filter_active, counts, false, f.area());
       })
       .unwrap();
 
