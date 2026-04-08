@@ -816,6 +816,11 @@ mod tests {
     }
   }
 
+  fn clear_https_proxy_env() {
+    env::remove_var("HTTPS_PROXY");
+    env::remove_var("https_proxy");
+  }
+
   fn kubeconfig_with_proxy(proxy_url: Option<&str>) -> String {
     let proxy_yaml = proxy_url
       .map(|proxy| format!("      proxy-url: {}\n", proxy))
@@ -866,8 +871,7 @@ users:
   fn test_load_client_config_from_kubeconfig_uses_cluster_proxy_url() {
     let _env_lock = env_lock();
     let _proxy_env = ProxyEnvGuard::capture();
-    env::remove_var("HTTPS_PROXY");
-    env::remove_var("https_proxy");
+    clear_https_proxy_env();
 
     let kubeconfig: Kubeconfig = serde_yaml::from_str(&kubeconfig_with_proxy(Some(
       "http://cluster-proxy.internal:8443",
@@ -892,8 +896,8 @@ users:
   fn test_load_client_config_from_kubeconfig_uses_https_proxy_env_var() {
     let _env_lock = env_lock();
     let _proxy_env = ProxyEnvGuard::capture();
+    clear_https_proxy_env();
     env::set_var("HTTPS_PROXY", "http://env-proxy.internal:8080");
-    env::remove_var("https_proxy");
 
     let kubeconfig: Kubeconfig = serde_yaml::from_str(&kubeconfig_with_proxy(None))
       .expect("base kubeconfig should deserialize");
@@ -916,8 +920,7 @@ users:
   fn test_load_client_config_from_kubeconfig_uses_https_proxy_env_var_case_insensitively() {
     let _env_lock = env_lock();
     let _proxy_env = ProxyEnvGuard::capture();
-    env::remove_var("HTTPS_PROXY");
-    env::remove_var("https_proxy");
+    clear_https_proxy_env();
     env::set_var("Https_PrOxY", "http://env-proxy.internal:8080");
 
     let kubeconfig: Kubeconfig = serde_yaml::from_str(&kubeconfig_with_proxy(None))
@@ -943,8 +946,8 @@ users:
   fn test_load_client_config_from_kubeconfig_prefers_cluster_proxy_over_env_var() {
     let _env_lock = env_lock();
     let _proxy_env = ProxyEnvGuard::capture();
+    clear_https_proxy_env();
     env::set_var("HTTPS_PROXY", "http://env-proxy.internal:8080");
-    env::remove_var("https_proxy");
 
     let kubeconfig: Kubeconfig = serde_yaml::from_str(&kubeconfig_with_proxy(Some(
       "http://cluster-proxy.internal:8443",
@@ -969,8 +972,7 @@ users:
   fn test_get_client_supports_http_proxy_configuration() {
     let _env_lock = env_lock();
     let _proxy_env = ProxyEnvGuard::capture();
-    env::remove_var("HTTPS_PROXY");
-    env::remove_var("https_proxy");
+    clear_https_proxy_env();
 
     let kubeconfig: Kubeconfig = serde_yaml::from_str(&kubeconfig_with_proxy(Some(
       "http://cluster-proxy.internal:8443",
