@@ -15,6 +15,7 @@ RUN cargo build --release --target x86_64-unknown-linux-musl
 RUN rm -r src
 # Copy actual source files and Build the app binary
 COPY src ./src
+COPY assets ./assets
 # remove previous deps
 RUN rm ./target/x86_64-unknown-linux-musl/release/deps/kdash*
 
