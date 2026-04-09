@@ -12,7 +12,9 @@ homepage = "https://github.com/kdash-rs/kdash"
 readme = "README.md"
 license = "MIT"
 exclude = [
-    "assets/*",
+    "test_data/*",
+    "deployment/*",
+    "artwork/*",
     ".github",
     "Makefile.toml",
     "CONTRIBUTING.md",
@@ -36,7 +38,9 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
 strum = { version = "0.26", features = ["derive"] }
-syntect = { version = "5.3.0", default-features = false, features = ["default-fancy"] }
+syntect = { version = "5.3.0", default-features = false, features = [
+    "default-fancy",
+] }
 clap = { version = "4.6", default-features = false, features = [
     "help",
     "usage",
