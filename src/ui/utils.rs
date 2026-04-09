@@ -870,6 +870,35 @@ pub fn draw_route_resource_block<'a, T: Named, F>(
     table_headers,
     column_widths,
   } = table_props;
+  let filter = resource.filter.clone();
+  let filter_active = resource.filter_active;
+  if filter_active {
+    let title_width = title.chars().count();
+    let title = title_with_dual_style(
+      title,
+      mixed_bold_line(owned_filter_status_parts(&filter, true), light_theme),
+      light_theme,
+    );
+    let block = layout_block_active_span(title, light_theme);
+    draw_resource_table(
+      f,
+      area,
+      ResourceTableProps {
+        title: String::new(),
+        inline_help: Line::default(),
+        resource,
+        table_headers,
+        column_widths,
+      },
+      row_cell_mapper,
+      light_theme,
+      is_loading,
+      block,
+    );
+    f.set_cursor_position(filter_cursor_position(area, title_width, &filter));
+    return;
+  }
+
   let title = title_with_dual_style(title, inline_help, light_theme);
   let block = layout_block_active_span(title, light_theme);
   draw_resource_table(

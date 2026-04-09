@@ -767,7 +767,9 @@ async fn handle_route_events(key: Key, app: &mut App) {
 
       match app.get_current_route().active_block {
         ActiveBlock::Containers => {
-          if let Some(c) = handle_block_action(key, &app.data.containers) {
+          if key == DEFAULT_KEYBINDING.shell_exec.key {
+            queue_selected_container_shell_exec(app);
+          } else if let Some(c) = handle_block_action(key, &app.data.containers) {
             app.data.selected.container = Some(c.name.clone());
             app
               .dispatch_container_logs(c.name, RouteId::Troubleshoot)
@@ -1382,6 +1384,35 @@ mod tests {
 
     assert!(!app.log_auto_scroll);
     assert_eq!(app.pending_shell_exec(), None);
+  }
+
+  #[tokio::test]
+  async fn test_shell_exec_key_in_troubleshoot_containers_queues_request() {
+    let mut app = App::default();
+    app.route_troubleshoot();
+    app.push_navigation_stack(RouteId::Troubleshoot, ActiveBlock::Containers);
+
+    let mut pod = KubePod::default();
+    pod.namespace = "team-a".into();
+    pod.name = "pod-1".into();
+    app.data.pods.set_items(vec![pod]);
+
+    let mut container = KubeContainer::default();
+    container.name = "app".into();
+    app.data.containers.set_items(vec![container]);
+
+    let key_evt = KeyEvent::from(KeyCode::Char('s'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+
+    assert_eq!(
+      app.pending_shell_exec(),
+      Some(&PendingShellExec {
+        namespace: "team-a".into(),
+        pod: "pod-1".into(),
+        container: "app".into(),
+      })
+    );
+    assert!(app.api_error.is_empty());
   }
 
   #[tokio::test]
