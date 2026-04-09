@@ -111,13 +111,15 @@ impl AppResource for UtilizationResource {
       {
         let mut parts =
           filter_status_parts(&app.data.metrics.filter, app.data.metrics.filter_active);
-        parts.push(help_part(" | ".to_string()));
-        parts.push(help_part(action_hint(
-          "group by",
-          DEFAULT_KEYBINDING.cycle_group_by.key,
-        )));
-        parts.push(default_part(group_by_value.clone()));
-        parts.push(default_part(" ".to_string()));
+        if !app.data.metrics.filter_active {
+          parts.push(help_part(" | ".to_string()));
+          parts.push(help_part(action_hint(
+            "group by",
+            DEFAULT_KEYBINDING.cycle_group_by.key,
+          )));
+          parts.push(default_part(group_by_value.clone()));
+          parts.push(default_part(" ".to_string()));
+        }
         mixed_bold_line(parts, app.light_theme)
       },
       app.light_theme,

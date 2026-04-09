@@ -134,7 +134,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       inline_help: help_bold_line(
         format!(
           "{} | {}",
-          action_hint("Pods", DEFAULT_KEYBINDING.submit.key),
+          action_hint("pods", DEFAULT_KEYBINDING.submit.key),
           describe_yaml_and_logs_hint()
         ),
         app.light_theme,

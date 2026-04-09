@@ -1,6 +1,6 @@
 KDash - A simple Kubernetes dashboard                                                                                                                        v1.0.0 with ♥ in Rust  
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ Active Context │ All Contexts <C> │ Utilization <U> │ Troubleshoot <T>    <Tab>/<←>/<→> switch tabs | <char> select block | <↑>/<↓> scroll | <Enter> select | filter </> | help <│
+│ Active Context │ All Contexts <C> │ Utilization <U> │ Troubleshoot <T>    help <?> | <Tab>/<←>/<→> switch tabs | <char> select block | <↑>/<↓> scroll | <Enter> select | filter <│
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ┌ Namespaces <n> | all: <a> | filter </> ───┐┌ Context Info toggle <i> ───────────────────────────────────────────────────────────────┐┌ CLI Info ──────────────────┐┌ theme <t> ──┐
 │   Name                   Status           ││Context: k3d-mycluster                                                                  ││kubectl client v1.35.3      ││             │
@@ -13,10 +13,9 @@ KDash - A simple Kubernetes dashboard                                           
 └───────────────────────────────────────────┘└────────────────────────────────────────────────────────────────────────────────────────┘└────────────────────────────┘└─────────────┘
 ┌ Resources ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │ Pods [20] │ Services [4] <2> │ Nodes [1] <3> │ ConfigMaps [15] <4> │ StatefulSets [0] <5> │ ReplicaSets [6] <6> │ Deployments [6] <7> │ Jobs [2] <8> │ DaemonSets [1] <9> │ More │
+│──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
 │                                                                                                                                                                                  │
-│ filter </> ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
-│                                                                                                                                                                                  │
-│ Pods (ns: all) [20] Containers <Enter> | describe <d> | yaml <y> | logs <L> ─────────────────────────────────────────────────────────────────────────────────────────────────────│
+│ Pods (ns: all) [20] containers <Enter> | filter </> | describe <d> | yaml <y> | logs <L> ────────────────────────────────────────────────────────────────────────────────────────│
 │   Namespace                                    Name                                                     Ready              Status            Restarts           Age              │
 │=> default                                      bad-image                                                0/1                ImagePullBackOff  0                  4d21h            │
 │   default                                      kdash-test-multi-6bccdcf865-hrr8t                        2/2                Running           0                  4d4h             │
@@ -38,6 +37,7 @@ KDash - A simple Kubernetes dashboard                                           
 │   kube-system                                  metrics-server-7bfffcd44-ftxdj                           1/1                Running           0                  5d3h             │
 │   kube-system                                  svclb-traefik-207900ce-62q7c                             2/2                Running           0                  5d3h             │
 │   kube-system                                  traefik-865bd56545-4htnx                                 1/1                Running           0                  5d3h             │
+│                                                                                                                                                                                  │
 │                                                                                                                                                                                  │
 │                                                                                                                                                                                  │
 │                                                                                                                                                                                  │

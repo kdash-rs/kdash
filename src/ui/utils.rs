@@ -316,7 +316,7 @@ pub fn describe_yaml_and_logs_hint() -> String {
 
 pub fn describe_yaml_logs_and_esc_hint() -> String {
   format!(
-    "{} | back to menu {} ",
+    "{} | back {} ",
     describe_yaml_and_logs_hint().trim_end(),
     DEFAULT_KEYBINDING.esc.key
   )
@@ -324,7 +324,7 @@ pub fn describe_yaml_logs_and_esc_hint() -> String {
 
 pub fn describe_yaml_and_esc_hint() -> String {
   format!(
-    "{} | back to menu {} ",
+    "{} | back {} ",
     describe_and_yaml_hint().trim_end(),
     DEFAULT_KEYBINDING.esc.key
   )
@@ -332,7 +332,7 @@ pub fn describe_yaml_and_esc_hint() -> String {
 
 pub fn describe_yaml_decode_and_esc_hint() -> String {
   format!(
-    "{} | {} | back to menu {} ",
+    "{} | {} | back {} ",
     describe_and_yaml_hint().trim_end(),
     action_hint("decode", DEFAULT_KEYBINDING.decode_secret.key),
     DEFAULT_KEYBINDING.esc.key
@@ -497,11 +497,14 @@ pub fn filter_status_parts(filter: &str, active: bool) -> Vec<LinePart<'_>> {
   filter_display_parts(filter, active)
 }
 
-pub fn filter_bar_title<'a>(filter: &'a str, active: bool, light: bool) -> Line<'a> {
-  let mut parts = vec![help_part(" ")];
-  parts.extend(filter_display_parts(filter, active));
-  parts.push(help_part(" "));
-  mixed_line(parts, light)
+pub fn owned_filter_status_parts(filter: &str, active: bool) -> Vec<LinePart<'static>> {
+  filter_display_parts(filter, active)
+    .into_iter()
+    .map(|part| match part {
+      LinePart::Default(text) => default_part(text.into_owned()),
+      LinePart::Help(text) => help_part(text.into_owned()),
+    })
+    .collect()
 }
 
 pub fn title_with_dual_style<'a>(part_1: String, part_2: Line<'a>, light: bool) -> Line<'a> {
@@ -513,22 +516,21 @@ pub fn title_with_dual_style<'a>(part_1: String, part_2: Line<'a>, light: bool) 
   Line::from(spans)
 }
 
-pub fn copy_and_escape_title_line<'a, S: Into<Cow<'a, str>>>(target: S, light: bool) -> Line<'a> {
+pub fn copy_and_escape_title_line<'a, S: Into<Cow<'a, str>>>(_target: S, light: bool) -> Line<'a> {
   mixed_bold_line(
     [
       help_part(format!(
         "{} | ",
         action_hint("copy", DEFAULT_KEYBINDING.copy_to_clipboard.key)
       )),
-      help_part(target),
-      help_part(format!(" {} ", DEFAULT_KEYBINDING.esc.key)),
+      help_part(format!("back {} ", DEFAULT_KEYBINDING.esc.key)),
     ],
     light,
   )
 }
 
 pub fn copy_scroll_and_escape_title_line<'a, S: Into<Cow<'a, str>>>(
-  target: S,
+  _target: S,
   auto_scroll: bool,
   light: bool,
 ) -> Line<'a> {
@@ -544,8 +546,7 @@ pub fn copy_scroll_and_escape_title_line<'a, S: Into<Cow<'a, str>>>(
         action_hint("copy", DEFAULT_KEYBINDING.copy_to_clipboard.key),
         action_hint(auto_scroll_action, DEFAULT_KEYBINDING.log_auto_scroll.key)
       )),
-      help_part(target),
-      help_part(format!(" {} ", DEFAULT_KEYBINDING.esc.key)),
+      help_part(format!("back {} ", DEFAULT_KEYBINDING.esc.key)),
     ],
     light,
   )
@@ -781,7 +782,60 @@ pub fn draw_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
     table_headers,
     column_widths,
   } = table_props;
-  let title = title_with_dual_style(title, inline_help, light_theme);
+  let filter = resource.filter.clone();
+  let filter_active = resource.filter_active;
+  if filter_active {
+    let title_width = title.chars().count();
+    let title = title_with_dual_style(
+      title,
+      mixed_bold_line(owned_filter_status_parts(&filter, true), light_theme),
+      light_theme,
+    );
+    let block = layout_block_top_border(title);
+    draw_resource_table(
+      f,
+      area,
+      ResourceTableProps {
+        title: String::new(),
+        inline_help: Line::default(),
+        resource,
+        table_headers,
+        column_widths,
+      },
+      row_cell_mapper,
+      light_theme,
+      is_loading,
+      block,
+    );
+    f.set_cursor_position(filter_cursor_position(area, title_width, &filter));
+    return;
+  }
+
+  let inline_help_text = inline_help
+    .spans
+    .iter()
+    .map(|span| span.content.as_ref())
+    .collect::<String>();
+  let containers_prefix = format!(
+    "{} | ",
+    action_hint("containers", DEFAULT_KEYBINDING.submit.key)
+  );
+  let mut help_parts = Vec::new();
+  if let Some(rest) = inline_help_text.strip_prefix(&containers_prefix) {
+    help_parts.push(help_part(containers_prefix.clone()));
+    help_parts.extend(owned_filter_status_parts(&filter, filter_active));
+    if !rest.is_empty() {
+      help_parts.push(help_part(" | "));
+      help_parts.push(help_part(rest.to_string()));
+    }
+  } else {
+    help_parts.extend(owned_filter_status_parts(&filter, filter_active));
+    if !inline_help_text.is_empty() {
+      help_parts.push(help_part(" | "));
+      help_parts.push(help_part(inline_help_text));
+    }
+  }
+  let title = title_with_dual_style(title, mixed_bold_line(help_parts, light_theme), light_theme);
   let block = layout_block_top_border(title);
   draw_resource_table(
     f,
@@ -987,7 +1041,7 @@ mod tests {
       .unwrap();
 
     let mut expected = Buffer::with_lines(vec![
-        "Test-> yaml <y>─────────────────────────────────────────────────────────────────────────────────────",
+        "Testfilter </> | -> yaml <y>────────────────────────────────────────────────────────────────────────",
         "   Namespace                     Name                                 Data           Age            ",
         "=> Test ns                       Test 1                               5              65h3m          ",
         "   Test ns                       Test long name that should be trunca 3              65h3m          ",
@@ -1005,7 +1059,7 @@ mod tests {
               .add_modifier(Modifier::BOLD),
           );
         }
-        4..=14 => {
+        4..=27 => {
           expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
               .fg(MACCHIATO_BLUE)
@@ -1120,7 +1174,7 @@ mod tests {
       .unwrap();
 
     let mut expected = Buffer::with_lines(vec![
-        "Test-> yaml <y>─────────────────────────────────────────────────────────────────────────────────────",
+        "Test[truncated] | edit </>  | -> yaml <y>───────────────────────────────────────────────────────────",
         "   Namespace                     Name                                 Data           Age            ",
         "=> Test ns                       Test long name that should be trunca 3              65h3m          ",
         "   Test ns long value check that test_long_name_that_should_be_trunca 6              65h3m          ",
@@ -1139,6 +1193,13 @@ mod tests {
           );
         }
         4..=14 => {
+          expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
+            Style::default()
+              .fg(MACCHIATO_TEXT)
+              .add_modifier(Modifier::BOLD),
+          );
+        }
+        15..=40 => {
           expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
               .fg(MACCHIATO_BLUE)
@@ -1253,7 +1314,7 @@ mod tests {
       .unwrap();
 
     let mut expected = Buffer::with_lines(vec![
-        "Test-> yaml <y>─────────────────────────────────────────────────────────────────────────────────────",
+        "Test[*long*truncated*] | edit </>  | -> yaml <y>────────────────────────────────────────────────────",
         "   Namespace                     Name                                 Data           Age            ",
         "=> Test ns                       Test long name that should be trunca 3              65h3m          ",
         "   Test ns long value check that test_long_name_that_should_be_trunca 6              65h3m          ",
@@ -1271,7 +1332,14 @@ mod tests {
               .add_modifier(Modifier::BOLD),
           );
         }
-        4..=14 => {
+        4..=21 => {
+          expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
+            Style::default()
+              .fg(MACCHIATO_TEXT)
+              .add_modifier(Modifier::BOLD),
+          );
+        }
+        22..=47 => {
           expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
               .fg(MACCHIATO_BLUE)
@@ -1317,6 +1385,60 @@ mod tests {
       get_resource_title(&app, "Title", "-> hello", 5),
       " Title (ns: all) [5] -> hello"
     );
+  }
+
+  #[test]
+  fn test_draw_resource_block_filter_hides_other_hints_when_active() {
+    let backend = TestBackend::new(100, 4);
+    let mut terminal = Terminal::new(backend).unwrap();
+
+    struct RenderTest {
+      pub name: String,
+    }
+
+    impl KubeResource<Option<String>> for RenderTest {
+      fn get_name(&self) -> &String {
+        &self.name
+      }
+
+      fn get_k8s_obj(&self) -> &Option<String> {
+        &None
+      }
+    }
+
+    terminal
+      .draw(|f| {
+        let size = f.area();
+        let mut resource: StatefulTable<RenderTest> = StatefulTable::new();
+        resource.set_items(vec![RenderTest {
+          name: "test".into(),
+        }]);
+        resource.filter = "pod".into();
+        resource.filter_active = true;
+        draw_resource_block(
+          f,
+          size,
+          ResourceTableProps {
+            title: "Test".into(),
+            inline_help: help_bold_line("describe <d> | back <Esc>", false),
+            resource: &mut resource,
+            table_headers: vec!["Name"],
+            column_widths: vec![Constraint::Percentage(100)],
+          },
+          |c| Row::new(vec![Cell::from(c.name.to_owned())]).style(style_primary(false)),
+          false,
+          false,
+        );
+      })
+      .unwrap();
+
+    let first_line = (0..terminal.backend().buffer().area.width)
+      .map(|col| terminal.backend().buffer()[(col, 0)].symbol())
+      .collect::<String>();
+    assert!(first_line.contains("[pod]"));
+    assert!(first_line.contains("clear <Esc>"));
+    assert!(!first_line.contains("describe <d>"));
+    assert!(!first_line.contains("back <Esc>"));
   }
 
   #[test]

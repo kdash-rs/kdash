@@ -33,7 +33,7 @@ pub fn draw_help(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   ));
   if !app.help_docs.filter_active {
     title_parts.push(help_part(format!(
-      " | close {} ",
+      " | back {} ",
       DEFAULT_KEYBINDING.esc.key
     )));
   }
@@ -127,7 +127,7 @@ mod tests {
     assert_eq!(
       lines,
       vec![
-        "┌ Help [41] filter </> | close <Esc> ──────────────────────────────────────────────────────────────┐",
+        "┌ Help [41] filter </> | back <Esc> ───────────────────────────────────────────────────────────────┐",
         "│   Key                                               Action                                  Conte│",
         "│=> <Ctrl+c> | <q>                                    Quit                                    Gener│",
         "│   <Esc>                                             Close child page/Go back                Gener│",
@@ -172,6 +172,6 @@ mod tests {
       .collect();
 
     assert!(first_line.contains("Help [1/41] [pod] | clear <Esc>"));
-    assert!(!first_line.contains("close <Esc>"));
+    assert!(!first_line.contains("back <Esc>"));
   }
 }

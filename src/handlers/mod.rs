@@ -1416,6 +1416,34 @@ mod tests {
   }
 
   #[tokio::test]
+  async fn test_containers_filter_key_flow() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
+    assert!(!app.data.containers.filter_active);
+    assert!(app.data.containers.filter.is_empty());
+
+    let key_evt = KeyEvent::from(KeyCode::Char('/'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert!(app.data.containers.filter_active);
+
+    for c in ['n', 'g', 'i', 'n', 'x'] {
+      let key_evt = KeyEvent::from(KeyCode::Char(c));
+      handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    }
+    assert_eq!(app.data.containers.filter, "nginx");
+
+    let key_evt = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert!(app.data.containers.filter_active);
+    assert!(app.data.containers.filter.is_empty());
+
+    let key_evt = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+    assert!(!app.data.containers.filter_active);
+  }
+
+  #[tokio::test]
   async fn test_tab_switch_deactivates_resource_filter_but_preserves_text() {
     let mut app = App::default();
     app.route_home();

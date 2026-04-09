@@ -19,9 +19,9 @@ use crate::{
   network::Network,
   ui::{
     utils::{
-      default_part, filter_by_resource_name, filter_cursor_position, help_part,
-      layout_block_default_line, loading, mixed_bold_line, style_highlight, style_primary,
-      style_secondary, table_header_style,
+      default_part, filter_by_resource_name, filter_cursor_position, filter_status_parts,
+      help_part, layout_block_default_line, loading, mixed_bold_line, style_highlight,
+      style_primary, style_secondary, table_header_style,
     },
     HIGHLIGHT,
   },
@@ -128,22 +128,10 @@ fn apply_namespace_list_fallback(app: &mut App, error: &Error) -> bool {
 #[async_trait]
 impl AppResource for NamespaceResource {
   fn render(_block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
-    let title = if app.ns_filter_active && !app.ns_filter.is_empty() {
-      mixed_bold_line(
-        [
-          default_part(" Namespaces ".to_string()),
-          default_part(format!("[{}]", app.ns_filter)),
-        ],
-        app.light_theme,
-      )
-    } else if app.ns_filter_active {
-      mixed_bold_line(
-        [
-          default_part(" Namespaces ".to_string()),
-          help_part("[type to filter] ".to_string()),
-        ],
-        app.light_theme,
-      )
+    let title = if app.ns_filter_active {
+      let mut parts = vec![default_part(" Namespaces ".to_string())];
+      parts.extend(filter_status_parts(&app.ns_filter, true));
+      mixed_bold_line(parts, app.light_theme)
     } else {
       mixed_bold_line(
         [
@@ -228,6 +216,8 @@ fn row_cell_mapper(s: &KubeNs) -> Row<'static> {
 
 #[cfg(test)]
 mod tests {
+  use ratatui::{backend::TestBackend, Terminal};
+
   use super::*;
   use crate::app::{contexts::KubeContext, test_utils::convert_resource_from_file, App};
   use kube::{
@@ -323,5 +313,33 @@ mod tests {
     assert!(!apply_namespace_list_fallback(&mut app, &error));
     assert!(app.data.namespaces.items.is_empty());
     assert!(app.data.selected.ns.is_none());
+  }
+
+  #[test]
+  fn test_render_shows_clear_hint_when_namespace_filter_is_active() {
+    let backend = TestBackend::new(60, 6);
+    let mut terminal = Terminal::new(backend).unwrap();
+
+    terminal
+      .draw(|f| {
+        let size = f.area();
+        let mut app = App::default();
+        app.push_navigation_stack(crate::app::RouteId::Home, ActiveBlock::Namespaces);
+        app.ns_filter_active = true;
+        app.ns_filter = "prod".into();
+        app.data.namespaces.set_items(vec![KubeNs {
+          name: "prod".into(),
+          status: "Active".into(),
+          ..Default::default()
+        }]);
+        NamespaceResource::render(ActiveBlock::Namespaces, f, &mut app, size);
+      })
+      .unwrap();
+
+    let first_line = (0..terminal.backend().buffer().area.width)
+      .map(|col| terminal.backend().buffer()[(col, 0)].symbol())
+      .collect::<String>();
+
+    assert!(first_line.contains("[prod] | clear <Esc>"));
   }
 }

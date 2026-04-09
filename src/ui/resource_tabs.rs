@@ -1,16 +1,15 @@
 use ratatui::{
   layout::{Constraint, Rect},
   text::Line,
-  widgets::{List, ListItem, ListState, Tabs},
+  widgets::{List, ListItem, ListState, Paragraph, Tabs},
   Frame,
 };
 
 use super::{
   utils::{
-    centered_rect, default_part, filter_bar_title, filter_cursor_position, help_part,
-    layout_block_default, layout_block_default_line, layout_block_top_border, mixed_bold_line,
-    mixed_line, split_hint_suffix, style_highlight, style_secondary, vertical_chunks,
-    vertical_chunks_with_margin,
+    centered_rect, default_part, filter_cursor_position, help_part, layout_block_default,
+    layout_block_default_line, mixed_bold_line, mixed_line, split_hint_suffix, style_highlight,
+    style_secondary, vertical_chunks_with_margin,
   },
   HIGHLIGHT,
 };
@@ -42,18 +41,8 @@ use crate::app::{
 };
 
 pub fn draw_resource_tabs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
-  let current_filter = app
-    .current_or_selected_resource_table()
-    .map(|table| (table.filter_text(), table.is_filter_active()));
-  let chunks = vertical_chunks_with_margin(
-    vec![
-      Constraint::Length(2),
-      Constraint::Length(2),
-      Constraint::Min(0),
-    ],
-    area,
-    1,
-  );
+  let chunks =
+    vertical_chunks_with_margin(vec![Constraint::Length(3), Constraint::Min(0)], area, 1);
 
   let mut block = layout_block_default(" Resources ");
   if app.get_current_route().active_block != ActiveBlock::Namespaces {
@@ -89,12 +78,18 @@ pub fn draw_resource_tabs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     .select(app.context_tabs.index);
 
   f.render_widget(tabs, area);
-  let filter_chunks = vertical_chunks(
-    vec![Constraint::Length(1), Constraint::Length(1)],
-    chunks[1],
+  let separator_area = Rect {
+    x: area.x + 1,
+    y: chunks[0].y + chunks[0].height - 2,
+    width: area.width.saturating_sub(2),
+    height: 1,
+  };
+  f.render_widget(
+    Paragraph::new("─".repeat(separator_area.width as usize))
+      .style(style_secondary(app.light_theme)),
+    separator_area,
   );
-  draw_filter_bar(f, app, filter_chunks[0], current_filter);
-  let content_chunk = chunks[2];
+  let content_chunk = chunks[1];
 
   // render tab content
   match app.context_tabs.index {
@@ -116,17 +111,6 @@ fn tab_count_label(app: &App, index: usize) -> String {
   app
     .context_tab_resource_table(index)
     .map_or_else(|| "0".to_string(), |table| table.count_label())
-}
-
-fn draw_filter_bar(f: &mut Frame<'_>, app: &App, area: Rect, current_filter: Option<(&str, bool)>) {
-  let (filter, filter_active) = current_filter.unwrap_or(("", false));
-  let title = filter_bar_title(filter, filter_active, app.light_theme);
-
-  f.render_widget(layout_block_top_border(title), area);
-
-  if filter_active {
-    f.set_cursor_position(filter_cursor_position(area, 1, filter));
-  }
 }
 
 /// more resources tab
@@ -339,7 +323,7 @@ mod tests {
   use crate::{
     app::models::StatefulList,
     app::pods::KubePod,
-    ui::utils::{MACCHIATO_BLUE, MACCHIATO_RED, MACCHIATO_TEXT, MACCHIATO_YELLOW},
+    ui::utils::{MACCHIATO_RED, MACCHIATO_TEXT, MACCHIATO_YELLOW},
   };
 
   #[test]
@@ -375,12 +359,12 @@ mod tests {
       vec![
         "┌ Resources ───────────────────────────────────────────────────────────────────────────────────────┐",
         "│ Pods [1] │ Services [0] <2> │ Nodes [0] <3> │ ConfigMaps [0] <4> │ StatefulSets [0] <5> │ Replica│",
+        "│──────────────────────────────────────────────────────────────────────────────────────────────────│",
         "│                                                                                                  │",
-        "│ filter </> ──────────────────────────────────────────────────────────────────────────────────────│",
-        "│                                                                                                  │",
-        "│ Pods (ns: all) [1] Containers <Enter> | describe <d> | yaml <y> | logs <L> ──────────────────────│",
+        "│ Pods (ns: all) [1] containers <Enter> | filter </> | describe <d> | yaml <y> | logs <L> ─────────│",
         "│   Namespace                Name                         Ready      Status    Restarts   Age      │",
         "│=> pod namespace test       pod name test                0/2        Failed    0          6h52m    │",
+        "│                                                                                                  │",
         "│                                                                                                  │",
         "└──────────────────────────────────────────────────────────────────────────────────────────────────┘",
       ]
@@ -390,19 +374,52 @@ mod tests {
     assert_eq!(buffer[(1, 0)].fg, MACCHIATO_YELLOW);
     assert!(buffer[(1, 0)].modifier.contains(Modifier::BOLD));
     assert_eq!(buffer[(17, 1)].fg, MACCHIATO_TEXT);
-    assert_eq!(buffer[(1, 3)].fg, MACCHIATO_BLUE);
-    assert_eq!(buffer[(0, 4)].fg, MACCHIATO_YELLOW);
-    assert_eq!(buffer[(99, 4)].fg, MACCHIATO_YELLOW);
-    assert_eq!(buffer[(1, 5)].fg, MACCHIATO_YELLOW);
-    assert!(buffer[(1, 5)].modifier.contains(Modifier::BOLD));
-    assert_eq!(buffer[(21, 5)].fg, MACCHIATO_BLUE);
-    assert!(buffer[(21, 5)].modifier.contains(Modifier::BOLD));
-    assert_eq!(buffer[(79, 5)].fg, MACCHIATO_YELLOW);
-    assert_eq!(buffer[(1, 6)].fg, MACCHIATO_TEXT);
-    assert_eq!(buffer[(99, 6)].fg, MACCHIATO_YELLOW);
-    assert_eq!(buffer[(1, 7)].fg, MACCHIATO_RED);
-    assert!(buffer[(1, 7)].modifier.contains(Modifier::REVERSED));
-    assert_eq!(buffer[(99, 7)].fg, MACCHIATO_YELLOW);
+    assert_eq!(buffer[(1, 4)].fg, MACCHIATO_YELLOW);
+    assert!(buffer[(1, 4)].modifier.contains(Modifier::BOLD));
+    assert_eq!(buffer[(1, 5)].fg, MACCHIATO_TEXT);
+    assert_eq!(buffer[(1, 6)].fg, MACCHIATO_RED);
+    assert!(buffer[(1, 6)].modifier.contains(Modifier::REVERSED));
+    assert_eq!(buffer[(99, 9)].fg, MACCHIATO_YELLOW);
+  }
+
+  #[test]
+  fn test_draw_resource_tabs_block_shows_active_filter_inline() {
+    let backend = TestBackend::new(100, 10);
+    let mut terminal = Terminal::new(backend).unwrap();
+
+    terminal
+      .draw(|f| {
+        let size = f.area();
+        let mut app = App::default();
+        let mut pod = KubePod::default();
+        pod.name = "pod name test".into();
+        pod.namespace = "pod namespace test".into();
+        pod.ready = (0, 2);
+        pod.status = "Failed".into();
+        pod.age = "6h52m".into();
+        app.data.pods.set_items(vec![pod]);
+        app.data.pods.filter = "pod".into();
+        app.data.pods.filter_active = true;
+        draw_resource_tabs_block(f, &mut app, size);
+      })
+      .unwrap();
+
+    let lines: Vec<String> = (0..terminal.backend().buffer().area.height)
+      .map(|row| {
+        (0..terminal.backend().buffer().area.width)
+          .map(|col| terminal.backend().buffer()[(col, row)].symbol())
+          .collect::<String>()
+      })
+      .collect();
+
+    let joined = lines.join("\n");
+    assert!(joined.contains("[pod]"));
+    assert!(joined.contains("clear <Esc>"));
+    assert!(!joined.contains("containers <Enter>"));
+    assert!(!joined.contains("describe <d>"));
+    assert!(!joined.contains("yaml <y>"));
+    assert!(!joined.contains("logs <L>"));
+    assert!(!joined.contains("filter </> ─"));
   }
 
   #[test]

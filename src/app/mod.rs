@@ -580,6 +580,7 @@ impl App {
       ActiveBlock::Utilization => Some(&self.data.metrics),
       ActiveBlock::Troubleshoot => Some(&self.data.troubleshoot_findings),
       ActiveBlock::Pods => Some(&self.data.pods),
+      ActiveBlock::Containers => Some(&self.data.containers),
       ActiveBlock::Services => Some(&self.data.services),
       ActiveBlock::Nodes => Some(&self.data.nodes),
       ActiveBlock::ConfigMaps => Some(&self.data.config_maps),
@@ -613,6 +614,7 @@ impl App {
       ActiveBlock::Utilization => Some(&mut self.data.metrics),
       ActiveBlock::Troubleshoot => Some(&mut self.data.troubleshoot_findings),
       ActiveBlock::Pods => Some(&mut self.data.pods),
+      ActiveBlock::Containers => Some(&mut self.data.containers),
       ActiveBlock::Services => Some(&mut self.data.services),
       ActiveBlock::Nodes => Some(&mut self.data.nodes),
       ActiveBlock::ConfigMaps => Some(&mut self.data.config_maps),
@@ -641,13 +643,6 @@ impl App {
 
   pub fn current_resource_table(&self) -> Option<&dyn FilterableTable> {
     self.resource_table(self.get_current_route().active_block)
-  }
-
-  pub fn current_or_selected_resource_table(&self) -> Option<&dyn FilterableTable> {
-    self.current_resource_table().or_else(|| {
-      Self::resource_block_for_context_tab(self.context_tabs.index)
-        .and_then(|block| self.resource_table(block))
-    })
   }
 
   pub fn context_tab_resource_table(&self, index: usize) -> Option<&dyn FilterableTable> {

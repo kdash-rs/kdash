@@ -182,13 +182,15 @@ pub fn render_troubleshoot(f: &mut Frame<'_>, app: &mut App, area: Rect) {
 
   let mut inline_help = vec![];
   inline_help.extend(filter_status_parts(&filter, filter_active));
-  inline_help.extend([
-    help_part(format!(
-      " | {} | ",
-      action_hint("resource", DEFAULT_KEYBINDING.submit.key)
-    )),
-    help_part(describe_and_yaml_hint()),
-  ]);
+  if !filter_active {
+    inline_help.extend([
+      help_part(format!(
+        " | {} | ",
+        action_hint("resource", DEFAULT_KEYBINDING.submit.key)
+      )),
+      help_part(describe_and_yaml_hint()),
+    ]);
+  }
 
   draw_route_resource_block(
     f,

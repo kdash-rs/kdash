@@ -128,7 +128,6 @@ pub struct StatefulTable<T> {
 }
 
 pub trait FilterableTable {
-  fn filter_text(&self) -> &str;
   fn is_filter_active(&self) -> bool;
   fn count_label(&self) -> String;
   fn filter_parts_mut(&mut self) -> (&mut String, &mut bool, &mut TableState);
@@ -173,10 +172,6 @@ impl<T> StatefulTable<T> {
 }
 
 impl<T> FilterableTable for StatefulTable<T> {
-  fn filter_text(&self) -> &str {
-    &self.filter
-  }
-
   fn is_filter_active(&self) -> bool {
     self.filter_active
   }

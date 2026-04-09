@@ -151,17 +151,18 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
   let text = match app.get_current_route().id {
     RouteId::Contexts => vec![mixed_line(
       [help_part(format!(
-        "{} scroll | {} select | {} | {} ",
+        "{} | {} scroll | {} select | {} ",
+        action_hint("help", DEFAULT_KEYBINDING.help.key),
         key_hints(&[DEFAULT_KEYBINDING.up.key, DEFAULT_KEYBINDING.down.key]),
         DEFAULT_KEYBINDING.submit.key,
         action_hint("filter", DEFAULT_KEYBINDING.filter.key),
-        action_hint("help", DEFAULT_KEYBINDING.help.key)
       ))],
       app.light_theme,
     )],
     RouteId::Home => vec![mixed_line(
       [help_part(format!(
-        "{} switch tabs | <char> select block | {} scroll | {} select | {} | {} ",
+        "{} | {} switch tabs | <char> select block | {} scroll | {} select | {} ",
+        action_hint("help", DEFAULT_KEYBINDING.help.key),
         key_hints(&[
           DEFAULT_KEYBINDING.cycle_main_views.key,
           DEFAULT_KEYBINDING.left.key,
@@ -170,26 +171,25 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
         key_hints(&[DEFAULT_KEYBINDING.up.key, DEFAULT_KEYBINDING.down.key]),
         DEFAULT_KEYBINDING.submit.key,
         action_hint("filter", DEFAULT_KEYBINDING.filter.key),
-        action_hint("help", DEFAULT_KEYBINDING.help.key)
       ))],
       app.light_theme,
     )],
     RouteId::Utilization => vec![mixed_line(
       [help_part(format!(
-        "{} scroll | {} | {} | {} ",
+        "{} | {} scroll | {} | {} ",
+        action_hint("help", DEFAULT_KEYBINDING.help.key),
         key_hints(&[DEFAULT_KEYBINDING.up.key, DEFAULT_KEYBINDING.down.key]),
         action_hint("filter", DEFAULT_KEYBINDING.filter.key),
         action_hint("cycle grouping", DEFAULT_KEYBINDING.cycle_group_by.key),
-        action_hint("help", DEFAULT_KEYBINDING.help.key)
       ))],
       app.light_theme,
     )],
     RouteId::Troubleshoot => vec![mixed_line(
       [help_part(format!(
-        "{} scroll | {} | {} ",
+        "{} | {} scroll | {} ",
+        action_hint("help", DEFAULT_KEYBINDING.help.key),
         key_hints(&[DEFAULT_KEYBINDING.up.key, DEFAULT_KEYBINDING.down.key]),
         action_hint("filter", DEFAULT_KEYBINDING.filter.key),
-        action_hint("help", DEFAULT_KEYBINDING.help.key)
       ))],
       app.light_theme,
     )],
@@ -294,11 +294,14 @@ mod tests {
     assert_eq!(buffer[(1, 13)].fg, MACCHIATO_YELLOW);
     assert!(buffer[(1, 13)].modifier.contains(Modifier::BOLD));
 
-    assert_eq!(buffer[(1, 16)].fg, MACCHIATO_BLUE);
-    assert_eq!(buffer[(1, 19)].fg, MACCHIATO_TEXT);
+    assert_eq!(buffer[(1, 17)].fg, MACCHIATO_YELLOW);
+    assert!(buffer[(1, 17)].modifier.contains(Modifier::BOLD));
+    assert_eq!(buffer[(22, 17)].fg, MACCHIATO_BLUE);
+    assert!(buffer[(22, 17)].modifier.contains(Modifier::BOLD));
+    assert_eq!(buffer[(1, 18)].fg, MACCHIATO_TEXT);
 
-    assert_eq!(buffer[(1, 20)].fg, MACCHIATO_RED);
-    assert!(buffer[(1, 20)].modifier.contains(Modifier::REVERSED));
+    assert_eq!(buffer[(1, 19)].fg, MACCHIATO_RED);
+    assert!(buffer[(1, 19)].modifier.contains(Modifier::REVERSED));
   }
 
   #[test]

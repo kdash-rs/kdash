@@ -258,7 +258,7 @@ pub(crate) fn draw_block_as_sub(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       inline_help: help_bold_line(
         format!(
           "{} | {} | back {} ",
-          action_hint("Containers", DEFAULT_KEYBINDING.submit.key),
+          action_hint("containers", DEFAULT_KEYBINDING.submit.key),
           describe_yaml_and_logs_hint().trim_end(),
           DEFAULT_KEYBINDING.esc.key
         ),
@@ -304,7 +304,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       inline_help: help_bold_line(
         format!(
           "{} | {}",
-          action_hint("Containers", DEFAULT_KEYBINDING.submit.key),
+          action_hint("containers", DEFAULT_KEYBINDING.submit.key),
           describe_yaml_and_logs_hint()
         ),
         app.light_theme,
@@ -349,12 +349,11 @@ pub(crate) fn draw_containers_block(f: &mut Frame<'_>, app: &mut App, area: Rect
       inline_help: mixed_bold_line(
         [
           help_part(format!(
-            "{} | {} |",
+            "{} | {} | ",
             action_hint("logs", DEFAULT_KEYBINDING.submit.key),
             action_hint("shell", DEFAULT_KEYBINDING.shell_exec.key),
           )),
-          help_part(PODS_TITLE),
-          help_part(format!(" {} ", DEFAULT_KEYBINDING.esc.key)),
+          help_part(format!("back {} ", DEFAULT_KEYBINDING.esc.key)),
         ],
         app.light_theme,
       ),
