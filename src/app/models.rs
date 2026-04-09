@@ -255,6 +255,19 @@ impl TabsState {
     self.index = index;
     &self.items[self.index]
   }
+  /// Set the active tab by matching on `ActiveBlock`. Returns the route if found.
+  pub fn set_active_block(&mut self, block: ActiveBlock) -> Option<&TabRoute> {
+    if let Some(i) = self
+      .items
+      .iter()
+      .position(|t| t.route.active_block == block)
+    {
+      self.index = i;
+      Some(&self.items[self.index])
+    } else {
+      None
+    }
+  }
   pub fn get_active_route(&self) -> &Route {
     &self.items[self.index].route
   }
@@ -699,6 +712,45 @@ mod tests {
     tab.previous();
     assert_eq!(tab.index, 0);
     assert_eq!(tab.get_active_route().active_block, ActiveBlock::Pods);
+  }
+
+  #[test]
+  fn test_set_active_block() {
+    let mut tab = TabsState::new(vec![
+      TabRoute {
+        title: "Pods".into(),
+        route: Route {
+          active_block: ActiveBlock::Pods,
+          id: RouteId::Home,
+        },
+      },
+      TabRoute {
+        title: "Nodes".into(),
+        route: Route {
+          active_block: ActiveBlock::Nodes,
+          id: RouteId::Home,
+        },
+      },
+      TabRoute {
+        title: "Services".into(),
+        route: Route {
+          active_block: ActiveBlock::Services,
+          id: RouteId::Home,
+        },
+      },
+    ]);
+
+    // Find existing block
+    assert!(tab.set_active_block(ActiveBlock::Nodes).is_some());
+    assert_eq!(tab.index, 1);
+    assert_eq!(tab.get_active_route().active_block, ActiveBlock::Nodes);
+
+    assert!(tab.set_active_block(ActiveBlock::Services).is_some());
+    assert_eq!(tab.index, 2);
+
+    // Non-existent block returns None and keeps current index
+    assert!(tab.set_active_block(ActiveBlock::Deployments).is_none());
+    assert_eq!(tab.index, 2);
   }
 
   #[test]

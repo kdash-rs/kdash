@@ -26,6 +26,7 @@ use log::{debug, error, info, warn};
 use serde::de::DeserializeOwned;
 use tokio::{process::Command, sync::Mutex, time::timeout};
 
+use crate::handle_standard_network_event;
 use crate::app::{
   configmaps::ConfigMapResource,
   contexts,
@@ -372,109 +373,55 @@ impl<'a> Network<'a> {
     }
   }
 
-  #[allow(clippy::cognitive_complexity)]
   pub async fn handle_network_event(&mut self, io_event: IoEvent) {
-    match io_event {
-      IoEvent::RefreshClient => {
-        self.refresh_client().await;
+    // Standard resources: single IoEvent → Resource::get_resource mapping.
+    // To add a new standard resource, add one entry here (and the corresponding
+    // entry in dispatch_standard_resource! in app/mod.rs).
+    let handled = handle_standard_network_event!(self, io_event,
+      (IoEvent::GetServices, SvcResource),
+      (IoEvent::GetConfigMaps, ConfigMapResource),
+      (IoEvent::GetStatefulSets, StatefulSetResource),
+      (IoEvent::GetReplicaSets, ReplicaSetResource),
+      (IoEvent::GetDeployments, DeploymentResource),
+      (IoEvent::GetJobs, JobResource),
+      (IoEvent::GetDaemonSets, DaemonSetResource),
+      (IoEvent::GetCronJobs, CronJobResource),
+      (IoEvent::GetSecrets, SecretResource),
+      (IoEvent::GetReplicationControllers, ReplicationControllerResource),
+      (IoEvent::GetStorageClasses, StorageClassResource),
+      (IoEvent::GetRoles, RoleResource),
+      (IoEvent::GetRoleBindings, RoleBindingResource),
+      (IoEvent::GetClusterRoles, ClusterRoleResource),
+      (IoEvent::GetClusterRoleBinding, ClusterRoleBindingResource),
+      (IoEvent::GetIngress, IngressResource),
+      (IoEvent::GetPvcs, PvcResource),
+      (IoEvent::GetPvs, PvResource),
+      (IoEvent::GetServiceAccounts, SvcAcctResource),
+      (IoEvent::GetNetworkPolicies, NetworkPolicyResource),
+      (IoEvent::GetEvents, EventResource),
+    );
+
+    if !handled {
+      // Special events with custom logic (parameterized variants, multi-step flows, etc.)
+      match io_event {
+        IoEvent::RefreshClient => self.refresh_client().await,
+        IoEvent::GetKubeConfig => self.get_kube_config().await,
+        IoEvent::GetNodes => NodeResource::get_resource(self).await,
+        IoEvent::GetNamespaces => NamespaceResource::get_resource(self).await,
+        IoEvent::GetPods => PodResource::get_resource(self).await,
+        IoEvent::GetMetrics => UtilizationResource::get_resource(self).await,
+        IoEvent::GetTroubleshootFindings => TroubleshootResource::get_resource(self).await,
+        IoEvent::DiscoverDynamicRes => self.discover_dynamic_resources().await,
+        IoEvent::GetDynamicRes => DynamicResource::get_resource(self).await,
+        IoEvent::GetPodsBySelector { namespace, selector } => {
+          self.get_pods_by_selector(&namespace, &selector).await;
+        }
+        IoEvent::GetPodsByNode { node_name } => {
+          self.get_pods_by_node(&node_name).await;
+        }
+        _ => {}
       }
-      IoEvent::GetKubeConfig => {
-        self.get_kube_config().await;
-      }
-      IoEvent::GetNodes => {
-        NodeResource::get_resource(self).await;
-      }
-      IoEvent::GetNamespaces => {
-        NamespaceResource::get_resource(self).await;
-      }
-      IoEvent::GetPods => {
-        PodResource::get_resource(self).await;
-      }
-      IoEvent::GetServices => {
-        SvcResource::get_resource(self).await;
-      }
-      IoEvent::GetConfigMaps => {
-        ConfigMapResource::get_resource(self).await;
-      }
-      IoEvent::GetStatefulSets => {
-        StatefulSetResource::get_resource(self).await;
-      }
-      IoEvent::GetReplicaSets => {
-        ReplicaSetResource::get_resource(self).await;
-      }
-      IoEvent::GetJobs => {
-        JobResource::get_resource(self).await;
-      }
-      IoEvent::GetDaemonSets => {
-        DaemonSetResource::get_resource(self).await;
-      }
-      IoEvent::GetCronJobs => {
-        CronJobResource::get_resource(self).await;
-      }
-      IoEvent::GetSecrets => {
-        SecretResource::get_resource(self).await;
-      }
-      IoEvent::GetDeployments => {
-        DeploymentResource::get_resource(self).await;
-      }
-      IoEvent::GetReplicationControllers => {
-        ReplicationControllerResource::get_resource(self).await;
-      }
-      IoEvent::GetMetrics => {
-        UtilizationResource::get_resource(self).await;
-      }
-      IoEvent::GetTroubleshootFindings => {
-        TroubleshootResource::get_resource(self).await;
-      }
-      IoEvent::GetStorageClasses => {
-        StorageClassResource::get_resource(self).await;
-      }
-      IoEvent::GetRoles => {
-        RoleResource::get_resource(self).await;
-      }
-      IoEvent::GetRoleBindings => {
-        RoleBindingResource::get_resource(self).await;
-      }
-      IoEvent::GetClusterRoles => {
-        ClusterRoleResource::get_resource(self).await;
-      }
-      IoEvent::GetClusterRoleBinding => {
-        ClusterRoleBindingResource::get_resource(self).await;
-      }
-      IoEvent::GetIngress => {
-        IngressResource::get_resource(self).await;
-      }
-      IoEvent::GetPvcs => {
-        PvcResource::get_resource(self).await;
-      }
-      IoEvent::GetPvs => {
-        PvResource::get_resource(self).await;
-      }
-      IoEvent::GetServiceAccounts => {
-        SvcAcctResource::get_resource(self).await;
-      }
-      IoEvent::GetNetworkPolicies => {
-        NetworkPolicyResource::get_resource(self).await;
-      }
-      IoEvent::GetEvents => {
-        EventResource::get_resource(self).await;
-      }
-      IoEvent::DiscoverDynamicRes => {
-        self.discover_dynamic_resources().await;
-      }
-      IoEvent::GetDynamicRes => {
-        DynamicResource::get_resource(self).await;
-      }
-      IoEvent::GetPodsBySelector {
-        namespace,
-        selector,
-      } => {
-        self.get_pods_by_selector(&namespace, &selector).await;
-      }
-      IoEvent::GetPodsByNode { node_name } => {
-        self.get_pods_by_node(&node_name).await;
-      }
-    };
+    }
 
     let mut app = self.app.lock().await;
     app.loading_complete();

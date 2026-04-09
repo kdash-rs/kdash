@@ -478,65 +478,86 @@ async fn handle_route_events(key: Key, app: &mut App) {
             app.push_navigation_stack(RouteId::Home, ActiveBlock::Namespaces);
           }
         }
-        // as these are tabs with index the order here matters, atleast for readability
         _ if key == DEFAULT_KEYBINDING.jump_to_pods.key => {
           // Clear any workload drill-down state so the pod view shows all pods
           app.data.selected.pod_selector = None;
           app.data.selected.pod_selector_ns = None;
           app.data.selected.pod_selector_resource = None;
           app.deactivate_current_resource_filter();
-          let route = app.context_tabs.set_index(0).route.clone();
-          app.push_navigation_route(route);
+          if let Some(tab) = app.context_tabs.set_active_block(ActiveBlock::Pods) {
+            let route = tab.route.clone();
+            app.push_navigation_route(route);
+          }
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_services.key => {
           app.deactivate_current_resource_filter();
-          let route = app.context_tabs.set_index(1).route.clone();
-          app.push_navigation_route(route);
+          if let Some(tab) = app.context_tabs.set_active_block(ActiveBlock::Services) {
+            let route = tab.route.clone();
+            app.push_navigation_route(route);
+          }
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_nodes.key => {
           app.deactivate_current_resource_filter();
-          let route = app.context_tabs.set_index(2).route.clone();
-          app.push_navigation_route(route);
+          if let Some(tab) = app.context_tabs.set_active_block(ActiveBlock::Nodes) {
+            let route = tab.route.clone();
+            app.push_navigation_route(route);
+          }
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_configmaps.key => {
           app.deactivate_current_resource_filter();
-          let route = app.context_tabs.set_index(3).route.clone();
-          app.push_navigation_route(route);
+          if let Some(tab) = app.context_tabs.set_active_block(ActiveBlock::ConfigMaps) {
+            let route = tab.route.clone();
+            app.push_navigation_route(route);
+          }
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_statefulsets.key => {
           app.deactivate_current_resource_filter();
-          let route = app.context_tabs.set_index(4).route.clone();
-          app.push_navigation_route(route);
+          if let Some(tab) = app.context_tabs.set_active_block(ActiveBlock::StatefulSets) {
+            let route = tab.route.clone();
+            app.push_navigation_route(route);
+          }
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_replicasets.key => {
           app.deactivate_current_resource_filter();
-          let route = app.context_tabs.set_index(5).route.clone();
-          app.push_navigation_route(route);
+          if let Some(tab) = app.context_tabs.set_active_block(ActiveBlock::ReplicaSets) {
+            let route = tab.route.clone();
+            app.push_navigation_route(route);
+          }
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_deployments.key => {
           app.deactivate_current_resource_filter();
-          let route = app.context_tabs.set_index(6).route.clone();
-          app.push_navigation_route(route);
+          if let Some(tab) = app.context_tabs.set_active_block(ActiveBlock::Deployments) {
+            let route = tab.route.clone();
+            app.push_navigation_route(route);
+          }
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_jobs.key => {
           app.deactivate_current_resource_filter();
-          let route = app.context_tabs.set_index(7).route.clone();
-          app.push_navigation_route(route);
+          if let Some(tab) = app.context_tabs.set_active_block(ActiveBlock::Jobs) {
+            let route = tab.route.clone();
+            app.push_navigation_route(route);
+          }
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_daemonsets.key => {
           app.deactivate_current_resource_filter();
-          let route = app.context_tabs.set_index(8).route.clone();
-          app.push_navigation_route(route);
+          if let Some(tab) = app.context_tabs.set_active_block(ActiveBlock::DaemonSets) {
+            let route = tab.route.clone();
+            app.push_navigation_route(route);
+          }
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_more_resources.key => {
           app.deactivate_current_resource_filter();
-          let route = app.context_tabs.set_index(9).route.clone();
-          app.push_navigation_route(route);
+          if let Some(tab) = app.context_tabs.set_active_block(ActiveBlock::More) {
+            let route = tab.route.clone();
+            app.push_navigation_route(route);
+          }
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_dynamic_resources.key => {
           app.deactivate_current_resource_filter();
-          let route = app.context_tabs.set_index(10).route.clone();
-          app.push_navigation_route(route);
+          if let Some(tab) = app.context_tabs.set_active_block(ActiveBlock::DynamicView) {
+            let route = tab.route.clone();
+            app.push_navigation_route(route);
+          }
         }
         _ => {}
       };

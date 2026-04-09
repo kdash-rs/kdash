@@ -1,3 +1,4 @@
+pub(crate) mod resource_registry;
 pub(crate) mod configmaps;
 pub(crate) mod contexts;
 pub(crate) mod cronjobs;
@@ -72,6 +73,7 @@ use super::{
   config::KdashConfig,
   network::{stream::IoStreamEvent, IoEvent},
 };
+use crate::dispatch_standard_resource;
 
 const MAX_NAV_STACK: usize = 128;
 const STATUS_MESSAGE_DURATION: Duration = Duration::from_secs(5);
@@ -1119,6 +1121,7 @@ impl App {
   }
 
   pub async fn dispatch_by_active_block(&mut self, active_block: ActiveBlock) {
+    // Special cases with custom dispatch logic
     match active_block {
       ActiveBlock::Pods | ActiveBlock::Containers => {
         // If we're in a workload drill-down, refresh using the label selector
@@ -1135,77 +1138,47 @@ impl App {
         } else {
           self.dispatch(IoEvent::GetPods).await;
         }
-      }
-      ActiveBlock::Services => {
-        self.dispatch(IoEvent::GetServices).await;
-      }
-      ActiveBlock::ConfigMaps => {
-        self.dispatch(IoEvent::GetConfigMaps).await;
-      }
-      ActiveBlock::StatefulSets => {
-        self.dispatch(IoEvent::GetStatefulSets).await;
-      }
-      ActiveBlock::ReplicaSets => {
-        self.dispatch(IoEvent::GetReplicaSets).await;
-      }
-      ActiveBlock::Deployments => {
-        self.dispatch(IoEvent::GetDeployments).await;
-      }
-      ActiveBlock::Jobs => {
-        self.dispatch(IoEvent::GetJobs).await;
-      }
-      ActiveBlock::DaemonSets => {
-        self.dispatch(IoEvent::GetDaemonSets).await;
-      }
-      ActiveBlock::CronJobs => {
-        self.dispatch(IoEvent::GetCronJobs).await;
-      }
-      ActiveBlock::Secrets => {
-        self.dispatch(IoEvent::GetSecrets).await;
-      }
-      ActiveBlock::ReplicationControllers => {
-        self.dispatch(IoEvent::GetReplicationControllers).await;
-      }
-      ActiveBlock::StorageClasses => {
-        self.dispatch(IoEvent::GetStorageClasses).await;
-      }
-      ActiveBlock::Roles => {
-        self.dispatch(IoEvent::GetRoles).await;
-      }
-      ActiveBlock::RoleBindings => {
-        self.dispatch(IoEvent::GetRoleBindings).await;
-      }
-      ActiveBlock::ClusterRoles => {
-        self.dispatch(IoEvent::GetClusterRoles).await;
-      }
-      ActiveBlock::ClusterRoleBindings => {
-        self.dispatch(IoEvent::GetClusterRoleBinding).await;
-      }
-      ActiveBlock::Ingresses => {
-        self.dispatch(IoEvent::GetIngress).await;
-      }
-      ActiveBlock::PersistentVolumeClaims => {
-        self.dispatch(IoEvent::GetPvcs).await;
-      }
-      ActiveBlock::PersistentVolumes => {
-        self.dispatch(IoEvent::GetPvs).await;
-      }
-      ActiveBlock::ServiceAccounts => {
-        self.dispatch(IoEvent::GetServiceAccounts).await;
-      }
-      ActiveBlock::Events => {
-        self.dispatch(IoEvent::GetEvents).await;
+        return;
       }
       ActiveBlock::DynamicResource => {
         self.dispatch(IoEvent::GetDynamicRes).await;
+        return;
       }
       ActiveBlock::Logs => {
         if !self.is_streaming {
           self.dispatch_stream(IoStreamEvent::GetPodLogs(false)).await;
         }
+        return;
       }
       _ => {}
     }
+
+    // Standard resources: single ActiveBlock → IoEvent mapping.
+    // To add a new resource, add one entry here (and the corresponding
+    // IoEvent variant + handle_network_event arm).
+    dispatch_standard_resource!(self, active_block,
+      (ActiveBlock::Services, IoEvent::GetServices),
+      (ActiveBlock::ConfigMaps, IoEvent::GetConfigMaps),
+      (ActiveBlock::StatefulSets, IoEvent::GetStatefulSets),
+      (ActiveBlock::ReplicaSets, IoEvent::GetReplicaSets),
+      (ActiveBlock::Deployments, IoEvent::GetDeployments),
+      (ActiveBlock::Jobs, IoEvent::GetJobs),
+      (ActiveBlock::DaemonSets, IoEvent::GetDaemonSets),
+      (ActiveBlock::CronJobs, IoEvent::GetCronJobs),
+      (ActiveBlock::Secrets, IoEvent::GetSecrets),
+      (ActiveBlock::ReplicationControllers, IoEvent::GetReplicationControllers),
+      (ActiveBlock::StorageClasses, IoEvent::GetStorageClasses),
+      (ActiveBlock::Roles, IoEvent::GetRoles),
+      (ActiveBlock::RoleBindings, IoEvent::GetRoleBindings),
+      (ActiveBlock::ClusterRoles, IoEvent::GetClusterRoles),
+      (ActiveBlock::ClusterRoleBindings, IoEvent::GetClusterRoleBinding),
+      (ActiveBlock::Ingresses, IoEvent::GetIngress),
+      (ActiveBlock::PersistentVolumeClaims, IoEvent::GetPvcs),
+      (ActiveBlock::PersistentVolumes, IoEvent::GetPvs),
+      (ActiveBlock::ServiceAccounts, IoEvent::GetServiceAccounts),
+      (ActiveBlock::Events, IoEvent::GetEvents),
+      (ActiveBlock::NetworkPolicies, IoEvent::GetNetworkPolicies),
+    );
   }
 
   pub async fn on_tick(&mut self, first_render: bool) {
