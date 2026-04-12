@@ -3,8 +3,8 @@ use ratatui::layout::Rect;
 use ratatui::Frame;
 
 use super::{
-  models::AppResource, pods::KubePod, pvcs::KubePVC, replicasets::KubeReplicaSet, ActiveBlock,
-  App, Data,
+  models::AppResource, pods::KubePod, pvcs::KubePVC, replicasets::KubeReplicaSet, ActiveBlock, App,
+  Data,
 };
 use k8s_openapi::api::apps::v1::ReplicaSet;
 use k8s_openapi::api::core::v1::{PersistentVolumeClaim, Pod};
