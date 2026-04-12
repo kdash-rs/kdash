@@ -16,7 +16,7 @@ use tokio::sync::MutexGuard;
 
 use super::{
   metrics::{self, KubeNodeMetrics},
-  models::{AppResource, KubeResource},
+  models::{AppResource, KubeResource, Named},
   utils::{self, UNKNOWN},
   ActiveBlock, App,
 };
@@ -171,10 +171,13 @@ impl KubeNode {
   }
 }
 
-impl KubeResource<Node> for KubeNode {
+impl Named for KubeNode {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<Node> for KubeNode {
   fn get_k8s_obj(&self) -> &Node {
     &self.k8s_obj
   }

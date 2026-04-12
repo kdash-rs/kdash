@@ -8,7 +8,7 @@ use ratatui::{
 };
 
 use super::{
-  models::{AppResource, KubeResource},
+  models::{AppResource, KubeResource, Named},
   utils::{self},
   ActiveBlock, App,
 };
@@ -53,10 +53,13 @@ impl From<StorageClass> for KubeStorageClass {
   }
 }
 
-impl KubeResource<StorageClass> for KubeStorageClass {
+impl Named for KubeStorageClass {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<StorageClass> for KubeStorageClass {
   fn get_k8s_obj(&self) -> &StorageClass {
     &self.k8s_obj
   }

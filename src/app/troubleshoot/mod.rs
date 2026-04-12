@@ -7,7 +7,7 @@ use ratatui::{
 use strum::Display;
 
 use super::{
-  models::{AppResource, FilterableTable, KubeResource},
+  models::{AppResource, FilterableTable, Named},
   pods::KubePod,
   pvcs::KubePVC,
   replicasets::KubeReplicaSet,
@@ -15,10 +15,6 @@ use super::{
 };
 use k8s_openapi::api::apps::v1::ReplicaSet;
 use k8s_openapi::api::core::v1::{PersistentVolumeClaim, Pod};
-
-mod pod;
-mod pvc;
-mod rs;
 
 use crate::app::key_binding::DEFAULT_KEYBINDING;
 use crate::ui::utils::{
@@ -34,17 +30,21 @@ use crate::ui::utils::{
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RawFinding {
-  pub id: String,
   pub reason: String,
   pub message: String,
+}
+
+/// Severity-tagged finding; variant order defines sort priority.
+#[derive(Clone, Copy, Debug, Display, Eq, Ord, PartialEq, PartialOrd)]
+pub enum Severity {
+  Error,
+  Warn,
+  Info,
 }
 
 pub trait Diagnostic {
   // The human-readable kind (e.g., "Pod", "PVC")
   fn resource_kind(&self) -> ResourceKind;
-
-  // The kind used for 'kubectl describe' (e.g., "pod", "persistentvolumeclaim")
-  fn describe_kind(&self) -> String;
 
   fn name(&self) -> &str;
   fn namespace(&self) -> Option<&str>;
@@ -52,7 +52,34 @@ pub trait Diagnostic {
 }
 
 // A generic check type that works for any Diagnostic resource
-pub type HealthCheck<T> = fn(&T) -> Option<Finding<RawFinding>>;
+pub type HealthCheck<T> = fn(&T) -> Option<(Severity, RawFinding)>;
+
+// ---------------------------------------------------------------------------
+// impl_diagnostic macro — shared boilerplate for Diagnostic impls
+// ---------------------------------------------------------------------------
+
+macro_rules! impl_diagnostic {
+  ($ty:ty, $kind:expr) => {
+    impl $crate::app::troubleshoot::Diagnostic for $ty {
+      fn resource_kind(&self) -> ResourceKind {
+        $kind
+      }
+      fn name(&self) -> &str {
+        &self.name
+      }
+      fn namespace(&self) -> Option<&str> {
+        Some(&self.namespace)
+      }
+      fn age(&self) -> &str {
+        &self.age
+      }
+    }
+  };
+}
+
+mod pod;
+mod pvc;
+mod rs;
 
 // Generic orchestrator
 pub fn evaluate_resource<T: Diagnostic>(
@@ -63,52 +90,18 @@ pub fn evaluate_resource<T: Diagnostic>(
     .iter()
     .flat_map(|res| {
       checks.iter().filter_map(|check| {
-        check(res).map(|finding| {
-          let severity = finding.severity_tag();
-          let inner = finding.into_inner();
-          DisplayFinding {
-            severity,
-            reason: inner.reason,
-            resource_kind: res.resource_kind(),
-            namespace: res.namespace().map(str::to_string),
-            resource_name: res.name().to_string(),
-            message: inner.message,
-            age: res.age().to_string(),
-            describe_kind: res.describe_kind(),
-            describe_name: res.name().to_string(),
-            describe_namespace: res.namespace().map(str::to_string),
-            k8s_obj: (),
-          }
+        check(res).map(|(severity, raw)| DisplayFinding {
+          severity,
+          reason: raw.reason,
+          resource_kind: res.resource_kind(),
+          namespace: res.namespace().map(str::to_string),
+          resource_name: res.name().to_string(),
+          message: raw.message,
+          age: res.age().to_string(),
         })
       })
     })
     .collect()
-}
-
-/// Severity-tagged finding; variant order defines sort priority.
-#[derive(Clone, Debug, Display, Eq, Ord, PartialEq, PartialOrd)]
-pub enum Finding<R> {
-  Error(R),
-  Warn(R),
-  Info(R),
-}
-
-impl<R> Finding<R> {
-  /// Severity-only copy for type-erased storage.
-  pub fn severity_tag(&self) -> Finding<()> {
-    match self {
-      Finding::Error(_) => Finding::Error(()),
-      Finding::Warn(_) => Finding::Warn(()),
-      Finding::Info(_) => Finding::Info(()),
-    }
-  }
-
-  /// Return inner payload.
-  pub fn into_inner(self) -> R {
-    match self {
-      Finding::Info(r) | Finding::Warn(r) | Finding::Error(r) => r,
-    }
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -123,6 +116,16 @@ pub enum ResourceKind {
   ReplicaSet,
 }
 
+impl ResourceKind {
+  pub fn describe_kind(&self) -> &'static str {
+    match self {
+      ResourceKind::Pod => "pod",
+      ResourceKind::Pvc => "persistentvolumeclaim",
+      ResourceKind::ReplicaSet => "replicaset",
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // DisplayFinding — the concrete, type-erased row
 // ---------------------------------------------------------------------------
@@ -130,18 +133,13 @@ pub enum ResourceKind {
 /// Flattened UI row for a finding.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DisplayFinding {
-  pub severity: Finding<()>,
+  pub severity: Severity,
   pub reason: String,
   pub resource_kind: ResourceKind,
   pub namespace: Option<String>,
   pub resource_name: String,
   pub message: String,
   pub age: String,
-  pub describe_kind: String,
-  pub describe_name: String,
-  pub describe_namespace: Option<String>,
-  // Unit k8s_obj kept for KubeResource trait compatibility
-  pub(crate) k8s_obj: (),
 }
 
 impl DisplayFinding {
@@ -154,26 +152,18 @@ impl DisplayFinding {
 
   pub fn describe_target(&self) -> (&str, &str, Option<&str>) {
     (
-      self.describe_kind.as_str(),
-      self.describe_name.as_str(),
-      self.describe_namespace.as_deref(),
+      self.resource_kind.describe_kind(),
+      self.resource_name.as_str(),
+      self.namespace.as_deref(),
     )
   }
 }
 
-impl KubeResource<()> for DisplayFinding {
+impl Named for DisplayFinding {
   fn get_name(&self) -> &String {
     &self.resource_name
   }
-
-  fn get_k8s_obj(&self) -> &() {
-    &self.k8s_obj
-  }
 }
-
-// ---------------------------------------------------------------------------
-// Conversion trait — resource findings → display findings
-// ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // Evaluation orchestrator
@@ -255,9 +245,9 @@ pub fn render_troubleshoot(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     },
     |c| {
       let style = match c.severity {
-        Finding::Error(()) => style_failure(light_theme),
-        Finding::Warn(()) => style_caution(light_theme),
-        Finding::Info(()) => style_primary(light_theme),
+        Severity::Error => style_failure(light_theme),
+        Severity::Warn => style_caution(light_theme),
+        Severity::Info => style_primary(light_theme),
       };
 
       Row::new(vec![
@@ -427,18 +417,6 @@ mod tests {
     }
   }
 
-  /// Verifies type-erasing the payload into `()` while preserving severity.
-  #[test]
-  fn test_finding_severity_tag() {
-    let error = Finding::Error("x").severity_tag();
-    let warn = Finding::Warn("x").severity_tag();
-    let info = Finding::Info("x").severity_tag();
-
-    assert_eq!(error, Finding::Error(()));
-    assert_eq!(warn, Finding::Warn(()));
-    assert_eq!(info, Finding::Info(()));
-  }
-
   #[test]
   fn test_evaluate_findings_sorting() {
     let pod = build_pod_with_phase("z-pod", "Failed");
@@ -455,51 +433,43 @@ mod tests {
 
     // Order: severity (Error->Warn->Info), then name.
     assert_eq!(findings.len(), 3);
-    assert_eq!(findings[0].severity, Finding::Error(()));
+    assert_eq!(findings[0].severity, Severity::Error);
     assert_eq!(findings[0].resource_name, "z-pod");
-    assert_eq!(findings[1].severity, Finding::Warn(()));
+    assert_eq!(findings[1].severity, Severity::Warn);
     assert_eq!(findings[1].resource_name, "a-rs");
-    assert_eq!(findings[2].severity, Finding::Warn(()));
+    assert_eq!(findings[2].severity, Severity::Warn);
     assert_eq!(findings[2].resource_name, "b-pvc");
   }
 
   #[test]
   fn test_display_finding_resource_ref_includes_namespace_when_present() {
     let finding = DisplayFinding {
-      severity: Finding::Warn(()),
+      severity: Severity::Warn,
       reason: "Pending".into(),
       resource_kind: ResourceKind::Pod,
       namespace: Some("ns-1".into()),
       resource_name: "pod-a".into(),
       message: "pod is pending".into(),
       age: "5m".into(),
-      describe_kind: "Pod".into(),
-      describe_name: "pod-a".into(),
-      describe_namespace: Some("ns-1".into()),
-      k8s_obj: (),
     };
 
     assert_eq!(finding.resource_ref(), "ns-1/pod-a");
-    assert_eq!(finding.describe_target(), ("Pod", "pod-a", Some("ns-1")));
+    assert_eq!(finding.describe_target(), ("pod", "pod-a", Some("ns-1")));
   }
 
   #[test]
   fn test_display_finding_resource_ref_omits_empty_namespace() {
     let finding = DisplayFinding {
-      severity: Finding::Info(()),
+      severity: Severity::Info,
       reason: "Info".into(),
       resource_kind: ResourceKind::ReplicaSet,
-      namespace: Some(String::new()),
+      namespace: None,
       resource_name: "rs-a".into(),
       message: "all good".into(),
       age: "1m".into(),
-      describe_kind: "ReplicaSet".into(),
-      describe_name: "rs-a".into(),
-      describe_namespace: None,
-      k8s_obj: (),
     };
 
     assert_eq!(finding.resource_ref(), "rs-a");
-    assert_eq!(finding.describe_target(), ("ReplicaSet", "rs-a", None));
+    assert_eq!(finding.describe_target(), ("replicaset", "rs-a", None));
   }
 }

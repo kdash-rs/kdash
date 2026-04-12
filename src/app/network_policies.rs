@@ -10,7 +10,7 @@ use ratatui::{
 };
 
 use super::{
-  models::{AppResource, KubeResource},
+  models::{AppResource, KubeResource, Named},
   utils, ActiveBlock, App,
 };
 use crate::{
@@ -66,10 +66,13 @@ impl From<NetworkPolicy> for KubeNetworkPolicy {
   }
 }
 
-impl KubeResource<NetworkPolicy> for KubeNetworkPolicy {
+impl Named for KubeNetworkPolicy {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<NetworkPolicy> for KubeNetworkPolicy {
   fn get_k8s_obj(&self) -> &NetworkPolicy {
     &self.k8s_obj
   }

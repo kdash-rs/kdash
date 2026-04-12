@@ -8,7 +8,7 @@ use ratatui::{
 };
 
 use super::{
-  models::{self, AppResource, KubeResource},
+  models::{self, AppResource, KubeResource, Named},
   utils::{self},
   ActiveBlock, App,
 };
@@ -53,10 +53,13 @@ impl From<StatefulSet> for KubeStatefulSet {
   }
 }
 
-impl KubeResource<StatefulSet> for KubeStatefulSet {
+impl Named for KubeStatefulSet {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<StatefulSet> for KubeStatefulSet {
   fn get_k8s_obj(&self) -> &StatefulSet {
     &self.k8s_obj
   }

@@ -8,7 +8,7 @@
 
 use crate::app::{models::KubeResource, replicasets::KubeReplicaSet};
 
-use super::{Diagnostic, Finding, HealthCheck, RawFinding, ResourceKind};
+use super::{HealthCheck, RawFinding, ResourceKind, Severity};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -28,48 +28,30 @@ fn rs_replica_counts(rs: &KubeReplicaSet) -> (i32, i32, i32, i32) {
   (available, fully_labeled, ready, replicas)
 }
 
-impl Diagnostic for KubeReplicaSet {
-  fn resource_kind(&self) -> ResourceKind {
-    ResourceKind::ReplicaSet
-  }
-
-  fn describe_kind(&self) -> String {
-    "replicaset".into()
-  }
-
-  fn name(&self) -> &str {
-    &self.name
-  }
-
-  fn namespace(&self) -> Option<&str> {
-    Some(&self.namespace)
-  }
-
-  fn age(&self) -> &str {
-    &self.age
-  }
-}
+impl_diagnostic!(KubeReplicaSet, ResourceKind::ReplicaSet);
 
 // ---------------------------------------------------------------------------
 // Individual RS checks
 // ---------------------------------------------------------------------------
 
 /// Flag mismatched status replica counts.
-fn check_rs_status(rs: &KubeReplicaSet) -> Option<Finding<RawFinding>> {
+fn check_rs_status(rs: &KubeReplicaSet) -> Option<(Severity, RawFinding)> {
   let (available, fully_labeled, ready, replicas) = rs_replica_counts(rs);
 
   if available == fully_labeled && fully_labeled == ready && ready == replicas {
     return None;
   }
 
-  Some(Finding::Warn(RawFinding {
-    id: "rs.status.mismatch".into(),
-    reason: "Replica counts differ".into(),
-    message: format!(
-      "ReplicaSet status mismatch: available={}, fully_labeled={}, ready={}, replicas={}",
-      available, fully_labeled, ready, replicas
-    ),
-  }))
+  Some((
+    Severity::Warn,
+    RawFinding {
+      reason: "Replica counts differ".into(),
+      message: format!(
+        "ReplicaSet status mismatch: available={}, fully_labeled={}, ready={}, replicas={}",
+        available, fully_labeled, ready, replicas
+      ),
+    },
+  ))
 }
 
 // ---------------------------------------------------------------------------

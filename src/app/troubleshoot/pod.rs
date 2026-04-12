@@ -5,7 +5,9 @@ use k8s_openapi::api::core::v1::PodCondition;
 
 use crate::app::{models::KubeResource, pods::KubePod};
 
-use super::{Diagnostic, Finding, HealthCheck, RawFinding, ResourceKind};
+use super::{HealthCheck, RawFinding, ResourceKind, Severity};
+
+impl_diagnostic!(KubePod, ResourceKind::Pod);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -53,52 +55,28 @@ fn pod_status_message(pod: &KubePod) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// Diagnostic impl
-// ---------------------------------------------------------------------------
-
-impl Diagnostic for KubePod {
-  fn resource_kind(&self) -> ResourceKind {
-    ResourceKind::Pod
-  }
-
-  fn describe_kind(&self) -> String {
-    "pod".into()
-  }
-
-  fn name(&self) -> &str {
-    &self.name
-  }
-
-  fn namespace(&self) -> Option<&str> {
-    Some(&self.namespace)
-  }
-
-  fn age(&self) -> &str {
-    &self.age
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Individual pod checks
 // ---------------------------------------------------------------------------
 
 /// Flag Failed/Unknown/Pending phases.
 /// Ref: <https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase>
-fn check_pod_phase(pod: &KubePod) -> Option<Finding<RawFinding>> {
+fn check_pod_phase(pod: &KubePod) -> Option<(Severity, RawFinding)> {
   let phase = pod_phase(pod);
 
-  let (id, finding_ctor): (&str, fn(RawFinding) -> Finding<RawFinding>) = match phase {
-    "Failed" => ("pod.phase.failed", Finding::Error),
-    "Unknown" => ("pod.phase.unknown", Finding::Warn),
-    "Pending" => ("pod.phase.pending", Finding::Info),
+  let severity = match phase {
+    "Failed" => Severity::Error,
+    "Unknown" => Severity::Warn,
+    "Pending" => Severity::Info,
     _ => return None,
   };
 
-  Some(finding_ctor(RawFinding {
-    id: id.into(),
-    reason: pod_status_reason(pod),
-    message: pod_status_message(pod),
-  }))
+  Some((
+    severity,
+    RawFinding {
+      reason: pod_status_reason(pod),
+      message: pod_status_message(pod),
+    },
+  ))
 }
 
 // ---------------------------------------------------------------------------

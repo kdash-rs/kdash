@@ -3,7 +3,7 @@
 
 use crate::app::{models::KubeResource, pvcs::KubePVC};
 
-use super::{Diagnostic, Finding, HealthCheck, RawFinding, ResourceKind};
+use super::{HealthCheck, RawFinding, ResourceKind, Severity};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -19,43 +19,27 @@ fn pvc_phase(pvc: &KubePVC) -> &str {
     .unwrap_or("Unknown")
 }
 
-impl Diagnostic for KubePVC {
-  fn resource_kind(&self) -> ResourceKind {
-    ResourceKind::Pvc
-  }
-
-  fn describe_kind(&self) -> String {
-    "persistentvolumeclaim".into()
-  }
-
-  fn name(&self) -> &str {
-    &self.name
-  }
-  fn namespace(&self) -> Option<&str> {
-    Some(&self.namespace)
-  }
-  fn age(&self) -> &str {
-    &self.age
-  }
-}
+impl_diagnostic!(KubePVC, ResourceKind::Pvc);
 
 // ---------------------------------------------------------------------------
 // Individual PVC checks
 // ---------------------------------------------------------------------------
 
 /// Flag non-Bound phase.
-fn check_pvc_phase(pvc: &KubePVC) -> Option<Finding<RawFinding>> {
+fn check_pvc_phase(pvc: &KubePVC) -> Option<(Severity, RawFinding)> {
   let phase = pvc_phase(pvc);
 
   if phase == "Bound" {
     return None;
   }
 
-  Some(Finding::Warn(RawFinding {
-    id: "pvc.phase.not_bound".into(),
-    reason: phase.into(),
-    message: format!("PVC phase is {}", phase),
-  }))
+  Some((
+    Severity::Warn,
+    RawFinding {
+      reason: phase.into(),
+      message: format!("PVC phase is {}", phase),
+    },
+  ))
 }
 
 // ---------------------------------------------------------------------------

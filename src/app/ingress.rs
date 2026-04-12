@@ -8,7 +8,7 @@ use ratatui::{
 };
 
 use super::{
-  models::{AppResource, KubeResource},
+  models::{AppResource, KubeResource, Named},
   utils::{self, UNKNOWN},
   ActiveBlock, App,
 };
@@ -72,10 +72,13 @@ impl From<Ingress> for KubeIngress {
   }
 }
 
-impl KubeResource<Ingress> for KubeIngress {
+impl Named for KubeIngress {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<Ingress> for KubeIngress {
   fn get_k8s_obj(&self) -> &Ingress {
     &self.k8s_obj
   }

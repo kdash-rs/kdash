@@ -790,9 +790,9 @@ async fn handle_route_events(key: Key, app: &mut App) {
               if finding.resource_kind == ResourceKind::Pod {
                 // Drill into containers for pod findings
                 if let Some(idx) = app.data.pods.items.iter().position(|p| {
-                  p.name == finding.describe_name
+                  p.name == finding.resource_name
                     && finding
-                      .describe_namespace
+                      .namespace
                       .as_deref()
                       .is_some_and(|ns| p.namespace == ns)
                 }) {
@@ -838,9 +838,9 @@ async fn handle_route_events(key: Key, app: &mut App) {
                   .items
                   .iter()
                   .find(|p| {
-                    p.name == finding.describe_name
+                    p.name == finding.resource_name
                       && finding
-                        .describe_namespace
+                        .namespace
                         .as_deref()
                         .is_some_and(|ns| p.namespace == ns)
                   })
@@ -852,9 +852,9 @@ async fn handle_route_events(key: Key, app: &mut App) {
                   .items
                   .iter()
                   .find(|pvc| {
-                    pvc.name == finding.describe_name
+                    pvc.name == finding.resource_name
                       && finding
-                        .describe_namespace
+                        .namespace
                         .as_deref()
                         .is_some_and(|ns| pvc.namespace == ns)
                   })
@@ -866,9 +866,9 @@ async fn handle_route_events(key: Key, app: &mut App) {
                   .items
                   .iter()
                   .find(|rs| {
-                    rs.name == finding.describe_name
+                    rs.name == finding.resource_name
                       && finding
-                        .describe_namespace
+                        .namespace
                         .as_deref()
                         .is_some_and(|ns| rs.namespace == ns)
                   })

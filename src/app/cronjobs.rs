@@ -8,7 +8,7 @@ use ratatui::{
 };
 
 use super::{
-  models::{self, AppResource, KubeResource},
+  models::{self, AppResource, KubeResource, Named},
   utils, ActiveBlock, App,
 };
 use crate::{
@@ -62,10 +62,13 @@ impl From<CronJob> for KubeCronJob {
   }
 }
 
-impl KubeResource<CronJob> for KubeCronJob {
+impl Named for KubeCronJob {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<CronJob> for KubeCronJob {
   fn get_k8s_obj(&self) -> &CronJob {
     &self.k8s_obj
   }
