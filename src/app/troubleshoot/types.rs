@@ -6,16 +6,6 @@ use strum::Display;
 
 use crate::app::models::Named;
 
-// ---------------------------------------------------------------------------
-// Core generic finding type
-// ---------------------------------------------------------------------------
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct RawFinding {
-  pub reason: String,
-  pub message: String,
-}
-
 /// Severity-tagged finding.
 ///
 /// `Ord` is implemented explicitly so that `Error` sorts first, then `Warn`,
@@ -49,18 +39,6 @@ impl PartialOrd for Severity {
     Some(self.cmp(other))
   }
 }
-
-pub trait Diagnostic {
-  /// The human-readable kind (e.g., "Pod", "PVC").
-  fn resource_kind(&self) -> ResourceKind;
-
-  fn name(&self) -> &str;
-  fn namespace(&self) -> Option<&str>;
-  fn age(&self) -> &str;
-}
-
-/// A generic check: given a resource, optionally returns a severity and raw finding.
-pub type HealthCheck<T> = fn(&T) -> Option<(Severity, RawFinding)>;
 
 // ---------------------------------------------------------------------------
 // Display enums shared across resource-specific findings

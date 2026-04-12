@@ -5,29 +5,14 @@ use k8s_openapi::api::core::v1::PodCondition;
 
 use crate::app::{models::KubeResource, pods::KubePod};
 
-use super::{Diagnostic, HealthCheck, RawFinding, ResourceKind, Severity};
-
-impl Diagnostic for KubePod {
-  fn resource_kind(&self) -> ResourceKind {
-    ResourceKind::Pod
-  }
-  fn name(&self) -> &str {
-    &self.name
-  }
-  fn namespace(&self) -> Option<&str> {
-    Some(&self.namespace)
-  }
-  fn age(&self) -> &str {
-    &self.age
-  }
-}
+use super::{DisplayFinding, ResourceKind, Severity};
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 /// Pod phase or "Unknown".
-fn pod_phase(pod: &KubePod) -> &str {
+fn phase(pod: &KubePod) -> &str {
   pod
     .get_k8s_obj()
     .status
@@ -47,7 +32,7 @@ fn latest_condition(pod: &KubePod) -> Option<&PodCondition> {
 }
 
 /// Extract (reason, message) from the newest condition, defaulting to "N/A".
-fn pod_condition_summary(pod: &KubePod) -> (String, String) {
+fn condition_summary(pod: &KubePod) -> (String, String) {
   match latest_condition(pod) {
     Some(c) => (
       c.reason.clone().unwrap_or_else(|| "N/A".into()),
@@ -57,14 +42,31 @@ fn pod_condition_summary(pod: &KubePod) -> (String, String) {
   }
 }
 
+fn finding(
+  pod: &KubePod,
+  severity: Severity,
+  reason: String,
+  message: String,
+) -> DisplayFinding {
+  DisplayFinding {
+    severity,
+    reason,
+    resource_kind: ResourceKind::Pod,
+    namespace: Some(pod.namespace.clone()),
+    resource_name: pod.name.clone(),
+    message,
+    age: pod.age.clone(),
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Individual pod checks
 // ---------------------------------------------------------------------------
 
 /// Flag Failed/Unknown/Pending phases.
 /// Ref: <https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase>
-fn check_pod_phase(pod: &KubePod) -> Option<(Severity, RawFinding)> {
-  let phase = pod_phase(pod);
+fn check_phase(pod: &KubePod) -> Option<DisplayFinding> {
+  let phase = phase(pod);
 
   let severity = match phase {
     "Failed" => Severity::Error,
@@ -73,17 +75,17 @@ fn check_pod_phase(pod: &KubePod) -> Option<(Severity, RawFinding)> {
     _ => return None,
   };
 
-  let (reason, message) = pod_condition_summary(pod);
-  Some((severity, RawFinding { reason, message }))
+  let (reason, message) = condition_summary(pod);
+  Some(finding(pod, severity, reason, message))
 }
 
 // ---------------------------------------------------------------------------
-// Registry of all pod checks
+// Evaluation entry point
 // ---------------------------------------------------------------------------
 
-/// Returns all registered pod checks. Add new checks here.
-pub fn all_pod_checks() -> &'static [HealthCheck<KubePod>] {
-  &[check_pod_phase]
+/// Run all pod checks and collect findings.
+pub fn evaluate(pods: &[KubePod]) -> Vec<DisplayFinding> {
+  pods.iter().filter_map(check_phase).collect()
 }
 
 #[cfg(test)]
@@ -120,10 +122,10 @@ mod tests {
   #[test]
   fn test_pod_phase_fallback_and_value() {
     let pod_unknown = build_pod(None, vec![]);
-    assert_eq!(pod_phase(&pod_unknown), "Unknown");
+    assert_eq!(phase(&pod_unknown), "Unknown");
 
     let pod_running = build_pod(Some("Running"), vec![]);
-    assert_eq!(pod_phase(&pod_running), "Running");
+    assert_eq!(phase(&pod_running), "Running");
   }
 
   #[test]

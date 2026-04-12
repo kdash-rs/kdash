@@ -14,13 +14,11 @@ use crate::ui::utils::{
   get_resource_title, title_with_dual_style,
 };
 
-mod engine;
 mod render;
 mod types;
 
-pub use engine::evaluate_resource;
 pub use render::render_troubleshoot;
-pub use types::{Diagnostic, DisplayFinding, HealthCheck, RawFinding, ResourceKind, Severity};
+pub use types::{DisplayFinding, ResourceKind, Severity};
 
 mod pod;
 mod pvc;
@@ -31,14 +29,11 @@ mod rs;
 // ---------------------------------------------------------------------------
 
 pub fn evaluate_findings(data: &Data) -> Vec<DisplayFinding> {
-  let mut findings: Vec<DisplayFinding> = [
-    evaluate_resource(&data.pods.items, pod::all_pod_checks()),
-    evaluate_resource(&data.persistent_volume_claims.items, pvc::all_pvc_checks()),
-    evaluate_resource(&data.replica_sets.items, rs::all_rs_checks()),
-  ]
-  .into_iter()
-  .flatten()
-  .collect();
+  let mut findings: Vec<DisplayFinding> = Vec::new();
+
+  findings.extend(pod::evaluate(&data.pods.items));
+  findings.extend(pvc::evaluate(&data.persistent_volume_claims.items));
+  findings.extend(rs::evaluate(&data.replica_sets.items));
 
   // Future: add node/deployment checks.
 

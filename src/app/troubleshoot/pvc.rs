@@ -3,14 +3,14 @@
 
 use crate::app::{models::KubeResource, pvcs::KubePVC};
 
-use super::{Diagnostic, HealthCheck, RawFinding, ResourceKind, Severity};
+use super::{DisplayFinding, ResourceKind, Severity};
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 /// PVC phase or "Unknown".
-fn pvc_phase(pvc: &KubePVC) -> &str {
+fn phase(pvc: &KubePVC) -> &str {
   pvc
     .get_k8s_obj()
     .status
@@ -19,18 +19,20 @@ fn pvc_phase(pvc: &KubePVC) -> &str {
     .unwrap_or("Unknown")
 }
 
-impl Diagnostic for KubePVC {
-  fn resource_kind(&self) -> ResourceKind {
-    ResourceKind::Pvc
-  }
-  fn name(&self) -> &str {
-    &self.name
-  }
-  fn namespace(&self) -> Option<&str> {
-    Some(&self.namespace)
-  }
-  fn age(&self) -> &str {
-    &self.age
+fn finding(
+  pvc: &KubePVC,
+  severity: Severity,
+  reason: String,
+  message: String,
+) -> DisplayFinding {
+  DisplayFinding {
+    severity,
+    reason,
+    resource_kind: ResourceKind::Pvc,
+    namespace: Some(pvc.namespace.clone()),
+    resource_name: pvc.name.clone(),
+    message,
+    age: pvc.age.clone(),
   }
 }
 
@@ -39,29 +41,28 @@ impl Diagnostic for KubePVC {
 // ---------------------------------------------------------------------------
 
 /// Flag non-Bound phase.
-fn check_pvc_phase(pvc: &KubePVC) -> Option<(Severity, RawFinding)> {
-  let phase = pvc_phase(pvc);
+fn check_phase(pvc: &KubePVC) -> Option<DisplayFinding> {
+  let phase = phase(pvc);
 
   if phase == "Bound" {
     return None;
   }
 
-  Some((
+  Some(finding(
+    pvc,
     Severity::Warn,
-    RawFinding {
-      reason: phase.into(),
-      message: format!("PVC phase is {}", phase),
-    },
+    phase.into(),
+    format!("PVC phase is {}", phase),
   ))
 }
 
 // ---------------------------------------------------------------------------
-// Registry of all PVC checks
+// PVC evaluation entry point
 // ---------------------------------------------------------------------------
 
-/// Returns all registered PVC checks. Add new checks here.
-pub fn all_pvc_checks() -> &'static [HealthCheck<KubePVC>] {
-  &[check_pvc_phase]
+/// Run all PVC checks and collect findings.
+pub fn evaluate(pvcs: &[KubePVC]) -> Vec<DisplayFinding> {
+  pvcs.iter().filter_map(check_phase).collect()
 }
 
 #[cfg(test)]
@@ -93,12 +94,12 @@ mod tests {
   #[test]
   fn test_pvc_phase_fallback() {
     let pvc = build_pvc(None);
-    assert_eq!(pvc_phase(&pvc), "Unknown");
+    assert_eq!(phase(&pvc), "Unknown");
   }
 
   #[test]
   fn test_check_pvc_phase_bound_is_none() {
     let pvc = build_pvc(Some("Bound"));
-    assert!(check_pvc_phase(&pvc).is_none());
+    assert!(check_phase(&pvc).is_none());
   }
 }

@@ -8,26 +8,28 @@
 
 use crate::app::{models::KubeResource, replicasets::KubeReplicaSet};
 
-use super::{Diagnostic, HealthCheck, RawFinding, ResourceKind, Severity};
-
-impl Diagnostic for KubeReplicaSet {
-  fn resource_kind(&self) -> ResourceKind {
-    ResourceKind::ReplicaSet
-  }
-  fn name(&self) -> &str {
-    &self.name
-  }
-  fn namespace(&self) -> Option<&str> {
-    Some(&self.namespace)
-  }
-  fn age(&self) -> &str {
-    &self.age
-  }
-}
+use super::{DisplayFinding, ResourceKind, Severity};
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+fn finding(
+  rs: &KubeReplicaSet,
+  severity: Severity,
+  reason: String,
+  message: String,
+) -> DisplayFinding {
+  DisplayFinding {
+    severity,
+    reason,
+    resource_kind: ResourceKind::ReplicaSet,
+    namespace: Some(rs.namespace.clone()),
+    resource_name: rs.name.clone(),
+    message,
+    age: rs.age.clone(),
+  }
+}
 
 /// Named replica counts from `.status` (missing fields default to 0).
 struct ReplicaCounts {
@@ -64,32 +66,35 @@ impl ReplicaCounts {
 // ---------------------------------------------------------------------------
 
 /// Flag mismatched status replica counts.
-fn check_rs_status(rs: &KubeReplicaSet) -> Option<(Severity, RawFinding)> {
+fn check_status(rs: &KubeReplicaSet) -> Option<DisplayFinding> {
   let counts = ReplicaCounts::from_rs(rs);
 
   if counts.all_equal() {
     return None;
   }
 
-  Some((
+  Some(finding(
+    rs,
     Severity::Warn,
-    RawFinding {
-      reason: "Replica counts differ".into(),
-      message: format!(
-        "ReplicaSet status mismatch: available={}, fully_labeled={}, ready={}, replicas={}",
-        counts.available, counts.fully_labeled, counts.ready, counts.replicas
-      ),
-    },
+    "Replica counts differ".into(),
+    format!(
+      "ReplicaSet status mismatch: available={}, fully_labeled={}, ready={}, replicas={}",
+      counts.available, counts.fully_labeled, counts.ready, counts.replicas
+    ),
   ))
 }
 
 // ---------------------------------------------------------------------------
-// Registry of all RS checks
+// Evaluation entry point
 // ---------------------------------------------------------------------------
 
-/// Returns all registered RS checks. Add new checks here.
-pub fn all_rs_checks() -> &'static [HealthCheck<KubeReplicaSet>] {
-  &[check_rs_status]
+/// Run all RS checks and collect findings.
+pub fn evaluate(replica_sets: &[KubeReplicaSet]) -> Vec<DisplayFinding> {
+  replica_sets
+    .iter()
+    .flat_map(|rs| [check_status(rs)])
+    .flatten()
+    .collect()
 }
 
 #[cfg(test)]
@@ -140,7 +145,7 @@ mod tests {
       ..Default::default()
     };
     let rs = build_rs(Some(status));
-    assert!(check_rs_status(&rs).is_none());
+    assert!(check_status(&rs).is_none());
   }
 
   #[test]
@@ -153,6 +158,6 @@ mod tests {
       ..Default::default()
     };
     let rs = build_rs(Some(status));
-    assert!(check_rs_status(&rs).is_some());
+    assert!(check_status(&rs).is_some());
   }
 }
