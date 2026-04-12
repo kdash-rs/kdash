@@ -32,6 +32,59 @@ use crate::ui::utils::{
 // Core generic finding type
 // ---------------------------------------------------------------------------
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct RawFinding {
+  pub id: String,
+  pub reason: String,
+  pub message: String,
+}
+
+pub trait Diagnostic {
+  // The human-readable kind (e.g., "Pod", "PVC")
+  fn resource_kind(&self) -> ResourceKind;
+
+  // The kind used for 'kubectl describe' (e.g., "pod", "persistentvolumeclaim")
+  fn describe_kind(&self) -> String;
+
+  fn name(&self) -> &str;
+  fn namespace(&self) -> Option<&str>;
+  fn age(&self) -> &str;
+}
+
+// A generic check type that works for any Diagnostic resource
+pub type HealthCheck<T> = fn(&T) -> Option<Finding<RawFinding>>;
+
+// Generic orchestrator
+pub fn evaluate_resource<T: Diagnostic>(
+  resources: &[T],
+  checks: &[HealthCheck<T>],
+) -> Vec<DisplayFinding> {
+  resources
+    .iter()
+    .flat_map(|res| {
+      checks.iter().filter_map(|check| {
+        check(res).map(|finding| {
+          let severity = finding.severity_tag();
+          let inner = finding.into_inner();
+          DisplayFinding {
+            severity,
+            reason: inner.reason,
+            resource_kind: res.resource_kind(),
+            namespace: res.namespace().map(str::to_string),
+            resource_name: res.name().to_string(),
+            message: inner.message,
+            age: res.age().to_string(),
+            describe_kind: res.describe_kind(),
+            describe_name: res.name().to_string(),
+            describe_namespace: res.namespace().map(str::to_string),
+            k8s_obj: (),
+          }
+        })
+      })
+    })
+    .collect()
+}
+
 /// Severity-tagged finding; variant order defines sort priority.
 #[derive(Clone, Debug, Display, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Finding<R> {
@@ -122,11 +175,6 @@ impl KubeResource<()> for DisplayFinding {
 // Conversion trait — resource findings → display findings
 // ---------------------------------------------------------------------------
 
-/// Convert resource findings into display rows.
-pub trait IntoDisplayFinding {
-  fn into_display_finding(self) -> DisplayFinding;
-}
-
 // ---------------------------------------------------------------------------
 // Evaluation orchestrator
 // ---------------------------------------------------------------------------
@@ -138,14 +186,10 @@ pub fn evaluate_findings(
 ) -> Vec<DisplayFinding> {
   let mut findings: Vec<DisplayFinding> = Vec::new();
 
-  // Collect pod findings
-  findings.extend(pod::evaluate_pod_findings(pods));
-
-  // Collect PVC findings
-  findings.extend(pvc::evaluate_pvc_findings(pvcs));
-
-  // Collect ReplicaSet findings
-  findings.extend(rs::evaluate_rs_findings(replica_sets));
+  // Each of these calls uses the generic engine and the HealthCheck<T> type
+  findings.extend(evaluate_resource(pods, &pod::all_pod_checks()));
+  findings.extend(evaluate_resource(pvcs, &pvc::all_pvc_checks()));
+  findings.extend(evaluate_resource(replica_sets, &rs::all_rs_checks()));
 
   // Future: add node/deployment checks.
 

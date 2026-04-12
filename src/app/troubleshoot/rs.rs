@@ -8,45 +8,7 @@
 
 use crate::app::{models::KubeResource, replicasets::KubeReplicaSet};
 
-use super::{DisplayFinding, Finding, IntoDisplayFinding, ResourceKind};
-
-// ---------------------------------------------------------------------------
-// RsFinding — resource-specific finding data for ReplicaSets
-// ---------------------------------------------------------------------------
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct RsFinding {
-  pub id: String,
-  pub reason: String,
-  pub namespace: String,
-  pub rs_name: String,
-  pub message: String,
-  pub age: String,
-}
-
-// ---------------------------------------------------------------------------
-// Finding<RsFinding> → DisplayFinding conversion
-// ---------------------------------------------------------------------------
-
-impl IntoDisplayFinding for Finding<RsFinding> {
-  fn into_display_finding(self) -> DisplayFinding {
-    let severity = self.severity_tag();
-    let inner = self.into_inner();
-    DisplayFinding {
-      severity,
-      reason: inner.reason,
-      resource_kind: ResourceKind::ReplicaSet,
-      namespace: Some(inner.namespace.clone()),
-      resource_name: inner.rs_name.clone(),
-      message: inner.message,
-      age: inner.age,
-      describe_kind: "replicaset".into(),
-      describe_name: inner.rs_name,
-      describe_namespace: Some(inner.namespace),
-      k8s_obj: (),
-    }
-  }
-}
+use super::{Diagnostic, Finding, HealthCheck, RawFinding, ResourceKind};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -66,35 +28,47 @@ fn rs_replica_counts(rs: &KubeReplicaSet) -> (i32, i32, i32, i32) {
   (available, fully_labeled, ready, replicas)
 }
 
-// ---------------------------------------------------------------------------
-// Check type alias
-// ---------------------------------------------------------------------------
+impl Diagnostic for KubeReplicaSet {
+  fn resource_kind(&self) -> ResourceKind {
+    ResourceKind::ReplicaSet
+  }
 
-/// Check an RS; optionally returns a finding.
-pub type RsCheck = fn(&KubeReplicaSet) -> Option<Finding<RsFinding>>;
+  fn describe_kind(&self) -> String {
+    "replicaset".into()
+  }
+
+  fn name(&self) -> &str {
+    &self.name
+  }
+
+  fn namespace(&self) -> Option<&str> {
+    Some(&self.namespace)
+  }
+
+  fn age(&self) -> &str {
+    &self.age
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Individual RS checks
 // ---------------------------------------------------------------------------
 
 /// Flag mismatched status replica counts.
-fn check_rs_status(rs: &KubeReplicaSet) -> Option<Finding<RsFinding>> {
+fn check_rs_status(rs: &KubeReplicaSet) -> Option<Finding<RawFinding>> {
   let (available, fully_labeled, ready, replicas) = rs_replica_counts(rs);
 
   if available == fully_labeled && fully_labeled == ready && ready == replicas {
     return None;
   }
 
-  Some(Finding::Warn(RsFinding {
+  Some(Finding::Warn(RawFinding {
     id: "rs.status.mismatch".into(),
     reason: "Replica counts differ".into(),
-    namespace: rs.namespace.clone(),
-    rs_name: rs.name.clone(),
     message: format!(
       "ReplicaSet status mismatch: available={}, fully_labeled={}, ready={}, replicas={}",
       available, fully_labeled, ready, replicas
     ),
-    age: rs.age.clone(),
   }))
 }
 
@@ -103,26 +77,8 @@ fn check_rs_status(rs: &KubeReplicaSet) -> Option<Finding<RsFinding>> {
 // ---------------------------------------------------------------------------
 
 /// Returns all registered RS checks. Add new checks here.
-fn all_rs_checks() -> Vec<RsCheck> {
+pub fn all_rs_checks() -> Vec<HealthCheck<KubeReplicaSet>> {
   vec![check_rs_status]
-}
-
-// ---------------------------------------------------------------------------
-// RS evaluation entry point
-// ---------------------------------------------------------------------------
-
-/// Run RS checks and flatten findings.
-pub fn evaluate_rs_findings(replica_sets: &[KubeReplicaSet]) -> Vec<DisplayFinding> {
-  let checks = all_rs_checks();
-
-  replica_sets
-    .iter()
-    .flat_map(|rs| {
-      checks
-        .iter()
-        .filter_map(move |check| check(rs).map(|f| f.into_display_finding()))
-    })
-    .collect()
 }
 
 #[cfg(test)]

@@ -3,45 +3,7 @@
 
 use crate::app::{models::KubeResource, pvcs::KubePVC};
 
-use super::{DisplayFinding, Finding, IntoDisplayFinding, ResourceKind};
-
-// ---------------------------------------------------------------------------
-// PvcFinding — resource-specific finding data for PVCs
-// ---------------------------------------------------------------------------
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct PvcFinding {
-  pub id: String,
-  pub reason: String,
-  pub namespace: String,
-  pub pvc_name: String,
-  pub message: String,
-  pub age: String,
-}
-
-// ---------------------------------------------------------------------------
-// Finding<PvcFinding> → DisplayFinding conversion
-// ---------------------------------------------------------------------------
-
-impl IntoDisplayFinding for Finding<PvcFinding> {
-  fn into_display_finding(self) -> DisplayFinding {
-    let severity = self.severity_tag();
-    let inner = self.into_inner();
-    DisplayFinding {
-      severity,
-      reason: inner.reason,
-      resource_kind: ResourceKind::Pvc,
-      namespace: Some(inner.namespace.clone()),
-      resource_name: inner.pvc_name.clone(),
-      message: inner.message,
-      age: inner.age,
-      describe_kind: "persistentvolumeclaim".into(),
-      describe_name: inner.pvc_name,
-      describe_namespace: Some(inner.namespace),
-      k8s_obj: (),
-    }
-  }
-}
+use super::{Diagnostic, Finding, HealthCheck, RawFinding, ResourceKind};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -57,32 +19,42 @@ fn pvc_phase(pvc: &KubePVC) -> &str {
     .unwrap_or("Unknown")
 }
 
-// ---------------------------------------------------------------------------
-// Check type alias
-// ---------------------------------------------------------------------------
+impl Diagnostic for KubePVC {
+  fn resource_kind(&self) -> ResourceKind {
+    ResourceKind::Pvc
+  }
 
-/// Check a PVC; optionally returns a finding.
-pub type PvcCheck = fn(&KubePVC) -> Option<Finding<PvcFinding>>;
+  fn describe_kind(&self) -> String {
+    "persistentvolumeclaim".into()
+  }
+
+  fn name(&self) -> &str {
+    &self.name
+  }
+  fn namespace(&self) -> Option<&str> {
+    Some(&self.namespace)
+  }
+  fn age(&self) -> &str {
+    &self.age
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Individual PVC checks
 // ---------------------------------------------------------------------------
 
 /// Flag non-Bound phase.
-fn check_pvc_phase(pvc: &KubePVC) -> Option<Finding<PvcFinding>> {
+fn check_pvc_phase(pvc: &KubePVC) -> Option<Finding<RawFinding>> {
   let phase = pvc_phase(pvc);
 
   if phase == "Bound" {
     return None;
   }
 
-  Some(Finding::Warn(PvcFinding {
+  Some(Finding::Warn(RawFinding {
     id: "pvc.phase.not_bound".into(),
     reason: phase.into(),
-    namespace: pvc.namespace.clone(),
-    pvc_name: pvc.name.clone(),
     message: format!("PVC phase is {}", phase),
-    age: pvc.age.clone(),
   }))
 }
 
@@ -91,27 +63,8 @@ fn check_pvc_phase(pvc: &KubePVC) -> Option<Finding<PvcFinding>> {
 // ---------------------------------------------------------------------------
 
 /// Returns all registered PVC checks. Add new checks here.
-fn all_pvc_checks() -> Vec<PvcCheck> {
+pub fn all_pvc_checks() -> Vec<HealthCheck<KubePVC>> {
   vec![check_pvc_phase]
-}
-
-// ---------------------------------------------------------------------------
-// PVC evaluation entry point
-// ---------------------------------------------------------------------------
-
-/// Run every registered PVC check against every PVC and return the flattened
-/// display findings.
-pub fn evaluate_pvc_findings(pvcs: &[KubePVC]) -> Vec<DisplayFinding> {
-  let checks = all_pvc_checks();
-
-  pvcs
-    .iter()
-    .flat_map(|pvc| {
-      checks
-        .iter()
-        .filter_map(move |check| check(pvc).map(|f| f.into_display_finding()))
-    })
-    .collect()
 }
 
 #[cfg(test)]

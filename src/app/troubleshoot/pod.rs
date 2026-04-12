@@ -5,45 +5,7 @@ use k8s_openapi::api::core::v1::PodCondition;
 
 use crate::app::{models::KubeResource, pods::KubePod};
 
-use super::{DisplayFinding, Finding, IntoDisplayFinding, ResourceKind};
-
-// ---------------------------------------------------------------------------
-// PodFinding — resource-specific finding data for pods
-// ---------------------------------------------------------------------------
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct PodFinding {
-  pub id: String,
-  pub reason: String,
-  pub namespace: String,
-  pub pod_name: String,
-  pub message: String,
-  pub age: String,
-}
-
-// ---------------------------------------------------------------------------
-// Finding<PodFinding> → DisplayFinding conversion
-// ---------------------------------------------------------------------------
-
-impl IntoDisplayFinding for Finding<PodFinding> {
-  fn into_display_finding(self) -> DisplayFinding {
-    let severity = self.severity_tag();
-    let inner = self.into_inner();
-    DisplayFinding {
-      severity,
-      reason: inner.reason,
-      resource_kind: ResourceKind::Pod,
-      namespace: Some(inner.namespace.clone()),
-      resource_name: inner.pod_name.clone(),
-      message: inner.message,
-      age: inner.age,
-      describe_kind: "pod".into(),
-      describe_name: inner.pod_name,
-      describe_namespace: Some(inner.namespace),
-      k8s_obj: (),
-    }
-  }
-}
+use super::{Diagnostic, Finding, HealthCheck, RawFinding, ResourceKind};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -91,11 +53,30 @@ fn pod_status_message(pod: &KubePod) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// Check type alias
+// Diagnostic impl
 // ---------------------------------------------------------------------------
 
-/// Check a pod; optionally returns a finding.
-pub type PodCheck = fn(&KubePod) -> Option<Finding<PodFinding>>;
+impl Diagnostic for KubePod {
+  fn resource_kind(&self) -> ResourceKind {
+    ResourceKind::Pod
+  }
+
+  fn describe_kind(&self) -> String {
+    "pod".into()
+  }
+
+  fn name(&self) -> &str {
+    &self.name
+  }
+
+  fn namespace(&self) -> Option<&str> {
+    Some(&self.namespace)
+  }
+
+  fn age(&self) -> &str {
+    &self.age
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Individual pod checks
@@ -103,23 +84,20 @@ pub type PodCheck = fn(&KubePod) -> Option<Finding<PodFinding>>;
 
 /// Flag Failed/Unknown/Pending phases.
 /// Ref: <https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase>
-fn check_pod_phase(pod: &KubePod) -> Option<Finding<PodFinding>> {
+fn check_pod_phase(pod: &KubePod) -> Option<Finding<RawFinding>> {
   let phase = pod_phase(pod);
 
-  let (id, finding_ctor): (&str, fn(PodFinding) -> Finding<PodFinding>) = match phase {
+  let (id, finding_ctor): (&str, fn(RawFinding) -> Finding<RawFinding>) = match phase {
     "Failed" => ("pod.phase.failed", Finding::Error),
     "Unknown" => ("pod.phase.unknown", Finding::Warn),
     "Pending" => ("pod.phase.pending", Finding::Info),
     _ => return None,
   };
 
-  Some(finding_ctor(PodFinding {
+  Some(finding_ctor(RawFinding {
     id: id.into(),
     reason: pod_status_reason(pod),
-    namespace: pod.namespace.clone(),
-    pod_name: pod.name.clone(),
     message: pod_status_message(pod),
-    age: pod.age.clone(),
   }))
 }
 
@@ -128,27 +106,8 @@ fn check_pod_phase(pod: &KubePod) -> Option<Finding<PodFinding>> {
 // ---------------------------------------------------------------------------
 
 /// Returns all registered pod checks. Add new checks here.
-fn all_pod_checks() -> Vec<PodCheck> {
+pub fn all_pod_checks() -> Vec<HealthCheck<KubePod>> {
   vec![check_pod_phase]
-}
-
-// ---------------------------------------------------------------------------
-// Pod evaluation entry point
-// ---------------------------------------------------------------------------
-
-/// Run every registered pod check against every pod and return the flattened
-/// display findings.
-pub fn evaluate_pod_findings(pods: &[KubePod]) -> Vec<DisplayFinding> {
-  let checks = all_pod_checks();
-
-  pods
-    .iter()
-    .flat_map(|pod| {
-      checks
-        .iter()
-        .filter_map(move |check| check(pod).map(|f| f.into_display_finding()))
-    })
-    .collect()
 }
 
 #[cfg(test)]
