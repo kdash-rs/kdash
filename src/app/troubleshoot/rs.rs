@@ -1,6 +1,6 @@
 //! ReplicaSet-specific troubleshooting checks.
 //!
-//! This module inspects cached ReplicaSet state and produces [`DisplayFinding`]s for
+//! This module inspects cached ReplicaSet state and produces findings for
 //! RSs that are in an unhealthy or noteworthy phase.
 //!
 //! References:
@@ -10,25 +10,41 @@ use crate::app::{models::KubeResource, replicasets::KubeReplicaSet};
 
 use super::{HealthCheck, RawFinding, ResourceKind, Severity};
 
+impl_diagnostic!(KubeReplicaSet, ResourceKind::ReplicaSet);
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Replica counts from `.status` (missing -> 0).
-fn rs_replica_counts(rs: &KubeReplicaSet) -> (i32, i32, i32, i32) {
-  let status = rs.get_k8s_obj().status.as_ref();
-  let available = status
-    .and_then(|s| s.available_replicas)
-    .unwrap_or_default();
-  let fully_labeled = status
-    .and_then(|s| s.fully_labeled_replicas)
-    .unwrap_or_default();
-  let ready = status.and_then(|s| s.ready_replicas).unwrap_or_default();
-  let replicas = status.map_or(0, |s| s.replicas);
-  (available, fully_labeled, ready, replicas)
+/// Named replica counts from `.status` (missing fields default to 0).
+struct ReplicaCounts {
+  available: i32,
+  fully_labeled: i32,
+  ready: i32,
+  replicas: i32,
 }
 
-impl_diagnostic!(KubeReplicaSet, ResourceKind::ReplicaSet);
+impl ReplicaCounts {
+  fn from_rs(rs: &KubeReplicaSet) -> Self {
+    let status = rs.get_k8s_obj().status.as_ref();
+    Self {
+      available: status
+        .and_then(|s| s.available_replicas)
+        .unwrap_or_default(),
+      fully_labeled: status
+        .and_then(|s| s.fully_labeled_replicas)
+        .unwrap_or_default(),
+      ready: status.and_then(|s| s.ready_replicas).unwrap_or_default(),
+      replicas: status.map_or(0, |s| s.replicas),
+    }
+  }
+
+  fn all_equal(&self) -> bool {
+    self.available == self.fully_labeled
+      && self.fully_labeled == self.ready
+      && self.ready == self.replicas
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Individual RS checks
@@ -36,9 +52,9 @@ impl_diagnostic!(KubeReplicaSet, ResourceKind::ReplicaSet);
 
 /// Flag mismatched status replica counts.
 fn check_rs_status(rs: &KubeReplicaSet) -> Option<(Severity, RawFinding)> {
-  let (available, fully_labeled, ready, replicas) = rs_replica_counts(rs);
+  let counts = ReplicaCounts::from_rs(rs);
 
-  if available == fully_labeled && fully_labeled == ready && ready == replicas {
+  if counts.all_equal() {
     return None;
   }
 
@@ -48,7 +64,7 @@ fn check_rs_status(rs: &KubeReplicaSet) -> Option<(Severity, RawFinding)> {
       reason: "Replica counts differ".into(),
       message: format!(
         "ReplicaSet status mismatch: available={}, fully_labeled={}, ready={}, replicas={}",
-        available, fully_labeled, ready, replicas
+        counts.available, counts.fully_labeled, counts.ready, counts.replicas
       ),
     },
   ))
@@ -59,8 +75,8 @@ fn check_rs_status(rs: &KubeReplicaSet) -> Option<(Severity, RawFinding)> {
 // ---------------------------------------------------------------------------
 
 /// Returns all registered RS checks. Add new checks here.
-pub fn all_rs_checks() -> Vec<HealthCheck<KubeReplicaSet>> {
-  vec![check_rs_status]
+pub fn all_rs_checks() -> &'static [HealthCheck<KubeReplicaSet>] {
+  &[check_rs_status]
 }
 
 #[cfg(test)]
@@ -89,7 +105,16 @@ mod tests {
   #[test]
   fn test_rs_replica_counts_defaults() {
     let rs = build_rs(None);
-    assert_eq!(rs_replica_counts(&rs), (0, 0, 0, 0));
+    let counts = ReplicaCounts::from_rs(&rs);
+    assert_eq!(
+      (
+        counts.available,
+        counts.fully_labeled,
+        counts.ready,
+        counts.replicas
+      ),
+      (0, 0, 0, 0)
+    );
   }
 
   #[test]

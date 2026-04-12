@@ -47,8 +47,8 @@ fn check_pvc_phase(pvc: &KubePVC) -> Option<(Severity, RawFinding)> {
 // ---------------------------------------------------------------------------
 
 /// Returns all registered PVC checks. Add new checks here.
-pub fn all_pvc_checks() -> Vec<HealthCheck<KubePVC>> {
-  vec![check_pvc_phase]
+pub fn all_pvc_checks() -> &'static [HealthCheck<KubePVC>] {
+  &[check_pvc_phase]
 }
 
 #[cfg(test)]

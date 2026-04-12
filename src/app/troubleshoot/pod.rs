@@ -25,33 +25,23 @@ fn pod_phase(pod: &KubePod) -> &str {
 
 /// Newest condition by `last_transition_time`.
 fn latest_condition(pod: &KubePod) -> Option<&PodCondition> {
-  let mut conditions: Vec<&PodCondition> = pod
+  pod
     .get_k8s_obj()
     .status
     .as_ref()
-    .and_then(|s| s.conditions.as_ref())
-    .map(|c| c.iter().collect())
-    .unwrap_or_default();
-
-  conditions.sort_by(|a, b| b.last_transition_time.cmp(&a.last_transition_time));
-
-  conditions.into_iter().next()
+    .and_then(|s| s.conditions.as_deref())
+    .and_then(|c| c.iter().max_by_key(|cond| &cond.last_transition_time))
 }
 
-/// Latest condition reason or "N/A".
-fn pod_status_reason(pod: &KubePod) -> String {
-  latest_condition(pod)
-    .and_then(|c| c.reason.as_deref())
-    .unwrap_or("N/A")
-    .into()
-}
-
-/// Latest condition message or "N/A".
-fn pod_status_message(pod: &KubePod) -> String {
-  latest_condition(pod)
-    .and_then(|c| c.message.as_deref())
-    .unwrap_or("N/A")
-    .into()
+/// Extract (reason, message) from the newest condition, defaulting to "N/A".
+fn pod_condition_summary(pod: &KubePod) -> (String, String) {
+  match latest_condition(pod) {
+    Some(c) => (
+      c.reason.clone().unwrap_or_else(|| "N/A".into()),
+      c.message.clone().unwrap_or_else(|| "N/A".into()),
+    ),
+    None => ("N/A".into(), "N/A".into()),
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -70,13 +60,8 @@ fn check_pod_phase(pod: &KubePod) -> Option<(Severity, RawFinding)> {
     _ => return None,
   };
 
-  Some((
-    severity,
-    RawFinding {
-      reason: pod_status_reason(pod),
-      message: pod_status_message(pod),
-    },
-  ))
+  let (reason, message) = pod_condition_summary(pod);
+  Some((severity, RawFinding { reason, message }))
 }
 
 // ---------------------------------------------------------------------------
@@ -84,8 +69,8 @@ fn check_pod_phase(pod: &KubePod) -> Option<(Severity, RawFinding)> {
 // ---------------------------------------------------------------------------
 
 /// Returns all registered pod checks. Add new checks here.
-pub fn all_pod_checks() -> Vec<HealthCheck<KubePod>> {
-  vec![check_pod_phase]
+pub fn all_pod_checks() -> &'static [HealthCheck<KubePod>] {
+  &[check_pod_phase]
 }
 
 #[cfg(test)]

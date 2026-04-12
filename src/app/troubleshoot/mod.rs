@@ -1,71 +1,42 @@
 use async_trait::async_trait;
-use ratatui::{
-  layout::{Constraint, Rect},
-  widgets::{Cell, Row},
-  Frame,
-};
-use strum::Display;
+use ratatui::layout::Rect;
+use ratatui::Frame;
 
 use super::{
-  models::{AppResource, FilterableTable, Named},
-  pods::KubePod,
-  pvcs::KubePVC,
-  replicasets::KubeReplicaSet,
-  ActiveBlock, App,
+  models::AppResource, pods::KubePod, pvcs::KubePVC, replicasets::KubeReplicaSet, ActiveBlock, App,
 };
 use k8s_openapi::api::apps::v1::ReplicaSet;
 use k8s_openapi::api::core::v1::{PersistentVolumeClaim, Pod};
 
-use crate::app::key_binding::DEFAULT_KEYBINDING;
 use crate::ui::utils::{
-  action_hint, copy_and_escape_title_line, describe_and_yaml_hint, draw_describe_block,
-  draw_route_resource_block, draw_yaml_block, filter_cursor_position, filter_status_parts,
-  get_describe_active, get_resource_title, help_part, mixed_bold_line, style_caution,
-  style_failure, style_primary, title_with_dual_style, ResourceTableProps,
+  copy_and_escape_title_line, draw_describe_block, draw_yaml_block, get_describe_active,
+  get_resource_title, title_with_dual_style,
 };
 
-// ---------------------------------------------------------------------------
-// Core generic finding type
-// ---------------------------------------------------------------------------
+mod engine;
+mod render;
+mod types;
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct RawFinding {
-  pub reason: String,
-  pub message: String,
-}
-
-/// Severity-tagged finding; variant order defines sort priority.
-#[derive(Clone, Copy, Debug, Display, Eq, Ord, PartialEq, PartialOrd)]
-pub enum Severity {
-  Error,
-  Warn,
-  Info,
-}
-
-pub trait Diagnostic {
-  // The human-readable kind (e.g., "Pod", "PVC")
-  fn resource_kind(&self) -> ResourceKind;
-
-  fn name(&self) -> &str;
-  fn namespace(&self) -> Option<&str>;
-  fn age(&self) -> &str;
-}
-
-// A generic check type that works for any Diagnostic resource
-pub type HealthCheck<T> = fn(&T) -> Option<(Severity, RawFinding)>;
+pub use engine::evaluate_resource;
+pub use render::render_troubleshoot;
+pub use types::{Diagnostic, DisplayFinding, HealthCheck, RawFinding, ResourceKind, Severity};
 
 // ---------------------------------------------------------------------------
 // impl_diagnostic macro — shared boilerplate for Diagnostic impls
 // ---------------------------------------------------------------------------
 
+/// Implements [`Diagnostic`] for a resource type.
+///
+/// The type **must** implement [`Named`](crate::app::models::Named) (used for
+/// `name()`) and have public fields `namespace: String` and `age: String`.
 macro_rules! impl_diagnostic {
   ($ty:ty, $kind:expr) => {
     impl $crate::app::troubleshoot::Diagnostic for $ty {
-      fn resource_kind(&self) -> ResourceKind {
+      fn resource_kind(&self) -> $crate::app::troubleshoot::ResourceKind {
         $kind
       }
       fn name(&self) -> &str {
-        &self.name
+        $crate::app::models::Named::get_name(self)
       }
       fn namespace(&self) -> Option<&str> {
         Some(&self.namespace)
@@ -81,90 +52,6 @@ mod pod;
 mod pvc;
 mod rs;
 
-// Generic orchestrator
-pub fn evaluate_resource<T: Diagnostic>(
-  resources: &[T],
-  checks: &[HealthCheck<T>],
-) -> Vec<DisplayFinding> {
-  resources
-    .iter()
-    .flat_map(|res| {
-      checks.iter().filter_map(|check| {
-        check(res).map(|(severity, raw)| DisplayFinding {
-          severity,
-          reason: raw.reason,
-          resource_kind: res.resource_kind(),
-          namespace: res.namespace().map(str::to_string),
-          resource_name: res.name().to_string(),
-          message: raw.message,
-          age: res.age().to_string(),
-        })
-      })
-    })
-    .collect()
-}
-
-// ---------------------------------------------------------------------------
-// Display enums shared across resource-specific findings
-// ---------------------------------------------------------------------------
-
-#[derive(Clone, Copy, Debug, Display, Eq, PartialEq)]
-pub enum ResourceKind {
-  Pod,
-  #[strum(serialize = "PVC")]
-  Pvc,
-  ReplicaSet,
-}
-
-impl ResourceKind {
-  pub fn describe_kind(&self) -> &'static str {
-    match self {
-      ResourceKind::Pod => "pod",
-      ResourceKind::Pvc => "persistentvolumeclaim",
-      ResourceKind::ReplicaSet => "replicaset",
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// DisplayFinding — the concrete, type-erased row
-// ---------------------------------------------------------------------------
-
-/// Flattened UI row for a finding.
-#[derive(Clone, Debug, PartialEq)]
-pub struct DisplayFinding {
-  pub severity: Severity,
-  pub reason: String,
-  pub resource_kind: ResourceKind,
-  pub namespace: Option<String>,
-  pub resource_name: String,
-  pub message: String,
-  pub age: String,
-}
-
-impl DisplayFinding {
-  pub fn resource_ref(&self) -> String {
-    match &self.namespace {
-      Some(ns) if !ns.is_empty() => format!("{}/{}", ns, self.resource_name),
-      _ => self.resource_name.clone(),
-    }
-  }
-
-  pub fn describe_target(&self) -> (&str, &str, Option<&str>) {
-    (
-      self.resource_kind.describe_kind(),
-      self.resource_name.as_str(),
-      self.namespace.as_deref(),
-    )
-  }
-}
-
-impl Named for DisplayFinding {
-  fn get_name(&self) -> &String {
-    &self.resource_name
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Evaluation orchestrator
 // ---------------------------------------------------------------------------
@@ -174,16 +61,18 @@ pub fn evaluate_findings(
   pvcs: &[KubePVC],
   replica_sets: &[KubeReplicaSet],
 ) -> Vec<DisplayFinding> {
-  let mut findings: Vec<DisplayFinding> = Vec::new();
-
-  // Each of these calls uses the generic engine and the HealthCheck<T> type
-  findings.extend(evaluate_resource(pods, &pod::all_pod_checks()));
-  findings.extend(evaluate_resource(pvcs, &pvc::all_pvc_checks()));
-  findings.extend(evaluate_resource(replica_sets, &rs::all_rs_checks()));
+  let mut findings: Vec<DisplayFinding> = [
+    evaluate_resource(pods, pod::all_pod_checks()),
+    evaluate_resource(pvcs, pvc::all_pvc_checks()),
+    evaluate_resource(replica_sets, rs::all_rs_checks()),
+  ]
+  .into_iter()
+  .flatten()
+  .collect();
 
   // Future: add node/deployment checks.
 
-  findings.sort_by(|a, b| {
+  findings.sort_unstable_by(|a, b| {
     a.severity
       .cmp(&b.severity)
       .then_with(|| a.resource_name.cmp(&b.resource_name))
@@ -193,81 +82,8 @@ pub fn evaluate_findings(
 }
 
 // ---------------------------------------------------------------------------
-// Rendering
+// AppResource impl
 // ---------------------------------------------------------------------------
-
-pub fn render_troubleshoot(f: &mut Frame<'_>, app: &mut App, area: Rect) {
-  let light_theme = app.light_theme;
-  let is_loading = app.is_loading();
-  let title = format!(
-    " Troubleshoot (ns: {}) [{}] ",
-    app
-      .data
-      .selected
-      .ns
-      .as_ref()
-      .unwrap_or(&String::from("all")),
-    app.data.troubleshoot_findings.count_label(),
-  );
-  let title_width = title.chars().count();
-  let findings = &mut app.data.troubleshoot_findings;
-  let filter = findings.filter.clone();
-  let filter_active = findings.filter_active;
-
-  let mut inline_help = vec![];
-  inline_help.extend(filter_status_parts(&filter, filter_active));
-  if !filter_active {
-    inline_help.extend([
-      help_part(format!(
-        " | {} | ",
-        action_hint("resource", DEFAULT_KEYBINDING.submit.key)
-      )),
-      help_part(describe_and_yaml_hint()),
-    ]);
-  }
-
-  draw_route_resource_block(
-    f,
-    area,
-    ResourceTableProps {
-      title,
-      inline_help: mixed_bold_line(inline_help, app.light_theme),
-      resource: findings,
-      table_headers: vec!["Severity", "Type", "Reason", "Resource", "Message", "Age"],
-      column_widths: vec![
-        Constraint::Percentage(7),
-        Constraint::Percentage(6),
-        Constraint::Percentage(13),
-        Constraint::Percentage(18),
-        Constraint::Percentage(44),
-        Constraint::Percentage(12),
-      ],
-    },
-    |c| {
-      let style = match c.severity {
-        Severity::Error => style_failure(light_theme),
-        Severity::Warn => style_caution(light_theme),
-        Severity::Info => style_primary(light_theme),
-      };
-
-      Row::new(vec![
-        Cell::from(c.severity.to_string()),
-        Cell::from(c.resource_kind.to_string()),
-        Cell::from(c.reason.clone()),
-        Cell::from(c.resource_ref()),
-        Cell::from(c.message.clone()),
-        Cell::from(c.age.clone()),
-      ])
-      .style(style)
-    },
-    light_theme,
-    is_loading,
-  );
-
-  if filter_active {
-    f.set_cursor_position(filter_cursor_position(area, title_width, &filter));
-  }
-}
 
 pub struct TroubleshootResource;
 
@@ -415,6 +231,13 @@ mod tests {
       },
       ..App::default()
     }
+  }
+
+  #[test]
+  fn test_severity_ordering() {
+    assert!(Severity::Error < Severity::Warn);
+    assert!(Severity::Warn < Severity::Info);
+    assert!(Severity::Error < Severity::Info);
   }
 
   #[test]
