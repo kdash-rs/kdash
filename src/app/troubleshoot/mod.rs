@@ -22,33 +22,6 @@ pub use engine::evaluate_resource;
 pub use render::render_troubleshoot;
 pub use types::{Diagnostic, DisplayFinding, HealthCheck, RawFinding, ResourceKind, Severity};
 
-// ---------------------------------------------------------------------------
-// impl_diagnostic macro — shared boilerplate for Diagnostic impls
-// ---------------------------------------------------------------------------
-
-/// Implements [`Diagnostic`] for a resource type.
-///
-/// The type **must** implement [`Named`](crate::app::models::Named) (used for
-/// `name()`) and have public fields `namespace: String` and `age: String`.
-macro_rules! impl_diagnostic {
-  ($ty:ty, $kind:expr) => {
-    impl $crate::app::troubleshoot::Diagnostic for $ty {
-      fn resource_kind(&self) -> $crate::app::troubleshoot::ResourceKind {
-        $kind
-      }
-      fn name(&self) -> &str {
-        $crate::app::models::Named::get_name(self)
-      }
-      fn namespace(&self) -> Option<&str> {
-        Some(&self.namespace)
-      }
-      fn age(&self) -> &str {
-        &self.age
-      }
-    }
-  };
-}
-
 mod pod;
 mod pvc;
 mod rs;

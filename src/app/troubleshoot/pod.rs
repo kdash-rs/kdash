@@ -5,9 +5,22 @@ use k8s_openapi::api::core::v1::PodCondition;
 
 use crate::app::{models::KubeResource, pods::KubePod};
 
-use super::{HealthCheck, RawFinding, ResourceKind, Severity};
+use super::{Diagnostic, HealthCheck, RawFinding, ResourceKind, Severity};
 
-impl_diagnostic!(KubePod, ResourceKind::Pod);
+impl Diagnostic for KubePod {
+  fn resource_kind(&self) -> ResourceKind {
+    ResourceKind::Pod
+  }
+  fn name(&self) -> &str {
+    &self.name
+  }
+  fn namespace(&self) -> Option<&str> {
+    Some(&self.namespace)
+  }
+  fn age(&self) -> &str {
+    &self.age
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Helpers

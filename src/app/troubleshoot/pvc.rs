@@ -3,7 +3,7 @@
 
 use crate::app::{models::KubeResource, pvcs::KubePVC};
 
-use super::{HealthCheck, RawFinding, ResourceKind, Severity};
+use super::{Diagnostic, HealthCheck, RawFinding, ResourceKind, Severity};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -19,7 +19,20 @@ fn pvc_phase(pvc: &KubePVC) -> &str {
     .unwrap_or("Unknown")
 }
 
-impl_diagnostic!(KubePVC, ResourceKind::Pvc);
+impl Diagnostic for KubePVC {
+  fn resource_kind(&self) -> ResourceKind {
+    ResourceKind::Pvc
+  }
+  fn name(&self) -> &str {
+    &self.name
+  }
+  fn namespace(&self) -> Option<&str> {
+    Some(&self.namespace)
+  }
+  fn age(&self) -> &str {
+    &self.age
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Individual PVC checks

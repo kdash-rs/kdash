@@ -8,9 +8,22 @@
 
 use crate::app::{models::KubeResource, replicasets::KubeReplicaSet};
 
-use super::{HealthCheck, RawFinding, ResourceKind, Severity};
+use super::{Diagnostic, HealthCheck, RawFinding, ResourceKind, Severity};
 
-impl_diagnostic!(KubeReplicaSet, ResourceKind::ReplicaSet);
+impl Diagnostic for KubeReplicaSet {
+  fn resource_kind(&self) -> ResourceKind {
+    ResourceKind::ReplicaSet
+  }
+  fn name(&self) -> &str {
+    &self.name
+  }
+  fn namespace(&self) -> Option<&str> {
+    Some(&self.namespace)
+  }
+  fn age(&self) -> &str {
+    &self.age
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
