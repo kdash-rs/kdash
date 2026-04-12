@@ -3,7 +3,8 @@ use ratatui::layout::Rect;
 use ratatui::Frame;
 
 use super::{
-  models::AppResource, pods::KubePod, pvcs::KubePVC, replicasets::KubeReplicaSet, ActiveBlock, App,
+  models::AppResource, pods::KubePod, pvcs::KubePVC, replicasets::KubeReplicaSet, ActiveBlock,
+  App, Data,
 };
 use k8s_openapi::api::apps::v1::ReplicaSet;
 use k8s_openapi::api::core::v1::{PersistentVolumeClaim, Pod};
@@ -56,15 +57,11 @@ mod rs;
 // Evaluation orchestrator
 // ---------------------------------------------------------------------------
 
-pub fn evaluate_findings(
-  pods: &[KubePod],
-  pvcs: &[KubePVC],
-  replica_sets: &[KubeReplicaSet],
-) -> Vec<DisplayFinding> {
+pub fn evaluate_findings(data: &Data) -> Vec<DisplayFinding> {
   let mut findings: Vec<DisplayFinding> = [
-    evaluate_resource(pods, pod::all_pod_checks()),
-    evaluate_resource(pvcs, pvc::all_pvc_checks()),
-    evaluate_resource(replica_sets, rs::all_rs_checks()),
+    evaluate_resource(&data.pods.items, pod::all_pod_checks()),
+    evaluate_resource(&data.persistent_volume_claims.items, pvc::all_pvc_checks()),
+    evaluate_resource(&data.replica_sets.items, rs::all_rs_checks()),
   ]
   .into_iter()
   .flatten()
@@ -134,12 +131,11 @@ impl AppResource for TroubleshootResource {
       network.get_namespaced_resources::<ReplicaSet, KubeReplicaSet, _>(KubeReplicaSet::from),
     );
 
-    let findings = evaluate_findings(&pods, &pvcs, &replica_sets);
-
     let mut app = network.app.lock().await;
     app.data.pods.set_items(pods);
     app.data.persistent_volume_claims.set_items(pvcs);
     app.data.replica_sets.set_items(replica_sets);
+    let findings = evaluate_findings(&app.data);
     app.data.troubleshoot_findings.set_items(findings);
   }
 }
@@ -248,11 +244,7 @@ mod tests {
 
     let app = build_app_with_resources(pod, pvc, rs);
 
-    let findings = evaluate_findings(
-      &app.data.pods.items,
-      &app.data.persistent_volume_claims.items,
-      &app.data.replica_sets.items,
-    );
+    let findings = evaluate_findings(&app.data);
 
     // Order: severity (Error->Warn->Info), then name.
     assert_eq!(findings.len(), 3);
