@@ -809,7 +809,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
                 app.push_navigation_stack(RouteId::Troubleshoot, ActiveBlock::Describe);
                 app
                   .dispatch_cmd(IoCmdEvent::GetDescribe {
-                    kind: kind.to_owned(),
+                    kind,
                     value: value.to_owned(),
                     ns: ns.map(str::to_owned),
                   })
@@ -823,7 +823,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
               app.push_navigation_stack(RouteId::Troubleshoot, ActiveBlock::Describe);
               app
                 .dispatch_cmd(IoCmdEvent::GetDescribe {
-                  kind: kind.to_owned(),
+                  kind,
                   value: value.to_owned(),
                   ns: ns.map(str::to_owned),
                 })

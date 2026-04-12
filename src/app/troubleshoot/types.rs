@@ -2,7 +2,7 @@
 
 use std::cmp::Ordering;
 
-use strum::Display;
+use strum::{Display, EnumIter};
 
 use crate::app::models::Named;
 
@@ -44,22 +44,19 @@ impl PartialOrd for Severity {
 // Display enums shared across resource-specific findings
 // ---------------------------------------------------------------------------
 
-#[derive(Clone, Copy, Debug, Display, Eq, PartialEq)]
+/// Kubernetes resource kind for troubleshoot findings.
+///
+/// The `strum` serialization for each variant **must** be recognizable by `kubectl`.
+/// This string is used both as the UI table label and as the `kind` argument in
+/// `kubectl describe` commands.
+#[derive(Clone, Copy, Debug, Display, EnumIter, Eq, Hash, PartialEq)]
 pub enum ResourceKind {
+  #[strum(serialize = "pod")]
   Pod,
-  #[strum(serialize = "PVC")]
+  #[strum(serialize = "pvc")]
   Pvc,
+  #[strum(serialize = "rs")]
   ReplicaSet,
-}
-
-impl ResourceKind {
-  pub fn describe_kind(&self) -> &'static str {
-    match self {
-      ResourceKind::Pod => "pod",
-      ResourceKind::Pvc => "persistentvolumeclaim",
-      ResourceKind::ReplicaSet => "replicaset",
-    }
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -86,9 +83,9 @@ impl DisplayFinding {
     }
   }
 
-  pub fn describe_target(&self) -> (&str, &str, Option<&str>) {
+  pub fn describe_target(&self) -> (String, &str, Option<&str>) {
     (
-      self.resource_kind.describe_kind(),
+      self.resource_kind.to_string(),
       self.resource_name.as_str(),
       self.namespace.as_deref(),
     )

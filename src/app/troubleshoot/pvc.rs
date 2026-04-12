@@ -19,12 +19,7 @@ fn phase(pvc: &KubePVC) -> &str {
     .unwrap_or("Unknown")
 }
 
-fn finding(
-  pvc: &KubePVC,
-  severity: Severity,
-  reason: String,
-  message: String,
-) -> DisplayFinding {
+fn finding(pvc: &KubePVC, severity: Severity, reason: String, message: String) -> DisplayFinding {
   DisplayFinding {
     severity,
     reason,
@@ -61,8 +56,8 @@ fn check_phase(pvc: &KubePVC) -> Option<DisplayFinding> {
 // ---------------------------------------------------------------------------
 
 /// Run all PVC checks and collect findings.
-pub fn evaluate(pvcs: &[KubePVC]) -> Vec<DisplayFinding> {
-  pvcs.iter().filter_map(check_phase).collect()
+pub fn evaluate(items: &[KubePVC]) -> Vec<DisplayFinding> {
+  items.iter().filter_map(check_phase).collect()
 }
 
 #[cfg(test)]

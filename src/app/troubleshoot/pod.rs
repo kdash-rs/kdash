@@ -42,12 +42,7 @@ fn condition_summary(pod: &KubePod) -> (String, String) {
   }
 }
 
-fn finding(
-  pod: &KubePod,
-  severity: Severity,
-  reason: String,
-  message: String,
-) -> DisplayFinding {
+fn finding(pod: &KubePod, severity: Severity, reason: String, message: String) -> DisplayFinding {
   DisplayFinding {
     severity,
     reason,
@@ -84,8 +79,8 @@ fn check_phase(pod: &KubePod) -> Option<DisplayFinding> {
 // ---------------------------------------------------------------------------
 
 /// Run all pod checks and collect findings.
-pub fn evaluate(pods: &[KubePod]) -> Vec<DisplayFinding> {
-  pods.iter().filter_map(check_phase).collect()
+pub fn evaluate(items: &[KubePod]) -> Vec<DisplayFinding> {
+  items.iter().filter_map(check_phase).collect()
 }
 
 #[cfg(test)]

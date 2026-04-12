@@ -1,3 +1,33 @@
+//! Troubleshoot subsystem — surfaces unhealthy Kubernetes resources.
+//!
+//! Each resource kind has its own check module (e.g. `pod`, `pvc`, etc.).
+//! `evaluate_findings` collects results from every module into a sorted
+//! `Vec<DisplayFinding>` that the UI renders as a table.
+//!
+//! # Adding a check to an existing resource
+//!
+//! 1. Add `fn check_foo(res: &KubeT) -> Option<DisplayFinding>` that
+//!    returns `Some(finding(res, severity, reason, message))` when unhealthy.
+//! 2. Wire it into `evaluate()`.
+//!
+//! # Adding a check module for a new resource
+//!
+//! 1. Add a variant to [`ResourceKind`] in `types.rs` with a
+//!    `#[strum(serialize = "...")]` attribute set to the (short) `kubectl`
+//!    alias (e.g. `"deploy"`, `"svc"`).
+//! 2. Create `<resource>.rs` with:
+//!    - `fn finding(res, severity, reason, message) -> DisplayFinding`.
+//!    - One or more `fn check_*(res) -> Option<DisplayFinding>`.
+//!    - `pub fn evaluate(items: &[KubeT]) -> Vec<DisplayFinding>`.
+//! 3. In this file (`mod.rs`):
+//!    - Add `mod <resource>;`
+//!    - Add `findings.extend(<resource>::evaluate(&data.<table>.items));`
+//!      in `evaluate_findings`.
+//! 4. In `TroubleshootResource::get_resource`, fetch and store the new
+//!    resource type alongside the existing `tokio::join!` calls.
+//! 5. Run `cargo test troubleshoot` — `test_all_resource_kinds_covered`
+//!    will fail until the new `ResourceKind` variant produces findings.
+
 use async_trait::async_trait;
 use ratatui::layout::Rect;
 use ratatui::Frame;
@@ -237,7 +267,10 @@ mod tests {
     };
 
     assert_eq!(finding.resource_ref(), "ns-1/pod-a");
-    assert_eq!(finding.describe_target(), ("pod", "pod-a", Some("ns-1")));
+    assert_eq!(
+      finding.describe_target(),
+      ("pod".to_string(), "pod-a", Some("ns-1"))
+    );
   }
 
   #[test]
@@ -253,6 +286,6 @@ mod tests {
     };
 
     assert_eq!(finding.resource_ref(), "rs-a");
-    assert_eq!(finding.describe_target(), ("replicaset", "rs-a", None));
+    assert_eq!(finding.describe_target(), ("rs".to_string(), "rs-a", None));
   }
 }
