@@ -307,8 +307,7 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
       // the latest state, eliminating the 1-event visual lag.
 
       // Process the blocking event
-      let mut should_break =
-        process_event(&mut app, event, &mut is_first_render).await;
+      let mut should_break = process_event(&mut app, event, &mut is_first_render).await;
 
       // Drain any pending events so rapid key-presses are batched into a
       // single render pass instead of each triggering a stale redraw.
@@ -316,8 +315,7 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
         for _ in 0..20 {
           match events.try_next() {
             Some(ev) => {
-              should_break =
-                process_event(&mut app, ev, &mut is_first_render).await;
+              should_break = process_event(&mut app, ev, &mut is_first_render).await;
               if should_break {
                 break;
               }

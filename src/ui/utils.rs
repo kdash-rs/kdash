@@ -659,53 +659,55 @@ pub fn draw_describe_block(f: &mut Frame<'_>, app: &mut App, area: Rect, title: 
   draw_yaml_block(f, app, area, title);
 }
 
+/// Refreshes the syntax-highlight cache when empty or the theme changed.
+/// Returns `false` when there is no content to highlight.
+fn ensure_highlight_cache(app: &mut App) -> bool {
+  if app.data.describe_out.get_txt().is_empty() {
+    return false;
+  }
+  if app.data.describe_out.highlighted_lines.is_empty()
+    || app.data.describe_out.highlight_light_theme != app.light_theme
+  {
+    let ss = get_syntax_set();
+    let syntax = get_yaml_syntax_reference();
+    let theme = if app.light_theme {
+      &get_yaml_themes().light
+    } else {
+      &get_yaml_themes().dark
+    };
+    let mut h = syntect::easy::HighlightLines::new(syntax, theme);
+    let txt = app.data.describe_out.get_txt();
+    let lines: Vec<_> = syntect::util::LinesWithEndings::from(txt)
+      .filter_map(|line| match h.highlight_line(line, ss) {
+        Ok(segments) => {
+          let line_spans: Vec<_> = segments
+            .into_iter()
+            .filter_map(syntect_to_ratatui_span_owned)
+            .collect();
+          Some(ratatui::text::Line::from(line_spans))
+        }
+        Err(_) => None,
+      })
+      .collect();
+    app.data.describe_out.highlighted_lines = lines;
+    app.data.describe_out.highlight_light_theme = app.light_theme;
+  }
+  true
+}
+
 /// common for all resources
 pub fn draw_yaml_block(f: &mut Frame<'_>, app: &mut App, area: Rect, title: Line<'_>) {
   let block = layout_block_top_border(title);
-
-  let txt = app.data.describe_out.get_txt();
-  if !txt.is_empty() {
-    // Re-highlight only when the cache is empty or the theme changed.
-    if app.data.describe_out.highlighted_lines.is_empty()
-      || app.data.describe_out.highlight_light_theme != app.light_theme
-    {
-      let ss = get_syntax_set();
-      let syntax = get_yaml_syntax_reference();
-      let theme = if app.light_theme {
-        &get_yaml_themes().light
-      } else {
-        &get_yaml_themes().dark
-      };
-      let mut h = syntect::easy::HighlightLines::new(syntax, theme);
-      let lines: Vec<_> = syntect::util::LinesWithEndings::from(txt)
-        .filter_map(|line| match h.highlight_line(line, ss) {
-          Ok(segments) => {
-            let line_spans: Vec<_> = segments
-              .into_iter()
-              .filter_map(syntect_to_ratatui_span_owned)
-              .collect();
-            Some(ratatui::text::Line::from(line_spans))
-          }
-          Err(_) => None,
-        })
-        .collect();
-      app.data.describe_out.highlighted_lines = lines;
-      app.data.describe_out.highlight_light_theme = app.light_theme;
-    }
-
-    // Extract only a window of source lines around the visible region.
-    // The scroll offset is bounded by the source-line count, so it maps roughly to source-line indices.
+  if ensure_highlight_cache(app) {
     let offset = app.data.describe_out.offset;
     let total = app.data.describe_out.highlighted_lines.len();
-    // Subtract 2 for the top-border of the block
+    // Subtract 2 for the top-border of the block.
     let view_h = area.height.saturating_sub(2) as usize;
-    // Take a generous window: some lines before `offset` (to cover
-    // wrapping that shifts content up) and several screen-heights after.
+    // Take a generous window around the visible region.
     let slice_start = offset.saturating_sub(view_h);
     let slice_end = total.min(offset + view_h * 3);
-    let visible_lines = app.data.describe_out.highlighted_lines[slice_start..slice_end].to_vec();
     let adjusted_offset = (offset - slice_start).min(u16::MAX as usize) as u16;
-
+    let visible_lines = app.data.describe_out.highlighted_lines[slice_start..slice_end].to_vec();
     let paragraph = Paragraph::new(visible_lines)
       .block(block)
       .wrap(Wrap { trim: false })
@@ -732,7 +734,6 @@ fn draw_resource_table<'a, T: KubeResource<U>, F, U: Serialize>(
     let has_filter = !filter.is_empty();
     let mut filtered_indices: Vec<usize> = Vec::new();
 
-    // Apply filter and collect filtered indices.
     let filtered_items: Vec<(usize, &T)> = table_props
       .resource
       .items
@@ -763,8 +764,6 @@ fn draw_resource_table<'a, T: KubeResource<U>, F, U: Serialize>(
     let visible_start = selected.saturating_sub(view_h);
     let visible_end = (selected + view_h * 2).min(filtered_items.len());
 
-    // Build Row widgets, using the expensive mapper only for
-    // rows in or near the visible viewport.
     let rows: Vec<Row<'a>> = filtered_items
       .iter()
       .enumerate()
@@ -787,6 +786,41 @@ fn draw_resource_table<'a, T: KubeResource<U>, F, U: Serialize>(
   } else {
     loading(f, block, area, is_loading, light_theme);
   }
+}
+
+/// Builds the help `Line` for a resource block title, weaving filter status
+/// into any existing inline help (placing it after a "containers" prefix when present).
+fn build_resource_help_line(
+  inline_help: Line<'_>,
+  filter: &str,
+  filter_active: bool,
+  light_theme: bool,
+) -> Line<'static> {
+  let inline_help_text = inline_help
+    .spans
+    .iter()
+    .map(|span| span.content.as_ref())
+    .collect::<String>();
+  let containers_prefix = format!(
+    "{} | ",
+    action_hint("containers", DEFAULT_KEYBINDING.submit.key)
+  );
+  let mut help_parts: Vec<LinePart<'static>> = Vec::new();
+  if let Some(rest) = inline_help_text.strip_prefix(&containers_prefix) {
+    help_parts.push(help_part(containers_prefix));
+    help_parts.extend(owned_filter_status_parts(filter, filter_active));
+    if !rest.is_empty() {
+      help_parts.push(help_part(" | ".to_string()));
+      help_parts.push(help_part(rest.to_string()));
+    }
+  } else {
+    help_parts.extend(owned_filter_status_parts(filter, filter_active));
+    if !inline_help_text.is_empty() {
+      help_parts.push(help_part(" | ".to_string()));
+      help_parts.push(help_part(inline_help_text));
+    }
+  }
+  mixed_bold_line(help_parts, light_theme)
 }
 
 /// Draw a kubernetes resource overview tab
@@ -836,31 +870,8 @@ pub fn draw_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
     return;
   }
 
-  let inline_help_text = inline_help
-    .spans
-    .iter()
-    .map(|span| span.content.as_ref())
-    .collect::<String>();
-  let containers_prefix = format!(
-    "{} | ",
-    action_hint("containers", DEFAULT_KEYBINDING.submit.key)
-  );
-  let mut help_parts = Vec::new();
-  if let Some(rest) = inline_help_text.strip_prefix(&containers_prefix) {
-    help_parts.push(help_part(containers_prefix.clone()));
-    help_parts.extend(owned_filter_status_parts(&filter, filter_active));
-    if !rest.is_empty() {
-      help_parts.push(help_part(" | "));
-      help_parts.push(help_part(rest.to_string()));
-    }
-  } else {
-    help_parts.extend(owned_filter_status_parts(&filter, filter_active));
-    if !inline_help_text.is_empty() {
-      help_parts.push(help_part(" | "));
-      help_parts.push(help_part(inline_help_text));
-    }
-  }
-  let title = title_with_dual_style(title, mixed_bold_line(help_parts, light_theme), light_theme);
+  let help_line = build_resource_help_line(inline_help, &filter, filter_active, light_theme);
+  let title = title_with_dual_style(title, help_line, light_theme);
   let block = layout_block_top_border(title);
   draw_resource_table(
     f,
@@ -1480,6 +1491,56 @@ mod tests {
     assert_eq!(
       get_cluster_wide_resource_title("Nodes", 10, "-> hello"),
       " Nodes [10] -> hello"
+    );
+  }
+
+  #[test]
+  fn test_build_resource_help_line() {
+    // Case 1: Empty inline_help, empty filter, filter_active=false
+    // -> line text should contain the inactive "filter <key>" action hint
+    let line = build_resource_help_line(Line::default(), "", false, false);
+    let text: String = line.spans.iter().map(|s| s.content.as_ref()).collect();
+    let expected_filter_hint = action_hint("filter", DEFAULT_KEYBINDING.filter.key);
+    assert!(
+      text.contains(&expected_filter_hint),
+      "Case 1: expected '{text}' to contain '{expected_filter_hint}'"
+    );
+
+    // Case 2: Non-empty inline_help, empty filter, filter_active=false
+    // -> line text should contain the inline help hint after " | "
+    let line2 = build_resource_help_line(help_bold_line("-> yaml <y>", false), "", false, false);
+    let text2: String = line2.spans.iter().map(|s| s.content.as_ref()).collect();
+    assert!(
+      text2.contains("-> yaml <y>"),
+      "Case 2: expected '{text2}' to contain '-> yaml <y>'"
+    );
+
+    // Case 3: inline_help starting with the containers prefix
+    // -> line text should start with the containers hint
+    let containers_prefix_str = format!(
+      "{} | ",
+      action_hint("containers", DEFAULT_KEYBINDING.submit.key)
+    );
+    let line3 = build_resource_help_line(
+      help_bold_line(containers_prefix_str.as_str(), false),
+      "",
+      false,
+      false,
+    );
+    let text3: String = line3.spans.iter().map(|s| s.content.as_ref()).collect();
+    let containers_hint = action_hint("containers", DEFAULT_KEYBINDING.submit.key);
+    assert!(
+      text3.starts_with(&containers_hint),
+      "Case 3: expected '{text3}' to start with '{containers_hint}'"
+    );
+
+    // Case 4: Empty inline_help, filter="foo", filter_active=false
+    // -> line text should contain "[foo]"
+    let line4 = build_resource_help_line(Line::default(), "foo", false, false);
+    let text4: String = line4.spans.iter().map(|s| s.content.as_ref()).collect();
+    assert!(
+      text4.contains("[foo]"),
+      "Case 4: expected '{text4}' to contain '[foo]'"
     );
   }
 }
