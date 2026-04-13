@@ -693,10 +693,8 @@ pub fn draw_yaml_block(f: &mut Frame<'_>, app: &mut App, area: Rect, title: Line
       app.data.describe_out.highlight_light_theme = app.light_theme;
     }
 
-    // Performance: instead of cloning ALL highlighted lines and wrapping
-    // them all (O(n) per frame), extract only a window of source lines
-    // around the visible region.  The scroll offset is bounded by the
-    // source-line count, so it maps roughly to source-line indices.
+    // Extract only a window of source lines around the visible region.
+    // The scroll offset is bounded by the source-line count, so it maps roughly to source-line indices.
     let offset = app.data.describe_out.offset;
     let total = app.data.describe_out.highlighted_lines.len();
     // Subtract 2 for the top-border of the block
@@ -734,8 +732,7 @@ fn draw_resource_table<'a, T: KubeResource<U>, F, U: Serialize>(
     let has_filter = !filter.is_empty();
     let mut filtered_indices: Vec<usize> = Vec::new();
 
-    // First pass: apply filter and collect filtered indices.
-    // This is cheap because filter_by_name only checks the item name.
+    // Apply filter and collect filtered indices.
     let filtered_items: Vec<(usize, &T)> = table_props
       .resource
       .items
@@ -766,7 +763,7 @@ fn draw_resource_table<'a, T: KubeResource<U>, F, U: Serialize>(
     let visible_start = selected.saturating_sub(view_h);
     let visible_end = (selected + view_h * 2).min(filtered_items.len());
 
-    // Second pass: build Row widgets, using the expensive mapper only for
+    // Build Row widgets, using the expensive mapper only for
     // rows in or near the visible viewport.
     let rows: Vec<Row<'a>> = filtered_items
       .iter()

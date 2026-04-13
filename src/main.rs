@@ -269,8 +269,8 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
     let (pending_shell_exec, should_quit) = {
       let mut app = app.lock().await;
 
-      // --- Handle events BEFORE drawing so the frame always reflects
-      // --- the latest state, eliminating the 1-event visual lag.
+      // Handle events BEFORE drawing so the frame always reflects
+      // the latest state.
 
       // Helper macro to process a single event.  Returns `true` when the
       // app should break out of the main loop (Ctrl+C).
