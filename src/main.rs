@@ -251,6 +251,15 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
   // custom events
   let mut events = event::Events::new(cli.tick_rate);
   let mut is_first_render = true;
+  // Perform initial draw so the user sees the UI immediately
+  {
+    let mut app = app.lock().await;
+    if let Ok(size) = terminal.backend().size() {
+      app.size.width = size.width;
+      app.size.height = size.height;
+    }
+    terminal.draw(|f| ui::draw(f, &mut app))?;
+  }
   // main UI loop
   loop {
     // Wait for the next event BEFORE acquiring the lock.
@@ -259,43 +268,75 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
 
     let (pending_shell_exec, should_quit) = {
       let mut app = app.lock().await;
-      // Get the size of the screen on each loop to account for resize event
+
+      // --- Handle events BEFORE drawing so the frame always reflects
+      // --- the latest state, eliminating the 1-event visual lag.
+
+      // Helper macro to process a single event.  Returns `true` when the
+      // app should break out of the main loop (Ctrl+C).
+      macro_rules! process_event {
+        ($ev:expr) => {
+          match $ev {
+            event::Event::Input(key_event) => {
+              let key = Key::from(key_event);
+              if key == Key::Ctrl('c') {
+                true
+              } else {
+                handlers::handle_key_events(key, key_event, &mut app).await;
+                false
+              }
+            }
+            event::Event::MouseInput(mouse) => {
+              handlers::handle_mouse_events(mouse, &mut app).await;
+              false
+            }
+            event::Event::Tick => {
+              app.on_tick(is_first_render).await;
+              is_first_render = false;
+              false
+            }
+            event::Event::KubeConfigChange => {
+              info!("Kubeconfig change detected, reloading");
+              app.dispatch(IoEvent::GetKubeConfig).await;
+              false
+            }
+          }
+        };
+      }
+
+      // Process the blocking event
+      let mut should_break = process_event!(event);
+
+      // Drain any pending events so rapid key-presses are batched into a
+      // single render pass instead of each triggering a stale redraw.
+      if !should_break {
+        for _ in 0..20 {
+          match events.try_next() {
+            Some(ev) => {
+              should_break = process_event!(ev);
+              if should_break {
+                break;
+              }
+            }
+            None => break,
+          }
+        }
+      }
+
+      if should_break {
+        break;
+      }
+
+      // Get the size of the screen on each loop to account for resize events
       if let Ok(size) = terminal.backend().size() {
-        // Reset the help menu if the terminal was resized
         if app.refresh || app.size.as_size() != size {
           app.size.width = size.width;
           app.size.height = size.height;
         }
-      };
-
-      // draw the UI layout
-      terminal.draw(|f| ui::draw(f, &mut app))?;
-
-      // handle events
-      match event {
-        event::Event::Input(key_event) => {
-          info!("Input event received: {:?}", key_event);
-          // quit on CTRL + C
-          let key = Key::from(key_event);
-
-          if key == Key::Ctrl('c') {
-            break;
-          }
-          // handle all other keys
-          handlers::handle_key_events(key, key_event, &mut app).await
-        }
-        // handle mouse events
-        event::Event::MouseInput(mouse) => handlers::handle_mouse_events(mouse, &mut app).await,
-        // handle tick events
-        event::Event::Tick => {
-          app.on_tick(is_first_render).await;
-        }
-        // handle kubeconfig file changes (live sync)
-        event::Event::KubeConfigChange => {
-          info!("Kubeconfig change detected, reloading");
-          app.dispatch(IoEvent::GetKubeConfig).await;
-        }
       }
+
+      // Draw the UI layout AFTER processing events so the frame is up-to-date
+      terminal.draw(|f| ui::draw(f, &mut app))?;
 
       is_first_render = false;
       let pending_shell_exec = app.take_pending_shell_exec();

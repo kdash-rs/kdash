@@ -693,13 +693,25 @@ pub fn draw_yaml_block(f: &mut Frame<'_>, app: &mut App, area: Rect, title: Line
       app.data.describe_out.highlight_light_theme = app.light_theme;
     }
 
-    let paragraph = Paragraph::new(app.data.describe_out.highlighted_lines.clone())
+    // Performance: instead of cloning ALL highlighted lines and wrapping
+    // them all (O(n) per frame), extract only a window of source lines
+    // around the visible region.  The scroll offset is bounded by the
+    // source-line count, so it maps roughly to source-line indices.
+    let offset = app.data.describe_out.offset;
+    let total = app.data.describe_out.highlighted_lines.len();
+    // Subtract 2 for the top-border of the block
+    let view_h = area.height.saturating_sub(2) as usize;
+    // Take a generous window: some lines before `offset` (to cover
+    // wrapping that shifts content up) and several screen-heights after.
+    let slice_start = offset.saturating_sub(view_h);
+    let slice_end = total.min(offset + view_h * 3);
+    let visible_lines = app.data.describe_out.highlighted_lines[slice_start..slice_end].to_vec();
+    let adjusted_offset = (offset - slice_start).min(u16::MAX as usize) as u16;
+
+    let paragraph = Paragraph::new(visible_lines)
       .block(block)
       .wrap(Wrap { trim: false })
-      .scroll((
-        app.data.describe_out.offset.min(u16::MAX as usize) as u16,
-        0,
-      ));
+      .scroll((adjusted_offset, 0));
     f.render_widget(paragraph, area);
   } else {
     loading(f, block, area, app.is_loading(), app.light_theme);
@@ -721,29 +733,24 @@ fn draw_resource_table<'a, T: KubeResource<U>, F, U: Serialize>(
     let filter = table_props.resource.filter.to_lowercase();
     let has_filter = !filter.is_empty();
     let mut filtered_indices: Vec<usize> = Vec::new();
-    let rows: Vec<Row<'a>> = table_props
+
+    // First pass: apply filter and collect filtered indices.
+    // This is cheap because filter_by_name only checks the item name.
+    let filtered_items: Vec<(usize, &T)> = table_props
       .resource
       .items
       .iter()
       .enumerate()
-      .filter_map(|(idx, c)| {
-        let mapper = row_cell_mapper(c);
-        if filter.is_empty() || filter_by_name(&filter, c) {
-          Some((idx, mapper))
-        } else {
-          None
-        }
-      })
-      .map(|(idx, row)| {
+      .filter(|(_, c)| filter.is_empty() || filter_by_name(&filter, *c))
+      .inspect(|(idx, _)| {
         if has_filter {
-          filtered_indices.push(idx);
+          filtered_indices.push(*idx);
         }
-        row
       })
       .collect();
 
     if has_filter {
-      let max = filtered_indices.len().saturating_sub(1);
+      let max = filtered_items.len().saturating_sub(1);
       if let Some(sel) = table_props.resource.state.selected() {
         if sel > max {
           table_props.resource.state.select(Some(max));
@@ -751,6 +758,27 @@ fn draw_resource_table<'a, T: KubeResource<U>, F, U: Serialize>(
       }
     }
     table_props.resource.filtered_indices = filtered_indices;
+
+    // Determine the visible row range to avoid expensive row_cell_mapper
+    // calls for off-screen items.  Subtract 3 for header + borders.
+    let selected = table_props.resource.state.selected().unwrap_or(0);
+    let view_h = area.height.saturating_sub(3) as usize;
+    let visible_start = selected.saturating_sub(view_h);
+    let visible_end = (selected + view_h * 2).min(filtered_items.len());
+
+    // Second pass: build Row widgets, using the expensive mapper only for
+    // rows in or near the visible viewport.
+    let rows: Vec<Row<'a>> = filtered_items
+      .iter()
+      .enumerate()
+      .map(|(fi, (_orig_idx, item))| {
+        if fi >= visible_start && fi < visible_end {
+          row_cell_mapper(item)
+        } else {
+          Row::default()
+        }
+      })
+      .collect();
 
     let table = Table::new(rows, &table_props.column_widths)
       .header(table_header_style(table_props.table_headers, light_theme))
