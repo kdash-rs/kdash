@@ -27,6 +27,7 @@ use cmd::{
 };
 use config::load_config;
 use crossterm::{
+  event::{KeyEvent, MouseEvent},
   execute,
   terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -235,6 +236,39 @@ async fn start_cmd_runner(mut io_rx: mpsc::Receiver<IoCmdEvent>, app: &Arc<Mutex
   }
 }
 
+/// Process a single UI event.  Returns `true` when the app should exit (Ctrl+C).
+async fn process_event(
+  app: &mut App,
+  ev: event::Event<KeyEvent, MouseEvent>,
+  is_first_render: &mut bool,
+) -> bool {
+  match ev {
+    event::Event::Input(key_event) => {
+      let key = Key::from(key_event);
+      if key == Key::Ctrl('c') {
+        true
+      } else {
+        handlers::handle_key_events(key, key_event, app).await;
+        false
+      }
+    }
+    event::Event::MouseInput(mouse) => {
+      handlers::handle_mouse_events(mouse, app).await;
+      false
+    }
+    event::Event::Tick => {
+      app.on_tick(*is_first_render).await;
+      *is_first_render = false;
+      false
+    }
+    event::Event::KubeConfigChange => {
+      info!("Kubeconfig change detected, reloading");
+      app.dispatch(IoEvent::GetKubeConfig).await;
+      false
+    }
+  }
+}
+
 async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
   info!("Starting UI");
   // see https://docs.rs/crossterm/0.17.7/crossterm/terminal/#raw-mode
@@ -270,42 +304,11 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
       let mut app = app.lock().await;
 
       // Handle events BEFORE drawing so the frame always reflects
-      // the latest state.
-
-      // Helper macro to process a single event.  Returns `true` when the
-      // app should break out of the main loop (Ctrl+C).
-      macro_rules! process_event {
-        ($ev:expr) => {
-          match $ev {
-            event::Event::Input(key_event) => {
-              let key = Key::from(key_event);
-              if key == Key::Ctrl('c') {
-                true
-              } else {
-                handlers::handle_key_events(key, key_event, &mut app).await;
-                false
-              }
-            }
-            event::Event::MouseInput(mouse) => {
-              handlers::handle_mouse_events(mouse, &mut app).await;
-              false
-            }
-            event::Event::Tick => {
-              app.on_tick(is_first_render).await;
-              is_first_render = false;
-              false
-            }
-            event::Event::KubeConfigChange => {
-              info!("Kubeconfig change detected, reloading");
-              app.dispatch(IoEvent::GetKubeConfig).await;
-              false
-            }
-          }
-        };
-      }
+      // the latest state, eliminating the 1-event visual lag.
 
       // Process the blocking event
-      let mut should_break = process_event!(event);
+      let mut should_break =
+        process_event(&mut app, event, &mut is_first_render).await;
 
       // Drain any pending events so rapid key-presses are batched into a
       // single render pass instead of each triggering a stale redraw.
@@ -313,7 +316,8 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
         for _ in 0..20 {
           match events.try_next() {
             Some(ev) => {
-              should_break = process_event!(ev);
+              should_break =
+                process_event(&mut app, ev, &mut is_first_render).await;
               if should_break {
                 break;
               }
