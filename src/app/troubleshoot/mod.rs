@@ -25,8 +25,9 @@
 //!      in `evaluate_findings`.
 //! 4. In `TroubleshootResource::get_resource`, fetch and store the new
 //!    resource type alongside the existing `tokio::join!` calls.
-//! 5. Run `cargo test troubleshoot` — `test_all_resource_kinds_covered`
-//!    will fail until the new `ResourceKind` variant produces findings.
+//! 5. Run `cargo test troubleshoot` and verify the new `ResourceKind`
+//!    is handled by the new module and contributes findings through
+//!    `evaluate_findings`.
 
 use async_trait::async_trait;
 use ratatui::layout::Rect;
