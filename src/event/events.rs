@@ -107,7 +107,8 @@ impl Events {
   }
 
   /// Attempts to read an event without blocking.
-  /// Returns `None` if no event is currently available.
+  /// Returns `None` if no event is currently available or if the channel has
+  /// been disconnected.
   pub fn try_next(&self) -> Option<Event<KeyEvent, MouseEvent>> {
     self.rx.try_recv().ok()
   }
