@@ -243,11 +243,16 @@ pub struct TabRoute {
 pub struct TabsState {
   pub items: Vec<TabRoute>,
   pub index: usize,
+  pub scroll_start: usize,
 }
 
 impl TabsState {
   pub fn new(items: Vec<TabRoute>) -> TabsState {
-    TabsState { items, index: 0 }
+    TabsState {
+      items,
+      index: 0,
+      scroll_start: 0,
+    }
   }
   pub fn set_index(&mut self, index: usize) -> &TabRoute {
     self.index = index;
@@ -686,6 +691,7 @@ mod tests {
     ]);
 
     assert_eq!(tab.index, 0);
+    assert_eq!(tab.scroll_start, 0);
     assert_eq!(tab.get_active_route().active_block, ActiveBlock::Pods);
     tab.next();
     assert_eq!(tab.index, 1);
