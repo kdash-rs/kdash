@@ -59,7 +59,7 @@ pub fn draw_resource_tabs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   }
 
   let titles = resource_tab_titles(app);
-  let visible_range = visible_resource_tab_range(
+  let visible_range = adjusted_visible_resource_tab_range(
     &mut app.context_tabs.scroll_start,
     app.context_tabs.index,
     &titles,
@@ -73,6 +73,13 @@ pub fn draw_resource_tabs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     .select(selected_index);
 
   f.render_widget(tabs, area);
+  render_tab_overflow_indicators(
+    f,
+    area,
+    visible_range.start > 0,
+    visible_range.end < titles.len(),
+    app.light_theme,
+  );
   let separator_area = Rect {
     x: area.x + 1,
     y: chunks[0].y + chunks[0].height - 2,
@@ -188,6 +195,64 @@ fn visible_resource_tab_range(
 
   *scroll_start = best_start;
   best_start..best_end
+}
+
+fn adjusted_visible_resource_tab_range(
+  scroll_start: &mut usize,
+  selected_index: usize,
+  titles: &[Line<'_>],
+  available_width: usize,
+) -> std::ops::Range<usize> {
+  let mut range = visible_resource_tab_range(scroll_start, selected_index, titles, available_width);
+
+  loop {
+    let marker_slots = usize::from(range.start > 0) + usize::from(range.end < titles.len());
+    let adjusted_width = available_width.saturating_sub(marker_slots);
+    let previous_start = *scroll_start;
+    let adjusted_range =
+      visible_resource_tab_range(scroll_start, selected_index, titles, adjusted_width);
+    let adjusted_marker_slots =
+      usize::from(adjusted_range.start > 0) + usize::from(adjusted_range.end < titles.len());
+
+    range = adjusted_range;
+    if adjusted_marker_slots == marker_slots || *scroll_start == previous_start {
+      return range;
+    }
+  }
+}
+
+fn render_tab_overflow_indicators(
+  f: &mut Frame<'_>,
+  area: Rect,
+  has_left_overflow: bool,
+  has_right_overflow: bool,
+  light_theme: bool,
+) {
+  let indicator_y = area.y.saturating_add(1);
+
+  if has_left_overflow {
+    f.render_widget(
+      Paragraph::new("‹").style(style_secondary(light_theme)),
+      Rect {
+        x: area.x.saturating_add(1),
+        y: indicator_y,
+        width: 1,
+        height: 1,
+      },
+    );
+  }
+
+  if has_right_overflow {
+    f.render_widget(
+      Paragraph::new("›").style(style_secondary(light_theme)),
+      Rect {
+        x: area.x + area.width.saturating_sub(2),
+        y: indicator_y,
+        width: 1,
+        height: 1,
+      },
+    );
+  }
 }
 
 fn reveal_selected_start(selected_index: usize, widths: &[usize], available_width: usize) -> usize {
@@ -553,7 +618,7 @@ mod tests {
       lines,
       vec![
         "┌ Resources ───────────────────────────────────────────────────────────────────────────────────────┐",
-        "│ Pods [1] │ Services <2> │ Nodes <3> │ ConfigMaps <4> │ StatefulSets <5> │ ReplicaSets <6>        │",
+        "│ Pods [1] │ Services <2> │ Nodes <3> │ ConfigMaps <4> │ StatefulSets <5> │ ReplicaSets <6>       ›│",
         "│──────────────────────────────────────────────────────────────────────────────────────────────────│",
         "│                                                                                                  │",
         "│ Pods (ns: all) [1] containers <Enter> | filter </> | describe <d> | yaml <y> | logs <L>  | wide <│",
@@ -635,6 +700,8 @@ mod tests {
     assert!(row.contains("Pods"));
     assert!(row.contains("Services"));
     assert!(row.contains("Nodes"));
+    assert!(!row.contains('‹'));
+    assert!(row.contains('›'));
     assert_eq!(app.context_tabs.scroll_start, 0);
   }
 
@@ -657,6 +724,7 @@ mod tests {
     assert!(row.contains("Jobs"));
     assert!(row.contains("DaemonSets"));
     assert!(row.contains("More"));
+    assert!(row.contains('‹'));
     assert!(app.context_tabs.scroll_start > 0);
 
     let highlighted_col = row.find("DaemonSets").unwrap() as u16 + 1;
@@ -690,7 +758,9 @@ mod tests {
     assert!(row.contains("Deployments"));
     assert!(row.contains("Jobs"));
     assert!(row.contains("DaemonSets"));
-    assert_eq!(app.context_tabs.scroll_start, initial_scroll_start);
+    assert!(row.contains('‹'));
+    assert!(row.contains('›'));
+    assert!(app.context_tabs.scroll_start.abs_diff(initial_scroll_start) <= 1);
   }
 
   #[test]
@@ -710,6 +780,8 @@ mod tests {
     let row = buffer_row(terminal.backend().buffer(), 1);
     assert!(row.contains("More"));
     assert!(row.contains("Dynamic"));
+    assert!(row.contains('‹'));
+    assert!(!row.contains('›'));
     assert!(app.context_tabs.scroll_start > 0);
   }
 
