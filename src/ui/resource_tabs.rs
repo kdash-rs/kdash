@@ -105,21 +105,27 @@ fn resource_tab_titles(app: &App) -> Vec<Line<'static>> {
     .map(|(i, t)| {
       let count = tab_count_label(app, i);
       let (name, hint) = split_hint_suffix(&t.title);
+      let label = format_tab_label(name, &count);
       if i == app.context_tabs.index {
-        Line::from(format!("{} [{}]", name, count))
+        Line::from(label)
       } else if let Some(hint) = hint {
         mixed_line(
-          [
-            default_part(format!("{} [{}]", name, count)),
-            help_part(format!(" {}", hint)),
-          ],
+          [default_part(label), help_part(format!(" {}", hint))],
           app.light_theme,
         )
       } else {
-        Line::from(format!("{} [{}]", t.title, count))
+        Line::from(format_tab_label(&t.title, &count))
       }
     })
     .collect()
+}
+
+fn format_tab_label(name: &str, count: &str) -> String {
+  if count == "0" {
+    name.to_string()
+  } else {
+    format!("{} [{}]", name, count)
+  }
 }
 
 fn visible_resource_tab_range(
@@ -505,7 +511,7 @@ mod tests {
       lines,
       vec![
         "┌ Resources ───────────────────────────────────────────────────────────────────────────────────────┐",
-        "│ Pods [1] │ Services [0] <2> │ Nodes [0] <3> │ ConfigMaps [0] <4> │ StatefulSets [0] <5>          │",
+        "│ Pods [1] │ Services <2> │ Nodes <3> │ ConfigMaps <4> │ StatefulSets <5> │ ReplicaSets <6>        │",
         "│──────────────────────────────────────────────────────────────────────────────────────────────────│",
         "│                                                                                                  │",
         "│ Pods (ns: all) [1] containers <Enter> | filter </> | describe <d> | yaml <y> | logs <L>  | wide <│",
@@ -584,9 +590,9 @@ mod tests {
       .unwrap();
 
     let row = buffer_row(terminal.backend().buffer(), 1);
-    assert!(row.contains("Pods [0]"));
-    assert!(row.contains("Services [0]"));
-    assert!(row.contains("Nodes [0]"));
+    assert!(row.contains("Pods"));
+    assert!(row.contains("Services"));
+    assert!(row.contains("Nodes"));
     assert_eq!(app.context_tabs.scroll_start, 0);
   }
 
@@ -606,12 +612,12 @@ mod tests {
 
     let buffer = terminal.backend().buffer();
     let row = buffer_row(buffer, 1);
-    assert!(row.contains("Jobs [0]"));
-    assert!(row.contains("DaemonSets [0]"));
-    assert!(row.contains("More [0]"));
+    assert!(row.contains("Jobs"));
+    assert!(row.contains("DaemonSets"));
+    assert!(row.contains("More"));
     assert!(app.context_tabs.scroll_start > 0);
 
-    let highlighted_col = row.find("DaemonSets [0]").unwrap() as u16 + 1;
+    let highlighted_col = row.find("DaemonSets").unwrap() as u16 + 1;
     assert_eq!(buffer[(highlighted_col, 1)].fg, MACCHIATO_YELLOW);
   }
 
@@ -639,10 +645,10 @@ mod tests {
       .unwrap();
 
     let row = buffer_row(terminal.backend().buffer(), 1);
-    assert!(row.contains("Deployments [0]"));
-    assert!(row.contains("Jobs [0]"));
-    assert!(row.contains("DaemonSets [0]"));
-    assert_eq!(app.context_tabs.scroll_start + 1, initial_scroll_start);
+    assert!(row.contains("Deployments"));
+    assert!(row.contains("Jobs"));
+    assert!(row.contains("DaemonSets"));
+    assert_eq!(app.context_tabs.scroll_start, initial_scroll_start);
   }
 
   #[test]
@@ -660,8 +666,8 @@ mod tests {
       .unwrap();
 
     let row = buffer_row(terminal.backend().buffer(), 1);
-    assert!(row.contains("More [0]"));
-    assert!(row.contains("Dynamic [0]"));
+    assert!(row.contains("More"));
+    assert!(row.contains("Dynamic"));
     assert!(app.context_tabs.scroll_start > 0);
   }
 
@@ -681,6 +687,12 @@ mod tests {
       .set_items(vec![KubePod::default(), KubePod::default()]);
 
     assert_eq!(tab_count_label(&app, 0), "2");
+  }
+
+  #[test]
+  fn test_format_tab_label_omits_zero_count() {
+    assert_eq!(format_tab_label("StatefulSets", "0"), "StatefulSets");
+    assert_eq!(format_tab_label("Pods", "2"), "Pods [2]");
   }
 
   #[test]
