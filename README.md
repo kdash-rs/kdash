@@ -27,6 +27,7 @@ A simple terminal dashboard for Kubernetes built with Rust [![Follow @kdashrs](h
 - **Deeper drill-down navigation** lets you move from workloads to owned Pods, from Pods to Containers, and from Nodes to the Pods scheduled on them.
 - **Aggregate workload logs** combine logs from all pods owned by a workload into a single stream.
 - **Inline `/` filtering** now works across resource tables and views, including Contexts, Help, Utilization, Troubleshoot, More, and Dynamic resource menus.
+- **Smarter resource tab and menu counts** hide zero-count badges in the resource tabs, show cached counts for Dynamic menu entries, and use `?` when a Dynamic kind has not been fetched into cache yet.
 - **Configurable keybindings and themes** let you override shortcuts and colors, and `log_tail_lines` lets you set the initial history fetched before live log streaming starts.
 - **Better diagnostics and reliability** include recent-error dump to file, kubeconfig live reload, friendlier errors, and smoother log/render performance.
 
@@ -239,6 +240,7 @@ See the sample config in [assets/kdash.sample-config.yaml](assets/kdash.sample-c
 - Sensible keyboard shortcuts
 - Configurable keybindings, theme overrides, and log tail defaults
 - Inline filtering across resource views and menus
+- Dynamic menu entries show cached item counts when available and `?` when the count is not cached yet
 
 ## Screenshots
 

@@ -43,6 +43,12 @@ use crate::app::{
 const TAB_PADDING_WIDTH: usize = 2;
 const TAB_DIVIDER_WIDTH: usize = 1;
 
+enum MenuItemCount {
+  Hidden,
+  Value(usize),
+  Unknown,
+}
+
 pub fn draw_resource_tabs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let chunks =
     vertical_chunks_with_margin(vec![Constraint::Length(3), Constraint::Min(0)], area, 1);
@@ -318,7 +324,19 @@ fn draw_more(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
       &mut app.more_resources_menu,
       &app.menu_filter,
       app.menu_filter_active,
-      &counts,
+      |(_, block)| {
+        counts
+          .iter()
+          .find(|(candidate, _)| candidate == block)
+          .map(|(_, count)| *count)
+          .map_or(MenuItemCount::Hidden, |count| {
+            if count > 0 {
+              MenuItemCount::Value(count)
+            } else {
+              MenuItemCount::Hidden
+            }
+          })
+      },
       app.light_theme,
       area,
     ),
@@ -327,7 +345,29 @@ fn draw_more(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
       &mut app.dynamic_resources_menu,
       &app.menu_filter,
       app.menu_filter_active,
-      &counts,
+      |(name, _)| {
+        app
+          .data
+          .dynamic_kinds
+          .iter()
+          .find(|kind| kind.kind == *name)
+          .map_or(MenuItemCount::Unknown, |kind| {
+            app
+              .data
+              .dynamic_resource_cache
+              .item_count(&crate::app::dynamic::dynamic_cache_key(
+                kind,
+                app.data.selected.ns.as_deref(),
+              ))
+              .map_or(MenuItemCount::Unknown, |count| {
+                if count > 0 {
+                  MenuItemCount::Value(count)
+                } else {
+                  MenuItemCount::Hidden
+                }
+              })
+          })
+      },
       app.light_theme,
       area,
     ),
@@ -388,7 +428,7 @@ fn draw_menu(
   more_resources_menu: &mut StatefulList<(String, ActiveBlock)>,
   filter: &str,
   filter_active: bool,
-  counts: &[(ActiveBlock, usize)],
+  count_for_item: impl Fn(&(String, ActiveBlock)) -> MenuItemCount,
   light_theme: bool,
   area: Rect,
 ) {
@@ -399,16 +439,12 @@ fn draw_menu(
   let filtered = filter_menu_items(&more_resources_menu.items, filter);
   let items: Vec<ListItem<'_>> = filtered
     .iter()
-    .map(|(_, (name, block))| {
-      let count = counts
-        .iter()
-        .find(|(b, _)| b == block)
-        .map(|(_, c)| *c)
-        .unwrap_or(0);
-      if count > 0 {
-        ListItem::new(format!("{} [{}]", name, count))
-      } else {
-        ListItem::new(name.clone())
+    .map(|(_, item)| {
+      let (name, _) = item;
+      match count_for_item(item) {
+        MenuItemCount::Hidden => ListItem::new(name.clone()),
+        MenuItemCount::Value(count) => ListItem::new(format!("{} [{}]", name, count)),
+        MenuItemCount::Unknown => ListItem::new(format!("{} [?]", name)),
       }
     })
     .collect();
@@ -474,9 +510,15 @@ mod tests {
 
   use super::*;
   use crate::{
+    app::dynamic::{dynamic_cache_key, KubeDynamicKind, KubeDynamicResource},
     app::models::StatefulList,
     app::pods::KubePod,
     ui::utils::{MACCHIATO_RED, MACCHIATO_TEXT, MACCHIATO_YELLOW},
+  };
+  use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
+  use kube::{
+    core::DynamicObject,
+    discovery::{ApiResource, Scope},
   };
 
   #[test]
@@ -701,7 +743,7 @@ mod tests {
       StatefulList::with_items(vec![("Secrets".into(), ActiveBlock::Secrets)]),
       "",
       true,
-      &[],
+      |_| MenuItemCount::Hidden,
     );
     let joined = lines.join("\n");
 
@@ -718,7 +760,10 @@ mod tests {
       ]),
       "e",
       true,
-      &[(ActiveBlock::Secrets, 3), (ActiveBlock::Events, 0)],
+      |(_, block)| match block {
+        ActiveBlock::Secrets => MenuItemCount::Value(3),
+        _ => MenuItemCount::Hidden,
+      },
     );
     let joined = lines.join("\n");
 
@@ -734,7 +779,7 @@ mod tests {
       StatefulList::with_items(vec![("Secrets".into(), ActiveBlock::Secrets)]),
       "",
       false,
-      &[],
+      |_| MenuItemCount::Hidden,
     );
     let joined = lines.join("\n");
 
@@ -756,25 +801,154 @@ mod tests {
 
     terminal
       .draw(|f| {
-        draw_menu(f, &mut menu, "sec", true, &[], false, f.area());
+        draw_menu(
+          f,
+          &mut menu,
+          "sec",
+          true,
+          |_| MenuItemCount::Hidden,
+          false,
+          f.area(),
+        );
       })
       .unwrap();
 
     assert_eq!(menu.state.selected(), Some(0));
   }
 
+  #[test]
+  fn test_draw_menu_shows_dynamic_count_from_cache() {
+    let mut app = App::default();
+    let kind = KubeDynamicKind::new(
+      ApiResource {
+        group: "example.com".into(),
+        version: "v1".into(),
+        api_version: "example.com/v1".into(),
+        kind: "Widget".into(),
+        plural: "widgets".into(),
+      },
+      Scope::Namespaced,
+    );
+    app.data.dynamic_kinds = vec![kind.clone()];
+    app.data.selected.ns = Some("team-a".into());
+    app.data.dynamic_resource_cache.insert(
+      dynamic_cache_key(&kind, Some("team-a")),
+      vec![
+        KubeDynamicResource::from(DynamicObject {
+          types: None,
+          metadata: ObjectMeta {
+            name: Some("widget-1".into()),
+            namespace: Some("team-a".into()),
+            ..Default::default()
+          },
+          data: Default::default(),
+        }),
+        KubeDynamicResource::from(DynamicObject {
+          types: None,
+          metadata: ObjectMeta {
+            name: Some("widget-2".into()),
+            namespace: Some("team-a".into()),
+            ..Default::default()
+          },
+          data: Default::default(),
+        }),
+      ],
+    );
+
+    let backend = TestBackend::new(60, 10);
+    let mut terminal = Terminal::new(backend).unwrap();
+    let mut menu = StatefulList::with_items(vec![("Widget".into(), ActiveBlock::DynamicResource)]);
+
+    terminal
+      .draw(|f| {
+        draw_menu(
+          f,
+          &mut menu,
+          "",
+          false,
+          |(name, _)| {
+            app
+              .data
+              .dynamic_kinds
+              .iter()
+              .find(|candidate| candidate.kind == *name)
+              .and_then(|candidate| {
+                app
+                  .data
+                  .dynamic_resource_cache
+                  .item_count(&dynamic_cache_key(
+                    candidate,
+                    app.data.selected.ns.as_deref(),
+                  ))
+              })
+              .map_or(MenuItemCount::Unknown, MenuItemCount::Value)
+          },
+          false,
+          f.area(),
+        );
+      })
+      .unwrap();
+
+    let rendered = (0..terminal.backend().buffer().area.height)
+      .map(|row| buffer_row(terminal.backend().buffer(), row))
+      .collect::<Vec<_>>()
+      .join("\n");
+    assert!(rendered.contains("Widget [2]"));
+  }
+
+  #[test]
+  fn test_draw_menu_shows_unknown_dynamic_count_when_cache_missing() {
+    let backend = TestBackend::new(60, 10);
+    let mut terminal = Terminal::new(backend).unwrap();
+    let mut menu = StatefulList::with_items(vec![("Widget".into(), ActiveBlock::DynamicResource)]);
+
+    terminal
+      .draw(|f| {
+        draw_menu(
+          f,
+          &mut menu,
+          "",
+          false,
+          |(name, _)| {
+            if name == "Widget" {
+              MenuItemCount::Unknown
+            } else {
+              MenuItemCount::Hidden
+            }
+          },
+          false,
+          f.area(),
+        );
+      })
+      .unwrap();
+
+    let rendered = (0..terminal.backend().buffer().area.height)
+      .map(|row| buffer_row(terminal.backend().buffer(), row))
+      .collect::<Vec<_>>()
+      .join("\n");
+    assert!(rendered.contains("Widget [?]"));
+  }
+
   fn render_menu_lines(
     mut menu: StatefulList<(String, ActiveBlock)>,
     filter: &str,
     filter_active: bool,
-    counts: &[(ActiveBlock, usize)],
+    count_for_item: impl Fn(&(String, ActiveBlock)) -> MenuItemCount,
   ) -> Vec<String> {
     let backend = TestBackend::new(60, 10);
     let mut terminal = Terminal::new(backend).unwrap();
 
     terminal
       .draw(|f| {
-        draw_menu(f, &mut menu, filter, filter_active, counts, false, f.area());
+        draw_menu(
+          f,
+          &mut menu,
+          filter,
+          filter_active,
+          &count_for_item,
+          false,
+          f.area(),
+        );
       })
       .unwrap();
 

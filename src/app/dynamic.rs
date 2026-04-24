@@ -125,6 +125,10 @@ impl DynamicResourceCache {
     }
   }
 
+  pub fn item_count(&self, key: &str) -> Option<usize> {
+    self.entries.get(key).map(Vec::len)
+  }
+
   #[cfg(test)]
   fn contains_key(&self, key: &str) -> bool {
     self.entries.contains_key(key)
