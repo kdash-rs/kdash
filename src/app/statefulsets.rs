@@ -2,13 +2,13 @@ use async_trait::async_trait;
 use chrono::Utc;
 use k8s_openapi::api::apps::v1::StatefulSet;
 use ratatui::{
-  layout::{Constraint, Rect},
+  layout::Rect,
   widgets::{Cell, Row},
   Frame,
 };
 
 use super::{
-  models::{self, AppResource, KubeResource},
+  models::{self, AppResource, KubeResource, Named},
   utils::{self},
   ActiveBlock, App,
 };
@@ -18,8 +18,8 @@ use crate::{
   network::Network,
   ui::utils::{
     action_hint, describe_yaml_and_logs_hint, draw_describe_block, draw_resource_block,
-    draw_yaml_block, get_describe_active, get_resource_title, help_bold_line, style_primary,
-    title_with_dual_style, ResourceTableProps,
+    draw_yaml_block, get_describe_active, get_resource_title, help_bold_line, responsive_columns,
+    style_primary, title_with_dual_style, wide_hint, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
 
@@ -29,6 +29,8 @@ pub struct KubeStatefulSet {
   pub namespace: String,
   pub ready: String,
   pub service: String,
+  pub update_strategy: String,
+  pub replicas: String,
   pub age: String,
   k8s_obj: StatefulSet,
 }
@@ -40,6 +42,18 @@ impl From<StatefulSet> for KubeStatefulSet {
       _ => "".into(),
     };
 
+    let update_strategy = stfs
+      .spec
+      .as_ref()
+      .and_then(|s| s.update_strategy.as_ref())
+      .and_then(|u| u.type_.clone())
+      .unwrap_or_else(|| "RollingUpdate".into());
+    let replicas = stfs
+      .spec
+      .as_ref()
+      .and_then(|s| s.replicas)
+      .map_or(String::new(), |r| r.to_string());
+
     KubeStatefulSet {
       name: stfs.metadata.name.clone().unwrap_or_default(),
       namespace: stfs.metadata.namespace.clone().unwrap_or_default(),
@@ -48,15 +62,20 @@ impl From<StatefulSet> for KubeStatefulSet {
         spec.service_name.clone().unwrap_or_else(|| "n/a".into())
       }),
       ready,
+      update_strategy,
+      replicas,
       k8s_obj: utils::sanitize_obj(stfs),
     }
   }
 }
 
-impl KubeResource<StatefulSet> for KubeStatefulSet {
+impl Named for KubeStatefulSet {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<StatefulSet> for KubeStatefulSet {
   fn get_k8s_obj(&self) -> &StatefulSet {
     &self.k8s_obj
   }
@@ -101,9 +120,22 @@ impl AppResource for StatefulSetResource {
   }
 }
 
+const STFS_COLUMNS: [ColumnDef; 7] = [
+  ColumnDef::all("Namespace", 25, 20, 18),
+  ColumnDef::all("Name", 30, 25, 22),
+  ColumnDef::all("Ready", 10, 10, 10),
+  ColumnDef::all("Service", 25, 20, 18),
+  ColumnDef::standard("Update Strategy", 15, 14),
+  ColumnDef::wide("Replicas", 10),
+  ColumnDef::all("Age", 10, 10, 8),
+];
+
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_resource_title(app, STFS_TITLE, "", app.data.stateful_sets.items.len());
+
+  let tier = ViewTier::from_width(area.width, app.wide_columns);
+  let (headers, widths) = responsive_columns(&STFS_COLUMNS, tier);
 
   draw_resource_block(
     f,
@@ -112,31 +144,32 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: help_bold_line(
         format!(
-          "{} | {}",
+          "{} | {} | {}",
           action_hint("pods", DEFAULT_KEYBINDING.submit.key),
-          describe_yaml_and_logs_hint()
+          describe_yaml_and_logs_hint(),
+          wide_hint()
         ),
         app.light_theme,
       ),
       resource: &mut app.data.stateful_sets,
-      table_headers: vec!["Namespace", "Name", "Ready", "Service", "Age"],
-      column_widths: vec![
-        Constraint::Percentage(25),
-        Constraint::Percentage(30),
-        Constraint::Percentage(10),
-        Constraint::Percentage(25),
-        Constraint::Percentage(10),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
-      Row::new(vec![
+      let mut cells = vec![
         Cell::from(c.namespace.to_owned()),
         Cell::from(c.name.to_owned()),
         Cell::from(c.ready.to_owned()),
         Cell::from(c.service.to_owned()),
-        Cell::from(c.age.to_owned()),
-      ])
-      .style(style_primary(app.light_theme))
+      ];
+      if tier >= ViewTier::Standard {
+        cells.push(Cell::from(c.update_strategy.to_owned()));
+      }
+      if tier >= ViewTier::Wide {
+        cells.push(Cell::from(c.replicas.to_owned()));
+      }
+      cells.push(Cell::from(c.age.to_owned()));
+      Row::new(cells).style(style_primary(app.light_theme))
     },
     app.light_theme,
     is_loading,
@@ -162,6 +195,8 @@ mod tests {
         k8s_obj: stfs_list[0].clone(),
         service: "nginx".into(),
         ready: "2/2".into(),
+        update_strategy: "RollingUpdate".into(),
+        replicas: "2".into(),
       }
     );
   }

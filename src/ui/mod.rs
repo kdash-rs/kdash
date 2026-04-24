@@ -76,8 +76,17 @@ pub fn draw(f: &mut Frame<'_>, app: &mut App) {
       UtilizationResource::render(ActiveBlock::Utilization, f, app, last_chunk);
     }
     RouteId::Troubleshoot => {
-      // Only render the active troubleshoot block to avoid unnecessary checks and rendering
-      TroubleshootResource::render(app.get_current_route().active_block, f, app, last_chunk);
+      let active_block = app.get_current_route().active_block;
+      if active_block == ActiveBlock::Troubleshoot {
+        TroubleshootResource::render(active_block, f, app, last_chunk);
+      } else {
+        let outer_block = Block::default()
+          .borders(Borders::ALL)
+          .style(style_secondary(app.light_theme));
+        let inner = outer_block.inner(last_chunk);
+        f.render_widget(outer_block, last_chunk);
+        TroubleshootResource::render(active_block, f, app, inner);
+      }
     }
     _ => {
       draw_overview(f, app, last_chunk);
@@ -374,6 +383,34 @@ mod tests {
     assert!(joined.contains("Troubleshoot"));
     assert!(joined.contains("filter </>"));
     assert!(joined.contains("help <?>"));
+  }
+
+  #[test]
+  fn test_draw_troubleshoot_container_subview_keeps_outer_border_and_shell_hint() {
+    let mut app = App::default();
+    app.route_troubleshoot();
+    app.push_navigation_stack(RouteId::Troubleshoot, ActiveBlock::Containers);
+
+    let mut pod = KubePod::default();
+    pod.name = "pod-1".into();
+    pod.namespace = "team-a".into();
+    app.data.pods.set_items(vec![pod]);
+
+    let mut container = crate::app::pods::KubeContainer::default();
+    container.name = "app".into();
+    container.image = "nginx:latest".into();
+    container.ready = "true".into();
+    container.status = "Running".into();
+    container.age = "5m".into();
+    app.data.containers.set_items(vec![container]);
+
+    let lines = render_lines(&mut app, 120, 14);
+    let joined = lines.join("\n");
+
+    assert!(lines[4].starts_with('┌'));
+    assert!(lines.last().is_some_and(|line| line.ends_with('┘')));
+    assert!(joined.contains("shell <s>"));
+    assert!(joined.contains("logs <Enter>"));
   }
 
   fn seeded_overview_app() -> App {

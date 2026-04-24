@@ -2,13 +2,13 @@ use async_trait::async_trait;
 use chrono::Utc;
 use k8s_openapi::api::storage::v1::StorageClass;
 use ratatui::{
-  layout::{Constraint, Rect},
+  layout::Rect,
   widgets::{Cell, Row},
   Frame,
 };
 
 use super::{
-  models::{AppResource, KubeResource},
+  models::{AppResource, KubeResource, Named},
   utils::{self},
   ActiveBlock, App,
 };
@@ -18,7 +18,8 @@ use crate::{
   ui::utils::{
     describe_yaml_and_esc_hint, draw_describe_block, draw_resource_block, draw_yaml_block,
     get_cluster_wide_resource_title, get_describe_active, get_resource_title, help_bold_line,
-    style_primary, title_with_dual_style, ResourceTableProps,
+    responsive_columns, style_primary, title_with_dual_style, ColumnDef, ResourceTableProps,
+    ViewTier,
   },
 };
 
@@ -53,10 +54,13 @@ impl From<StorageClass> for KubeStorageClass {
   }
 }
 
-impl KubeResource<StorageClass> for KubeStorageClass {
+impl Named for KubeStorageClass {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<StorageClass> for KubeStorageClass {
   fn get_k8s_obj(&self) -> &StorageClass {
     &self.k8s_obj
   }
@@ -89,6 +93,15 @@ impl AppResource for StorageClassResource {
   }
 }
 
+const SC_COLUMNS: [ColumnDef; 6] = [
+  ColumnDef::all("Name", 10, 10, 10),
+  ColumnDef::all("Provisioner", 20, 20, 20),
+  ColumnDef::all("Reclaim Policy", 10, 10, 10),
+  ColumnDef::all("Volume Binding Mode", 20, 20, 20),
+  ColumnDef::all("Allow Volume Expansion", 20, 20, 20),
+  ColumnDef::all("Age", 10, 10, 10),
+];
+
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_cluster_wide_resource_title(
@@ -97,6 +110,8 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     "",
   );
 
+  let (headers, widths) = responsive_columns(&SC_COLUMNS, ViewTier::Compact);
+
   draw_resource_block(
     f,
     area,
@@ -104,22 +119,8 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: help_bold_line(describe_yaml_and_esc_hint(), app.light_theme),
       resource: &mut app.data.storage_classes,
-      table_headers: vec![
-        "Name",
-        "Provisioner",
-        "Reclaim Policy",
-        "Volume Binding Mode",
-        "Allow Volume Expansion",
-        "Age",
-      ],
-      column_widths: vec![
-        Constraint::Percentage(10),
-        Constraint::Percentage(20),
-        Constraint::Percentage(10),
-        Constraint::Percentage(20),
-        Constraint::Percentage(20),
-        Constraint::Percentage(10),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
       Row::new(vec![

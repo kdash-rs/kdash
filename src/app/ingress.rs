@@ -2,13 +2,13 @@ use async_trait::async_trait;
 use chrono::Utc;
 use k8s_openapi::api::networking::v1::{Ingress, IngressBackend, IngressRule, IngressStatus};
 use ratatui::{
-  layout::{Constraint, Rect},
+  layout::Rect,
   widgets::{Cell, Row},
   Frame,
 };
 
 use super::{
-  models::{AppResource, KubeResource},
+  models::{AppResource, KubeResource, Named},
   utils::{self, UNKNOWN},
   ActiveBlock, App,
 };
@@ -17,8 +17,8 @@ use crate::{
   network::Network,
   ui::utils::{
     describe_yaml_and_esc_hint, draw_describe_block, draw_resource_block, draw_yaml_block,
-    get_describe_active, get_resource_title, help_bold_line, style_caution, style_primary,
-    title_with_dual_style, ResourceTableProps,
+    get_describe_active, get_resource_title, help_bold_line, responsive_columns, style_caution,
+    style_primary, title_with_dual_style, wide_hint, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
 
@@ -30,6 +30,7 @@ pub struct KubeIngress {
   pub address: String,
   pub paths: String,
   pub default_backend: String,
+  pub tls: String,
   pub age: String,
   k8s_obj: Ingress,
 }
@@ -59,6 +60,23 @@ impl From<Ingress> for KubeIngress {
       None => UNKNOWN.into(),
     };
     let paths = rules.unwrap_or_default();
+    let tls = match &ingress.spec {
+      Some(spec) => match &spec.tls {
+        Some(tls_list) if !tls_list.is_empty() => {
+          let hosts: Vec<String> = tls_list
+            .iter()
+            .flat_map(|t| t.hosts.clone().unwrap_or_default())
+            .collect();
+          if hosts.is_empty() {
+            "Yes".into()
+          } else {
+            hosts.join(",")
+          }
+        }
+        _ => "No".into(),
+      },
+      None => "No".into(),
+    };
     Self {
       name,
       namespace,
@@ -66,16 +84,20 @@ impl From<Ingress> for KubeIngress {
       address: get_addresses(&ingress.status),
       paths,
       default_backend,
+      tls,
       age: utils::to_age(ingress.metadata.creation_timestamp.as_ref(), Utc::now()),
       k8s_obj: utils::sanitize_obj(ingress),
     }
   }
 }
 
-impl KubeResource<Ingress> for KubeIngress {
+impl Named for KubeIngress {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<Ingress> for KubeIngress {
   fn get_k8s_obj(&self) -> &Ingress {
     &self.k8s_obj
   }
@@ -183,35 +205,36 @@ impl AppResource for IngressResource {
   }
 }
 
+const INGRESS_COLUMNS: [ColumnDef; 8] = [
+  ColumnDef::all("Namespace", 10, 8, 8),
+  ColumnDef::all("Name", 20, 18, 18),
+  ColumnDef::all("Ingress class", 10, 10, 10),
+  ColumnDef::all("Paths", 25, 22, 22),
+  ColumnDef::all("Default backend", 10, 10, 10),
+  ColumnDef::all("Addresses", 10, 10, 10),
+  ColumnDef::standard("TLS", 12, 12),
+  ColumnDef::all("Age", 10, 10, 10),
+];
+
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_resource_title(app, INGRESS_TITLE, "", app.data.ingress.items.len());
+
+  let tier = ViewTier::from_width(area.width, app.wide_columns);
+  let (headers, widths) = responsive_columns(&INGRESS_COLUMNS, tier);
 
   draw_resource_block(
     f,
     area,
     ResourceTableProps {
       title,
-      inline_help: help_bold_line(describe_yaml_and_esc_hint(), app.light_theme),
+      inline_help: help_bold_line(
+        format!("{} | {}", describe_yaml_and_esc_hint(), wide_hint()),
+        app.light_theme,
+      ),
       resource: &mut app.data.ingress,
-      table_headers: vec![
-        "Namespace",
-        "Name",
-        "Ingress class",
-        "Paths",
-        "Default backend",
-        "Addresses",
-        "Age",
-      ],
-      column_widths: vec![
-        Constraint::Percentage(10),
-        Constraint::Percentage(20),
-        Constraint::Percentage(10),
-        Constraint::Percentage(25),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
       let style = if c.address == "<pending>" {
@@ -219,16 +242,19 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       } else {
         style_primary(app.light_theme)
       };
-      Row::new(vec![
+      let mut cells = vec![
         Cell::from(c.namespace.to_owned()),
         Cell::from(c.name.to_owned()),
         Cell::from(c.ingress_class.to_owned()),
         Cell::from(c.paths.to_owned()),
         Cell::from(c.default_backend.to_owned()),
         Cell::from(c.address.to_owned()),
-        Cell::from(c.age.to_owned()),
-      ])
-      .style(style)
+      ];
+      if tier >= ViewTier::Standard {
+        cells.push(Cell::from(c.tls.to_owned()));
+      }
+      cells.push(Cell::from(c.age.to_owned()));
+      Row::new(cells).style(style)
     },
     app.light_theme,
     is_loading,
@@ -257,6 +283,7 @@ mod tests {
         address: "".into(),
         paths: "foo.com/►svc:8080".into(),
         default_backend: "defaultsvc:http".into(),
+        tls: "foo.com".into(),
       }
     );
     assert_eq!(
@@ -270,6 +297,7 @@ mod tests {
         address: "192.168.49.2".into(),
         paths: "".into(),
         default_backend: "test:5701".into(),
+        tls: "No".into(),
       }
     );
     assert_eq!(
@@ -283,6 +311,7 @@ mod tests {
         address: "192.168.49.2".into(),
         paths: "demo.apps.mlopshub.com/►hello-service:80".into(),
         default_backend: "".into(),
+        tls: "No".into(),
       }
     );
   }

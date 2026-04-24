@@ -4,13 +4,13 @@ use async_trait::async_trait;
 use chrono::Utc;
 use k8s_openapi::api::core::v1::ReplicationController;
 use ratatui::{
-  layout::{Constraint, Rect},
+  layout::Rect,
   widgets::{Cell, Row},
   Frame,
 };
 
 use super::{
-  models::{self, AppResource, KubeResource},
+  models::{self, AppResource, KubeResource, Named},
   utils::{self},
   ActiveBlock, App,
 };
@@ -20,8 +20,8 @@ use crate::{
   network::Network,
   ui::utils::{
     action_hint, describe_yaml_logs_and_esc_hint, draw_describe_block, draw_resource_block,
-    draw_yaml_block, get_describe_active, get_resource_title, help_bold_line, style_primary,
-    title_with_dual_style, ResourceTableProps,
+    draw_yaml_block, get_describe_active, get_resource_title, help_bold_line, responsive_columns,
+    style_primary, title_with_dual_style, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
 
@@ -96,10 +96,13 @@ impl From<ReplicationController> for KubeReplicationController {
   }
 }
 
-impl KubeResource<ReplicationController> for KubeReplicationController {
+impl Named for KubeReplicationController {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<ReplicationController> for KubeReplicationController {
   fn get_k8s_obj(&self) -> &ReplicationController {
     &self.k8s_obj
   }
@@ -146,6 +149,18 @@ impl AppResource for ReplicationControllerResource {
   }
 }
 
+const RC_COLUMNS: [ColumnDef; 9] = [
+  ColumnDef::all("Namespace", 15, 15, 15),
+  ColumnDef::all("Name", 15, 15, 15),
+  ColumnDef::all("Desired", 10, 10, 10),
+  ColumnDef::all("Current", 10, 10, 10),
+  ColumnDef::all("Ready", 10, 10, 10),
+  ColumnDef::all("Containers", 10, 10, 10),
+  ColumnDef::all("Images", 10, 10, 10),
+  ColumnDef::all("Selector", 10, 10, 10),
+  ColumnDef::all("Age", 10, 10, 10),
+];
+
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_resource_title(
@@ -154,6 +169,8 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     "",
     app.data.replication_controllers.items.len(),
   );
+
+  let (headers, widths) = responsive_columns(&RC_COLUMNS, ViewTier::Compact);
 
   draw_resource_block(
     f,
@@ -169,28 +186,8 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
         app.light_theme,
       ),
       resource: &mut app.data.replication_controllers,
-      table_headers: vec![
-        "Namespace",
-        "Name",
-        "Desired",
-        "Current",
-        "Ready",
-        "Containers",
-        "Images",
-        "Selector",
-        "Age",
-      ],
-      column_widths: vec![
-        Constraint::Percentage(15),
-        Constraint::Percentage(15),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
       Row::new(vec![

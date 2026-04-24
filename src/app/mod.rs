@@ -290,6 +290,7 @@ pub struct App {
   pub api_error: String,
   pub status_message: StatusMessage,
   pub light_theme: bool,
+  pub wide_columns: bool,
   pub refresh: bool,
   pub log_auto_scroll: bool,
   pub log_tail_lines: u32,
@@ -534,6 +535,7 @@ impl Default for App {
       api_error: String::new(),
       status_message: StatusMessage::default(),
       light_theme: false,
+      wide_columns: false,
       refresh: true,
       log_auto_scroll: true,
       log_tail_lines: DEFAULT_LOG_TAIL_LINES,
@@ -1082,10 +1084,10 @@ impl App {
       RouteId::Utilization => {
         self.dispatch(IoEvent::GetMetrics).await;
       }
-      RouteId::Troubleshoot => {
-        if self.get_current_route().active_block == ActiveBlock::Troubleshoot {
-          self.dispatch(IoEvent::GetTroubleshootFindings).await;
-        }
+      RouteId::Troubleshoot
+        if self.get_current_route().active_block == ActiveBlock::Troubleshoot =>
+      {
+        self.dispatch(IoEvent::GetTroubleshootFindings).await;
       }
       _ => {}
     }
@@ -1194,10 +1196,8 @@ impl App {
       ActiveBlock::DynamicResource => {
         self.dispatch(IoEvent::GetDynamicRes).await;
       }
-      ActiveBlock::Logs => {
-        if !self.is_streaming {
-          self.dispatch_stream(IoStreamEvent::GetPodLogs(false)).await;
-        }
+      ActiveBlock::Logs if !self.is_streaming => {
+        self.dispatch_stream(IoStreamEvent::GetPodLogs(false)).await;
       }
       _ => {}
     }
@@ -1255,10 +1255,10 @@ impl App {
         RouteId::Utilization => {
           self.dispatch(IoEvent::GetMetrics).await;
         }
-        RouteId::Troubleshoot => {
-          if self.get_current_route().active_block == ActiveBlock::Troubleshoot {
-            self.dispatch(IoEvent::GetTroubleshootFindings).await;
-          }
+        RouteId::Troubleshoot
+          if self.get_current_route().active_block == ActiveBlock::Troubleshoot =>
+        {
+          self.dispatch(IoEvent::GetTroubleshootFindings).await;
         }
         _ => {}
       }

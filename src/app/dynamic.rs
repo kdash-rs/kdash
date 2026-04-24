@@ -14,14 +14,14 @@ use kube::{
   ResourceExt,
 };
 use ratatui::{
-  layout::{Constraint, Rect},
+  layout::Rect,
   widgets::{Cell, Row},
   Frame,
 };
 use std::collections::{BTreeMap, VecDeque};
 
 use super::{
-  models::{AppResource, KubeResource},
+  models::{AppResource, KubeResource, Named},
   utils, ActiveBlock, App,
 };
 use crate::{
@@ -29,8 +29,8 @@ use crate::{
   network::Network,
   ui::utils::{
     describe_yaml_and_esc_hint, draw_describe_block, draw_resource_block, draw_yaml_block,
-    get_describe_active, get_resource_title, help_bold_line, style_primary, title_with_dual_style,
-    ResourceTableProps,
+    get_describe_active, get_resource_title, help_bold_line, responsive_columns, style_primary,
+    title_with_dual_style, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
 
@@ -78,10 +78,13 @@ impl From<DynamicObject> for KubeDynamicResource {
   }
 }
 
-impl KubeResource<DynamicObject> for KubeDynamicResource {
+impl Named for KubeDynamicResource {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<DynamicObject> for KubeDynamicResource {
   fn get_k8s_obj(&self) -> &DynamicObject {
     &self.k8s_obj
   }
@@ -212,6 +215,17 @@ impl AppResource for DynamicResource {
   }
 }
 
+const DYN_CLUSTER_COLUMNS: [ColumnDef; 2] = [
+  ColumnDef::all("Name", 70, 70, 70),
+  ColumnDef::all("Age", 30, 30, 30),
+];
+
+const DYN_NAMESPACED_COLUMNS: [ColumnDef; 3] = [
+  ColumnDef::all("Namespace", 30, 30, 30),
+  ColumnDef::all("Name", 50, 50, 50),
+  ColumnDef::all("Age", 20, 20, 20),
+];
+
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let (title, scope) = if let Some(res) = &app.data.selected.dynamic_kind {
@@ -221,21 +235,12 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   };
   let title = get_resource_title(app, title, "", app.data.dynamic_resources.items.len());
 
-  let (table_headers, column_widths) = if scope == Scope::Cluster {
-    (
-      vec!["Name", "Age"],
-      vec![Constraint::Percentage(70), Constraint::Percentage(30)],
-    )
+  let columns = if scope == Scope::Cluster {
+    &DYN_CLUSTER_COLUMNS[..]
   } else {
-    (
-      vec!["Namespace", "Name", "Age"],
-      vec![
-        Constraint::Percentage(30),
-        Constraint::Percentage(50),
-        Constraint::Percentage(20),
-      ],
-    )
+    &DYN_NAMESPACED_COLUMNS[..]
   };
+  let (table_headers, column_widths) = responsive_columns(columns, ViewTier::Compact);
 
   draw_resource_block(
     f,

@@ -9,16 +9,95 @@ use ratatui::{
   widgets::{Block, Borders, Paragraph, Row, Table, Wrap},
   Frame,
 };
-use serde::Serialize;
 
 use super::HIGHLIGHT;
 use crate::app::{
   key_binding::DEFAULT_KEYBINDING,
-  models::{KubeResource, StatefulTable},
+  models::{Named, StatefulTable},
   ActiveBlock, App,
 };
 use crate::event::Key;
 use crate::ui::theme::override_color;
+// Viewport width thresholds for responsive column display
+pub const COMPACT_WIDTH_THRESHOLD: u16 = 120;
+pub const WIDE_WIDTH_THRESHOLD: u16 = 180;
+
+/// Which responsive tier the current view is in.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ViewTier {
+  Compact,
+  Standard,
+  Wide,
+}
+
+impl ViewTier {
+  pub fn from_width(area_width: u16, force_wide: bool) -> Self {
+    if force_wide || area_width >= WIDE_WIDTH_THRESHOLD {
+      Self::Wide
+    } else if area_width >= COMPACT_WIDTH_THRESHOLD {
+      Self::Standard
+    } else {
+      Self::Compact
+    }
+  }
+}
+
+/// Declarative column definition with per-tier width percentages.
+/// A `None` width means the column is hidden at that tier.
+pub struct ColumnDef {
+  pub label: &'static str,
+  pub compact: Option<u16>,
+  pub standard: Option<u16>,
+  pub wide: Option<u16>,
+}
+
+impl ColumnDef {
+  /// Column visible at all tiers with different widths.
+  pub const fn all(label: &'static str, compact: u16, standard: u16, wide: u16) -> Self {
+    Self {
+      label,
+      compact: Some(compact),
+      standard: Some(standard),
+      wide: Some(wide),
+    }
+  }
+
+  /// Column visible only at Standard and Wide tiers.
+  pub const fn standard(label: &'static str, standard: u16, wide: u16) -> Self {
+    Self {
+      label,
+      compact: None,
+      standard: Some(standard),
+      wide: Some(wide),
+    }
+  }
+
+  /// Column visible only at Wide tier.
+  pub const fn wide(label: &'static str, wide: u16) -> Self {
+    Self {
+      label,
+      compact: None,
+      standard: None,
+      wide: Some(wide),
+    }
+  }
+}
+
+/// Given column definitions and a view tier, return the visible headers and widths.
+pub fn responsive_columns(columns: &[ColumnDef], tier: ViewTier) -> (Vec<&str>, Vec<Constraint>) {
+  columns
+    .iter()
+    .filter_map(|col| {
+      let w = match tier {
+        ViewTier::Wide => col.wide,
+        ViewTier::Standard => col.standard,
+        ViewTier::Compact => col.compact,
+      };
+      w.map(|w| (col.label, Constraint::Percentage(w)))
+    })
+    .unzip()
+}
+
 // Utils
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -337,6 +416,10 @@ pub fn describe_yaml_decode_and_esc_hint() -> String {
     action_hint("decode", DEFAULT_KEYBINDING.decode_secret.key),
     DEFAULT_KEYBINDING.esc.key
   )
+}
+
+pub fn wide_hint() -> String {
+  format!("wide {}", DEFAULT_KEYBINDING.toggle_wide_columns.key)
 }
 
 pub fn filter_cursor_position(area: Rect, prefix_width: usize, filter: &str) -> Position {
@@ -718,7 +801,7 @@ pub fn draw_yaml_block(f: &mut Frame<'_>, app: &mut App, area: Rect, title: Line
   }
 }
 
-fn draw_resource_table<'a, T: KubeResource<U>, F, U: Serialize>(
+fn draw_resource_table<'a, T: Named, F>(
   f: &mut Frame<'_>,
   area: Rect,
   table_props: ResourceTableProps<'a, T>,
@@ -824,7 +907,7 @@ fn build_resource_help_line(
 }
 
 /// Draw a kubernetes resource overview tab
-pub fn draw_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
+pub fn draw_resource_block<'a, T: Named, F>(
   f: &mut Frame<'_>,
   area: Rect,
   table_props: ResourceTableProps<'a, T>,
@@ -890,7 +973,7 @@ pub fn draw_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
   );
 }
 
-pub fn draw_route_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
+pub fn draw_route_resource_block<'a, T: Named, F>(
   f: &mut Frame<'_>,
   area: Rect,
   table_props: ResourceTableProps<'a, T>,
@@ -907,6 +990,35 @@ pub fn draw_route_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
     table_headers,
     column_widths,
   } = table_props;
+  let filter = resource.filter.clone();
+  let filter_active = resource.filter_active;
+  if filter_active {
+    let title_width = title.chars().count();
+    let title = title_with_dual_style(
+      title,
+      mixed_bold_line(owned_filter_status_parts(&filter, true), light_theme),
+      light_theme,
+    );
+    let block = layout_block_active_span(title, light_theme);
+    draw_resource_table(
+      f,
+      area,
+      ResourceTableProps {
+        title: String::new(),
+        inline_help: Line::default(),
+        resource,
+        table_headers,
+        column_widths,
+      },
+      row_cell_mapper,
+      light_theme,
+      is_loading,
+      block,
+    );
+    f.set_cursor_position(filter_cursor_position(area, title_width, &filter));
+    return;
+  }
+
   let title = title_with_dual_style(title, inline_help, light_theme);
   let block = layout_block_active_span(title, light_theme);
   draw_resource_table(
@@ -926,7 +1038,7 @@ pub fn draw_route_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
   );
 }
 
-pub fn filter_by_resource_name<T: KubeResource<U>, U: Serialize>(
+pub fn filter_by_resource_name<T: Named>(
   filter: &str,
   res: &T,
   row_cell_mapper: Row<'static>,
@@ -944,7 +1056,7 @@ pub fn text_matches_filter(filter: &str, value: &str) -> bool {
   filter.is_empty() || glob_match(&filter, &value) || value.contains(&filter)
 }
 
-fn filter_by_name<T: KubeResource<U>, U: Serialize>(ft: &str, res: &T) -> bool {
+fn filter_by_name<T: Named>(ft: &str, res: &T) -> bool {
   text_matches_filter(ft, res.get_name())
 }
 
@@ -1014,12 +1126,9 @@ mod tests {
       pub age: String,
     }
 
-    impl KubeResource<Option<String>> for RenderTest {
+    impl Named for RenderTest {
       fn get_name(&self) -> &String {
         &self.name
-      }
-      fn get_k8s_obj(&self) -> &Option<String> {
-        &None
       }
     }
     terminal
@@ -1145,12 +1254,9 @@ mod tests {
       pub data: i32,
       pub age: String,
     }
-    impl KubeResource<Option<String>> for RenderTest {
+    impl Named for RenderTest {
       fn get_name(&self) -> &String {
         &self.name
-      }
-      fn get_k8s_obj(&self) -> &Option<String> {
-        &None
       }
     }
 
@@ -1285,12 +1391,9 @@ mod tests {
       pub data: i32,
       pub age: String,
     }
-    impl KubeResource<Option<String>> for RenderTest {
+    impl Named for RenderTest {
       fn get_name(&self) -> &String {
         &self.name
-      }
-      fn get_k8s_obj(&self) -> &Option<String> {
-        &None
       }
     }
 
@@ -1432,13 +1535,9 @@ mod tests {
       pub name: String,
     }
 
-    impl KubeResource<Option<String>> for RenderTest {
+    impl Named for RenderTest {
       fn get_name(&self) -> &String {
         &self.name
-      }
-
-      fn get_k8s_obj(&self) -> &Option<String> {
-        &None
       }
     }
 

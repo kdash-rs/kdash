@@ -2,13 +2,13 @@ use async_trait::async_trait;
 use chrono::Utc;
 use k8s_openapi::{api::core::v1::PersistentVolume, apimachinery::pkg::api::resource::Quantity};
 use ratatui::{
-  layout::{Constraint, Rect},
+  layout::Rect,
   widgets::{Cell, Row},
   Frame,
 };
 
 use super::{
-  models::{AppResource, KubeResource},
+  models::{AppResource, KubeResource, Named},
   utils::{self},
   ActiveBlock, App,
 };
@@ -17,8 +17,8 @@ use crate::{
   network::Network,
   ui::utils::{
     describe_yaml_and_esc_hint, draw_describe_block, draw_resource_block, draw_yaml_block,
-    get_describe_active, get_resource_title, help_bold_line, style_caution, style_primary,
-    title_with_dual_style, ResourceTableProps,
+    get_describe_active, get_resource_title, help_bold_line, responsive_columns, style_caution,
+    style_primary, title_with_dual_style, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
 
@@ -100,10 +100,13 @@ impl From<PersistentVolume> for KubePV {
   }
 }
 
-impl KubeResource<PersistentVolume> for KubePV {
+impl Named for KubePV {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<PersistentVolume> for KubePV {
   fn get_k8s_obj(&self) -> &PersistentVolume {
     &self.k8s_obj
   }
@@ -136,9 +139,23 @@ impl AppResource for PvResource {
   }
 }
 
+const PV_COLUMNS: [ColumnDef; 9] = [
+  ColumnDef::all("Name", 20, 20, 20),
+  ColumnDef::all("Capacity", 10, 10, 10),
+  ColumnDef::all("Access Modes", 10, 10, 10),
+  ColumnDef::all("Reclaim Policy", 10, 10, 10),
+  ColumnDef::all("Status", 10, 10, 10),
+  ColumnDef::all("Claim", 10, 10, 10),
+  ColumnDef::all("Storage Class", 10, 10, 10),
+  ColumnDef::all("Reason", 10, 10, 10),
+  ColumnDef::all("Age", 10, 10, 10),
+];
+
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_resource_title(app, PV_TITLE, "", app.data.persistent_volumes.items.len());
+
+  let (headers, widths) = responsive_columns(&PV_COLUMNS, ViewTier::Compact);
 
   draw_resource_block(
     f,
@@ -147,28 +164,8 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: help_bold_line(describe_yaml_and_esc_hint(), app.light_theme),
       resource: &mut app.data.persistent_volumes,
-      table_headers: vec![
-        "Name",
-        "Capacity",
-        "Access Modes",
-        "Reclaim Policy",
-        "Status",
-        "Claim",
-        "Storage Class",
-        "Reason",
-        "Age",
-      ],
-      column_widths: vec![
-        Constraint::Percentage(20),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
       let style = if c.status == "Pending" {

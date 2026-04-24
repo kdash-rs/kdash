@@ -2,13 +2,13 @@ use async_trait::async_trait;
 use chrono::Utc;
 use k8s_openapi::api::rbac::v1::{ClusterRole, ClusterRoleBinding, Role, RoleBinding};
 use ratatui::{
-  layout::{Constraint, Rect},
+  layout::Rect,
   widgets::{Cell, Row},
   Frame,
 };
 
 use super::{
-  models::{AppResource, KubeResource},
+  models::{AppResource, KubeResource, Named},
   utils::{self},
   ActiveBlock, App,
 };
@@ -17,8 +17,8 @@ use crate::{
   network::Network,
   ui::utils::{
     describe_yaml_and_esc_hint, draw_describe_block, draw_resource_block, draw_yaml_block,
-    get_describe_active, get_resource_title, help_bold_line, style_primary, title_with_dual_style,
-    ResourceTableProps,
+    get_describe_active, get_resource_title, help_bold_line, responsive_columns, style_primary,
+    title_with_dual_style, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
 
@@ -65,10 +65,13 @@ impl From<Role> for KubeRole {
   }
 }
 
-impl KubeResource<Role> for KubeRole {
+impl Named for KubeRole {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<Role> for KubeRole {
   fn get_k8s_obj(&self) -> &Role {
     &self.k8s_obj
   }
@@ -101,9 +104,17 @@ impl AppResource for RoleResource {
   }
 }
 
+const ROLE_COLUMNS: [ColumnDef; 3] = [
+  ColumnDef::all("Namespace", 40, 40, 40),
+  ColumnDef::all("Name", 40, 40, 40),
+  ColumnDef::all("Age", 20, 20, 20),
+];
+
 fn draw_roles_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_resource_title(app, ROLES_TITLE, "", app.data.roles.items.len());
+
+  let (headers, widths) = responsive_columns(&ROLE_COLUMNS, ViewTier::Compact);
 
   draw_resource_block(
     f,
@@ -112,12 +123,8 @@ fn draw_roles_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: help_bold_line(describe_yaml_and_esc_hint(), app.light_theme),
       resource: &mut app.data.roles,
-      table_headers: vec!["Namespace", "Name", "Age"],
-      column_widths: vec![
-        Constraint::Percentage(40),
-        Constraint::Percentage(40),
-        Constraint::Percentage(20),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
       Row::new(vec![
@@ -145,10 +152,13 @@ impl From<ClusterRole> for KubeClusterRole {
   }
 }
 
-impl KubeResource<ClusterRole> for KubeClusterRole {
+impl Named for KubeClusterRole {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<ClusterRole> for KubeClusterRole {
   fn get_k8s_obj(&self) -> &ClusterRole {
     &self.k8s_obj
   }
@@ -181,6 +191,11 @@ impl AppResource for ClusterRoleResource {
   }
 }
 
+const CR_COLUMNS: [ColumnDef; 2] = [
+  ColumnDef::all("Name", 50, 50, 50),
+  ColumnDef::all("Age", 50, 50, 50),
+];
+
 fn draw_cluster_roles_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_resource_title(
@@ -190,6 +205,8 @@ fn draw_cluster_roles_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     app.data.cluster_roles.items.len(),
   );
 
+  let (headers, widths) = responsive_columns(&CR_COLUMNS, ViewTier::Compact);
+
   draw_resource_block(
     f,
     area,
@@ -197,8 +214,8 @@ fn draw_cluster_roles_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: help_bold_line(describe_yaml_and_esc_hint(), app.light_theme),
       resource: &mut app.data.cluster_roles,
-      table_headers: vec!["Name", "Age"],
-      column_widths: vec![Constraint::Percentage(50), Constraint::Percentage(50)],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
       Row::new(vec![
@@ -226,10 +243,13 @@ impl From<RoleBinding> for KubeRoleBinding {
     }
   }
 }
-impl KubeResource<RoleBinding> for KubeRoleBinding {
+impl Named for KubeRoleBinding {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<RoleBinding> for KubeRoleBinding {
   fn get_k8s_obj(&self) -> &RoleBinding {
     &self.k8s_obj
   }
@@ -262,6 +282,13 @@ impl AppResource for RoleBindingResource {
   }
 }
 
+const RB_COLUMNS: [ColumnDef; 4] = [
+  ColumnDef::all("Namespace", 20, 20, 20),
+  ColumnDef::all("Name", 30, 30, 30),
+  ColumnDef::all("Role", 30, 30, 30),
+  ColumnDef::all("Age", 20, 20, 20),
+];
+
 fn draw_role_bindings_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_resource_title(
@@ -271,6 +298,8 @@ fn draw_role_bindings_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     app.data.role_bindings.items.len(),
   );
 
+  let (headers, widths) = responsive_columns(&RB_COLUMNS, ViewTier::Compact);
+
   draw_resource_block(
     f,
     area,
@@ -278,13 +307,8 @@ fn draw_role_bindings_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: help_bold_line(describe_yaml_and_esc_hint(), app.light_theme),
       resource: &mut app.data.role_bindings,
-      table_headers: vec!["Namespace", "Name", "Role", "Age"],
-      column_widths: vec![
-        Constraint::Percentage(20),
-        Constraint::Percentage(30),
-        Constraint::Percentage(30),
-        Constraint::Percentage(20),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
       Row::new(vec![
@@ -311,10 +335,13 @@ impl From<ClusterRoleBinding> for KubeClusterRoleBinding {
   }
 }
 
-impl KubeResource<ClusterRoleBinding> for KubeClusterRoleBinding {
+impl Named for KubeClusterRoleBinding {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<ClusterRoleBinding> for KubeClusterRoleBinding {
   fn get_k8s_obj(&self) -> &ClusterRoleBinding {
     &self.k8s_obj
   }
@@ -347,6 +374,12 @@ impl AppResource for ClusterRoleBindingResource {
   }
 }
 
+const CRB_COLUMNS: [ColumnDef; 3] = [
+  ColumnDef::all("Name", 40, 40, 40),
+  ColumnDef::all("Role", 40, 40, 40),
+  ColumnDef::all("Age", 20, 20, 20),
+];
+
 fn draw_cluster_role_binding_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_resource_title(
@@ -356,6 +389,8 @@ fn draw_cluster_role_binding_block(f: &mut Frame<'_>, app: &mut App, area: Rect)
     app.data.cluster_role_bindings.items.len(),
   );
 
+  let (headers, widths) = responsive_columns(&CRB_COLUMNS, ViewTier::Compact);
+
   draw_resource_block(
     f,
     area,
@@ -363,12 +398,8 @@ fn draw_cluster_role_binding_block(f: &mut Frame<'_>, app: &mut App, area: Rect)
       title,
       inline_help: help_bold_line(describe_yaml_and_esc_hint(), app.light_theme),
       resource: &mut app.data.cluster_role_bindings,
-      table_headers: vec!["Name", "Role", "Age"],
-      column_widths: vec![
-        Constraint::Percentage(40),
-        Constraint::Percentage(40),
-        Constraint::Percentage(20),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
       Row::new(vec![

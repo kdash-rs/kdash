@@ -171,6 +171,9 @@ pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
       _ if key == DEFAULT_KEYBINDING.toggle_theme.key => {
         app.light_theme = !app.light_theme;
       }
+      _ if key == DEFAULT_KEYBINDING.toggle_wide_columns.key => {
+        app.wide_columns = !app.wide_columns;
+      }
       _ if key == DEFAULT_KEYBINDING.refresh.key => {
         app.refresh();
       }
@@ -473,10 +476,10 @@ async fn handle_route_events(key: Key, app: &mut App) {
           app.show_info_bar = !app.show_info_bar;
         }
         _ if key == DEFAULT_KEYBINDING.select_all_namespace.key => app.data.selected.ns = None,
-        _ if key == DEFAULT_KEYBINDING.jump_to_namespace.key => {
-          if app.get_current_route().active_block != ActiveBlock::Namespaces {
-            app.push_navigation_stack(RouteId::Home, ActiveBlock::Namespaces);
-          }
+        _ if key == DEFAULT_KEYBINDING.jump_to_namespace.key
+          && app.get_current_route().active_block != ActiveBlock::Namespaces =>
+        {
+          app.push_navigation_stack(RouteId::Home, ActiveBlock::Namespaces);
         }
         // as these are tabs with index the order here matters, atleast for readability
         _ if key == DEFAULT_KEYBINDING.jump_to_pods.key => {
@@ -767,7 +770,9 @@ async fn handle_route_events(key: Key, app: &mut App) {
 
       match app.get_current_route().active_block {
         ActiveBlock::Containers => {
-          if let Some(c) = handle_block_action(key, &app.data.containers) {
+          if key == DEFAULT_KEYBINDING.shell_exec.key {
+            queue_selected_container_shell_exec(app);
+          } else if let Some(c) = handle_block_action(key, &app.data.containers) {
             app.data.selected.container = Some(c.name.clone());
             app
               .dispatch_container_logs(c.name, RouteId::Troubleshoot)
@@ -790,9 +795,9 @@ async fn handle_route_events(key: Key, app: &mut App) {
               if finding.resource_kind == ResourceKind::Pod {
                 // Drill into containers for pod findings
                 if let Some(idx) = app.data.pods.items.iter().position(|p| {
-                  p.name == finding.describe_name
+                  p.name == finding.resource_name
                     && finding
-                      .describe_namespace
+                      .namespace
                       .as_deref()
                       .is_some_and(|ns| p.namespace == ns)
                 }) {
@@ -809,7 +814,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
                 app.push_navigation_stack(RouteId::Troubleshoot, ActiveBlock::Describe);
                 app
                   .dispatch_cmd(IoCmdEvent::GetDescribe {
-                    kind: kind.to_owned(),
+                    kind,
                     value: value.to_owned(),
                     ns: ns.map(str::to_owned),
                   })
@@ -823,7 +828,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
               app.push_navigation_stack(RouteId::Troubleshoot, ActiveBlock::Describe);
               app
                 .dispatch_cmd(IoCmdEvent::GetDescribe {
-                  kind: kind.to_owned(),
+                  kind,
                   value: value.to_owned(),
                   ns: ns.map(str::to_owned),
                 })
@@ -838,9 +843,9 @@ async fn handle_route_events(key: Key, app: &mut App) {
                   .items
                   .iter()
                   .find(|p| {
-                    p.name == finding.describe_name
+                    p.name == finding.resource_name
                       && finding
-                        .describe_namespace
+                        .namespace
                         .as_deref()
                         .is_some_and(|ns| p.namespace == ns)
                   })
@@ -852,9 +857,9 @@ async fn handle_route_events(key: Key, app: &mut App) {
                   .items
                   .iter()
                   .find(|pvc| {
-                    pvc.name == finding.describe_name
+                    pvc.name == finding.resource_name
                       && finding
-                        .describe_namespace
+                        .namespace
                         .as_deref()
                         .is_some_and(|ns| pvc.namespace == ns)
                   })
@@ -866,9 +871,9 @@ async fn handle_route_events(key: Key, app: &mut App) {
                   .items
                   .iter()
                   .find(|rs| {
-                    rs.name == finding.describe_name
+                    rs.name == finding.resource_name
                       && finding
-                        .describe_namespace
+                        .namespace
                         .as_deref()
                         .is_some_and(|ns| rs.namespace == ns)
                   })
@@ -1382,6 +1387,35 @@ mod tests {
 
     assert!(!app.log_auto_scroll);
     assert_eq!(app.pending_shell_exec(), None);
+  }
+
+  #[tokio::test]
+  async fn test_shell_exec_key_in_troubleshoot_containers_queues_request() {
+    let mut app = App::default();
+    app.route_troubleshoot();
+    app.push_navigation_stack(RouteId::Troubleshoot, ActiveBlock::Containers);
+
+    let mut pod = KubePod::default();
+    pod.namespace = "team-a".into();
+    pod.name = "pod-1".into();
+    app.data.pods.set_items(vec![pod]);
+
+    let mut container = KubeContainer::default();
+    container.name = "app".into();
+    app.data.containers.set_items(vec![container]);
+
+    let key_evt = KeyEvent::from(KeyCode::Char('s'));
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+
+    assert_eq!(
+      app.pending_shell_exec(),
+      Some(&PendingShellExec {
+        namespace: "team-a".into(),
+        pod: "pod-1".into(),
+        container: "app".into(),
+      })
+    );
+    assert!(app.api_error.is_empty());
   }
 
   #[tokio::test]

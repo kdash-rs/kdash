@@ -11,7 +11,7 @@ use ratatui::{
 
 use super::{
   key_binding::DEFAULT_KEYBINDING,
-  models::{AppResource, KubeResource},
+  models::{AppResource, KubeResource, Named},
   utils::{self, UNKNOWN},
   ActiveBlock, App,
 };
@@ -52,10 +52,13 @@ impl From<Namespace> for KubeNs {
   }
 }
 
-impl KubeResource<Namespace> for KubeNs {
+impl Named for KubeNs {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<Namespace> for KubeNs {
   fn get_k8s_obj(&self) -> &Namespace {
     &self.k8s_obj
   }

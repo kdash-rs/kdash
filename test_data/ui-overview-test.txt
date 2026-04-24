@@ -15,28 +15,28 @@ KDash - A simple Kubernetes dashboard                                           
 │ Pods [20] │ Services [4] <2> │ Nodes [1] <3> │ ConfigMaps [15] <4> │ StatefulSets [0] <5> │ ReplicaSets [6] <6> │ Deployments [6] <7> │ Jobs [2] <8> │ DaemonSets [1] <9> │ More │
 │──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
 │                                                                                                                                                                                  │
-│ Pods (ns: all) [20] containers <Enter> | filter </> | describe <d> | yaml <y> | logs <L> ────────────────────────────────────────────────────────────────────────────────────────│
-│   Namespace                                    Name                                                     Ready              Status            Restarts           Age              │
-│=> default                                      bad-image                                                0/1                ImagePullBackOff  0                  4d21h            │
-│   default                                      kdash-test-multi-6bccdcf865-hrr8t                        2/2                Running           0                  4d4h             │
-│   default                                      kdash-test-multi-6bccdcf865-lsc59                        2/2                Running           0                  4d4h             │
-│   default                                      kdash-test-multi-6bccdcf865-s2qbp                        2/2                Running           0                  4d4h             │
-│   default                                      kdash-test-nginx-776f75c995-27pf7                        1/1                Running           0                  4d4h             │
-│   default                                      kdash-test-nginx-776f75c995-5fqvt                        1/1                Running           0                  4d4h             │
-│   default                                      kdash-test-nginx-776f75c995-sh92q                        1/1                Running           0                  4d4h             │
-│   default                                      pending-pod                                              0/1                Pending           0                  4d21h            │
-│   kdash-demo                                   bad-image                                                0/1                ImagePullBackOff  0                  4d21h            │
-│   kdash-demo                                   pending-pod                                              0/1                Pending           0                  4d21h            │
-│   kdash-log-test                               kdash-log-fast                                           1/1                Running           0                  23h34m           │
-│   kdash-log-test                               kdash-log-stream                                         1/1                Running           0                  23h38m           │
-│   kdash-rbac-test                              kdash-rbac-demo                                          1/1                Running           0                  2d1h             │
-│   kube-system                                  coredns-6d668d687-wqqjq                                  1/1                Running           0                  5d3h             │
-│   kube-system                                  helm-install-traefik-crd-r5h8c                           0/1                Completed         0                  5d3h             │
-│   kube-system                                  helm-install-traefik-vhdr6                               0/1                Completed         1                  5d3h             │
-│   kube-system                                  local-path-provisioner-869c44bfbd-pfxd6                  1/1                Running           0                  5d3h             │
-│   kube-system                                  metrics-server-7bfffcd44-ftxdj                           1/1                Running           0                  5d3h             │
-│   kube-system                                  svclb-traefik-207900ce-62q7c                             2/2                Running           0                  5d3h             │
-│   kube-system                                  traefik-865bd56545-4htnx                                 1/1                Running           0                  5d3h             │
+│ Pods (ns: all) [20] containers <Enter> | filter </> | describe <d> | yaml <y> | logs <L>  | wide <w>─────────────────────────────────────────────────────────────────────────────│
+│   Namespace                           Name                                  Ready          Status            Restarts      Node                  IP                Age           │
+│=> default                             bad-image                             0/1            ImagePullBackOff  0                                                     4d21h         │
+│   default                             kdash-test-multi-6bccdcf865-hrr8t     2/2            Running           0                                                     4d4h          │
+│   default                             kdash-test-multi-6bccdcf865-lsc59     2/2            Running           0                                                     4d4h          │
+│   default                             kdash-test-multi-6bccdcf865-s2qbp     2/2            Running           0                                                     4d4h          │
+│   default                             kdash-test-nginx-776f75c995-27pf7     1/1            Running           0                                                     4d4h          │
+│   default                             kdash-test-nginx-776f75c995-5fqvt     1/1            Running           0                                                     4d4h          │
+│   default                             kdash-test-nginx-776f75c995-sh92q     1/1            Running           0                                                     4d4h          │
+│   default                             pending-pod                           0/1            Pending           0                                                     4d21h         │
+│   kdash-demo                          bad-image                             0/1            ImagePullBackOff  0                                                     4d21h         │
+│   kdash-demo                          pending-pod                           0/1            Pending           0                                                     4d21h         │
+│   kdash-log-test                      kdash-log-fast                        1/1            Running           0                                                     23h34m        │
+│   kdash-log-test                      kdash-log-stream                      1/1            Running           0                                                     23h38m        │
+│   kdash-rbac-test                     kdash-rbac-demo                       1/1            Running           0                                                     2d1h          │
+│   kube-system                         coredns-6d668d687-wqqjq               1/1            Running           0                                                     5d3h          │
+│   kube-system                         helm-install-traefik-crd-r5h8c        0/1            Completed         0                                                     5d3h          │
+│   kube-system                         helm-install-traefik-vhdr6            0/1            Completed         1                                                     5d3h          │
+│   kube-system                         local-path-provisioner-869c44bfbd-pfx 1/1            Running           0                                                     5d3h          │
+│   kube-system                         metrics-server-7bfffcd44-ftxdj        1/1            Running           0                                                     5d3h          │
+│   kube-system                         svclb-traefik-207900ce-62q7c          2/2            Running           0                                                     5d3h          │
+│   kube-system                         traefik-865bd56545-4htnx              1/1            Running           0                                                     5d3h          │
 │                                                                                                                                                                                  │
 │                                                                                                                                                                                  │
 │                                                                                                                                                                                  │

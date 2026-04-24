@@ -1,239 +1,88 @@
+//! Troubleshoot subsystem — surfaces unhealthy Kubernetes resources.
+//!
+//! Each resource kind has its own check module (e.g. `pod`, `pvc`, etc.).
+//! `evaluate_findings` collects results from every module into a sorted
+//! `Vec<DisplayFinding>` that the UI renders as a table.
+//!
+//! # Adding a check to an existing resource
+//!
+//! 1. Add `fn check_foo(res: &KubeT) -> Option<DisplayFinding>` that
+//!    returns `Some(finding(res, severity, reason, message))` when unhealthy.
+//! 2. Wire it into `evaluate()`.
+//!
+//! # Adding a check module for a new resource
+//!
+//! 1. Add a variant to [`ResourceKind`] in `types.rs` with a
+//!    `#[strum(serialize = "...")]` attribute set to the (short) `kubectl`
+//!    alias (e.g. `"deploy"`, `"svc"`).
+//! 2. Create `<resource>.rs` with:
+//!    - `fn finding(res, severity, reason, message) -> DisplayFinding`.
+//!    - One or more `fn check_*(res) -> Option<DisplayFinding>`.
+//!    - `pub fn evaluate(items: &[KubeT]) -> Vec<DisplayFinding>`.
+//! 3. In this file (`mod.rs`):
+//!    - Add `mod <resource>;`
+//!    - Add `findings.extend(<resource>::evaluate(&data.<table>.items));`
+//!      in `evaluate_findings`.
+//! 4. In `TroubleshootResource::get_resource`, fetch and store the new
+//!    resource type alongside the existing `tokio::join!` calls.
+//! 5. Run `cargo test troubleshoot` and verify the new `ResourceKind`
+//!    is handled by the new module and contributes findings through
+//!    `evaluate_findings`.
+
 use async_trait::async_trait;
-use ratatui::{
-  layout::{Constraint, Rect},
-  widgets::{Cell, Row},
-  Frame,
-};
-use strum::Display;
+use ratatui::layout::Rect;
+use ratatui::Frame;
 
 use super::{
-  models::{AppResource, FilterableTable, KubeResource},
-  pods::KubePod,
-  pvcs::KubePVC,
-  replicasets::KubeReplicaSet,
-  ActiveBlock, App,
+  models::AppResource, pods::KubePod, pvcs::KubePVC, replicasets::KubeReplicaSet, ActiveBlock, App,
+  Data,
 };
 use k8s_openapi::api::apps::v1::ReplicaSet;
 use k8s_openapi::api::core::v1::{PersistentVolumeClaim, Pod};
+
+use crate::ui::utils::{
+  copy_and_escape_title_line, draw_describe_block, draw_yaml_block, get_describe_active,
+  get_resource_title, title_with_dual_style,
+};
+
+mod render;
+mod types;
+
+pub use render::render_troubleshoot;
+pub use types::{DisplayFinding, ResourceKind, Severity};
 
 mod pod;
 mod pvc;
 mod rs;
 
-use crate::app::key_binding::DEFAULT_KEYBINDING;
-use crate::ui::utils::{
-  action_hint, copy_and_escape_title_line, describe_and_yaml_hint, draw_describe_block,
-  draw_route_resource_block, draw_yaml_block, filter_cursor_position, filter_status_parts,
-  get_describe_active, get_resource_title, help_part, mixed_bold_line, style_caution,
-  style_failure, style_primary, title_with_dual_style, ResourceTableProps,
-};
-
-// ---------------------------------------------------------------------------
-// Core generic finding type
-// ---------------------------------------------------------------------------
-
-/// Severity-tagged finding; variant order defines sort priority.
-#[derive(Clone, Debug, Display, Eq, Ord, PartialEq, PartialOrd)]
-pub enum Finding<R> {
-  Error(R),
-  Warn(R),
-  Info(R),
-}
-
-impl<R> Finding<R> {
-  /// Severity-only copy for type-erased storage.
-  pub fn severity_tag(&self) -> Finding<()> {
-    match self {
-      Finding::Error(_) => Finding::Error(()),
-      Finding::Warn(_) => Finding::Warn(()),
-      Finding::Info(_) => Finding::Info(()),
-    }
-  }
-
-  /// Return inner payload.
-  pub fn into_inner(self) -> R {
-    match self {
-      Finding::Info(r) | Finding::Warn(r) | Finding::Error(r) => r,
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Display enums shared across resource-specific findings
-// ---------------------------------------------------------------------------
-
-#[derive(Clone, Copy, Debug, Display, Eq, PartialEq)]
-pub enum ResourceKind {
-  Pod,
-  #[strum(serialize = "PVC")]
-  Pvc,
-  ReplicaSet,
-}
-
-// ---------------------------------------------------------------------------
-// DisplayFinding — the concrete, type-erased row
-// ---------------------------------------------------------------------------
-
-/// Flattened UI row for a finding.
-#[derive(Clone, Debug, PartialEq)]
-pub struct DisplayFinding {
-  pub severity: Finding<()>,
-  pub reason: String,
-  pub resource_kind: ResourceKind,
-  pub namespace: Option<String>,
-  pub resource_name: String,
-  pub message: String,
-  pub age: String,
-  pub describe_kind: String,
-  pub describe_name: String,
-  pub describe_namespace: Option<String>,
-  // Unit k8s_obj kept for KubeResource trait compatibility
-  pub(crate) k8s_obj: (),
-}
-
-impl DisplayFinding {
-  pub fn resource_ref(&self) -> String {
-    match &self.namespace {
-      Some(ns) if !ns.is_empty() => format!("{}/{}", ns, self.resource_name),
-      _ => self.resource_name.clone(),
-    }
-  }
-
-  pub fn describe_target(&self) -> (&str, &str, Option<&str>) {
-    (
-      self.describe_kind.as_str(),
-      self.describe_name.as_str(),
-      self.describe_namespace.as_deref(),
-    )
-  }
-}
-
-impl KubeResource<()> for DisplayFinding {
-  fn get_name(&self) -> &String {
-    &self.resource_name
-  }
-
-  fn get_k8s_obj(&self) -> &() {
-    &self.k8s_obj
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Conversion trait — resource findings → display findings
-// ---------------------------------------------------------------------------
-
-/// Convert resource findings into display rows.
-pub trait IntoDisplayFinding {
-  fn into_display_finding(self) -> DisplayFinding;
-}
-
 // ---------------------------------------------------------------------------
 // Evaluation orchestrator
 // ---------------------------------------------------------------------------
 
-pub fn evaluate_findings(
-  pods: &[KubePod],
-  pvcs: &[KubePVC],
-  replica_sets: &[KubeReplicaSet],
-) -> Vec<DisplayFinding> {
+pub fn evaluate_findings(data: &Data) -> Vec<DisplayFinding> {
   let mut findings: Vec<DisplayFinding> = Vec::new();
 
-  // Collect pod findings
-  findings.extend(pod::evaluate_pod_findings(pods));
-
-  // Collect PVC findings
-  findings.extend(pvc::evaluate_pvc_findings(pvcs));
-
-  // Collect ReplicaSet findings
-  findings.extend(rs::evaluate_rs_findings(replica_sets));
+  findings.extend(pod::evaluate(&data.pods.items));
+  findings.extend(pvc::evaluate(&data.persistent_volume_claims.items));
+  findings.extend(rs::evaluate(&data.replica_sets.items));
 
   // Future: add node/deployment checks.
 
-  findings.sort_by(|a, b| {
+  findings.sort_unstable_by(|a, b| {
     a.severity
       .cmp(&b.severity)
       .then_with(|| a.resource_name.cmp(&b.resource_name))
+      .then_with(|| a.namespace.cmp(&b.namespace))
+      .then_with(|| a.resource_kind.cmp(&b.resource_kind))
+      .then_with(|| a.reason.cmp(&b.reason))
   });
 
   findings
 }
 
 // ---------------------------------------------------------------------------
-// Rendering
+// AppResource impl
 // ---------------------------------------------------------------------------
-
-pub fn render_troubleshoot(f: &mut Frame<'_>, app: &mut App, area: Rect) {
-  let light_theme = app.light_theme;
-  let is_loading = app.is_loading();
-  let title = format!(
-    " Troubleshoot (ns: {}) [{}] ",
-    app
-      .data
-      .selected
-      .ns
-      .as_ref()
-      .unwrap_or(&String::from("all")),
-    app.data.troubleshoot_findings.count_label(),
-  );
-  let title_width = title.chars().count();
-  let findings = &mut app.data.troubleshoot_findings;
-  let filter = findings.filter.clone();
-  let filter_active = findings.filter_active;
-
-  let mut inline_help = vec![];
-  inline_help.extend(filter_status_parts(&filter, filter_active));
-  if !filter_active {
-    inline_help.extend([
-      help_part(format!(
-        " | {} | ",
-        action_hint("resource", DEFAULT_KEYBINDING.submit.key)
-      )),
-      help_part(describe_and_yaml_hint()),
-    ]);
-  }
-
-  draw_route_resource_block(
-    f,
-    area,
-    ResourceTableProps {
-      title,
-      inline_help: mixed_bold_line(inline_help, app.light_theme),
-      resource: findings,
-      table_headers: vec!["Severity", "Type", "Reason", "Resource", "Message", "Age"],
-      column_widths: vec![
-        Constraint::Percentage(7),
-        Constraint::Percentage(6),
-        Constraint::Percentage(13),
-        Constraint::Percentage(18),
-        Constraint::Percentage(44),
-        Constraint::Percentage(12),
-      ],
-    },
-    |c| {
-      let style = match c.severity {
-        Finding::Error(()) => style_failure(light_theme),
-        Finding::Warn(()) => style_caution(light_theme),
-        Finding::Info(()) => style_primary(light_theme),
-      };
-
-      Row::new(vec![
-        Cell::from(c.severity.to_string()),
-        Cell::from(c.resource_kind.to_string()),
-        Cell::from(c.reason.clone()),
-        Cell::from(c.resource_ref()),
-        Cell::from(c.message.clone()),
-        Cell::from(c.age.clone()),
-      ])
-      .style(style)
-    },
-    light_theme,
-    is_loading,
-  );
-
-  if filter_active {
-    f.set_cursor_position(filter_cursor_position(area, title_width, &filter));
-  }
-}
 
 pub struct TroubleshootResource;
 
@@ -284,12 +133,11 @@ impl AppResource for TroubleshootResource {
       network.get_namespaced_resources::<ReplicaSet, KubeReplicaSet, _>(KubeReplicaSet::from),
     );
 
-    let findings = evaluate_findings(&pods, &pvcs, &replica_sets);
-
     let mut app = network.app.lock().await;
     app.data.pods.set_items(pods);
     app.data.persistent_volume_claims.set_items(pvcs);
     app.data.replica_sets.set_items(replica_sets);
+    let findings = evaluate_findings(&app.data);
     app.data.troubleshoot_findings.set_items(findings);
   }
 }
@@ -383,16 +231,11 @@ mod tests {
     }
   }
 
-  /// Verifies type-erasing the payload into `()` while preserving severity.
   #[test]
-  fn test_finding_severity_tag() {
-    let error = Finding::Error("x").severity_tag();
-    let warn = Finding::Warn("x").severity_tag();
-    let info = Finding::Info("x").severity_tag();
-
-    assert_eq!(error, Finding::Error(()));
-    assert_eq!(warn, Finding::Warn(()));
-    assert_eq!(info, Finding::Info(()));
+  fn test_severity_ordering() {
+    assert!(Severity::Error < Severity::Warn);
+    assert!(Severity::Warn < Severity::Info);
+    assert!(Severity::Error < Severity::Info);
   }
 
   #[test]
@@ -403,59 +246,78 @@ mod tests {
 
     let app = build_app_with_resources(pod, pvc, rs);
 
-    let findings = evaluate_findings(
-      &app.data.pods.items,
-      &app.data.persistent_volume_claims.items,
-      &app.data.replica_sets.items,
-    );
+    let findings = evaluate_findings(&app.data);
 
     // Order: severity (Error->Warn->Info), then name.
     assert_eq!(findings.len(), 3);
-    assert_eq!(findings[0].severity, Finding::Error(()));
+    assert_eq!(findings[0].severity, Severity::Error);
     assert_eq!(findings[0].resource_name, "z-pod");
-    assert_eq!(findings[1].severity, Finding::Warn(()));
+    assert_eq!(findings[1].severity, Severity::Warn);
     assert_eq!(findings[1].resource_name, "a-rs");
-    assert_eq!(findings[2].severity, Finding::Warn(()));
+    assert_eq!(findings[2].severity, Severity::Warn);
     assert_eq!(findings[2].resource_name, "b-pvc");
+  }
+
+  #[test]
+  fn test_evaluate_findings_tie_breaks_same_name() {
+    let mut data = Data::default();
+    data
+      .pods
+      .set_items(vec![build_pod_with_phase("shared", "Failed"), {
+        let pod = Pod {
+          metadata: ObjectMeta {
+            name: Some("shared".into()),
+            namespace: Some("ns-2".into()),
+            ..Default::default()
+          },
+          status: Some(PodStatus {
+            phase: Some("Failed".into()),
+            ..Default::default()
+          }),
+          ..Default::default()
+        };
+        KubePod::from(pod)
+      }]);
+
+    let findings = evaluate_findings(&data);
+
+    assert_eq!(findings.len(), 2);
+    assert_eq!(findings[0].namespace.as_deref(), Some("ns-1"));
+    assert_eq!(findings[1].namespace.as_deref(), Some("ns-2"));
   }
 
   #[test]
   fn test_display_finding_resource_ref_includes_namespace_when_present() {
     let finding = DisplayFinding {
-      severity: Finding::Warn(()),
+      severity: Severity::Warn,
       reason: "Pending".into(),
       resource_kind: ResourceKind::Pod,
       namespace: Some("ns-1".into()),
       resource_name: "pod-a".into(),
       message: "pod is pending".into(),
       age: "5m".into(),
-      describe_kind: "Pod".into(),
-      describe_name: "pod-a".into(),
-      describe_namespace: Some("ns-1".into()),
-      k8s_obj: (),
     };
 
     assert_eq!(finding.resource_ref(), "ns-1/pod-a");
-    assert_eq!(finding.describe_target(), ("Pod", "pod-a", Some("ns-1")));
+    assert_eq!(
+      finding.describe_target(),
+      ("pod".to_string(), "pod-a", Some("ns-1"))
+    );
   }
 
   #[test]
   fn test_display_finding_resource_ref_omits_empty_namespace() {
     let finding = DisplayFinding {
-      severity: Finding::Info(()),
+      severity: Severity::Info,
       reason: "Info".into(),
       resource_kind: ResourceKind::ReplicaSet,
-      namespace: Some(String::new()),
+      namespace: None,
       resource_name: "rs-a".into(),
       message: "all good".into(),
       age: "1m".into(),
-      describe_kind: "ReplicaSet".into(),
-      describe_name: "rs-a".into(),
-      describe_namespace: None,
-      k8s_obj: (),
     };
 
     assert_eq!(finding.resource_ref(), "rs-a");
-    assert_eq!(finding.describe_target(), ("ReplicaSet", "rs-a", None));
+    assert_eq!(finding.describe_target(), ("rs".to_string(), "rs-a", None));
   }
 }

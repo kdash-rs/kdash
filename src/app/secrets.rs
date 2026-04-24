@@ -5,13 +5,13 @@ use base64::{engine::general_purpose, Engine};
 use chrono::Utc;
 use k8s_openapi::{api::core::v1::Secret, ByteString};
 use ratatui::{
-  layout::{Constraint, Rect},
+  layout::Rect,
   widgets::{Cell, Row},
   Frame,
 };
 
 use super::{
-  models::{AppResource, KubeResource},
+  models::{AppResource, KubeResource, Named},
   utils::{self},
   ActiveBlock, App,
 };
@@ -20,8 +20,8 @@ use crate::{
   network::Network,
   ui::utils::{
     describe_yaml_decode_and_esc_hint, draw_describe_block, draw_resource_block, draw_yaml_block,
-    get_describe_active, get_resource_title, help_bold_line, style_primary, title_with_dual_style,
-    ResourceTableProps,
+    get_describe_active, get_resource_title, help_bold_line, responsive_columns, style_primary,
+    title_with_dual_style, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
 
@@ -71,10 +71,13 @@ impl From<Secret> for KubeSecret {
   }
 }
 
-impl KubeResource<Secret> for KubeSecret {
+impl Named for KubeSecret {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<Secret> for KubeSecret {
   fn get_k8s_obj(&self) -> &Secret {
     &self.k8s_obj
   }
@@ -107,9 +110,19 @@ impl AppResource for SecretResource {
   }
 }
 
+const SECRET_COLUMNS: [ColumnDef; 5] = [
+  ColumnDef::all("Namespace", 25, 25, 25),
+  ColumnDef::all("Name", 30, 30, 30),
+  ColumnDef::all("Type", 25, 25, 25),
+  ColumnDef::all("Data", 10, 10, 10),
+  ColumnDef::all("Age", 10, 10, 10),
+];
+
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_resource_title(app, SECRETS_TITLE, "", app.data.secrets.items.len());
+
+  let (headers, widths) = responsive_columns(&SECRET_COLUMNS, ViewTier::Compact);
 
   draw_resource_block(
     f,
@@ -118,14 +131,8 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: help_bold_line(describe_yaml_decode_and_esc_hint(), app.light_theme),
       resource: &mut app.data.secrets,
-      table_headers: vec!["Namespace", "Name", "Type", "Data", "Age"],
-      column_widths: vec![
-        Constraint::Percentage(25),
-        Constraint::Percentage(30),
-        Constraint::Percentage(25),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
       Row::new(vec![

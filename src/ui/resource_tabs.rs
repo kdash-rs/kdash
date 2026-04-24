@@ -361,7 +361,7 @@ mod tests {
         "│ Pods [1] │ Services [0] <2> │ Nodes [0] <3> │ ConfigMaps [0] <4> │ StatefulSets [0] <5> │ Replica│",
         "│──────────────────────────────────────────────────────────────────────────────────────────────────│",
         "│                                                                                                  │",
-        "│ Pods (ns: all) [1] containers <Enter> | filter </> | describe <d> | yaml <y> | logs <L> ─────────│",
+        "│ Pods (ns: all) [1] containers <Enter> | filter </> | describe <d> | yaml <y> | logs <L>  | wide <│",
         "│   Namespace                Name                         Ready      Status    Restarts   Age      │",
         "│=> pod namespace test       pod name test                0/2        Failed    0          6h52m    │",
         "│                                                                                                  │",
