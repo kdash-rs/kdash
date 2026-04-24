@@ -199,6 +199,23 @@ Log streaming history can also be tuned:
 log_tail_lines: 250
 ```
 
+CLI Info entries can be configured too. Built-in entries remain enabled by default, missing binaries are hidden by default, you can disable any built-in by label, and you can add custom probes with a label plus command:
+
+```yaml
+cli_info:
+  hide_missing_binaries: false
+  disable_defaults:
+    - docker
+  custom:
+    - label: istioctl
+      command: ["istioctl", "version"]
+      regex: '\b(v?[0-9]+\.[0-9]+\.[0-9]+)\b'
+```
+
+Set `hide_missing_binaries: false` if you want missing CLIs to stay visible as `Not found`.
+
+Built-in labels are: `kubectl client`, `kubectl server`, `docker`, `docker-compose`, `podman`, `containerd`, `helm`, and `kind`. For custom commands, `regex` is optional: if provided, the first capture group is shown; otherwise the first non-empty stdout line is shown.
+
 See the sample config in [assets/kdash.sample-config.yaml](assets/kdash.sample-config.yaml) for a complete example with both custom keybindings and custom light/dark theme overrides.
 
 ## FLAGS:

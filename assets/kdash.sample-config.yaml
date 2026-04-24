@@ -1,5 +1,18 @@
 log_tail_lines: 250
 
+cli_info:
+  # Hide missing CLI entries entirely. Set to false to show them as "Not found".
+  hide_missing_binaries: true
+  # Hide built-in CLI entries by their displayed labels.
+  # Built-ins: kubectl client, kubectl server, docker, docker-compose, podman, containerd, helm, kind
+  disable_defaults:
+    - kind
+  # Add custom CLI version probes. The first non-empty stdout line is shown.
+  custom:
+    - label: istioctl
+      command: ["istioctl", "version"]
+      regex: '\b(v?[0-9]+\.[0-9]+\.[0-9]+)\b'
+
 keybindings:
   quit: ctrl+c
   esc: esc

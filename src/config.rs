@@ -16,6 +16,7 @@ pub struct KdashConfig {
   pub keybindings: Option<KeybindingOverrides>,
   pub theme: Option<ThemeConfig>,
   pub log_tail_lines: Option<u32>,
+  pub cli_info: Option<CliInfoConfig>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
@@ -28,6 +29,32 @@ pub struct KeybindingOverrides {
 pub struct ThemeConfig {
   pub dark: Option<BTreeMap<String, String>>,
   pub light: Option<BTreeMap<String, String>>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct CliInfoConfig {
+  pub hide_missing_binaries: bool,
+  pub disable_defaults: Vec<String>,
+  pub custom: Vec<CliInfoEntry>,
+}
+
+impl Default for CliInfoConfig {
+  fn default() -> Self {
+    Self {
+      hide_missing_binaries: true,
+      disable_defaults: vec![],
+      custom: vec![],
+    }
+  }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct CliInfoEntry {
+  pub label: String,
+  pub command: Vec<String>,
+  pub regex: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -143,7 +170,7 @@ mod tests {
     let path = dir.join("config.yaml");
     fs::write(
       &path,
-      "keybindings:\n  quit: ctrl+q\nlog_tail_lines: 250\ntheme:\n  dark:\n    primary: green\n  light:\n    primary: blue\n",
+      "keybindings:\n  quit: ctrl+q\nlog_tail_lines: 250\ncli_info:\n  disable_defaults:\n    - docker\n  custom:\n    - label: istioctl\n      command: [\"istioctl\", \"version\"]\n      regex: '\\b(v?[0-9]+\\.[0-9]+\\.[0-9]+)\\b'\ntheme:\n  dark:\n    primary: green\n  light:\n    primary: blue\n",
     )
     .expect("config fixture should be written");
 
@@ -183,6 +210,18 @@ mod tests {
       )]))
     );
     assert_eq!(loaded.config.log_tail_lines, Some(250));
+    assert_eq!(
+      loaded.config.cli_info,
+      Some(CliInfoConfig {
+        hide_missing_binaries: true,
+        disable_defaults: vec!["docker".to_string()],
+        custom: vec![CliInfoEntry {
+          label: "istioctl".to_string(),
+          command: vec!["istioctl".to_string(), "version".to_string()],
+          regex: Some("\\b(v?[0-9]+\\.[0-9]+\\.[0-9]+)\\b".to_string()),
+        }],
+      })
+    );
     assert!(loaded.warning.is_none());
 
     fs::remove_dir_all(dir).expect("temp test dir should be removed");
@@ -229,8 +268,62 @@ mod tests {
     assert!(loaded.config.keybindings.is_some());
     assert!(loaded.config.theme.is_none());
     assert!(loaded.config.log_tail_lines.is_none());
+    assert!(loaded.config.cli_info.is_none());
     assert!(loaded.warning.is_none());
 
     fs::remove_dir_all(dir).expect("temp test dir should be removed");
+  }
+
+  #[test]
+  fn test_cli_info_defaults_hide_missing_binaries() {
+    let config: KdashConfig =
+      serde_yaml::from_str("cli_info:\n  disable_defaults:\n    - docker\n")
+        .expect("config should parse");
+
+    assert_eq!(
+      config.cli_info,
+      Some(CliInfoConfig {
+        hide_missing_binaries: true,
+        disable_defaults: vec!["docker".to_string()],
+        custom: vec![],
+      })
+    );
+  }
+
+  #[test]
+  fn test_cli_info_can_show_missing_binaries() {
+    let config: KdashConfig = serde_yaml::from_str("cli_info:\n  hide_missing_binaries: false\n")
+      .expect("config should parse");
+
+    assert_eq!(
+      config.cli_info,
+      Some(CliInfoConfig {
+        hide_missing_binaries: false,
+        disable_defaults: vec![],
+        custom: vec![],
+      })
+    );
+  }
+
+  #[test]
+  fn test_cli_info_custom_regex_defaults_to_none() {
+    let config: KdashConfig =
+      serde_yaml::from_str(
+        "cli_info:\n  custom:\n    - label: containerd\n      command: [\"containerd\", \"--version\"]\n",
+      )
+      .expect("config should parse");
+
+    assert_eq!(
+      config.cli_info,
+      Some(CliInfoConfig {
+        hide_missing_binaries: true,
+        disable_defaults: vec![],
+        custom: vec![CliInfoEntry {
+          label: "containerd".to_string(),
+          command: vec!["containerd".to_string(), "--version".to_string()],
+          regex: None,
+        }],
+      })
+    );
   }
 }
