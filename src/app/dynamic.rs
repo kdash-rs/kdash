@@ -21,7 +21,7 @@ use ratatui::{
 use std::collections::{BTreeMap, VecDeque};
 
 use super::{
-  models::{AppResource, KubeResource},
+  models::{AppResource, KubeResource, Named},
   utils, ActiveBlock, App,
 };
 use crate::{
@@ -78,10 +78,13 @@ impl From<DynamicObject> for KubeDynamicResource {
   }
 }
 
-impl KubeResource<DynamicObject> for KubeDynamicResource {
+impl Named for KubeDynamicResource {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<DynamicObject> for KubeDynamicResource {
   fn get_k8s_obj(&self) -> &DynamicObject {
     &self.k8s_obj
   }

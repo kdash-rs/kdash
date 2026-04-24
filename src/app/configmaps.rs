@@ -10,7 +10,7 @@ use ratatui::{
 };
 
 use super::{
-  models::{AppResource, KubeResource},
+  models::{AppResource, KubeResource, Named},
   utils, ActiveBlock, App,
 };
 use crate::{
@@ -44,10 +44,13 @@ impl From<ConfigMap> for KubeConfigMap {
   }
 }
 
-impl KubeResource<ConfigMap> for KubeConfigMap {
+impl Named for KubeConfigMap {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<ConfigMap> for KubeConfigMap {
   fn get_k8s_obj(&self) -> &ConfigMap {
     &self.k8s_obj
   }

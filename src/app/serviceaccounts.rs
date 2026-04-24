@@ -8,7 +8,7 @@ use ratatui::{
 };
 
 use super::{
-  models::{AppResource, KubeResource},
+  models::{AppResource, KubeResource, Named},
   utils::{self},
   ActiveBlock, App,
 };
@@ -44,10 +44,13 @@ impl From<ServiceAccount> for KubeSvcAcct {
   }
 }
 
-impl KubeResource<ServiceAccount> for KubeSvcAcct {
+impl Named for KubeSvcAcct {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<ServiceAccount> for KubeSvcAcct {
   fn get_k8s_obj(&self) -> &ServiceAccount {
     &self.k8s_obj
   }

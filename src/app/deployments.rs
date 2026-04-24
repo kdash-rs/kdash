@@ -8,7 +8,7 @@ use ratatui::{
 };
 
 use super::{
-  models::{self, AppResource, KubeResource},
+  models::{self, AppResource, KubeResource, Named},
   utils, ActiveBlock, App,
 };
 use crate::{
@@ -60,10 +60,13 @@ impl From<Deployment> for KubeDeployment {
   }
 }
 
-impl KubeResource<Deployment> for KubeDeployment {
+impl Named for KubeDeployment {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<Deployment> for KubeDeployment {
   fn get_k8s_obj(&self) -> &Deployment {
     &self.k8s_obj
   }

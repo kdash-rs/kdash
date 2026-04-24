@@ -11,7 +11,7 @@ use ratatui::{
 };
 
 use super::{
-  models::{AppResource, KubeResource},
+  models::{AppResource, KubeResource, Named},
   utils::{self},
   ActiveBlock, App,
 };
@@ -71,10 +71,13 @@ impl From<Secret> for KubeSecret {
   }
 }
 
-impl KubeResource<Secret> for KubeSecret {
+impl Named for KubeSecret {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<Secret> for KubeSecret {
   fn get_k8s_obj(&self) -> &Secret {
     &self.k8s_obj
   }

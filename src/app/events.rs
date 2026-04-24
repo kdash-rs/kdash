@@ -11,7 +11,7 @@ use ratatui::{
 };
 
 use super::{
-  models::{AppResource, KubeResource},
+  models::{AppResource, KubeResource, Named},
   utils, ActiveBlock, App,
 };
 use crate::{
@@ -71,10 +71,13 @@ fn micro_time_to_time(time: &MicroTime) -> Time {
   Time(time.0)
 }
 
-impl KubeResource<Event> for KubeEvent {
+impl Named for KubeEvent {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<Event> for KubeEvent {
   fn get_k8s_obj(&self) -> &Event {
     &self.k8s_obj
   }

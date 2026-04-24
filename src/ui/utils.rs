@@ -9,12 +9,11 @@ use ratatui::{
   widgets::{Block, Borders, Paragraph, Row, Table, Wrap},
   Frame,
 };
-use serde::Serialize;
 
 use super::HIGHLIGHT;
 use crate::app::{
   key_binding::DEFAULT_KEYBINDING,
-  models::{KubeResource, StatefulTable},
+  models::{Named, StatefulTable},
   ActiveBlock, App,
 };
 use crate::event::Key;
@@ -706,7 +705,7 @@ pub fn draw_yaml_block(f: &mut Frame<'_>, app: &mut App, area: Rect, title: Line
   }
 }
 
-fn draw_resource_table<'a, T: KubeResource<U>, F, U: Serialize>(
+fn draw_resource_table<'a, T: Named, F>(
   f: &mut Frame<'_>,
   area: Rect,
   table_props: ResourceTableProps<'a, T>,
@@ -765,7 +764,7 @@ fn draw_resource_table<'a, T: KubeResource<U>, F, U: Serialize>(
 }
 
 /// Draw a kubernetes resource overview tab
-pub fn draw_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
+pub fn draw_resource_block<'a, T: Named, F>(
   f: &mut Frame<'_>,
   area: Rect,
   table_props: ResourceTableProps<'a, T>,
@@ -854,7 +853,7 @@ pub fn draw_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
   );
 }
 
-pub fn draw_route_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
+pub fn draw_route_resource_block<'a, T: Named, F>(
   f: &mut Frame<'_>,
   area: Rect,
   table_props: ResourceTableProps<'a, T>,
@@ -890,7 +889,7 @@ pub fn draw_route_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
   );
 }
 
-pub fn filter_by_resource_name<T: KubeResource<U>, U: Serialize>(
+pub fn filter_by_resource_name<T: Named>(
   filter: &str,
   res: &T,
   row_cell_mapper: Row<'static>,
@@ -908,7 +907,7 @@ pub fn text_matches_filter(filter: &str, value: &str) -> bool {
   filter.is_empty() || glob_match(&filter, &value) || value.contains(&filter)
 }
 
-fn filter_by_name<T: KubeResource<U>, U: Serialize>(ft: &str, res: &T) -> bool {
+fn filter_by_name<T: Named>(ft: &str, res: &T) -> bool {
   text_matches_filter(ft, res.get_name())
 }
 
@@ -978,12 +977,9 @@ mod tests {
       pub age: String,
     }
 
-    impl KubeResource<Option<String>> for RenderTest {
+    impl Named for RenderTest {
       fn get_name(&self) -> &String {
         &self.name
-      }
-      fn get_k8s_obj(&self) -> &Option<String> {
-        &None
       }
     }
     terminal
@@ -1109,12 +1105,9 @@ mod tests {
       pub data: i32,
       pub age: String,
     }
-    impl KubeResource<Option<String>> for RenderTest {
+    impl Named for RenderTest {
       fn get_name(&self) -> &String {
         &self.name
-      }
-      fn get_k8s_obj(&self) -> &Option<String> {
-        &None
       }
     }
 
@@ -1249,12 +1242,9 @@ mod tests {
       pub data: i32,
       pub age: String,
     }
-    impl KubeResource<Option<String>> for RenderTest {
+    impl Named for RenderTest {
       fn get_name(&self) -> &String {
         &self.name
-      }
-      fn get_k8s_obj(&self) -> &Option<String> {
-        &None
       }
     }
 
@@ -1396,13 +1386,9 @@ mod tests {
       pub name: String,
     }
 
-    impl KubeResource<Option<String>> for RenderTest {
+    impl Named for RenderTest {
       fn get_name(&self) -> &String {
         &self.name
-      }
-
-      fn get_k8s_obj(&self) -> &Option<String> {
-        &None
       }
     }
 

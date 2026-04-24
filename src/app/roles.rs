@@ -8,7 +8,7 @@ use ratatui::{
 };
 
 use super::{
-  models::{AppResource, KubeResource},
+  models::{AppResource, KubeResource, Named},
   utils::{self},
   ActiveBlock, App,
 };
@@ -65,10 +65,13 @@ impl From<Role> for KubeRole {
   }
 }
 
-impl KubeResource<Role> for KubeRole {
+impl Named for KubeRole {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<Role> for KubeRole {
   fn get_k8s_obj(&self) -> &Role {
     &self.k8s_obj
   }
@@ -145,10 +148,13 @@ impl From<ClusterRole> for KubeClusterRole {
   }
 }
 
-impl KubeResource<ClusterRole> for KubeClusterRole {
+impl Named for KubeClusterRole {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<ClusterRole> for KubeClusterRole {
   fn get_k8s_obj(&self) -> &ClusterRole {
     &self.k8s_obj
   }
@@ -226,10 +232,13 @@ impl From<RoleBinding> for KubeRoleBinding {
     }
   }
 }
-impl KubeResource<RoleBinding> for KubeRoleBinding {
+impl Named for KubeRoleBinding {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<RoleBinding> for KubeRoleBinding {
   fn get_k8s_obj(&self) -> &RoleBinding {
     &self.k8s_obj
   }
@@ -311,10 +320,13 @@ impl From<ClusterRoleBinding> for KubeClusterRoleBinding {
   }
 }
 
-impl KubeResource<ClusterRoleBinding> for KubeClusterRoleBinding {
+impl Named for KubeClusterRoleBinding {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<ClusterRoleBinding> for KubeClusterRoleBinding {
   fn get_k8s_obj(&self) -> &ClusterRoleBinding {
     &self.k8s_obj
   }

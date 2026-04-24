@@ -36,9 +36,12 @@ pub fn labels_to_selector(labels: &std::collections::BTreeMap<String, String>) -
     .join(",")
 }
 
-pub trait KubeResource<T: Serialize> {
+/// Minimal trait for types that expose a resource name (used by filtering/display).
+pub trait Named {
   fn get_name(&self) -> &String;
+}
 
+pub trait KubeResource<T: Serialize>: Named {
   fn get_k8s_obj(&self) -> &T;
 
   /// generate YAML from the original kubernetes resource
@@ -513,10 +516,12 @@ mod tests {
       name: String,
       k8s_obj: Namespace,
     }
-    impl KubeResource<Namespace> for TestStruct {
+    impl Named for TestStruct {
       fn get_name(&self) -> &String {
         &self.name
       }
+    }
+    impl KubeResource<Namespace> for TestStruct {
       fn get_k8s_obj(&self) -> &Namespace {
         &self.k8s_obj
       }

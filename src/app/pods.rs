@@ -13,7 +13,7 @@ use ratatui::{
 
 use super::{
   key_binding::DEFAULT_KEYBINDING,
-  models::{AppResource, KubeResource},
+  models::{AppResource, KubeResource, Named},
   utils::{self, UNKNOWN},
   ActiveBlock, App,
 };
@@ -58,10 +58,13 @@ pub struct KubeContainer {
   k8s_obj: Option<Container>,
 }
 
-impl KubeResource<Option<Container>> for KubeContainer {
+impl Named for KubeContainer {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<Option<Container>> for KubeContainer {
   fn get_k8s_obj(&self) -> &Option<Container> {
     &None
   }
@@ -157,10 +160,13 @@ impl From<Pod> for KubePod {
   }
 }
 
-impl KubeResource<Pod> for KubePod {
+impl Named for KubePod {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<Pod> for KubePod {
   fn get_k8s_obj(&self) -> &Pod {
     &self.k8s_obj
   }

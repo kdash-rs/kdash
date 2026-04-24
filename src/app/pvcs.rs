@@ -10,7 +10,7 @@ use ratatui::{
 };
 
 use super::{
-  models::{AppResource, KubeResource},
+  models::{AppResource, KubeResource, Named},
   utils::{self},
   ActiveBlock, App,
 };
@@ -83,10 +83,13 @@ impl From<PersistentVolumeClaim> for KubePVC {
   }
 }
 
-impl KubeResource<PersistentVolumeClaim> for KubePVC {
+impl Named for KubePVC {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<PersistentVolumeClaim> for KubePVC {
   fn get_k8s_obj(&self) -> &PersistentVolumeClaim {
     &self.k8s_obj
   }
