@@ -90,11 +90,7 @@ fn check_status(rs: &KubeReplicaSet) -> Option<DisplayFinding> {
 
 /// Run all RS checks and collect findings.
 pub fn evaluate(items: &[KubeReplicaSet]) -> Vec<DisplayFinding> {
-  items
-    .iter()
-    .flat_map(|rs| [check_status(rs)])
-    .flatten()
-    .collect()
+  items.iter().filter_map(check_status).collect()
 }
 
 #[cfg(test)]

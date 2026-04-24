@@ -49,7 +49,7 @@ impl PartialOrd for Severity {
 /// The `strum` serialization for each variant **must** be recognizable by `kubectl`.
 /// This string is used both as the UI table label and as the `kind` argument in
 /// `kubectl describe` commands.
-#[derive(Clone, Copy, Debug, Display, EnumIter, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Display, EnumIter, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ResourceKind {
   #[strum(serialize = "pod")]
   Pod,

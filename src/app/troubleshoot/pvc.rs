@@ -37,17 +37,17 @@ fn finding(pvc: &KubePVC, severity: Severity, reason: String, message: String) -
 
 /// Flag non-Bound phase.
 fn check_phase(pvc: &KubePVC) -> Option<DisplayFinding> {
-  let phase = phase(pvc);
+  let current_phase = phase(pvc);
 
-  if phase == "Bound" {
+  if current_phase == "Bound" {
     return None;
   }
 
   Some(finding(
     pvc,
     Severity::Warn,
-    phase.into(),
-    format!("PVC phase is {}", phase),
+    current_phase.into(),
+    format!("PVC phase is {}", current_phase),
   ))
 }
 

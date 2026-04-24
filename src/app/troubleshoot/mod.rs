@@ -72,6 +72,9 @@ pub fn evaluate_findings(data: &Data) -> Vec<DisplayFinding> {
     a.severity
       .cmp(&b.severity)
       .then_with(|| a.resource_name.cmp(&b.resource_name))
+      .then_with(|| a.namespace.cmp(&b.namespace))
+      .then_with(|| a.resource_kind.cmp(&b.resource_kind))
+      .then_with(|| a.reason.cmp(&b.reason))
   });
 
   findings
@@ -253,6 +256,34 @@ mod tests {
     assert_eq!(findings[1].resource_name, "a-rs");
     assert_eq!(findings[2].severity, Severity::Warn);
     assert_eq!(findings[2].resource_name, "b-pvc");
+  }
+
+  #[test]
+  fn test_evaluate_findings_tie_breaks_same_name() {
+    let mut data = Data::default();
+    data
+      .pods
+      .set_items(vec![build_pod_with_phase("shared", "Failed"), {
+        let pod = Pod {
+          metadata: ObjectMeta {
+            name: Some("shared".into()),
+            namespace: Some("ns-2".into()),
+            ..Default::default()
+          },
+          status: Some(PodStatus {
+            phase: Some("Failed".into()),
+            ..Default::default()
+          }),
+          ..Default::default()
+        };
+        KubePod::from(pod)
+      }]);
+
+    let findings = evaluate_findings(&data);
+
+    assert_eq!(findings.len(), 2);
+    assert_eq!(findings[0].namespace.as_deref(), Some("ns-1"));
+    assert_eq!(findings[1].namespace.as_deref(), Some("ns-2"));
   }
 
   #[test]

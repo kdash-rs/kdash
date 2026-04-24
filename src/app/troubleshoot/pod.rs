@@ -61,9 +61,9 @@ fn finding(pod: &KubePod, severity: Severity, reason: String, message: String) -
 /// Flag Failed/Unknown/Pending phases.
 /// Ref: <https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase>
 fn check_phase(pod: &KubePod) -> Option<DisplayFinding> {
-  let phase = phase(pod);
+  let current_phase = phase(pod);
 
-  let severity = match phase {
+  let severity = match current_phase {
     "Failed" => Severity::Error,
     "Unknown" => Severity::Warn,
     "Pending" => Severity::Info,
