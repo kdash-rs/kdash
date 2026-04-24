@@ -742,47 +742,74 @@ pub fn draw_describe_block(f: &mut Frame<'_>, app: &mut App, area: Rect, title: 
   draw_yaml_block(f, app, area, title);
 }
 
+/// Refreshes the syntax-highlight cache when empty or the theme changed.
+/// Returns `false` when there is no content to highlight.
+fn ensure_highlight_cache(app: &mut App) -> bool {
+  if app.data.describe_out.get_txt().is_empty() {
+    return false;
+  }
+  if app.data.describe_out.highlighted_lines.is_empty()
+    || app.data.describe_out.highlight_light_theme != app.light_theme
+  {
+    let ss = get_syntax_set();
+    let syntax = get_yaml_syntax_reference();
+    let theme = if app.light_theme {
+      &get_yaml_themes().light
+    } else {
+      &get_yaml_themes().dark
+    };
+    let mut h = syntect::easy::HighlightLines::new(syntax, theme);
+    let txt = app.data.describe_out.get_txt();
+    let lines: Vec<_> = syntect::util::LinesWithEndings::from(txt)
+      .filter_map(|line| match h.highlight_line(line, ss) {
+        Ok(segments) => {
+          let line_spans: Vec<_> = segments
+            .into_iter()
+            .filter_map(syntect_to_ratatui_span_owned)
+            .collect();
+          Some(ratatui::text::Line::from(line_spans))
+        }
+        Err(_) => None,
+      })
+      .collect();
+    app.data.describe_out.highlighted_lines = lines;
+    app.data.describe_out.highlight_light_theme = app.light_theme;
+  }
+  true
+}
+
+/// Compute the (start, end, scroll-within-slice) window into a buffer of
+/// `total` highlighted lines for the given `offset` and visible row count.
+/// Clamps `offset` to a valid index and ensures `start <= end <= total`.
+fn highlight_window(offset: usize, total: usize, view_h: usize) -> (usize, usize, u16) {
+  // Caller guarantees total > 0; clamp here defensively too.
+  let view_h = view_h.max(1);
+  let effective_offset = offset.min(total.saturating_sub(1));
+  let slice_start = effective_offset.saturating_sub(view_h);
+  let slice_end = total.min(effective_offset + view_h * 3);
+  let adjusted_offset = (effective_offset - slice_start).min(u16::MAX as usize) as u16;
+  (slice_start, slice_end, adjusted_offset)
+}
+
 /// common for all resources
 pub fn draw_yaml_block(f: &mut Frame<'_>, app: &mut App, area: Rect, title: Line<'_>) {
   let block = layout_block_top_border(title);
-
-  let txt = app.data.describe_out.get_txt();
-  if !txt.is_empty() {
-    // Re-highlight only when the cache is empty or the theme changed.
-    if app.data.describe_out.highlighted_lines.is_empty()
-      || app.data.describe_out.highlight_light_theme != app.light_theme
-    {
-      let ss = get_syntax_set();
-      let syntax = get_yaml_syntax_reference();
-      let theme = if app.light_theme {
-        &get_yaml_themes().light
-      } else {
-        &get_yaml_themes().dark
-      };
-      let mut h = syntect::easy::HighlightLines::new(syntax, theme);
-      let lines: Vec<_> = syntect::util::LinesWithEndings::from(txt)
-        .filter_map(|line| match h.highlight_line(line, ss) {
-          Ok(segments) => {
-            let line_spans: Vec<_> = segments
-              .into_iter()
-              .filter_map(syntect_to_ratatui_span_owned)
-              .collect();
-            Some(ratatui::text::Line::from(line_spans))
-          }
-          Err(_) => None,
-        })
-        .collect();
-      app.data.describe_out.highlighted_lines = lines;
-      app.data.describe_out.highlight_light_theme = app.light_theme;
+  if ensure_highlight_cache(app) {
+    let total = app.data.describe_out.highlighted_lines.len();
+    if total == 0 {
+      loading(f, block, area, app.is_loading(), app.light_theme);
+      return;
     }
-
-    let paragraph = Paragraph::new(app.data.describe_out.highlighted_lines.clone())
+    let offset = app.data.describe_out.offset;
+    // Subtract 2 for the top-border of the block; clamp to >=1 so a tiny
+    // terminal doesn't degenerate into an empty slice.
+    let view_h = (area.height.saturating_sub(2) as usize).max(1);
+    let (slice_start, slice_end, adjusted_offset) = highlight_window(offset, total, view_h);
+    let visible_lines = app.data.describe_out.highlighted_lines[slice_start..slice_end].to_vec();
+    let paragraph = Paragraph::new(visible_lines)
       .block(block)
       .wrap(Wrap { trim: false })
-      .scroll((
-        app.data.describe_out.offset.min(u16::MAX as usize) as u16,
-        0,
-      ));
+      .scroll((adjusted_offset, 0));
     f.render_widget(paragraph, area);
   } else {
     loading(f, block, area, app.is_loading(), app.light_theme);
@@ -804,29 +831,22 @@ fn draw_resource_table<'a, T: Named, F>(
     let filter = table_props.resource.filter.to_lowercase();
     let has_filter = !filter.is_empty();
     let mut filtered_indices: Vec<usize> = Vec::new();
-    let rows: Vec<Row<'a>> = table_props
+
+    let filtered_items: Vec<(usize, &T)> = table_props
       .resource
       .items
       .iter()
       .enumerate()
-      .filter_map(|(idx, c)| {
-        let mapper = row_cell_mapper(c);
-        if filter.is_empty() || filter_by_name(&filter, c) {
-          Some((idx, mapper))
-        } else {
-          None
-        }
-      })
-      .map(|(idx, row)| {
+      .filter(|(_, c)| filter.is_empty() || filter_by_name(&filter, *c))
+      .inspect(|(idx, _)| {
         if has_filter {
-          filtered_indices.push(idx);
+          filtered_indices.push(*idx);
         }
-        row
       })
       .collect();
 
     if has_filter {
-      let max = filtered_indices.len().saturating_sub(1);
+      let max = filtered_items.len().saturating_sub(1);
       if let Some(sel) = table_props.resource.state.selected() {
         if sel > max {
           table_props.resource.state.select(Some(max));
@@ -834,6 +854,27 @@ fn draw_resource_table<'a, T: Named, F>(
       }
     }
     table_props.resource.filtered_indices = filtered_indices;
+
+    // Determine the visible row range to avoid expensive row_cell_mapper
+    // calls for off-screen items. Subtract 3 for header + borders; clamp
+    // to >=1 so a tiny terminal still renders at least one row of data
+    // instead of degenerating into all-empty rows.
+    let selected = table_props.resource.state.selected().unwrap_or(0);
+    let view_h = (area.height.saturating_sub(3) as usize).max(1);
+    let visible_start = selected.saturating_sub(view_h);
+    let visible_end = (selected + view_h * 2).min(filtered_items.len());
+
+    let rows: Vec<Row<'a>> = filtered_items
+      .iter()
+      .enumerate()
+      .map(|(fi, (_orig_idx, item))| {
+        if fi >= visible_start && fi < visible_end {
+          row_cell_mapper(item)
+        } else {
+          Row::default()
+        }
+      })
+      .collect();
 
     let table = Table::new(rows, &table_props.column_widths)
       .header(table_header_style(table_props.table_headers, light_theme))
@@ -845,6 +886,41 @@ fn draw_resource_table<'a, T: Named, F>(
   } else {
     loading(f, block, area, is_loading, light_theme);
   }
+}
+
+/// Builds the help `Line` for a resource block title, weaving filter status
+/// into any existing inline help (placing it after a "containers" prefix when present).
+fn build_resource_help_line(
+  inline_help: Line<'_>,
+  filter: &str,
+  filter_active: bool,
+  light_theme: bool,
+) -> Line<'static> {
+  let inline_help_text = inline_help
+    .spans
+    .iter()
+    .map(|span| span.content.as_ref())
+    .collect::<String>();
+  let containers_prefix = format!(
+    "{} | ",
+    action_hint("containers", DEFAULT_KEYBINDING.submit.key)
+  );
+  let mut help_parts: Vec<LinePart<'static>> = Vec::new();
+  if let Some(rest) = inline_help_text.strip_prefix(&containers_prefix) {
+    help_parts.push(help_part(containers_prefix));
+    help_parts.extend(owned_filter_status_parts(filter, filter_active));
+    if !rest.is_empty() {
+      help_parts.push(help_part(" | ".to_string()));
+      help_parts.push(help_part(rest.to_string()));
+    }
+  } else {
+    help_parts.extend(owned_filter_status_parts(filter, filter_active));
+    if !inline_help_text.is_empty() {
+      help_parts.push(help_part(" | ".to_string()));
+      help_parts.push(help_part(inline_help_text));
+    }
+  }
+  mixed_bold_line(help_parts, light_theme)
 }
 
 /// Draw a kubernetes resource overview tab
@@ -894,31 +970,8 @@ pub fn draw_resource_block<'a, T: Named, F>(
     return;
   }
 
-  let inline_help_text = inline_help
-    .spans
-    .iter()
-    .map(|span| span.content.as_ref())
-    .collect::<String>();
-  let containers_prefix = format!(
-    "{} | ",
-    action_hint("containers", DEFAULT_KEYBINDING.submit.key)
-  );
-  let mut help_parts = Vec::new();
-  if let Some(rest) = inline_help_text.strip_prefix(&containers_prefix) {
-    help_parts.push(help_part(containers_prefix.clone()));
-    help_parts.extend(owned_filter_status_parts(&filter, filter_active));
-    if !rest.is_empty() {
-      help_parts.push(help_part(" | "));
-      help_parts.push(help_part(rest.to_string()));
-    }
-  } else {
-    help_parts.extend(owned_filter_status_parts(&filter, filter_active));
-    if !inline_help_text.is_empty() {
-      help_parts.push(help_part(" | "));
-      help_parts.push(help_part(inline_help_text));
-    }
-  }
-  let title = title_with_dual_style(title, mixed_bold_line(help_parts, light_theme), light_theme);
+  let help_line = build_resource_help_line(inline_help, &filter, filter_active, light_theme);
+  let title = title_with_dual_style(title, help_line, light_theme);
   let block = layout_block_top_border(title);
   draw_resource_table(
     f,
@@ -1555,5 +1608,99 @@ mod tests {
       get_cluster_wide_resource_title("Nodes", 10, "-> hello"),
       " Nodes [10] -> hello"
     );
+  }
+
+  #[test]
+  fn test_build_resource_help_line() {
+    // Case 1: Empty inline_help, empty filter, filter_active=false
+    // -> line text should contain the inactive "filter <key>" action hint
+    let line = build_resource_help_line(Line::default(), "", false, false);
+    let text: String = line.spans.iter().map(|s| s.content.as_ref()).collect();
+    let expected_filter_hint = action_hint("filter", DEFAULT_KEYBINDING.filter.key);
+    assert!(
+      text.contains(&expected_filter_hint),
+      "Case 1: expected '{text}' to contain '{expected_filter_hint}'"
+    );
+
+    // Case 2: Non-empty inline_help, empty filter, filter_active=false
+    // -> line text should contain the inline help hint after " | "
+    let line2 = build_resource_help_line(help_bold_line("-> yaml <y>", false), "", false, false);
+    let text2: String = line2.spans.iter().map(|s| s.content.as_ref()).collect();
+    assert!(
+      text2.contains("-> yaml <y>"),
+      "Case 2: expected '{text2}' to contain '-> yaml <y>'"
+    );
+
+    // Case 3: inline_help starting with the containers prefix
+    // -> line text should start with the containers hint
+    let containers_prefix_str = format!(
+      "{} | ",
+      action_hint("containers", DEFAULT_KEYBINDING.submit.key)
+    );
+    let line3 = build_resource_help_line(
+      help_bold_line(containers_prefix_str.as_str(), false),
+      "",
+      false,
+      false,
+    );
+    let text3: String = line3.spans.iter().map(|s| s.content.as_ref()).collect();
+    let containers_hint = action_hint("containers", DEFAULT_KEYBINDING.submit.key);
+    assert!(
+      text3.starts_with(&containers_hint),
+      "Case 3: expected '{text3}' to start with '{containers_hint}'"
+    );
+
+    // Case 4: Empty inline_help, filter="foo", filter_active=false
+    // -> line text should contain "[foo]"
+    let line4 = build_resource_help_line(Line::default(), "foo", false, false);
+    let text4: String = line4.spans.iter().map(|s| s.content.as_ref()).collect();
+    assert!(
+      text4.contains("[foo]"),
+      "Case 4: expected '{text4}' to contain '[foo]'"
+    );
+  }
+
+  #[test]
+  fn test_highlight_window_offset_within_bounds() {
+    // total=100, view_h=10, offset=50 → window straddles the offset.
+    let (start, end, scroll) = highlight_window(50, 100, 10);
+    assert_eq!(start, 40);
+    assert_eq!(end, 80);
+    assert_eq!(scroll, 10);
+    assert!(start <= end && end <= 100);
+  }
+
+  #[test]
+  fn test_highlight_window_offset_at_zero() {
+    let (start, end, scroll) = highlight_window(0, 100, 10);
+    assert_eq!(start, 0);
+    assert_eq!(end, 30);
+    assert_eq!(scroll, 0);
+  }
+
+  #[test]
+  fn test_highlight_window_offset_exceeds_total_does_not_panic() {
+    // Regression: items.len() can exceed highlighted_lines.len() when
+    // some lines fail to highlight, leaving offset stale relative to total.
+    // The slice [start..end] must remain valid.
+    let (start, end, _) = highlight_window(50, 5, 10);
+    assert!(start <= end, "start {start} must not exceed end {end}");
+    assert!(end <= 5, "end {end} must not exceed total");
+  }
+
+  #[test]
+  fn test_highlight_window_view_h_zero_clamps_to_one() {
+    // A view height of 0 should not collapse the window to empty.
+    let (start, end, _) = highlight_window(2, 10, 0);
+    assert!(start < end, "window must not be empty when content exists");
+  }
+
+  #[test]
+  fn test_highlight_window_total_one() {
+    // Single-line buffer must produce a non-empty window.
+    let (start, end, scroll) = highlight_window(0, 1, 5);
+    assert_eq!(start, 0);
+    assert_eq!(end, 1);
+    assert_eq!(scroll, 0);
   }
 }
