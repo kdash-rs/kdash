@@ -30,6 +30,8 @@ A simple terminal dashboard for Kubernetes built with Rust [![Follow @kdashrs](h
 - **Smarter resource tab and menu counts** hide zero-count badges in the resource tabs, show cached counts for Dynamic menu entries, and use `?` when a Dynamic kind has not been fetched into cache yet.
 - **Configurable keybindings and themes** let you override shortcuts and colors, and `log_tail_lines` lets you set the initial history fetched before live log streaming starts.
 - **Better diagnostics and reliability** include recent-error dump to file, kubeconfig live reload, friendlier errors, and smoother log/render performance.
+- **Configurable CLI Info** lets you disable built-in probes, add custom commands with optional regex-based version extraction
+- **More columns** are shown if viewport is wide enough for most resources including a new 'w' keybind to show all.
 
 ## Sponsors
 

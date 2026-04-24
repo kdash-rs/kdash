@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.1.0] - 2026-04-24
+
+### Added
+
+- **NEW:** Configurable CLI Info entries, including disabling built-in probes, custom commands, optional regex-based version extraction, and control over whether missing binaries are hidden or shown as `Not found`. Fix #452
+- **NEW:** More columns are shown if viewport is wide enough for most resources including a new 'w' keybind to show all.
+- Dynamic resource menu counts now use cached results and show `?` while a resource kind has not been loaded yet
+
+### Changed
+
+- Resource tabs now auto-scroll to keep the selected tab visible, prefer showing neighboring tabs where possible, and hide zero-count badges for cleaner headers
+- CLI Info defaults now include `podman` and `containerd`, while `istioctl` is provided as a sample custom probe instead of a built-in entry
+- The More menu is now ordered by more commonly used resources first
+- The filter UI is more consistent across different views
+- Troubleshoot module is improved. Thanks to [@sed-i](https://github.com/sed-i) for the contribution! [#513](https://github.com/kdash-rs/kdash/pull/513)
+- UI draw efficiency improvements. Thanks to [@sed-i](https://github.com/sed-i) for the contribution! [#515](https://github.com/kdash-rs/kdash/pull/515)
+
+### Fixed
+
+- Batched redraw/event handling now coalesces queued ticks and clamps rendering windows to avoid empty tables and YAML slice panics on small or offset views
+- Troubleshoot findings now sort deterministically, and follow-up cleanups improved readability in Pod, PVC, and ReplicaSet checks
+
 ## [1.0.0] - 2026-04-09
 
 ### Added
