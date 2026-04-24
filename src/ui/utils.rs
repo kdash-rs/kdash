@@ -831,19 +831,15 @@ fn draw_resource_table<'a, T: Named, F>(
     let filter = table_props.resource.filter.to_lowercase();
     let has_filter = !filter.is_empty();
     let mut filtered_indices: Vec<usize> = Vec::new();
-
-    let filtered_items: Vec<(usize, &T)> = table_props
-      .resource
-      .items
-      .iter()
-      .enumerate()
-      .filter(|(_, c)| filter.is_empty() || filter_by_name(&filter, *c))
-      .inspect(|(idx, _)| {
+    let mut filtered_items: Vec<&T> = Vec::new();
+    for (idx, item) in table_props.resource.items.iter().enumerate() {
+      if !has_filter || filter_by_name(&filter, item) {
         if has_filter {
-          filtered_indices.push(*idx);
+          filtered_indices.push(idx);
         }
-      })
-      .collect();
+        filtered_items.push(item);
+      }
+    }
 
     if has_filter {
       let max = filtered_items.len().saturating_sub(1);
@@ -855,10 +851,12 @@ fn draw_resource_table<'a, T: Named, F>(
     }
     table_props.resource.filtered_indices = filtered_indices;
 
-    // Determine the visible row range to avoid expensive row_cell_mapper
-    // calls for off-screen items. Subtract 3 for header + borders; clamp
-    // to >=1 so a tiny terminal still renders at least one row of data
-    // instead of degenerating into all-empty rows.
+    // Skip row_cell_mapper for off-screen items: ratatui's Table only paints
+    // rows intersecting the visible area, so we can hand it cheap empty Rows
+    // outside the window. The window must bracket the legal range of
+    // state.offset() (which ratatui keeps within `selected ± view_h`),
+    // hence `selected.saturating_sub(view_h)` and `selected + view_h * 2`.
+    // view_h is clamped to >=1 so a tiny terminal still renders one row.
     let selected = table_props.resource.state.selected().unwrap_or(0);
     let view_h = (area.height.saturating_sub(3) as usize).max(1);
     let visible_start = selected.saturating_sub(view_h);
@@ -867,7 +865,7 @@ fn draw_resource_table<'a, T: Named, F>(
     let rows: Vec<Row<'a>> = filtered_items
       .iter()
       .enumerate()
-      .map(|(fi, (_orig_idx, item))| {
+      .map(|(fi, item)| {
         if fi >= visible_start && fi < visible_end {
           row_cell_mapper(item)
         } else {
