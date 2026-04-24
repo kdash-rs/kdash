@@ -5,7 +5,7 @@ use k8s_openapi::api::core::v1::{
   PodStatus,
 };
 use ratatui::{
-  layout::{Constraint, Rect},
+  layout::Rect,
   style::Style,
   widgets::{Cell, Row},
   Frame,
@@ -23,8 +23,8 @@ use crate::{
     action_hint, copy_and_escape_title_line, copy_scroll_and_escape_title_line,
     describe_yaml_and_logs_hint, draw_describe_block, draw_resource_block, draw_yaml_block,
     get_describe_active, get_resource_title, help_bold_line, help_part, layout_block_top_border,
-    loading, mixed_bold_line, style_caution, style_failure, style_primary, style_success,
-    title_with_dual_style, ResourceTableProps,
+    loading, mixed_bold_line, responsive_columns, style_caution, style_failure, style_primary,
+    style_success, title_with_dual_style, wide_hint, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
 
@@ -37,6 +37,8 @@ pub struct KubePod {
   pub restarts: i32,
   pub cpu: String,
   pub mem: String,
+  pub node: String,
+  pub ip: String,
   pub age: String,
   pub containers: Vec<KubeContainer>,
   k8s_obj: Pod,
@@ -152,6 +154,16 @@ impl From<Pod> for KubePod {
       // TODO implement pod metrics
       cpu: String::default(),
       mem: String::default(),
+      node: pod
+        .spec
+        .as_ref()
+        .and_then(|s| s.node_name.clone())
+        .unwrap_or_default(),
+      ip: pod
+        .status
+        .as_ref()
+        .and_then(|s| s.pod_ip.clone())
+        .unwrap_or_default(),
       status,
       age,
       containers,
@@ -256,6 +268,9 @@ pub(crate) fn draw_block_as_sub(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let base = format!("{} -> Pods", parent);
   let title = get_resource_title(app, &base, &String::new(), app.data.pods.items.len());
 
+  let tier = ViewTier::from_width(area.width, app.wide_columns);
+  let (headers, widths) = responsive_columns(&POD_COLUMNS, tier);
+
   draw_resource_block(
     f,
     area,
@@ -263,44 +278,56 @@ pub(crate) fn draw_block_as_sub(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: help_bold_line(
         format!(
-          "{} | {} | back {} ",
+          "{} | {} | {} | back {} ",
           action_hint("containers", DEFAULT_KEYBINDING.submit.key),
           describe_yaml_and_logs_hint().trim_end(),
+          wide_hint(),
           DEFAULT_KEYBINDING.esc.key
         ),
         app.light_theme,
       ),
       resource: &mut app.data.pods,
-      table_headers: vec!["Namespace", "Name", "Ready", "Status", "Restarts", "Age"],
-      column_widths: vec![
-        Constraint::Percentage(25),
-        Constraint::Percentage(35),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
       let style = get_resource_row_style(c.status.as_str(), c.ready, app.light_theme);
-      Row::new(vec![
+      let mut cells = vec![
         Cell::from(c.namespace.to_owned()),
         Cell::from(c.name.to_owned()),
         Cell::from(format!("{}/{}", c.ready.0, c.ready.1)),
         Cell::from(c.status.to_owned()),
         Cell::from(c.restarts.to_string()),
-        Cell::from(c.age.to_owned()),
-      ])
-      .style(style)
+      ];
+      if tier >= ViewTier::Standard {
+        cells.push(Cell::from(c.node.to_owned()));
+        cells.push(Cell::from(c.ip.to_owned()));
+      }
+      cells.push(Cell::from(c.age.to_owned()));
+      Row::new(cells).style(style)
     },
     app.light_theme,
     is_loading,
   );
 }
 
+const POD_COLUMNS: [ColumnDef; 8] = [
+  ColumnDef::all("Namespace", 25, 20, 20),
+  ColumnDef::all("Name", 35, 25, 25),
+  ColumnDef::all("Ready", 10, 8, 8),
+  ColumnDef::all("Status", 10, 10, 10),
+  ColumnDef::all("Restarts", 10, 7, 7),
+  ColumnDef::standard("Node", 12, 12),
+  ColumnDef::standard("IP", 10, 10),
+  ColumnDef::all("Age", 10, 8, 8),
+];
+
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_resource_title(app, PODS_TITLE, "", app.data.pods.items.len());
+
+  let tier = ViewTier::from_width(area.width, app.wide_columns);
+  let (headers, widths) = responsive_columns(&POD_COLUMNS, tier);
 
   draw_resource_block(
     f,
@@ -309,43 +336,55 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: help_bold_line(
         format!(
-          "{} | {}",
+          "{} | {} | {}",
           action_hint("containers", DEFAULT_KEYBINDING.submit.key),
-          describe_yaml_and_logs_hint()
+          describe_yaml_and_logs_hint(),
+          wide_hint()
         ),
         app.light_theme,
       ),
       resource: &mut app.data.pods,
-      table_headers: vec!["Namespace", "Name", "Ready", "Status", "Restarts", "Age"],
-      column_widths: vec![
-        Constraint::Percentage(25),
-        Constraint::Percentage(35),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
       let style = get_resource_row_style(c.status.as_str(), c.ready, app.light_theme);
-      Row::new(vec![
+      let mut cells = vec![
         Cell::from(c.namespace.to_owned()),
         Cell::from(c.name.to_owned()),
         Cell::from(format!("{}/{}", c.ready.0, c.ready.1)),
         Cell::from(c.status.to_owned()),
         Cell::from(c.restarts.to_string()),
-        Cell::from(c.age.to_owned()),
-      ])
-      .style(style)
+      ];
+      if tier >= ViewTier::Standard {
+        cells.push(Cell::from(c.node.to_owned()));
+        cells.push(Cell::from(c.ip.to_owned()));
+      }
+      cells.push(Cell::from(c.age.to_owned()));
+      Row::new(cells).style(style)
     },
     app.light_theme,
     is_loading,
   );
 }
 
+const CONTAINER_COLUMNS: [ColumnDef; 9] = [
+  ColumnDef::all("Name", 20, 20, 20),
+  ColumnDef::all("Image", 25, 25, 25),
+  ColumnDef::all("Init", 5, 5, 5),
+  ColumnDef::all("Ready", 5, 5, 5),
+  ColumnDef::all("State", 10, 10, 10),
+  ColumnDef::all("Restarts", 5, 5, 5),
+  ColumnDef::all("Probes(L/R)", 10, 10, 10),
+  ColumnDef::all("Ports", 10, 10, 10),
+  ColumnDef::all("Age", 10, 10, 10),
+];
+
 pub(crate) fn draw_containers_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_container_title(app, app.data.containers.items.len(), "");
+
+  let (headers, widths) = responsive_columns(&CONTAINER_COLUMNS, ViewTier::Compact);
 
   draw_resource_block(
     f,
@@ -364,28 +403,8 @@ pub(crate) fn draw_containers_block(f: &mut Frame<'_>, app: &mut App, area: Rect
         app.light_theme,
       ),
       resource: &mut app.data.containers,
-      table_headers: vec![
-        "Name",
-        "Image",
-        "Init",
-        "Ready",
-        "State",
-        "Restarts",
-        "Probes(L/R)",
-        "Ports",
-        "Age",
-      ],
-      column_widths: vec![
-        Constraint::Percentage(20),
-        Constraint::Percentage(25),
-        Constraint::Percentage(5),
-        Constraint::Percentage(5),
-        Constraint::Percentage(10),
-        Constraint::Percentage(5),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
       let style = get_resource_row_style(c.status.as_str(), (0, 0), app.light_theme);
@@ -763,6 +782,8 @@ mod tests {
         restarts: 0,
         cpu: "".into(),
         mem: "".into(),
+        node: "".into(),
+        ip: "".into(),
         age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
         containers: vec![KubeContainer {
           name: "server".into(),
@@ -791,6 +812,8 @@ mod tests {
         restarts: 896,
         cpu: "".into(),
         mem: "".into(),
+        node: "gke-hello-hipster-default-pool-9e6f6ffb-q16l".into(),
+        ip: "10.24.1.9".into(),
         age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
         containers: vec![KubeContainer {
           name: "server".into(),
@@ -819,6 +842,8 @@ mod tests {
         restarts: 3,
         cpu: "".into(),
         mem: "".into(),
+        node: "gke-hello-hipster-default-pool-9e6f6ffb-xzbc".into(),
+        ip: "10.24.0.3".into(),
         age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
         containers: vec![KubeContainer {
           name: "server".into(),
@@ -880,6 +905,8 @@ mod tests {
         restarts: 0,
         cpu: "".into(),
         mem: "".into(),
+        node: "gke-hello-hipster-default-pool-9e6f6ffb-q16l".into(),
+        ip: "".into(),
         age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
         containers: vec![KubeContainer {
           name: "server".into(),
@@ -908,6 +935,8 @@ mod tests {
         restarts: 0,
         cpu: "".into(),
         mem: "".into(),
+        node: "gke-hello-hipster-default-pool-9e6f6ffb-q16l".into(),
+        ip: "".into(),
         age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
         containers: vec![KubeContainer {
           name: "server".into(),
@@ -936,6 +965,8 @@ mod tests {
         restarts: 0,
         cpu: "".into(),
         mem: "".into(),
+        node: "k3d-my-kdash-cluster-server-0".into(),
+        ip: "10.42.0.20".into(),
         age: utils::to_age(Some(&get_time("2021-06-18T08:57:56Z")), Utc::now()),
         containers: vec![
           KubeContainer {
@@ -994,6 +1025,8 @@ mod tests {
         restarts: 0,
         cpu: "".into(),
         mem: "".into(),
+        node: "k3d-my-kdash-cluster-server-0".into(),
+        ip: "10.42.0.21".into(),
         age: utils::to_age(Some(&get_time("2021-06-18T09:26:11Z")), Utc::now()),
         containers: vec![
           KubeContainer {

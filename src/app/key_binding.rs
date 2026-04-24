@@ -91,7 +91,8 @@ generate_keybindings! {
   jump_to_more_resources,
   jump_to_dynamic_resources,
   aggregate_logs,
-  cycle_group_by
+  cycle_group_by,
+  toggle_wide_columns
 }
 
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Debug)]
@@ -361,6 +362,12 @@ const DEFAULT_KEYBINDINGS: KeyBindings = KeyBindings {
     alt: None,
     desc: "Cycle through grouping",
     context: HContext::Utilization,
+  },
+  toggle_wide_columns: KeyBinding {
+    key: Key::Char('w'),
+    alt: None,
+    desc: "Toggle wide view (show all columns)",
+    context: HContext::General,
   },
 };
 

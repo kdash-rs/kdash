@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use k8s_openapi::api::batch::v1::CronJob;
 use ratatui::{
-  layout::{Constraint, Rect},
+  layout::Rect,
   widgets::{Cell, Row},
   Frame,
 };
@@ -17,8 +17,8 @@ use crate::{
   network::Network,
   ui::utils::{
     action_hint, describe_yaml_logs_and_esc_hint, draw_describe_block, draw_resource_block,
-    draw_yaml_block, get_describe_active, get_resource_title, help_bold_line, style_primary,
-    title_with_dual_style, ResourceTableProps,
+    draw_yaml_block, get_describe_active, get_resource_title, help_bold_line, responsive_columns,
+    style_primary, title_with_dual_style, wide_hint, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
 
@@ -30,6 +30,7 @@ pub struct KubeCronJob {
   pub last_schedule: String,
   pub suspend: bool,
   pub active: usize,
+  pub concurrency_policy: String,
   pub age: String,
   k8s_obj: CronJob,
 }
@@ -44,9 +45,16 @@ impl From<CronJob> for KubeCronJob {
       None => ("<none>".to_string(), 0),
     };
 
-    let (schedule, suspend) = match &cronjob.spec {
-      Some(cjs) => (cjs.schedule.clone(), cjs.suspend.unwrap_or_default()),
-      None => ("".to_string(), false),
+    let (schedule, suspend, concurrency_policy) = match &cronjob.spec {
+      Some(cjs) => (
+        cjs.schedule.clone(),
+        cjs.suspend.unwrap_or_default(),
+        cjs
+          .concurrency_policy
+          .clone()
+          .unwrap_or_else(|| "Allow".into()),
+      ),
+      None => ("".to_string(), false, "Allow".into()),
     };
 
     KubeCronJob {
@@ -56,6 +64,7 @@ impl From<CronJob> for KubeCronJob {
       suspend,
       last_schedule,
       active,
+      concurrency_policy,
       age: utils::to_age(cronjob.metadata.creation_timestamp.as_ref(), Utc::now()),
       k8s_obj: utils::sanitize_obj(cronjob),
     }
@@ -110,9 +119,23 @@ impl AppResource for CronJobResource {
   }
 }
 
+const CRON_COLUMNS: [ColumnDef; 8] = [
+  ColumnDef::all("Namespace", 20, 15, 15),
+  ColumnDef::all("Name", 25, 20, 20),
+  ColumnDef::all("Schedule", 15, 12, 12),
+  ColumnDef::all("Last Scheduled", 10, 12, 12),
+  ColumnDef::all("Suspend", 10, 8, 8),
+  ColumnDef::all("Active", 10, 8, 8),
+  ColumnDef::standard("Concurrency", 15, 15),
+  ColumnDef::all("Age", 10, 10, 10),
+];
+
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_resource_title(app, CRON_JOBS_TITLE, "", app.data.cronjobs.items.len());
+
+  let tier = ViewTier::from_width(area.width, app.wide_columns);
+  let (headers, widths) = responsive_columns(&CRON_COLUMNS, tier);
 
   draw_resource_block(
     f,
@@ -121,43 +144,31 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: help_bold_line(
         format!(
-          "{} | {}",
+          "{} | {} | {}",
           action_hint("pods", DEFAULT_KEYBINDING.submit.key),
-          describe_yaml_logs_and_esc_hint()
+          describe_yaml_logs_and_esc_hint(),
+          wide_hint()
         ),
         app.light_theme,
       ),
       resource: &mut app.data.cronjobs,
-      table_headers: vec![
-        "Namespace",
-        "Name",
-        "Schedule",
-        "Last Scheduled",
-        "Suspend",
-        "Active",
-        "Age",
-      ],
-      column_widths: vec![
-        Constraint::Percentage(20),
-        Constraint::Percentage(25),
-        Constraint::Percentage(15),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
-      Row::new(vec![
+      let mut cells = vec![
         Cell::from(c.namespace.to_owned()),
         Cell::from(c.name.to_owned()),
         Cell::from(c.schedule.to_owned()),
         Cell::from(c.last_schedule.to_string()),
         Cell::from(c.suspend.to_string()),
         Cell::from(c.active.to_string()),
-        Cell::from(c.age.to_owned()),
-      ])
-      .style(style_primary(app.light_theme))
+      ];
+      if tier >= ViewTier::Standard {
+        cells.push(Cell::from(c.concurrency_policy.to_owned()));
+      }
+      cells.push(Cell::from(c.age.to_owned()));
+      Row::new(cells).style(style_primary(app.light_theme))
     },
     app.light_theme,
     is_loading,
@@ -184,6 +195,7 @@ mod tests {
         active: 0,
         last_schedule: utils::to_age_secs(Some(&get_time("2021-07-05T09:39:00Z")), Utc::now()),
         age: utils::to_age(Some(&get_time("2021-07-05T09:37:21Z")), Utc::now()),
+        concurrency_policy: "Allow".into(),
         k8s_obj: jobs_list[0].clone(),
       }
     );

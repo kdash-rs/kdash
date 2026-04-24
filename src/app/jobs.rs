@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use k8s_openapi::api::batch::v1::Job;
 use ratatui::{
-  layout::{Constraint, Rect},
+  layout::Rect,
   widgets::{Cell, Row},
   Frame,
 };
@@ -17,8 +17,8 @@ use crate::{
   network::Network,
   ui::utils::{
     action_hint, describe_yaml_and_logs_hint, draw_describe_block, draw_resource_block,
-    draw_yaml_block, get_describe_active, get_resource_title, help_bold_line, style_primary,
-    title_with_dual_style, ResourceTableProps,
+    draw_yaml_block, get_describe_active, get_resource_title, help_bold_line, responsive_columns,
+    style_primary, title_with_dual_style, wide_hint, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
 
@@ -28,6 +28,8 @@ pub struct KubeJob {
   pub namespace: String,
   pub completions: String,
   pub duration: String,
+  pub status_summary: String,
+  pub backoff_limit: String,
   pub age: String,
   k8s_obj: Job,
 }
@@ -62,11 +64,28 @@ impl From<Job> for KubeJob {
       None => "<none>".to_string(),
     };
 
+    let status_summary = match job.status.as_ref() {
+      Some(s) => format!(
+        "{}/{}/{}",
+        s.active.unwrap_or(0),
+        s.succeeded.unwrap_or(0),
+        s.failed.unwrap_or(0)
+      ),
+      None => "0/0/0".into(),
+    };
+    let backoff_limit = job
+      .spec
+      .as_ref()
+      .and_then(|s| s.backoff_limit)
+      .map_or(String::new(), |b| b.to_string());
+
     Self {
       name: job.metadata.name.clone().unwrap_or_default(),
       namespace: job.metadata.namespace.clone().unwrap_or_default(),
       completions,
       duration,
+      status_summary,
+      backoff_limit,
       age: utils::to_age(job.metadata.creation_timestamp.as_ref(), Utc::now()),
       k8s_obj: utils::sanitize_obj(job),
     }
@@ -125,9 +144,22 @@ impl AppResource for JobResource {
   }
 }
 
+const JOB_COLUMNS: [ColumnDef; 7] = [
+  ColumnDef::all("Namespace", 25, 20, 15),
+  ColumnDef::all("Name", 40, 30, 25),
+  ColumnDef::all("Completions", 15, 15, 12),
+  ColumnDef::all("Duration", 10, 10, 10),
+  ColumnDef::standard("Status (A/S/F)", 15, 14),
+  ColumnDef::wide("Backoff Limit", 12),
+  ColumnDef::all("Age", 10, 10, 12),
+];
+
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_resource_title(app, JOBS_TITLE, "", app.data.jobs.items.len());
+
+  let tier = ViewTier::from_width(area.width, app.wide_columns);
+  let (headers, widths) = responsive_columns(&JOB_COLUMNS, tier);
 
   draw_resource_block(
     f,
@@ -136,31 +168,32 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: help_bold_line(
         format!(
-          "{} | {}",
+          "{} | {} | {}",
           action_hint("pods", DEFAULT_KEYBINDING.submit.key),
-          describe_yaml_and_logs_hint()
+          describe_yaml_and_logs_hint(),
+          wide_hint()
         ),
         app.light_theme,
       ),
       resource: &mut app.data.jobs,
-      table_headers: vec!["Namespace", "Name", "Completions", "Duration", "Age"],
-      column_widths: vec![
-        Constraint::Percentage(25),
-        Constraint::Percentage(40),
-        Constraint::Percentage(15),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
-      Row::new(vec![
+      let mut cells = vec![
         Cell::from(c.namespace.to_owned()),
         Cell::from(c.name.to_owned()),
         Cell::from(c.completions.to_owned()),
         Cell::from(c.duration.to_string()),
-        Cell::from(c.age.to_owned()),
-      ])
-      .style(style_primary(app.light_theme))
+      ];
+      if tier >= ViewTier::Standard {
+        cells.push(Cell::from(c.status_summary.to_owned()));
+      }
+      if tier >= ViewTier::Wide {
+        cells.push(Cell::from(c.backoff_limit.to_owned()));
+      }
+      cells.push(Cell::from(c.age.to_owned()));
+      Row::new(cells).style(style_primary(app.light_theme))
     },
     app.light_theme,
     is_loading,
@@ -185,7 +218,9 @@ mod tests {
         age: utils::to_age(Some(&get_time("2021-06-11T13:49:45Z")), Utc::now()),
         k8s_obj: jobs_list[0].clone(),
         completions: "1/1".into(),
-        duration: "39m44s".into()
+        duration: "39m44s".into(),
+        status_summary: "0/1/0".into(),
+        backoff_limit: "1000".into(),
       }
     );
     assert_eq!(
@@ -196,7 +231,9 @@ mod tests {
         age: utils::to_age(Some(&get_time("2021-06-11T13:49:45Z")), Utc::now()),
         k8s_obj: jobs_list[1].clone(),
         completions: "1/1 of 1".into(),
-        duration: "39m44s".into()
+        duration: "39m44s".into(),
+        status_summary: "0/1/0".into(),
+        backoff_limit: "1000".into(),
       }
     );
     assert_eq!(
@@ -207,7 +244,9 @@ mod tests {
         age: utils::to_age(Some(&get_time("2021-06-11T13:49:45Z")), Utc::now()),
         k8s_obj: jobs_list[2].clone(),
         completions: "1/1".into(),
-        duration: "39m44s".into()
+        duration: "39m44s".into(),
+        status_summary: "0/1/0".into(),
+        backoff_limit: "".into(),
       }
     );
   }

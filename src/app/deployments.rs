@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use chrono::Utc;
-use k8s_openapi::api::apps::v1::Deployment;
+use k8s_openapi::{api::apps::v1::Deployment, apimachinery::pkg::util::intstr::IntOrString};
 use ratatui::{
-  layout::{Constraint, Rect},
+  layout::Rect,
   widgets::{Cell, Row},
   Frame,
 };
@@ -17,8 +17,8 @@ use crate::{
   network::Network,
   ui::utils::{
     action_hint, describe_yaml_and_logs_hint, draw_describe_block, draw_resource_block,
-    draw_yaml_block, get_describe_active, get_resource_title, help_bold_line, style_primary,
-    title_with_dual_style, ResourceTableProps,
+    draw_yaml_block, get_describe_active, get_resource_title, help_bold_line, responsive_columns,
+    style_primary, title_with_dual_style, wide_hint, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
 
@@ -29,8 +29,18 @@ pub struct KubeDeployment {
   pub ready: String,
   pub updated: i32,
   pub available: i32,
+  pub strategy: String,
+  pub max_surge: String,
+  pub max_unavailable: String,
   pub age: String,
   k8s_obj: Deployment,
+}
+
+fn format_int_or_string(v: &IntOrString) -> String {
+  match v {
+    IntOrString::Int(i) => i.to_string(),
+    IntOrString::String(s) => s.clone(),
+  }
 }
 
 impl From<Deployment> for KubeDeployment {
@@ -48,6 +58,29 @@ impl From<Deployment> for KubeDeployment {
       _ => ("".into(), 0, 0),
     };
 
+    let (strategy, max_surge, max_unavailable) =
+      deployment
+        .spec
+        .as_ref()
+        .map_or((String::new(), String::new(), String::new()), |spec| {
+          let strat = spec.strategy.as_ref();
+          let type_name = strat.and_then(|s| s.type_.clone()).unwrap_or_default();
+          let (surge, unavail) = strat.and_then(|s| s.rolling_update.as_ref()).map_or(
+            (String::new(), String::new()),
+            |ru| {
+              (
+                ru.max_surge
+                  .as_ref()
+                  .map_or(String::new(), format_int_or_string),
+                ru.max_unavailable
+                  .as_ref()
+                  .map_or(String::new(), format_int_or_string),
+              )
+            },
+          );
+          (type_name, surge, unavail)
+        });
+
     Self {
       name: deployment.metadata.name.clone().unwrap_or_default(),
       namespace: deployment.metadata.namespace.clone().unwrap_or_default(),
@@ -55,6 +88,9 @@ impl From<Deployment> for KubeDeployment {
       available,
       updated,
       ready,
+      strategy,
+      max_surge,
+      max_unavailable,
       k8s_obj: utils::sanitize_obj(deployment),
     }
   }
@@ -111,9 +147,24 @@ impl AppResource for DeploymentResource {
   }
 }
 
+const DEPLOY_COLUMNS: [ColumnDef; 9] = [
+  ColumnDef::all("Namespace", 25, 20, 15),
+  ColumnDef::all("Name", 35, 30, 20),
+  ColumnDef::all("Ready", 10, 10, 8),
+  ColumnDef::all("Up-to-date", 10, 10, 10),
+  ColumnDef::all("Available", 10, 10, 8),
+  ColumnDef::standard("Strategy", 12, 12),
+  ColumnDef::wide("Max Surge", 9),
+  ColumnDef::wide("Max Unavail", 9),
+  ColumnDef::all("Age", 10, 8, 9),
+];
+
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_resource_title(app, DEPLOYMENTS_TITLE, "", app.data.deployments.items.len());
+
+  let tier = ViewTier::from_width(area.width, app.wide_columns);
+  let (headers, widths) = responsive_columns(&DEPLOY_COLUMNS, tier);
 
   draw_resource_block(
     f,
@@ -122,40 +173,34 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: help_bold_line(
         format!(
-          "{} | {}",
+          "{} | {} | {}",
           action_hint("pods", DEFAULT_KEYBINDING.submit.key),
-          describe_yaml_and_logs_hint()
+          describe_yaml_and_logs_hint(),
+          wide_hint()
         ),
         app.light_theme,
       ),
       resource: &mut app.data.deployments,
-      table_headers: vec![
-        "Namespace",
-        "Name",
-        "Ready",
-        "Up-to-date",
-        "Available",
-        "Age",
-      ],
-      column_widths: vec![
-        Constraint::Percentage(25),
-        Constraint::Percentage(35),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
-      Row::new(vec![
+      let mut cells = vec![
         Cell::from(c.namespace.to_owned()),
         Cell::from(c.name.to_owned()),
         Cell::from(c.ready.to_owned()),
         Cell::from(c.updated.to_string()),
         Cell::from(c.available.to_string()),
-        Cell::from(c.age.to_owned()),
-      ])
-      .style(style_primary(app.light_theme))
+      ];
+      if tier >= ViewTier::Standard {
+        cells.push(Cell::from(c.strategy.to_owned()));
+      }
+      if tier >= ViewTier::Wide {
+        cells.push(Cell::from(c.max_surge.to_owned()));
+        cells.push(Cell::from(c.max_unavailable.to_owned()));
+      }
+      cells.push(Cell::from(c.age.to_owned()));
+      Row::new(cells).style(style_primary(app.light_theme))
     },
     app.light_theme,
     is_loading,
@@ -184,6 +229,9 @@ mod tests {
         available: 1,
         updated: 1,
         ready: "1/1".into(),
+        strategy: "RollingUpdate".into(),
+        max_surge: "25%".into(),
+        max_unavailable: "25%".into(),
       }
     );
   }

@@ -1,7 +1,7 @@
 //! Troubleshoot UI rendering.
 
 use ratatui::{
-  layout::{Constraint, Rect},
+  layout::Rect,
   widgets::{Cell, Row},
   Frame,
 };
@@ -12,9 +12,18 @@ use crate::app::models::FilterableTable;
 use crate::app::App;
 use crate::ui::utils::{
   action_hint, describe_and_yaml_hint, draw_route_resource_block, filter_cursor_position,
-  filter_status_parts, help_part, mixed_bold_line, style_caution, style_failure, style_primary,
-  ResourceTableProps,
+  filter_status_parts, help_part, mixed_bold_line, responsive_columns, style_caution,
+  style_failure, style_primary, ColumnDef, ResourceTableProps, ViewTier,
 };
+
+const FINDING_COLUMNS: [ColumnDef; 6] = [
+  ColumnDef::all("Severity", 7, 7, 7),
+  ColumnDef::all("Type", 6, 6, 6),
+  ColumnDef::all("Reason", 13, 13, 13),
+  ColumnDef::all("Resource", 18, 18, 18),
+  ColumnDef::all("Message", 44, 44, 44),
+  ColumnDef::all("Age", 12, 12, 12),
+];
 
 pub fn render_troubleshoot(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let light_theme = app.light_theme;
@@ -46,6 +55,8 @@ pub fn render_troubleshoot(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     ]);
   }
 
+  let (headers, widths) = responsive_columns(&FINDING_COLUMNS, ViewTier::Compact);
+
   draw_route_resource_block(
     f,
     area,
@@ -53,15 +64,8 @@ pub fn render_troubleshoot(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: mixed_bold_line(inline_help, app.light_theme),
       resource: findings,
-      table_headers: vec!["Severity", "Type", "Reason", "Resource", "Message", "Age"],
-      column_widths: vec![
-        Constraint::Percentage(7),
-        Constraint::Percentage(6),
-        Constraint::Percentage(13),
-        Constraint::Percentage(18),
-        Constraint::Percentage(44),
-        Constraint::Percentage(12),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
       let style = match c.severity {

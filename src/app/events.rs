@@ -5,7 +5,7 @@ use k8s_openapi::{
   apimachinery::pkg::apis::meta::v1::{MicroTime, Time},
 };
 use ratatui::{
-  layout::{Constraint, Rect},
+  layout::Rect,
   widgets::{Cell, Row},
   Frame,
 };
@@ -19,8 +19,8 @@ use crate::{
   network::Network,
   ui::utils::{
     describe_yaml_and_esc_hint, draw_describe_block, draw_resource_block, draw_yaml_block,
-    get_describe_active, get_resource_title, help_bold_line, style_primary, title_with_dual_style,
-    ResourceTableProps,
+    get_describe_active, get_resource_title, help_bold_line, responsive_columns, style_primary,
+    title_with_dual_style, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
 
@@ -110,9 +110,21 @@ impl AppResource for EventResource {
   }
 }
 
+const EVENT_COLUMNS: [ColumnDef; 7] = [
+  ColumnDef::all("Namespace", 12, 12, 12),
+  ColumnDef::all("Name", 18, 18, 18),
+  ColumnDef::all("Involved Kind", 12, 12, 12),
+  ColumnDef::all("Reason", 13, 13, 13),
+  ColumnDef::all("Message", 30, 30, 30),
+  ColumnDef::all("Count", 5, 5, 5),
+  ColumnDef::all("Age", 10, 10, 10),
+];
+
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_resource_title(app, EVENTS_TITLE, "", app.data.events.items.len());
+
+  let (headers, widths) = responsive_columns(&EVENT_COLUMNS, ViewTier::Compact);
 
   draw_resource_block(
     f,
@@ -121,24 +133,8 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: help_bold_line(describe_yaml_and_esc_hint(), app.light_theme),
       resource: &mut app.data.events,
-      table_headers: vec![
-        "Namespace",
-        "Name",
-        "Involved Kind",
-        "Reason",
-        "Message",
-        "Count",
-        "Age",
-      ],
-      column_widths: vec![
-        Constraint::Percentage(12),
-        Constraint::Percentage(18),
-        Constraint::Percentage(12),
-        Constraint::Percentage(13),
-        Constraint::Percentage(30),
-        Constraint::Percentage(5),
-        Constraint::Percentage(10),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
       Row::new(vec![

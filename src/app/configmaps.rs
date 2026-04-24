@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use k8s_openapi::api::core::v1::ConfigMap;
 use ratatui::{
-  layout::{Constraint, Rect},
+  layout::Rect,
   widgets::{Cell, Row},
   Frame,
 };
@@ -18,8 +18,8 @@ use crate::{
   network::Network,
   ui::utils::{
     describe_and_yaml_hint, draw_describe_block, draw_resource_block, draw_yaml_block,
-    get_describe_active, get_resource_title, help_bold_line, style_primary, title_with_dual_style,
-    ResourceTableProps,
+    get_describe_active, get_resource_title, help_bold_line, responsive_columns, style_primary,
+    title_with_dual_style, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
 
@@ -83,9 +83,18 @@ impl AppResource for ConfigMapResource {
   }
 }
 
+const CM_COLUMNS: [ColumnDef; 4] = [
+  ColumnDef::all("Namespace", 30, 30, 30),
+  ColumnDef::all("Name", 40, 40, 40),
+  ColumnDef::all("Data", 15, 15, 15),
+  ColumnDef::all("Age", 15, 15, 15),
+];
+
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_resource_title(app, CONFIG_MAPS_TITLE, "", app.data.config_maps.items.len());
+
+  let (headers, widths) = responsive_columns(&CM_COLUMNS, ViewTier::Compact);
 
   draw_resource_block(
     f,
@@ -94,13 +103,8 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: help_bold_line(describe_and_yaml_hint(), app.light_theme),
       resource: &mut app.data.config_maps,
-      table_headers: vec!["Namespace", "Name", "Data", "Age"],
-      column_widths: vec![
-        Constraint::Percentage(30),
-        Constraint::Percentage(40),
-        Constraint::Percentage(15),
-        Constraint::Percentage(15),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
       Row::new(vec![

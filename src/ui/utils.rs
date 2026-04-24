@@ -18,6 +18,86 @@ use crate::app::{
 };
 use crate::event::Key;
 use crate::ui::theme::override_color;
+// Viewport width thresholds for responsive column display
+pub const COMPACT_WIDTH_THRESHOLD: u16 = 120;
+pub const WIDE_WIDTH_THRESHOLD: u16 = 180;
+
+/// Which responsive tier the current view is in.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ViewTier {
+  Compact,
+  Standard,
+  Wide,
+}
+
+impl ViewTier {
+  pub fn from_width(area_width: u16, force_wide: bool) -> Self {
+    if force_wide || area_width >= WIDE_WIDTH_THRESHOLD {
+      Self::Wide
+    } else if area_width >= COMPACT_WIDTH_THRESHOLD {
+      Self::Standard
+    } else {
+      Self::Compact
+    }
+  }
+}
+
+/// Declarative column definition with per-tier width percentages.
+/// A `None` width means the column is hidden at that tier.
+pub struct ColumnDef {
+  pub label: &'static str,
+  pub compact: Option<u16>,
+  pub standard: Option<u16>,
+  pub wide: Option<u16>,
+}
+
+impl ColumnDef {
+  /// Column visible at all tiers with different widths.
+  pub const fn all(label: &'static str, compact: u16, standard: u16, wide: u16) -> Self {
+    Self {
+      label,
+      compact: Some(compact),
+      standard: Some(standard),
+      wide: Some(wide),
+    }
+  }
+
+  /// Column visible only at Standard and Wide tiers.
+  pub const fn standard(label: &'static str, standard: u16, wide: u16) -> Self {
+    Self {
+      label,
+      compact: None,
+      standard: Some(standard),
+      wide: Some(wide),
+    }
+  }
+
+  /// Column visible only at Wide tier.
+  pub const fn wide(label: &'static str, wide: u16) -> Self {
+    Self {
+      label,
+      compact: None,
+      standard: None,
+      wide: Some(wide),
+    }
+  }
+}
+
+/// Given column definitions and a view tier, return the visible headers and widths.
+pub fn responsive_columns(columns: &[ColumnDef], tier: ViewTier) -> (Vec<&str>, Vec<Constraint>) {
+  columns
+    .iter()
+    .filter_map(|col| {
+      let w = match tier {
+        ViewTier::Wide => col.wide,
+        ViewTier::Standard => col.standard,
+        ViewTier::Compact => col.compact,
+      };
+      w.map(|w| (col.label, Constraint::Percentage(w)))
+    })
+    .unzip()
+}
+
 // Utils
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -336,6 +416,10 @@ pub fn describe_yaml_decode_and_esc_hint() -> String {
     action_hint("decode", DEFAULT_KEYBINDING.decode_secret.key),
     DEFAULT_KEYBINDING.esc.key
   )
+}
+
+pub fn wide_hint() -> String {
+  format!("wide {}", DEFAULT_KEYBINDING.toggle_wide_columns.key)
 }
 
 pub fn filter_cursor_position(area: Rect, prefix_width: usize, filter: &str) -> Position {

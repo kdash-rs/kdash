@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use k8s_openapi::api::apps::v1::ReplicaSet;
 use ratatui::{
-  layout::{Constraint, Rect},
+  layout::Rect,
   widgets::{Cell, Row},
   Frame,
 };
@@ -18,8 +18,8 @@ use crate::{
   network::Network,
   ui::utils::{
     action_hint, describe_yaml_and_logs_hint, draw_describe_block, draw_resource_block,
-    draw_yaml_block, get_describe_active, get_resource_title, help_bold_line, style_primary,
-    title_with_dual_style, ResourceTableProps,
+    draw_yaml_block, get_describe_active, get_resource_title, help_bold_line, responsive_columns,
+    style_primary, title_with_dual_style, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
 
@@ -107,6 +107,15 @@ impl AppResource for ReplicaSetResource {
   }
 }
 
+const RS_COLUMNS: [ColumnDef; 6] = [
+  ColumnDef::all("Namespace", 25, 25, 25),
+  ColumnDef::all("Name", 35, 35, 35),
+  ColumnDef::all("Desired", 10, 10, 10),
+  ColumnDef::all("Current", 10, 10, 10),
+  ColumnDef::all("Ready", 10, 10, 10),
+  ColumnDef::all("Age", 10, 10, 10),
+];
+
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_resource_title(
@@ -115,6 +124,8 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     "",
     app.data.replica_sets.items.len(),
   );
+
+  let (headers, widths) = responsive_columns(&RS_COLUMNS, ViewTier::Compact);
 
   draw_resource_block(
     f,
@@ -130,15 +141,8 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
         app.light_theme,
       ),
       resource: &mut app.data.replica_sets,
-      table_headers: vec!["Namespace", "Name", "Desired", "Current", "Ready", "Age"],
-      column_widths: vec![
-        Constraint::Percentage(25),
-        Constraint::Percentage(35),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
       Row::new(vec![

@@ -8,7 +8,7 @@ use kube::{
   Api,
 };
 use ratatui::{
-  layout::{Constraint, Rect},
+  layout::Rect,
   widgets::{Cell, Row},
   Frame,
 };
@@ -26,7 +26,8 @@ use crate::{
   ui::utils::{
     action_hint, copy_and_escape_title_line, describe_and_yaml_hint, draw_describe_block,
     draw_resource_block, draw_yaml_block, get_cluster_wide_resource_title, get_describe_active,
-    help_bold_line, style_failure, style_primary, title_with_dual_style, ResourceTableProps,
+    help_bold_line, responsive_columns, style_failure, style_primary, title_with_dual_style,
+    wide_hint, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
 
@@ -284,9 +285,27 @@ async fn get_node_metrics(nw: &Network<'_>) {
   };
 }
 
+const NODE_COLUMNS: [ColumnDef; 12] = [
+  ColumnDef::all("Name", 30, 25, 25),
+  ColumnDef::all("Status", 12, 10, 10),
+  ColumnDef::all("Roles", 12, 12, 10),
+  ColumnDef::all("Version", 12, 10, 10),
+  ColumnDef::all("Pods", 6, 6, 5),
+  ColumnDef::standard("CPU", 6, 5),
+  ColumnDef::standard("Mem", 6, 5),
+  ColumnDef::all("CPU %", 6, 6, 5),
+  ColumnDef::all("Mem %", 6, 6, 5),
+  ColumnDef::wide("CPU/A", 5),
+  ColumnDef::wide("Mem/A", 5),
+  ColumnDef::all("Age", 10, 10, 10),
+];
+
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_cluster_wide_resource_title(NODES_TITLE, app.data.nodes.items.len(), "");
+
+  let tier = ViewTier::from_width(area.width, app.wide_columns);
+  let (headers, widths) = responsive_columns(&NODE_COLUMNS, tier);
 
   draw_resource_block(
     f,
@@ -295,31 +314,16 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: help_bold_line(
         format!(
-          "{} | {}",
+          "{} | {} | {}",
           action_hint("pods", DEFAULT_KEYBINDING.submit.key),
-          describe_and_yaml_hint()
+          describe_and_yaml_hint(),
+          wide_hint()
         ),
         app.light_theme,
       ),
       resource: &mut app.data.nodes,
-      table_headers: vec![
-        "Name", "Status", "Roles", "Version", "Pods", "CPU", "Mem", "CPU %", "Mem %", "CPU/A",
-        "Mem/A", "Age",
-      ],
-      column_widths: vec![
-        Constraint::Percentage(25),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(5),
-        Constraint::Percentage(5),
-        Constraint::Percentage(5),
-        Constraint::Percentage(5),
-        Constraint::Percentage(5),
-        Constraint::Percentage(5),
-        Constraint::Percentage(5),
-        Constraint::Percentage(10),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
       let style = if c.status != "Ready" {
@@ -327,21 +331,25 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       } else {
         style_primary(app.light_theme)
       };
-      Row::new(vec![
+      let mut cells = vec![
         Cell::from(c.name.to_owned()),
         Cell::from(c.status.to_owned()),
         Cell::from(c.role.to_owned()),
         Cell::from(c.version.to_owned()),
         Cell::from(c.pods.to_string()),
-        Cell::from(c.cpu.to_owned()),
-        Cell::from(c.mem.to_owned()),
-        Cell::from(c.cpu_percent.to_owned()),
-        Cell::from(c.mem_percent.to_owned()),
-        Cell::from(c.cpu_a.to_owned()),
-        Cell::from(c.mem_a.to_owned()),
-        Cell::from(c.age.to_owned()),
-      ])
-      .style(style)
+      ];
+      if tier >= ViewTier::Standard {
+        cells.push(Cell::from(c.cpu.to_owned()));
+        cells.push(Cell::from(c.mem.to_owned()));
+      }
+      cells.push(Cell::from(c.cpu_percent.to_owned()));
+      cells.push(Cell::from(c.mem_percent.to_owned()));
+      if tier >= ViewTier::Wide {
+        cells.push(Cell::from(c.cpu_a.to_owned()));
+        cells.push(Cell::from(c.mem_a.to_owned()));
+      }
+      cells.push(Cell::from(c.age.to_owned()));
+      Row::new(cells).style(style)
     },
     app.light_theme,
     is_loading,

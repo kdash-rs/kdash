@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use k8s_openapi::api::core::v1::{Service, ServicePort};
 use ratatui::{
-  layout::{Constraint, Rect},
+  layout::Rect,
   widgets::{Cell, Row},
   Frame,
 };
@@ -17,8 +17,8 @@ use crate::{
   network::Network,
   ui::utils::{
     describe_and_yaml_hint, draw_describe_block, draw_resource_block, draw_yaml_block,
-    get_describe_active, get_resource_title, help_bold_line, style_caution, style_primary,
-    title_with_dual_style, ResourceTableProps,
+    get_describe_active, get_resource_title, help_bold_line, responsive_columns, style_caution,
+    style_primary, title_with_dual_style, wide_hint, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
 
@@ -30,13 +30,15 @@ pub struct KubeSvc {
   pub cluster_ip: String,
   pub external_ip: String,
   pub ports: String,
+  pub selector: String,
+  pub session_affinity: String,
   pub age: String,
   k8s_obj: Service,
 }
 
 impl From<Service> for KubeSvc {
   fn from(service: Service) -> Self {
-    let (type_, cluster_ip, external_ip, ports) = match &service.spec {
+    let (type_, cluster_ip, external_ip, ports, selector, session_affinity) = match &service.spec {
       Some(spec) => {
         let type_ = match &spec.type_ {
           Some(type_) => type_.clone(),
@@ -50,15 +52,27 @@ impl From<Service> for KubeSvc {
           _ => None,
         };
 
+        let selector = spec.selector.as_ref().map_or(String::new(), |s| {
+          s.iter()
+            .map(|(k, v)| format!("{}={}", k, v))
+            .collect::<Vec<_>>()
+            .join(",")
+        });
+        let session_affinity = spec.session_affinity.clone().unwrap_or_default();
+
         (
           type_,
           spec.cluster_ip.as_ref().unwrap_or(&"None".into()).clone(),
           external_ips.unwrap_or_default().join(","),
           get_ports(&spec.ports).unwrap_or_default(),
+          selector,
+          session_affinity,
         )
       }
       _ => (
         UNKNOWN.into(),
+        String::default(),
+        String::default(),
         String::default(),
         String::default(),
         String::default(),
@@ -72,6 +86,8 @@ impl From<Service> for KubeSvc {
       cluster_ip,
       external_ip,
       ports,
+      selector,
+      session_affinity,
       age: utils::to_age(service.metadata.creation_timestamp.as_ref(), Utc::now()),
       k8s_obj: utils::sanitize_obj(service),
     }
@@ -116,35 +132,37 @@ impl AppResource for SvcResource {
   }
 }
 
+const SVC_COLUMNS: [ColumnDef; 9] = [
+  ColumnDef::all("Namespace", 10, 10, 8),
+  ColumnDef::all("Name", 25, 20, 18),
+  ColumnDef::all("Type", 10, 8, 8),
+  ColumnDef::all("Cluster IP", 10, 10, 10),
+  ColumnDef::all("External IP", 15, 12, 12),
+  ColumnDef::all("Ports", 20, 18, 15),
+  ColumnDef::standard("Selector", 14, 12),
+  ColumnDef::wide("Session Affinity", 10),
+  ColumnDef::all("Age", 10, 8, 7),
+];
+
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_resource_title(app, SERVICES_TITLE, "", app.data.services.items.len());
+
+  let tier = ViewTier::from_width(area.width, app.wide_columns);
+  let (headers, widths) = responsive_columns(&SVC_COLUMNS, tier);
 
   draw_resource_block(
     f,
     area,
     ResourceTableProps {
       title,
-      inline_help: help_bold_line(describe_and_yaml_hint(), app.light_theme),
+      inline_help: help_bold_line(
+        format!("{} | {}", describe_and_yaml_hint(), wide_hint()),
+        app.light_theme,
+      ),
       resource: &mut app.data.services,
-      table_headers: vec![
-        "Namespace",
-        "Name",
-        "Type",
-        "Cluster IP",
-        "External IP",
-        "Ports",
-        "Age",
-      ],
-      column_widths: vec![
-        Constraint::Percentage(10),
-        Constraint::Percentage(25),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(15),
-        Constraint::Percentage(20),
-        Constraint::Percentage(10),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
       let style = if c.external_ip == "<pending>" {
@@ -152,16 +170,22 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       } else {
         style_primary(app.light_theme)
       };
-      Row::new(vec![
+      let mut cells = vec![
         Cell::from(c.namespace.to_owned()),
         Cell::from(c.name.to_owned()),
         Cell::from(c.type_.to_owned()),
         Cell::from(c.cluster_ip.to_owned()),
         Cell::from(c.external_ip.to_owned()),
         Cell::from(c.ports.to_owned()),
-        Cell::from(c.age.to_owned()),
-      ])
-      .style(style)
+      ];
+      if tier >= ViewTier::Standard {
+        cells.push(Cell::from(c.selector.to_owned()));
+      }
+      if tier >= ViewTier::Wide {
+        cells.push(Cell::from(c.session_affinity.to_owned()));
+      }
+      cells.push(Cell::from(c.age.to_owned()));
+      Row::new(cells).style(style)
     },
     app.light_theme,
     is_loading,
@@ -244,6 +268,8 @@ mod tests {
         cluster_ip: "10.43.0.1".into(),
         external_ip: "".into(),
         ports: "https:443►0".into(),
+        selector: "".into(),
+        session_affinity: "None".into(),
       }
     );
     assert_eq!(
@@ -257,6 +283,8 @@ mod tests {
         cluster_ip: "10.43.0.10".into(),
         external_ip: "".into(),
         ports: "dns:53►0/UDP dns-tcp:53►0 metrics:9153►0".into(),
+        selector: "k8s-app=kube-dns".into(),
+        session_affinity: "None".into(),
       }
     );
     assert_eq!(
@@ -270,6 +298,8 @@ mod tests {
         cluster_ip: "10.43.93.186".into(),
         external_ip: "".into(),
         ports: "443►0".into(),
+        selector: "k8s-app=metrics-server".into(),
+        session_affinity: "None".into(),
       }
     );
     assert_eq!(
@@ -283,6 +313,8 @@ mod tests {
         cluster_ip: "10.43.9.106".into(),
         external_ip: "".into(),
         ports: "metrics:9100►0".into(),
+        selector: "app=traefik,release=traefik".into(),
+        session_affinity: "None".into(),
       }
     );
     assert_eq!(
@@ -296,6 +328,8 @@ mod tests {
         cluster_ip: "10.43.235.227".into(),
         external_ip: "172.20.0.2".into(),
         ports: "http:80►30723 https:443►31954".into(),
+        selector: "app=traefik,release=traefik".into(),
+        session_affinity: "None".into(),
       }
     );
   }

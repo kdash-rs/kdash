@@ -4,7 +4,7 @@ use k8s_openapi::{
   api::core::v1::PersistentVolumeClaim, apimachinery::pkg::api::resource::Quantity,
 };
 use ratatui::{
-  layout::{Constraint, Rect},
+  layout::Rect,
   widgets::{Cell, Row},
   Frame,
 };
@@ -19,8 +19,8 @@ use crate::{
   network::Network,
   ui::utils::{
     describe_yaml_and_esc_hint, draw_describe_block, draw_resource_block, draw_yaml_block,
-    get_describe_active, get_resource_title, help_bold_line, style_caution, style_primary,
-    title_with_dual_style, ResourceTableProps,
+    get_describe_active, get_resource_title, help_bold_line, responsive_columns, style_caution,
+    style_primary, title_with_dual_style, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
 
@@ -124,6 +124,17 @@ impl AppResource for PvcResource {
   }
 }
 
+const PVC_COLUMNS: [ColumnDef; 8] = [
+  ColumnDef::all("Namespace", 10, 10, 10),
+  ColumnDef::all("Name", 10, 10, 10),
+  ColumnDef::all("Status", 10, 10, 10),
+  ColumnDef::all("Volume", 20, 20, 20),
+  ColumnDef::all("Capacity", 10, 10, 10),
+  ColumnDef::all("Access Modes", 10, 10, 10),
+  ColumnDef::all("Storage Class", 10, 10, 10),
+  ColumnDef::all("Age", 10, 10, 10),
+];
+
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_resource_title(
@@ -133,6 +144,8 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     app.data.persistent_volume_claims.items.len(),
   );
 
+  let (headers, widths) = responsive_columns(&PVC_COLUMNS, ViewTier::Compact);
+
   draw_resource_block(
     f,
     area,
@@ -140,27 +153,8 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: help_bold_line(describe_yaml_and_esc_hint(), app.light_theme),
       resource: &mut app.data.persistent_volume_claims,
-      table_headers: vec![
-        "Namespace",
-        "Name",
-        "Status",
-        "Volume",
-        "Capacity",
-        "Access Modes",
-        "Storage Class",
-        "Age",
-      ],
-      column_widths: vec![
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(20),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
       let style = if c.status == "Pending" {

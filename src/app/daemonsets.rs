@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use k8s_openapi::api::apps::v1::DaemonSet;
 use ratatui::{
-  layout::{Constraint, Rect},
+  layout::Rect,
   widgets::{Cell, Row},
   Frame,
 };
@@ -17,8 +17,8 @@ use crate::{
   network::Network,
   ui::utils::{
     action_hint, describe_yaml_and_logs_hint, draw_describe_block, draw_resource_block,
-    draw_yaml_block, get_describe_active, get_resource_title, help_bold_line, style_primary,
-    title_with_dual_style, ResourceTableProps,
+    draw_yaml_block, get_describe_active, get_resource_title, help_bold_line, responsive_columns,
+    style_primary, title_with_dual_style, wide_hint, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
 
@@ -31,6 +31,8 @@ pub struct KubeDaemonSet {
   pub ready: i32,
   pub up_to_date: i32,
   pub available: i32,
+  pub node_selector: String,
+  pub containers: String,
   pub age: String,
   k8s_obj: DaemonSet,
 }
@@ -47,6 +49,29 @@ impl From<DaemonSet> for KubeDaemonSet {
       _ => (0, 0, 0, 0, 0),
     };
 
+    let node_selector = ds
+      .spec
+      .as_ref()
+      .and_then(|s| s.template.spec.as_ref())
+      .and_then(|ps| ps.node_selector.as_ref())
+      .map_or(String::new(), |ns| {
+        ns.iter()
+          .map(|(k, v)| format!("{}={}", k, v))
+          .collect::<Vec<_>>()
+          .join(",")
+      });
+    let containers = ds
+      .spec
+      .as_ref()
+      .and_then(|s| s.template.spec.as_ref())
+      .map_or(String::new(), |ps| {
+        ps.containers
+          .iter()
+          .map(|c| c.name.clone())
+          .collect::<Vec<_>>()
+          .join(",")
+      });
+
     KubeDaemonSet {
       name: ds.metadata.name.clone().unwrap_or_default(),
       namespace: ds.metadata.namespace.clone().unwrap_or_default(),
@@ -56,6 +81,8 @@ impl From<DaemonSet> for KubeDaemonSet {
       ready,
       up_to_date,
       available,
+      node_selector,
+      containers,
       k8s_obj: utils::sanitize_obj(ds),
     }
   }
@@ -112,9 +139,25 @@ impl AppResource for DaemonSetResource {
   }
 }
 
+const DS_COLUMNS: [ColumnDef; 10] = [
+  ColumnDef::all("Namespace", 20, 15, 12),
+  ColumnDef::all("Name", 20, 18, 15),
+  ColumnDef::all("Desired", 10, 8, 7),
+  ColumnDef::all("Current", 10, 8, 7),
+  ColumnDef::all("Ready", 10, 8, 7),
+  ColumnDef::all("Up-to-date", 10, 8, 8),
+  ColumnDef::all("Available", 10, 8, 8),
+  ColumnDef::standard("Node Selector", 19, 14),
+  ColumnDef::wide("Containers", 14),
+  ColumnDef::all("Age", 10, 8, 8),
+];
+
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_resource_title(app, DAEMON_SETS_TITLE, "", app.data.daemon_sets.items.len());
+
+  let tier = ViewTier::from_width(area.width, app.wide_columns);
+  let (headers, widths) = responsive_columns(&DS_COLUMNS, tier);
 
   draw_resource_block(
     f,
@@ -123,36 +166,19 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: help_bold_line(
         format!(
-          "{} | {}",
+          "{} | {} | {}",
           action_hint("pods", DEFAULT_KEYBINDING.submit.key),
-          describe_yaml_and_logs_hint()
+          describe_yaml_and_logs_hint(),
+          wide_hint()
         ),
         app.light_theme,
       ),
       resource: &mut app.data.daemon_sets,
-      table_headers: vec![
-        "Namespace",
-        "Name",
-        "Desired",
-        "Current",
-        "Ready",
-        "Up-to-date",
-        "Available",
-        "Age",
-      ],
-      column_widths: vec![
-        Constraint::Percentage(20),
-        Constraint::Percentage(20),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
-      Row::new(vec![
+      let mut cells = vec![
         Cell::from(c.namespace.to_owned()),
         Cell::from(c.name.to_owned()),
         Cell::from(c.desired.to_string()),
@@ -160,9 +186,15 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
         Cell::from(c.ready.to_string()),
         Cell::from(c.up_to_date.to_string()),
         Cell::from(c.available.to_string()),
-        Cell::from(c.age.to_owned()),
-      ])
-      .style(style_primary(app.light_theme))
+      ];
+      if tier >= ViewTier::Standard {
+        cells.push(Cell::from(c.node_selector.to_owned()));
+      }
+      if tier >= ViewTier::Wide {
+        cells.push(Cell::from(c.containers.to_owned()));
+      }
+      cells.push(Cell::from(c.age.to_owned()));
+      Row::new(cells).style(style_primary(app.light_theme))
     },
     app.light_theme,
     is_loading,
@@ -191,6 +223,8 @@ mod tests {
         ready: 1,
         up_to_date: 1,
         available: 1,
+        node_selector: "".into(),
+        containers: "lb-port-80,lb-port-443".into(),
       }
     );
   }
