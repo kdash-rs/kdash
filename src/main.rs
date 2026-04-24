@@ -241,6 +241,7 @@ async fn process_event(
   app: &mut App,
   ev: event::Event<KeyEvent, MouseEvent>,
   is_first_render: &mut bool,
+  tick_seen: &mut bool,
 ) -> bool {
   match ev {
     event::Event::Input(key_event) => {
@@ -259,6 +260,7 @@ async fn process_event(
     event::Event::Tick => {
       app.on_tick(*is_first_render).await;
       *is_first_render = false;
+      *tick_seen = true;
       false
     }
     event::Event::KubeConfigChange => {
@@ -307,15 +309,22 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
       // the latest state, eliminating the 1-event visual lag.
 
       // Process the blocking event
-      let mut should_break = process_event(&mut app, event, &mut is_first_render).await;
+      let mut tick_seen = false;
+      let mut should_break =
+        process_event(&mut app, event, &mut is_first_render, &mut tick_seen).await;
 
       // Drain any pending events so rapid key-presses are batched into a
       // single render pass instead of each triggering a stale redraw.
+      // Cap at 20 to bound worst-case lock hold under input flood.
+      // Coalesce Ticks: after one Tick fires `on_tick`, drop the rest in
+      // this batch so a stall doesn't replay the backlog as a poll burst.
       if !should_break {
         for _ in 0..20 {
           match events.try_next() {
+            Some(event::Event::Tick) if tick_seen => continue,
             Some(ev) => {
-              should_break = process_event(&mut app, ev, &mut is_first_render).await;
+              should_break =
+                process_event(&mut app, ev, &mut is_first_render, &mut tick_seen).await;
               if should_break {
                 break;
               }
@@ -340,7 +349,6 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
       // Draw the UI layout AFTER processing events so the frame is up-to-date
       terminal.draw(|f| ui::draw(f, &mut app))?;
 
-      is_first_render = false;
       let pending_shell_exec = app.take_pending_shell_exec();
       let should_quit = app.should_quit;
       (pending_shell_exec, should_quit)
@@ -553,9 +561,10 @@ fn get_panic_info(info: &PanicHookInfo<'_>) -> (String, String) {
 
 #[cfg(test)]
 mod tests {
-  use super::{execute_pending_shell_exec_with, resolve_log_tail_lines};
-  use crate::{app::App, config::KdashConfig};
+  use super::{execute_pending_shell_exec_with, process_event, resolve_log_tail_lines};
+  use crate::{app::App, config::KdashConfig, event};
   use anyhow::anyhow;
+  use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
   use std::sync::Arc;
   use tokio::sync::Mutex;
 
@@ -649,5 +658,71 @@ mod tests {
       "Unable to open shell for api-123/web: probe failed"
     );
     assert!(app.status_message.is_empty());
+  }
+
+  #[tokio::test]
+  async fn test_process_event_tick_advances_state_and_sets_tick_seen() {
+    let mut app = App::default();
+    let mut is_first_render = true;
+    let mut tick_seen = false;
+
+    let exit = process_event(
+      &mut app,
+      event::Event::Tick,
+      &mut is_first_render,
+      &mut tick_seen,
+    )
+    .await;
+
+    assert!(!exit);
+    assert!(
+      tick_seen,
+      "Tick should set tick_seen so the drain can coalesce"
+    );
+    assert!(!is_first_render, "Tick should flip the first-render flag");
+    assert_eq!(app.tick_count, 1);
+  }
+
+  #[tokio::test]
+  async fn test_process_event_input_does_not_flip_first_render_or_tick_seen() {
+    let mut app = App::default();
+    let mut is_first_render = true;
+    let mut tick_seen = false;
+
+    let exit = process_event(
+      &mut app,
+      event::Event::Input(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)),
+      &mut is_first_render,
+      &mut tick_seen,
+    )
+    .await;
+
+    assert!(!exit);
+    assert!(
+      is_first_render,
+      "non-Tick events must not consume the first-render gate"
+    );
+    assert!(
+      !tick_seen,
+      "non-Tick events must not mark a tick as processed"
+    );
+    assert_eq!(app.tick_count, 0);
+  }
+
+  #[tokio::test]
+  async fn test_process_event_ctrl_c_signals_exit() {
+    let mut app = App::default();
+    let mut is_first_render = true;
+    let mut tick_seen = false;
+
+    let exit = process_event(
+      &mut app,
+      event::Event::Input(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL)),
+      &mut is_first_render,
+      &mut tick_seen,
+    )
+    .await;
+
+    assert!(exit);
   }
 }

@@ -778,18 +778,33 @@ fn ensure_highlight_cache(app: &mut App) -> bool {
   true
 }
 
+/// Compute the (start, end, scroll-within-slice) window into a buffer of
+/// `total` highlighted lines for the given `offset` and visible row count.
+/// Clamps `offset` to a valid index and ensures `start <= end <= total`.
+fn highlight_window(offset: usize, total: usize, view_h: usize) -> (usize, usize, u16) {
+  // Caller guarantees total > 0; clamp here defensively too.
+  let view_h = view_h.max(1);
+  let effective_offset = offset.min(total.saturating_sub(1));
+  let slice_start = effective_offset.saturating_sub(view_h);
+  let slice_end = total.min(effective_offset + view_h * 3);
+  let adjusted_offset = (effective_offset - slice_start).min(u16::MAX as usize) as u16;
+  (slice_start, slice_end, adjusted_offset)
+}
+
 /// common for all resources
 pub fn draw_yaml_block(f: &mut Frame<'_>, app: &mut App, area: Rect, title: Line<'_>) {
   let block = layout_block_top_border(title);
   if ensure_highlight_cache(app) {
-    let offset = app.data.describe_out.offset;
     let total = app.data.describe_out.highlighted_lines.len();
-    // Subtract 2 for the top-border of the block.
-    let view_h = area.height.saturating_sub(2) as usize;
-    // Take a generous window around the visible region.
-    let slice_start = offset.saturating_sub(view_h);
-    let slice_end = total.min(offset + view_h * 3);
-    let adjusted_offset = (offset - slice_start).min(u16::MAX as usize) as u16;
+    if total == 0 {
+      loading(f, block, area, app.is_loading(), app.light_theme);
+      return;
+    }
+    let offset = app.data.describe_out.offset;
+    // Subtract 2 for the top-border of the block; clamp to >=1 so a tiny
+    // terminal doesn't degenerate into an empty slice.
+    let view_h = (area.height.saturating_sub(2) as usize).max(1);
+    let (slice_start, slice_end, adjusted_offset) = highlight_window(offset, total, view_h);
     let visible_lines = app.data.describe_out.highlighted_lines[slice_start..slice_end].to_vec();
     let paragraph = Paragraph::new(visible_lines)
       .block(block)
@@ -841,9 +856,11 @@ fn draw_resource_table<'a, T: Named, F>(
     table_props.resource.filtered_indices = filtered_indices;
 
     // Determine the visible row range to avoid expensive row_cell_mapper
-    // calls for off-screen items.  Subtract 3 for header + borders.
+    // calls for off-screen items. Subtract 3 for header + borders; clamp
+    // to >=1 so a tiny terminal still renders at least one row of data
+    // instead of degenerating into all-empty rows.
     let selected = table_props.resource.state.selected().unwrap_or(0);
-    let view_h = area.height.saturating_sub(3) as usize;
+    let view_h = (area.height.saturating_sub(3) as usize).max(1);
     let visible_start = selected.saturating_sub(view_h);
     let visible_end = (selected + view_h * 2).min(filtered_items.len());
 
@@ -1641,5 +1658,49 @@ mod tests {
       text4.contains("[foo]"),
       "Case 4: expected '{text4}' to contain '[foo]'"
     );
+  }
+
+  #[test]
+  fn test_highlight_window_offset_within_bounds() {
+    // total=100, view_h=10, offset=50 → window straddles the offset.
+    let (start, end, scroll) = highlight_window(50, 100, 10);
+    assert_eq!(start, 40);
+    assert_eq!(end, 80);
+    assert_eq!(scroll, 10);
+    assert!(start <= end && end <= 100);
+  }
+
+  #[test]
+  fn test_highlight_window_offset_at_zero() {
+    let (start, end, scroll) = highlight_window(0, 100, 10);
+    assert_eq!(start, 0);
+    assert_eq!(end, 30);
+    assert_eq!(scroll, 0);
+  }
+
+  #[test]
+  fn test_highlight_window_offset_exceeds_total_does_not_panic() {
+    // Regression: items.len() can exceed highlighted_lines.len() when
+    // some lines fail to highlight, leaving offset stale relative to total.
+    // The slice [start..end] must remain valid.
+    let (start, end, _) = highlight_window(50, 5, 10);
+    assert!(start <= end, "start {start} must not exceed end {end}");
+    assert!(end <= 5, "end {end} must not exceed total");
+  }
+
+  #[test]
+  fn test_highlight_window_view_h_zero_clamps_to_one() {
+    // A view height of 0 should not collapse the window to empty.
+    let (start, end, _) = highlight_window(2, 10, 0);
+    assert!(start < end, "window must not be empty when content exists");
+  }
+
+  #[test]
+  fn test_highlight_window_total_one() {
+    // Single-line buffer must produce a non-empty window.
+    let (start, end, scroll) = highlight_window(0, 1, 5);
+    assert_eq!(start, 0);
+    assert_eq!(end, 1);
+    assert_eq!(scroll, 0);
   }
 }
