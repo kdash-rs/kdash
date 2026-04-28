@@ -307,6 +307,11 @@ At least for now, there are no plans to add full CRUD for resources but in the f
 
 MIT
 
+## Terms of use
+
+- The Software shall be used for Good, not Evil.
+- This software shall not be used for any military purposes including intelligence agencies.
+
 ## Creator
 
 - [Deepu K Sasidharan](https://deepu.tech/)
