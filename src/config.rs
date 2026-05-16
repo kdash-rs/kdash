@@ -17,6 +17,8 @@ pub struct KdashConfig {
   pub theme: Option<ThemeConfig>,
   pub log_tail_lines: Option<u32>,
   pub cli_info: Option<CliInfoConfig>,
+  pub hide_logo: bool,
+  pub hide_info_on_start: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
@@ -170,7 +172,7 @@ mod tests {
     let path = dir.join("config.yaml");
     fs::write(
       &path,
-      "keybindings:\n  quit: ctrl+q\nlog_tail_lines: 250\ncli_info:\n  disable_defaults:\n    - docker\n  custom:\n    - label: istioctl\n      command: [\"istioctl\", \"version\"]\n      regex: '\\b(v?[0-9]+\\.[0-9]+\\.[0-9]+)\\b'\ntheme:\n  dark:\n    primary: green\n  light:\n    primary: blue\n",
+      "keybindings:\n  quit: ctrl+q\nlog_tail_lines: 250\nhide_logo: true\nhide_info_on_start: true\ncli_info:\n  disable_defaults:\n    - docker\n  custom:\n    - label: istioctl\n      command: [\"istioctl\", \"version\"]\n      regex: '\\b(v?[0-9]+\\.[0-9]+\\.[0-9]+)\\b'\ntheme:\n  dark:\n    primary: green\n  light:\n    primary: blue\n",
     )
     .expect("config fixture should be written");
 
@@ -210,6 +212,8 @@ mod tests {
       )]))
     );
     assert_eq!(loaded.config.log_tail_lines, Some(250));
+    assert!(loaded.config.hide_logo);
+    assert!(loaded.config.hide_info_on_start);
     assert_eq!(
       loaded.config.cli_info,
       Some(CliInfoConfig {
@@ -303,6 +307,23 @@ mod tests {
         custom: vec![],
       })
     );
+  }
+
+  #[test]
+  fn test_hide_logo_and_info_default_to_false() {
+    let config: KdashConfig = serde_yaml::from_str("").expect("empty config should parse");
+
+    assert!(!config.hide_logo);
+    assert!(!config.hide_info_on_start);
+  }
+
+  #[test]
+  fn test_hide_logo_and_info_can_be_enabled() {
+    let config: KdashConfig = serde_yaml::from_str("hide_logo: true\nhide_info_on_start: true\n")
+      .expect("config should parse");
+
+    assert!(config.hide_logo);
+    assert!(config.hide_info_on_start);
   }
 
   #[test]

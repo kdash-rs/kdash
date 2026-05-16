@@ -1,5 +1,11 @@
 log_tail_lines: 250
 
+# Hide the KDash logo block in the top bar. Defaults to false.
+hide_logo: false
+# Start with the info bar (namespaces, context info, CLI info, logo) collapsed.
+# Press the toggle_info keybinding (default `i`) to show it again. Defaults to false.
+hide_info_on_start: false
+
 cli_info:
   # Hide missing CLI entries entirely. Set to false to show them as "Not found".
   hide_missing_binaries: true

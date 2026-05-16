@@ -201,6 +201,16 @@ Log streaming history can also be tuned:
 log_tail_lines: 250
 ```
 
+The top status bar can also be customized:
+
+```yaml
+# Hide the KDash logo block in the top bar. Defaults to false.
+hide_logo: true
+# Start with the entire info bar collapsed (namespaces, context, CLI info, logo).
+# Toggle it back on at any time with the `toggle_info` keybinding (default `i`). Defaults to false.
+hide_info_on_start: true
+```
+
 CLI Info entries can be configured too. Built-in entries remain enabled by default, missing binaries are hidden by default, you can disable any built-in by label, and you can add custom probes with a label plus command:
 
 ```yaml

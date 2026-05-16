@@ -660,6 +660,7 @@ impl App {
     log_tail_lines: u32,
     config: KdashConfig,
   ) -> Self {
+    let show_info_bar = !config.hide_info_on_start;
     App {
       io_tx: Some(io_tx),
       io_stream_tx: Some(io_stream_tx),
@@ -667,6 +668,7 @@ impl App {
       enhanced_graphics,
       tick_until_poll,
       log_tail_lines,
+      show_info_bar,
       config,
       ..App::default()
     }
@@ -1728,6 +1730,40 @@ mod tests {
   fn test_loading_counter_default() {
     let app = App::default();
     assert!(!app.is_loading());
+  }
+
+  #[test]
+  fn test_new_honors_hide_info_on_start_config() {
+    let (io_tx, _io_rx) = mpsc::channel::<IoEvent>(1);
+    let (io_stream_tx, _stream_rx) = mpsc::channel::<IoStreamEvent>(1);
+    let (io_cmd_tx, _cmd_rx) = mpsc::channel::<IoCmdEvent>(1);
+
+    let config = KdashConfig {
+      hide_info_on_start: true,
+      ..KdashConfig::default()
+    };
+    let app = App::new(io_tx, io_stream_tx, io_cmd_tx, false, 1, 100, config);
+
+    assert!(!app.show_info_bar);
+  }
+
+  #[test]
+  fn test_new_defaults_show_info_bar_to_true() {
+    let (io_tx, _io_rx) = mpsc::channel::<IoEvent>(1);
+    let (io_stream_tx, _stream_rx) = mpsc::channel::<IoStreamEvent>(1);
+    let (io_cmd_tx, _cmd_rx) = mpsc::channel::<IoCmdEvent>(1);
+
+    let app = App::new(
+      io_tx,
+      io_stream_tx,
+      io_cmd_tx,
+      false,
+      1,
+      100,
+      KdashConfig::default(),
+    );
+
+    assert!(app.show_info_bar);
   }
 
   #[test]
