@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.2] - 2026-05-16
+
+### Added
+
+- New `hide_logo` and `hide_info_on_start` config options to hide the logo block and start with the info bar collapsed. Fix [#521](https://github.com/kdash-rs/kdash/issues/521)
+
 ## [1.1.1] - 2026-04-24
 
 ### Changed
