@@ -160,7 +160,7 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
   let text = match app.get_current_route().id {
     RouteId::Contexts => vec![mixed_line(
       [help_part(format!(
-        "{} | {} scroll | {} select | {} ",
+        "{} · {} scroll · {} select · {} ",
         action_hint("help", DEFAULT_KEYBINDING.help.key),
         key_hints(&[DEFAULT_KEYBINDING.up.key, DEFAULT_KEYBINDING.down.key]),
         DEFAULT_KEYBINDING.submit.key,
@@ -170,7 +170,7 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
     )],
     RouteId::Home => vec![mixed_line(
       [help_part(format!(
-        "{} | {} switch tabs | <char> select block | {} scroll | {} select | {} ",
+        "{} · {} switch tabs · <char> select block · {} scroll · {} select · {} ",
         action_hint("help", DEFAULT_KEYBINDING.help.key),
         key_hints(&[
           DEFAULT_KEYBINDING.cycle_main_views.key,
@@ -185,7 +185,7 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
     )],
     RouteId::Utilization => vec![mixed_line(
       [help_part(format!(
-        "{} | {} scroll | {} | {} ",
+        "{} · {} scroll · {} · {} ",
         action_hint("help", DEFAULT_KEYBINDING.help.key),
         key_hints(&[DEFAULT_KEYBINDING.up.key, DEFAULT_KEYBINDING.down.key]),
         action_hint("filter", DEFAULT_KEYBINDING.filter.key),
@@ -195,7 +195,7 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
     )],
     RouteId::Troubleshoot => vec![mixed_line(
       [help_part(format!(
-        "{} | {} scroll | {} ",
+        "{} · {} scroll · {} ",
         action_hint("help", DEFAULT_KEYBINDING.help.key),
         key_hints(&[DEFAULT_KEYBINDING.up.key, DEFAULT_KEYBINDING.down.key]),
         action_hint("filter", DEFAULT_KEYBINDING.filter.key),
@@ -215,7 +215,7 @@ fn draw_app_error(f: &mut Frame<'_>, app: &App, size: Rect) {
     .title(mixed_bold_line(
       [
         default_part(" Error "),
-        help_part(format!("| close {} ", DEFAULT_KEYBINDING.esc.key)),
+        help_part(format!("· close {} ", DEFAULT_KEYBINDING.esc.key)),
       ],
       app.light_theme,
     ))
@@ -237,7 +237,7 @@ fn draw_app_status(f: &mut Frame<'_>, app: &App, size: Rect) {
     .title(mixed_bold_line(
       [
         default_part(" Info "),
-        help_part(format!("| close {} ", DEFAULT_KEYBINDING.esc.key)),
+        help_part(format!("· close {} ", DEFAULT_KEYBINDING.esc.key)),
       ],
       app.light_theme,
     ))

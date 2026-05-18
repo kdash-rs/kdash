@@ -379,7 +379,7 @@ pub fn action_hint(action: &str, key: Key) -> String {
 
 pub fn describe_and_yaml_hint() -> String {
   format!(
-    "{} | {} ",
+    "{} · {} ",
     action_hint("describe", DEFAULT_KEYBINDING.describe_resource.key),
     action_hint("yaml", DEFAULT_KEYBINDING.resource_yaml.key)
   )
@@ -387,7 +387,7 @@ pub fn describe_and_yaml_hint() -> String {
 
 pub fn describe_yaml_and_logs_hint() -> String {
   format!(
-    "{} | {} ",
+    "{} · {} ",
     describe_and_yaml_hint().trim_end(),
     action_hint("logs", DEFAULT_KEYBINDING.aggregate_logs.key)
   )
@@ -395,7 +395,7 @@ pub fn describe_yaml_and_logs_hint() -> String {
 
 pub fn describe_yaml_logs_and_esc_hint() -> String {
   format!(
-    "{} | back {} ",
+    "{} · back {} ",
     describe_yaml_and_logs_hint().trim_end(),
     DEFAULT_KEYBINDING.esc.key
   )
@@ -403,7 +403,7 @@ pub fn describe_yaml_logs_and_esc_hint() -> String {
 
 pub fn describe_yaml_and_esc_hint() -> String {
   format!(
-    "{} | back {} ",
+    "{} · back {} ",
     describe_and_yaml_hint().trim_end(),
     DEFAULT_KEYBINDING.esc.key
   )
@@ -411,7 +411,7 @@ pub fn describe_yaml_and_esc_hint() -> String {
 
 pub fn describe_yaml_decode_and_esc_hint() -> String {
   format!(
-    "{} | {} | back {} ",
+    "{} · {} · back {} ",
     describe_and_yaml_hint().trim_end(),
     action_hint("decode", DEFAULT_KEYBINDING.decode_secret.key),
     DEFAULT_KEYBINDING.esc.key
@@ -551,8 +551,8 @@ fn filter_display_state(filter: &str, active: bool) -> FilterDisplayState<'_> {
 fn filter_display_parts(filter: &str, active: bool) -> Vec<LinePart<'_>> {
   let state = filter_display_state(filter, active);
   let inactive_text = action_hint("filter", DEFAULT_KEYBINDING.filter.key);
-  let clear_suffix = format!(" | clear {} ", DEFAULT_KEYBINDING.esc.key);
-  let edit_suffix = format!(" | edit {} ", DEFAULT_KEYBINDING.filter.key);
+  let clear_suffix = format!(" · clear {} ", DEFAULT_KEYBINDING.esc.key);
+  let edit_suffix = format!(" · edit {} ", DEFAULT_KEYBINDING.filter.key);
 
   match state {
     FilterDisplayState::Inactive => vec![help_part(inactive_text)],
@@ -603,7 +603,7 @@ pub fn copy_and_escape_title_line<'a, S: Into<Cow<'a, str>>>(_target: S, light: 
   mixed_bold_line(
     [
       help_part(format!(
-        "{} | ",
+        "{} · ",
         action_hint("copy", DEFAULT_KEYBINDING.copy_to_clipboard.key)
       )),
       help_part(format!("back {} ", DEFAULT_KEYBINDING.esc.key)),
@@ -625,7 +625,7 @@ pub fn copy_scroll_and_escape_title_line<'a, S: Into<Cow<'a, str>>>(
   mixed_bold_line(
     [
       help_part(format!(
-        "{} | {} | ",
+        "{} · {} · ",
         action_hint("copy", DEFAULT_KEYBINDING.copy_to_clipboard.key),
         action_hint(auto_scroll_action, DEFAULT_KEYBINDING.log_auto_scroll.key)
       )),
@@ -900,7 +900,7 @@ fn build_resource_help_line(
     .map(|span| span.content.as_ref())
     .collect::<String>();
   let containers_prefix = format!(
-    "{} | ",
+    "{} · ",
     action_hint("containers", DEFAULT_KEYBINDING.submit.key)
   );
   let mut help_parts: Vec<LinePart<'static>> = Vec::new();
@@ -908,13 +908,13 @@ fn build_resource_help_line(
     help_parts.push(help_part(containers_prefix));
     help_parts.extend(owned_filter_status_parts(filter, filter_active));
     if !rest.is_empty() {
-      help_parts.push(help_part(" | ".to_string()));
+      help_parts.push(help_part(" · ".to_string()));
       help_parts.push(help_part(rest.to_string()));
     }
   } else {
     help_parts.extend(owned_filter_status_parts(filter, filter_active));
     if !inline_help_text.is_empty() {
-      help_parts.push(help_part(" | ".to_string()));
+      help_parts.push(help_part(" · ".to_string()));
       help_parts.push(help_part(inline_help_text));
     }
   }
@@ -1201,7 +1201,7 @@ mod tests {
       .unwrap();
 
     let mut expected = Buffer::with_lines(vec![
-        "Testfilter </> | -> yaml <y>────────────────────────────────────────────────────────────────────────",
+        "Testfilter </> · -> yaml <y>────────────────────────────────────────────────────────────────────────",
         "   Namespace                     Name                                 Data           Age            ",
         "=> Test ns                       Test 1                               5              65h3m          ",
         "   Test ns                       Test long name that should be trunca 3              65h3m          ",
@@ -1331,7 +1331,7 @@ mod tests {
       .unwrap();
 
     let mut expected = Buffer::with_lines(vec![
-        "Test[truncated] | edit </>  | -> yaml <y>───────────────────────────────────────────────────────────",
+        "Test[truncated] · edit </>  · -> yaml <y>───────────────────────────────────────────────────────────",
         "   Namespace                     Name                                 Data           Age            ",
         "=> Test ns                       Test long name that should be trunca 3              65h3m          ",
         "   Test ns long value check that test_long_name_that_should_be_trunca 6              65h3m          ",
@@ -1468,7 +1468,7 @@ mod tests {
       .unwrap();
 
     let mut expected = Buffer::with_lines(vec![
-        "Test[*long*truncated*] | edit </>  | -> yaml <y>────────────────────────────────────────────────────",
+        "Test[*long*truncated*] · edit </>  · -> yaml <y>────────────────────────────────────────────────────",
         "   Namespace                     Name                                 Data           Age            ",
         "=> Test ns                       Test long name that should be trunca 3              65h3m          ",
         "   Test ns long value check that test_long_name_that_should_be_trunca 6              65h3m          ",
@@ -1570,7 +1570,7 @@ mod tests {
           size,
           ResourceTableProps {
             title: "Test".into(),
-            inline_help: help_bold_line("describe <d> | back <Esc>", false),
+            inline_help: help_bold_line("describe <d> · back <Esc>", false),
             resource: &mut resource,
             table_headers: vec!["Name"],
             column_widths: vec![Constraint::Percentage(100)],
@@ -1621,7 +1621,7 @@ mod tests {
     );
 
     // Case 2: Non-empty inline_help, empty filter, filter_active=false
-    // -> line text should contain the inline help hint after " | "
+    // -> line text should contain the inline help hint after " · "
     let line2 = build_resource_help_line(help_bold_line("-> yaml <y>", false), "", false, false);
     let text2: String = line2.spans.iter().map(|s| s.content.as_ref()).collect();
     assert!(
@@ -1632,7 +1632,7 @@ mod tests {
     // Case 3: inline_help starting with the containers prefix
     // -> line text should start with the containers hint
     let containers_prefix_str = format!(
-      "{} | ",
+      "{} · ",
       action_hint("containers", DEFAULT_KEYBINDING.submit.key)
     );
     let line3 = build_resource_help_line(

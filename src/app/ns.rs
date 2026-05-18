@@ -140,7 +140,7 @@ impl AppResource for NamespaceResource {
         [
           default_part(" Namespaces ".to_string()),
           help_part(format!(
-            "{} | all: {} | filter {} ",
+            "{} · all: {} · filter {} ",
             DEFAULT_KEYBINDING.jump_to_namespace.key,
             DEFAULT_KEYBINDING.select_all_namespace.key,
             DEFAULT_KEYBINDING.filter.key
@@ -343,6 +343,6 @@ mod tests {
       .map(|col| terminal.backend().buffer()[(col, 0)].symbol())
       .collect::<String>();
 
-    assert!(first_line.contains("[prod] | clear <Esc>"));
+    assert!(first_line.contains("[prod] · clear <Esc>"));
   }
 }

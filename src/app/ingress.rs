@@ -229,7 +229,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     ResourceTableProps {
       title,
       inline_help: help_bold_line(
-        format!("{} | {}", describe_yaml_and_esc_hint(), wide_hint()),
+        format!("{} · {}", describe_yaml_and_esc_hint(), wide_hint()),
         app.light_theme,
       ),
       resource: &mut app.data.ingress,
