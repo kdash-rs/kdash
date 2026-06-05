@@ -76,6 +76,7 @@ generate_keybindings! {
   log_auto_scroll,
   select_all_namespace,
   open_action_menu,
+  delete_resource,
   jump_to_namespace,
   describe_resource,
   resource_yaml,
@@ -272,6 +273,12 @@ const DEFAULT_KEYBINDINGS: KeyBindings = KeyBindings {
     key: Key::Char('m'),
     alt: None,
     desc: "Show actions menu for selected resource",
+    context: HContext::Overview,
+  },
+  delete_resource: KeyBinding {
+    key: Key::Ctrl('d'),
+    alt: None,
+    desc: "Delete selected resource",
     context: HContext::Overview,
   },
   describe_resource: KeyBinding {

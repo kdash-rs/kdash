@@ -16,7 +16,7 @@ use k8s_openapi::{
   NamespaceResourceScope,
 };
 use kube::{
-  api::ListParams,
+  api::{DeleteParams, ListParams},
   config::{KubeConfigOptions, Kubeconfig},
   core::{DynamicObject, GroupVersion},
   discovery::{pinned_group, verbs, Scope},
@@ -32,7 +32,7 @@ use crate::app::{
   cronjobs::CronJobResource,
   daemonsets::DaemonSetResource,
   deployments::DeploymentResource,
-  dynamic::{DynamicResource, KubeDynamicKind},
+  dynamic::{api_resource_for_block, DynamicResource, KubeDynamicKind},
   events::EventResource,
   ingress::IngressResource,
   jobs::JobResource,
@@ -90,6 +90,11 @@ pub enum IoEvent {
   GetNetworkPolicies,
   GetPodsBySelector { namespace: String, selector: String },
   GetPodsByNode { node_name: String },
+  DeleteResource {
+    block: ActiveBlock,
+    name: String,
+    namespace: Option<String>,
+  },
 }
 
 async fn refresh_kube_config(context: &Option<String>) -> Result<kube::Client> {
@@ -474,6 +479,15 @@ impl<'a> Network<'a> {
       IoEvent::GetPodsByNode { node_name } => {
         self.get_pods_by_node(&node_name).await;
       }
+      IoEvent::DeleteResource {
+        block,
+        name,
+        namespace,
+      } => {
+        self
+          .delete_resource(block, &name, namespace.as_deref())
+          .await;
+      }
     };
 
     let mut app = self.app.lock().await;
@@ -654,6 +668,49 @@ impl<'a> Network<'a> {
         .map(crate::app::dynamic::KubeDynamicResource::from)
         .collect(),
     )
+  }
+
+  /// Delete the named resource for the given block via the dynamic `Api`, then
+  /// refresh the affected view. Works for any block that maps to a mutable
+  /// resource (see [`api_resource_for_block`]).
+  pub async fn delete_resource(
+    &self,
+    block: ActiveBlock,
+    name: &str,
+    namespace: Option<&str>,
+  ) {
+    let dynamic_kind = {
+      let app = self.app.lock().await;
+      app.data.selected.dynamic_kind.clone()
+    };
+
+    let Some((api_resource, scope)) = api_resource_for_block(block, dynamic_kind.as_ref()) else {
+      self
+        .handle_error(anyhow!("Delete is not supported for this resource."))
+        .await;
+      return;
+    };
+
+    let api: Api<DynamicObject> = match scope {
+      Scope::Cluster => Api::all_with(self.client.clone(), &api_resource),
+      Scope::Namespaced => match namespace {
+        Some(ns) => Api::namespaced_with(self.client.clone(), ns, &api_resource),
+        None => Api::all_with(self.client.clone(), &api_resource),
+      },
+    };
+
+    match api.delete(name, &DeleteParams::default()).await {
+      Ok(_) => {
+        let mut app = self.app.lock().await;
+        app.set_status_message(format!("Deleting {}", name));
+        app.dispatch_by_active_block(block).await;
+      }
+      Err(e) => {
+        self
+          .handle_error(anyhow!("Failed to delete {}. {}", name, e))
+          .await;
+      }
+    }
   }
 
   /// Discover and cache custom resources on the cluster

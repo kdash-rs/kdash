@@ -39,7 +39,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::{mpsc::Sender, watch};
 
 use self::{
-  actions::ResourceAction,
+  actions::{Modal, ResourceAction},
   configmaps::KubeConfigMap,
   contexts::KubeContext,
   cronjobs::KubeCronJob,
@@ -300,6 +300,8 @@ pub struct App {
   pub help_docs: StatefulTable<Vec<String>>,
   pub error_history: VecDeque<ErrorRecord>,
   pending_shell_exec: Option<PendingShellExec>,
+  /// Transient confirmation overlay guarding an impactful action.
+  pub modal: Option<Modal>,
   /// Transient `m` action-menu overlay for the selected resource.
   pub action_menu: Option<StatefulList<ResourceAction>>,
   pub config: KdashConfig,
@@ -548,6 +550,7 @@ impl Default for App {
       background_cache_pending: false,
       error_history: VecDeque::with_capacity(MAX_ERROR_HISTORY),
       pending_shell_exec: None,
+      modal: None,
       action_menu: None,
       config: KdashConfig::default(),
       data: Data::default(),
@@ -730,10 +733,21 @@ impl App {
     self.tick_count = 0;
     self.api_error = String::new();
     self.status_message.clear();
+    self.modal = None;
     self.action_menu = None;
     self.utilization_group_by = Self::default_utilization_group_by();
     self.data = Data::default();
     self.route_home();
+  }
+
+  /// Open a transient confirmation overlay.
+  pub fn open_modal(&mut self, modal: Modal) {
+    self.modal = Some(modal);
+  }
+
+  /// Dismiss the active confirmation overlay, if any.
+  pub fn close_modal(&mut self) {
+    self.modal = None;
   }
 
   /// Open the `m` action menu for the selected item in the given block.

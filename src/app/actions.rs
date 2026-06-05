@@ -6,6 +6,7 @@
 use crate::app::key_binding::DEFAULT_KEYBINDING;
 use crate::app::ActiveBlock;
 use crate::event::Key;
+use crate::network::IoEvent;
 
 /// An action that can be performed on the selected resource. Surfaced both as a
 /// hotkey (with a hint in the hint area) and as an entry in the `m` action menu.
@@ -15,6 +16,7 @@ pub enum ResourceAction {
   Yaml,
   Shell,
   DecodeSecret,
+  Delete,
 }
 
 impl ResourceAction {
@@ -25,6 +27,7 @@ impl ResourceAction {
       ResourceAction::Yaml => "YAML",
       ResourceAction::Shell => "Shell",
       ResourceAction::DecodeSecret => "Decode secret",
+      ResourceAction::Delete => "Delete",
     }
   }
 
@@ -36,6 +39,7 @@ impl ResourceAction {
       ResourceAction::Yaml => DEFAULT_KEYBINDING.resource_yaml.key,
       ResourceAction::Shell => DEFAULT_KEYBINDING.shell_exec.key,
       ResourceAction::DecodeSecret => DEFAULT_KEYBINDING.decode_secret.key,
+      ResourceAction::Delete => DEFAULT_KEYBINDING.delete_resource.key,
     }
   }
 }
@@ -47,7 +51,7 @@ pub fn actions_for(block: ActiveBlock) -> Vec<ResourceAction> {
   use ResourceAction::*;
   match block {
     ActiveBlock::Containers => vec![Shell],
-    ActiveBlock::Secrets => vec![Describe, Yaml, DecodeSecret],
+    ActiveBlock::Secrets => vec![Describe, Yaml, DecodeSecret, Delete],
     ActiveBlock::Pods
     | ActiveBlock::Services
     | ActiveBlock::Nodes
@@ -70,8 +74,34 @@ pub fn actions_for(block: ActiveBlock) -> Vec<ResourceAction> {
     | ActiveBlock::NetworkPolicies
     | ActiveBlock::ServiceAccounts
     | ActiveBlock::Events
-    | ActiveBlock::DynamicResource => vec![Describe, Yaml],
+    | ActiveBlock::DynamicResource => vec![Describe, Yaml, Delete],
     _ => vec![],
+  }
+}
+
+/// Transient confirmation overlay drawn over the current view. Not part of the
+/// navigation stack — it consumes keys first while active and clears on
+/// confirm/cancel. The whole safety model for impactful actions.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Modal {
+  pub title: String,
+  pub prompt: String,
+  /// Event dispatched when the modal is confirmed.
+  pub on_confirm: IoEvent,
+}
+
+impl Modal {
+  /// Build a confirmation modal that dispatches `on_confirm` when accepted.
+  pub fn confirm(
+    title: impl Into<String>,
+    prompt: impl Into<String>,
+    on_confirm: IoEvent,
+  ) -> Self {
+    Modal {
+      title: title.into(),
+      prompt: prompt.into(),
+      on_confirm,
+    }
   }
 }
 
@@ -81,7 +111,10 @@ mod tests {
 
   #[test]
   fn test_actions_for_containers_offers_shell() {
-    assert_eq!(actions_for(ActiveBlock::Containers), vec![ResourceAction::Shell]);
+    assert_eq!(
+      actions_for(ActiveBlock::Containers),
+      vec![ResourceAction::Shell]
+    );
   }
 
   #[test]
@@ -91,7 +124,8 @@ mod tests {
       vec![
         ResourceAction::Describe,
         ResourceAction::Yaml,
-        ResourceAction::DecodeSecret
+        ResourceAction::DecodeSecret,
+        ResourceAction::Delete
       ]
     );
   }

@@ -9,6 +9,7 @@ use std::{
 
 use crate::{
   app::{
+    actions::Modal,
     key_binding::DEFAULT_KEYBINDING,
     models::{
       HasPodSelector, KubeResource, Scrollable, ScrollableTxt, StatefulList, StatefulTable,
@@ -19,6 +20,7 @@ use crate::{
   },
   cmd::IoCmdEvent,
   event::Key,
+  network::IoEvent,
 };
 
 /// Handles Enter/`o` key on a workload resource: describe/yaml, drill-down to pods, or aggregate logs.
@@ -122,7 +124,11 @@ macro_rules! handle_resource_scroll {
 pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
   let _ = key_event;
 
-  // The action menu consumes input before anything else while it is open.
+  // Overlay modals and the action menu consume input before anything else.
+  if app.modal.is_some() {
+    handle_modal_key(key, app).await;
+    return;
+  }
   if app.action_menu.is_some() {
     handle_action_menu_key(key, app).await;
     return;
@@ -214,6 +220,138 @@ pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
       _ => handle_route_events(key, app).await,
     }
   }
+}
+
+/// Handle keys while a confirmation modal overlay is active.
+async fn handle_modal_key(key: Key, app: &mut App) {
+  if key == Key::Char('y') || key == DEFAULT_KEYBINDING.submit.key {
+    if let Some(modal) = app.modal.take() {
+      app.dispatch(modal.on_confirm).await;
+      // Refresh the affected view promptly after a write.
+      app.tick_count = 0;
+    }
+  } else if key == Key::Char('n') || key == DEFAULT_KEYBINDING.esc.key {
+    app.close_modal();
+  }
+}
+
+/// Resolve the `(name, namespace)` of the selected row for a deletable block.
+fn selected_delete_target(app: &App, block: ActiveBlock) -> Option<(String, Option<String>)> {
+  macro_rules! namespaced {
+    ($field:ident) => {
+      app
+        .data
+        .$field
+        .get_selected_item_copy()
+        .map(|res| (res.name.clone(), Some(res.namespace.clone())))
+    };
+  }
+  macro_rules! cluster {
+    ($field:ident) => {
+      app
+        .data
+        .$field
+        .get_selected_item_copy()
+        .map(|res| (res.name.clone(), None))
+    };
+  }
+
+  match block {
+    ActiveBlock::Pods => namespaced!(pods),
+    ActiveBlock::Services => namespaced!(services),
+    ActiveBlock::ConfigMaps => namespaced!(config_maps),
+    ActiveBlock::Secrets => namespaced!(secrets),
+    ActiveBlock::StatefulSets => namespaced!(stateful_sets),
+    ActiveBlock::ReplicaSets => namespaced!(replica_sets),
+    ActiveBlock::Deployments => namespaced!(deployments),
+    ActiveBlock::Jobs => namespaced!(jobs),
+    ActiveBlock::DaemonSets => namespaced!(daemon_sets),
+    ActiveBlock::CronJobs => namespaced!(cronjobs),
+    ActiveBlock::ReplicationControllers => namespaced!(replication_controllers),
+    ActiveBlock::Roles => namespaced!(roles),
+    ActiveBlock::RoleBindings => namespaced!(role_bindings),
+    ActiveBlock::Ingresses => namespaced!(ingress),
+    ActiveBlock::PersistentVolumeClaims => namespaced!(persistent_volume_claims),
+    ActiveBlock::NetworkPolicies => namespaced!(network_policies),
+    ActiveBlock::ServiceAccounts => namespaced!(service_accounts),
+    ActiveBlock::Events => namespaced!(events),
+    ActiveBlock::Nodes => cluster!(nodes),
+    ActiveBlock::PersistentVolumes => cluster!(persistent_volumes),
+    ActiveBlock::StorageClasses => cluster!(storage_classes),
+    ActiveBlock::ClusterRoles => cluster!(cluster_roles),
+    ActiveBlock::ClusterRoleBindings => cluster!(cluster_role_bindings),
+    ActiveBlock::DynamicResource => app
+      .data
+      .dynamic_resources
+      .get_selected_item_copy()
+      .map(|res| (res.name.clone(), res.namespace.clone())),
+    _ => None,
+  }
+}
+
+/// Human-readable kind label for delete confirmation prompts.
+fn delete_kind_label(app: &App, block: ActiveBlock) -> String {
+  let label = match block {
+    ActiveBlock::Pods => "pod",
+    ActiveBlock::Services => "service",
+    ActiveBlock::ConfigMaps => "configmap",
+    ActiveBlock::Secrets => "secret",
+    ActiveBlock::StatefulSets => "statefulset",
+    ActiveBlock::ReplicaSets => "replicaset",
+    ActiveBlock::Deployments => "deployment",
+    ActiveBlock::Jobs => "job",
+    ActiveBlock::DaemonSets => "daemonset",
+    ActiveBlock::CronJobs => "cronjob",
+    ActiveBlock::ReplicationControllers => "replicationcontroller",
+    ActiveBlock::Roles => "role",
+    ActiveBlock::RoleBindings => "rolebinding",
+    ActiveBlock::Ingresses => "ingress",
+    ActiveBlock::PersistentVolumeClaims => "persistentvolumeclaim",
+    ActiveBlock::NetworkPolicies => "networkpolicy",
+    ActiveBlock::ServiceAccounts => "serviceaccount",
+    ActiveBlock::Events => "event",
+    ActiveBlock::Nodes => "node",
+    ActiveBlock::PersistentVolumes => "persistentvolume",
+    ActiveBlock::StorageClasses => "storageclass",
+    ActiveBlock::ClusterRoles => "clusterrole",
+    ActiveBlock::ClusterRoleBindings => "clusterrolebinding",
+    ActiveBlock::DynamicResource => {
+      return app
+        .data
+        .selected
+        .dynamic_kind
+        .as_ref()
+        .map(|kind| kind.kind.to_lowercase())
+        .unwrap_or_else(|| "resource".to_owned());
+    }
+    _ => "resource",
+  };
+  label.to_owned()
+}
+
+/// Open a delete-confirmation modal for the selected row in the current block.
+async fn handle_delete_resource(app: &mut App) {
+  let block = app.get_current_route().active_block;
+  let Some((name, namespace)) = selected_delete_target(app, block) else {
+    return;
+  };
+  let kind = delete_kind_label(app, block);
+  let prompt = match &namespace {
+    Some(ns) => format!(
+      "Delete {} '{}' in namespace '{}'? This cannot be undone.",
+      kind, name, ns
+    ),
+    None => format!("Delete {} '{}'? This cannot be undone.", kind, name),
+  };
+  app.open_modal(Modal::confirm(
+    "Confirm delete",
+    prompt,
+    IoEvent::DeleteResource {
+      block,
+      name,
+      namespace,
+    },
+  ));
 }
 
 /// Handle keys while the `m` action menu overlay is active.
@@ -524,6 +662,9 @@ async fn handle_route_events(key: Key, app: &mut App) {
           app.show_info_bar = !app.show_info_bar;
         }
         _ if key == DEFAULT_KEYBINDING.select_all_namespace.key => app.data.selected.ns = None,
+        _ if key == DEFAULT_KEYBINDING.delete_resource.key => {
+          handle_delete_resource(app).await;
+        }
         _ if key == DEFAULT_KEYBINDING.jump_to_namespace.key
           && app.get_current_route().active_block != ActiveBlock::Namespaces =>
         {
@@ -1538,7 +1679,11 @@ mod tests {
     let menu = app.action_menu.as_ref().expect("action menu should open");
     assert_eq!(
       menu.items,
-      vec![ResourceAction::Describe, ResourceAction::Yaml]
+      vec![
+        ResourceAction::Describe,
+        ResourceAction::Yaml,
+        ResourceAction::Delete
+      ]
     );
 
     let esc = KeyEvent::from(KeyCode::Esc);
@@ -1610,6 +1755,119 @@ mod tests {
         pod: "pod-1".into(),
         container: "app".into(),
       })
+    );
+  }
+
+  fn ctrl_key(c: char) -> KeyEvent {
+    KeyEvent {
+      code: KeyCode::Char(c),
+      modifiers: crossterm::event::KeyModifiers::CONTROL,
+      kind: crossterm::event::KeyEventKind::Press,
+      state: crossterm::event::KeyEventState::NONE,
+    }
+  }
+
+  #[tokio::test]
+  async fn test_delete_key_opens_confirm_modal_with_correct_event() {
+    let mut app = App::default();
+    app.route_home();
+    let mut pod = KubePod::default();
+    pod.namespace = "team-a".into();
+    pod.name = "pod-1".into();
+    app.data.pods.set_items(vec![pod]);
+
+    let ctrl_d = ctrl_key('d');
+    handle_key_events(Key::from(ctrl_d), ctrl_d, &mut app).await;
+
+    let modal = app.modal.as_ref().expect("delete should open a confirm modal");
+    assert_eq!(
+      modal.on_confirm,
+      IoEvent::DeleteResource {
+        block: ActiveBlock::Pods,
+        name: "pod-1".into(),
+        namespace: Some("team-a".into()),
+      }
+    );
+    assert!(modal.prompt.contains("pod-1"));
+    assert!(modal.prompt.contains("team-a"));
+  }
+
+  #[tokio::test]
+  async fn test_delete_key_is_noop_without_selected_row() {
+    let mut app = App::default();
+    app.route_home();
+    // No pods set → nothing selected.
+
+    let ctrl_d = ctrl_key('d');
+    handle_key_events(Key::from(ctrl_d), ctrl_d, &mut app).await;
+
+    assert!(app.modal.is_none());
+  }
+
+  #[tokio::test]
+  async fn test_modal_cancel_closes_without_dispatch() {
+    let mut app = App::default();
+    app.route_home();
+    let mut pod = KubePod::default();
+    pod.namespace = "team-a".into();
+    pod.name = "pod-1".into();
+    app.data.pods.set_items(vec![pod]);
+
+    let ctrl_d = ctrl_key('d');
+    handle_key_events(Key::from(ctrl_d), ctrl_d, &mut app).await;
+    assert!(app.modal.is_some());
+
+    let n = KeyEvent::from(KeyCode::Char('n'));
+    handle_key_events(Key::from(n), n, &mut app).await;
+    assert!(app.modal.is_none());
+  }
+
+  #[tokio::test]
+  async fn test_modal_confirm_clears_modal() {
+    let mut app = App::default();
+    app.route_home();
+    let mut pod = KubePod::default();
+    pod.namespace = "team-a".into();
+    pod.name = "pod-1".into();
+    app.data.pods.set_items(vec![pod]);
+
+    let ctrl_d = ctrl_key('d');
+    handle_key_events(Key::from(ctrl_d), ctrl_d, &mut app).await;
+    assert!(app.modal.is_some());
+
+    let y = KeyEvent::from(KeyCode::Char('y'));
+    handle_key_events(Key::from(y), y, &mut app).await;
+    assert!(app.modal.is_none());
+  }
+
+  #[tokio::test]
+  async fn test_action_menu_delete_entry_opens_confirm_modal() {
+    let mut app = App::default();
+    app.route_home();
+    let mut pod = KubePod::default();
+    pod.namespace = "team-a".into();
+    pod.name = "pod-1".into();
+    app.data.pods.set_items(vec![pod]);
+
+    // Open the action menu and move to the Delete entry (Describe, YAML, Delete).
+    let m = KeyEvent::from(KeyCode::Char('m'));
+    handle_key_events(Key::from(m), m, &mut app).await;
+    for _ in 0..2 {
+      let down = KeyEvent::from(KeyCode::Down);
+      handle_key_events(Key::from(down), down, &mut app).await;
+    }
+    let enter = KeyEvent::from(KeyCode::Enter);
+    handle_key_events(Key::from(enter), enter, &mut app).await;
+
+    assert!(app.action_menu.is_none());
+    let modal = app.modal.as_ref().expect("menu delete should open confirm modal");
+    assert_eq!(
+      modal.on_confirm,
+      IoEvent::DeleteResource {
+        block: ActiveBlock::Pods,
+        name: "pod-1".into(),
+        namespace: Some("team-a".into()),
+      }
     );
   }
 

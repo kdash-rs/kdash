@@ -26,6 +26,7 @@ use crate::app::{
   contexts::ContextResource, key_binding::DEFAULT_KEYBINDING, metrics::UtilizationResource,
   models::AppResource, troubleshoot::TroubleshootResource, ActiveBlock, App, RouteId,
 };
+use crate::event::Key;
 
 pub static HIGHLIGHT: &str = "=> ";
 
@@ -93,10 +94,55 @@ pub fn draw(f: &mut Frame<'_>, app: &mut App) {
     }
   }
 
-  // The action-menu overlay is drawn last so it sits above the current view.
+  // Transient overlays are drawn last so they sit above the current view.
   if app.action_menu.is_some() {
     draw_action_menu(f, app);
   }
+  if app.modal.is_some() {
+    draw_modal(f, app);
+  }
+}
+
+fn draw_modal(f: &mut Frame<'_>, app: &App) {
+  let light = app.light_theme;
+  let Some(modal) = app.modal.as_ref() else {
+    return;
+  };
+
+  let lines = vec![
+    Line::from(modal.prompt.clone()),
+    Line::from(""),
+    mixed_line(
+      [help_part(format!(
+        "confirm {}/{} · cancel {}/{} ",
+        Key::Char('y'),
+        DEFAULT_KEYBINDING.submit.key,
+        Key::Char('n'),
+        DEFAULT_KEYBINDING.esc.key,
+      ))],
+      light,
+    ),
+  ];
+
+  let width = 64;
+  let height = (lines.len() as u16).saturating_add(2);
+  let area = centered_rect(width, height, f.area());
+
+  let block = Block::default()
+    .title(mixed_bold_line(
+      [default_part(format!(" {} ", modal.title))],
+      light,
+    ))
+    .borders(Borders::ALL)
+    .style(style_failure(light));
+
+  let paragraph = Paragraph::new(lines)
+    .block(block)
+    .style(style_primary(light))
+    .wrap(Wrap { trim: true });
+
+  f.render_widget(Clear, area);
+  f.render_widget(paragraph, area);
 }
 
 fn draw_action_menu(f: &mut Frame<'_>, app: &mut App) {
@@ -220,7 +266,7 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
     )],
     RouteId::Home => vec![mixed_line(
       [help_part(format!(
-        "{} · {} switch tabs · <char> select block · {} scroll · {} select · {} · {} ",
+        "{} · {} switch tabs · <char> select block · {} scroll · {} select · {} · {} · {} ",
         action_hint("help", DEFAULT_KEYBINDING.help.key),
         key_hints(&[
           DEFAULT_KEYBINDING.cycle_main_views.key,
@@ -231,6 +277,7 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
         DEFAULT_KEYBINDING.submit.key,
         action_hint("filter", DEFAULT_KEYBINDING.filter.key),
         action_hint("menu", DEFAULT_KEYBINDING.open_action_menu.key),
+        action_hint("delete", DEFAULT_KEYBINDING.delete_resource.key),
       ))],
       app.light_theme,
     )],
