@@ -109,22 +109,26 @@ fn draw_modal(f: &mut Frame<'_>, app: &App) {
     return;
   };
 
-  let lines = vec![
-    Line::from(modal.prompt.clone()),
-    Line::from(""),
-    mixed_line(
-      [help_part(format!(
-        "confirm {}/{} · cancel {}/{} ",
-        Key::Char('y'),
-        DEFAULT_KEYBINDING.submit.key,
-        Key::Char('n'),
-        DEFAULT_KEYBINDING.esc.key,
-      ))],
-      light,
-    ),
-  ];
+  let width: u16 = 64;
+  // Pre-wrap the prompt to the inner width so the box height (and therefore the
+  // confirm/cancel hint line) always fits regardless of prompt length.
+  let inner_width = width.saturating_sub(2).max(1) as usize;
+  let mut lines: Vec<Line<'_>> = textwrap::wrap(&modal.prompt, inner_width)
+    .into_iter()
+    .map(|line| Line::from(line.into_owned()))
+    .collect();
+  lines.push(Line::from(""));
+  lines.push(mixed_line(
+    [help_part(format!(
+      "confirm {}/{} · cancel {}/{} ",
+      Key::Char('y'),
+      DEFAULT_KEYBINDING.submit.key,
+      Key::Char('n'),
+      DEFAULT_KEYBINDING.esc.key,
+    ))],
+    light,
+  ));
 
-  let width = 64;
   let height = (lines.len() as u16).saturating_add(2);
   let area = centered_rect(width, height, f.area());
 
@@ -138,8 +142,7 @@ fn draw_modal(f: &mut Frame<'_>, app: &App) {
 
   let paragraph = Paragraph::new(lines)
     .block(block)
-    .style(style_primary(light))
-    .wrap(Wrap { trim: true });
+    .style(style_primary(light));
 
   f.render_widget(Clear, area);
   f.render_widget(paragraph, area);
@@ -447,6 +450,41 @@ mod tests {
 
     assert!(joined.contains("Error"));
     assert!(joined.contains("Kubernetes API unavailable"));
+  }
+
+  #[test]
+  fn test_draw_modal_shows_confirm_hint_even_with_long_prompt() {
+    let mut app = App::default();
+    app.route_home();
+    app.open_modal(crate::app::actions::Modal::confirm(
+      "Confirm delete",
+      "Delete configmap 'app-config' in namespace 'kdash-test'? This cannot be undone.",
+      crate::network::IoEvent::GetPods,
+    ));
+
+    let lines = render_lines(&mut app, 120, 30);
+    let joined = lines.join("\n");
+
+    assert!(joined.contains("Confirm delete"));
+    // The prompt is shown (a token that won't straddle a wrap boundary).
+    assert!(joined.contains("undone"));
+    // The wrapping prompt must not push the confirm/cancel hint out of the box.
+    assert!(joined.contains("confirm"));
+    assert!(joined.contains("cancel"));
+  }
+
+  #[test]
+  fn test_draw_action_menu_lists_actions_for_block() {
+    let mut app = App::default();
+    app.route_home();
+    app.open_action_menu(ActiveBlock::Pods);
+
+    let lines = render_lines(&mut app, 120, 30);
+    let joined = lines.join("\n");
+
+    assert!(joined.contains("Actions"));
+    assert!(joined.contains("Describe"));
+    assert!(joined.contains("Delete"));
   }
 
   #[test]
