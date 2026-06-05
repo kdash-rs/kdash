@@ -20,7 +20,7 @@ use crate::{
   },
   cmd::IoCmdEvent,
   event::Key,
-  network::IoEvent,
+  network::{IoEvent, ResourcePatch},
 };
 
 /// Handles Enter/`o` key on a workload resource: describe/yaml, drill-down to pods, or aggregate logs.
@@ -235,8 +235,8 @@ async fn handle_modal_key(key: Key, app: &mut App) {
   }
 }
 
-/// Resolve the `(name, namespace)` of the selected row for a deletable block.
-fn selected_delete_target(app: &App, block: ActiveBlock) -> Option<(String, Option<String>)> {
+/// Resolve the `(name, namespace)` of the selected row for a mutable block.
+fn selected_target(app: &App, block: ActiveBlock) -> Option<(String, Option<String>)> {
   macro_rules! namespaced {
     ($field:ident) => {
       app
@@ -289,8 +289,8 @@ fn selected_delete_target(app: &App, block: ActiveBlock) -> Option<(String, Opti
   }
 }
 
-/// Human-readable kind label for delete confirmation prompts.
-fn delete_kind_label(app: &App, block: ActiveBlock) -> String {
+/// Human-readable kind label for confirmation prompts.
+fn resource_kind_label(app: &App, block: ActiveBlock) -> String {
   let label = match block {
     ActiveBlock::Pods => "pod",
     ActiveBlock::Services => "service",
@@ -332,10 +332,10 @@ fn delete_kind_label(app: &App, block: ActiveBlock) -> String {
 /// Open a delete-confirmation modal for the selected row in the current block.
 async fn handle_delete_resource(app: &mut App) {
   let block = app.get_current_route().active_block;
-  let Some((name, namespace)) = selected_delete_target(app, block) else {
+  let Some((name, namespace)) = selected_target(app, block) else {
     return;
   };
-  let kind = delete_kind_label(app, block);
+  let kind = resource_kind_label(app, block);
   let prompt = match &namespace {
     Some(ns) => format!(
       "Delete {} '{}' in namespace '{}'? This cannot be undone.",
@@ -350,6 +350,36 @@ async fn handle_delete_resource(app: &mut App) {
       block,
       name,
       namespace,
+    },
+  ));
+}
+
+/// Open a restart-confirmation modal for the selected workload. Only offered for
+/// the rollout-capable kinds (deployments, statefulsets, daemonsets).
+async fn handle_restart_resource(app: &mut App) {
+  let block = app.get_current_route().active_block;
+  if !matches!(
+    block,
+    ActiveBlock::Deployments | ActiveBlock::StatefulSets | ActiveBlock::DaemonSets
+  ) {
+    return;
+  }
+  let Some((name, namespace)) = selected_target(app, block) else {
+    return;
+  };
+  let kind = resource_kind_label(app, block);
+  let prompt = match &namespace {
+    Some(ns) => format!("Rollout restart {} '{}' in namespace '{}'?", kind, name, ns),
+    None => format!("Rollout restart {} '{}'?", kind, name),
+  };
+  app.open_modal(Modal::confirm(
+    "Confirm restart",
+    prompt,
+    IoEvent::PatchResource {
+      block,
+      name,
+      namespace,
+      patch: ResourcePatch::RolloutRestart,
     },
   ));
 }
@@ -665,6 +695,9 @@ async fn handle_route_events(key: Key, app: &mut App) {
         _ if key == DEFAULT_KEYBINDING.select_all_namespace.key => app.data.selected.ns = None,
         _ if key == DEFAULT_KEYBINDING.delete_resource.key => {
           handle_delete_resource(app).await;
+        }
+        _ if key == DEFAULT_KEYBINDING.restart_resource.key => {
+          handle_restart_resource(app).await;
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_namespace.key
           && app.get_current_route().active_block != ActiveBlock::Namespaces =>
@@ -1914,6 +1947,49 @@ mod tests {
   }
 
   #[tokio::test]
+  async fn test_restart_key_opens_confirm_for_deployment() {
+    use crate::app::deployments::KubeDeployment;
+    use k8s_openapi::api::apps::v1::Deployment;
+
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Deployments);
+    let mut dep = KubeDeployment::from(Deployment::default());
+    dep.name = "web".into();
+    dep.namespace = "team-a".into();
+    app.data.deployments.set_items(vec![dep]);
+
+    let r = KeyEvent::from(KeyCode::Char('r'));
+    handle_key_events(Key::from(r), r, &mut app).await;
+
+    let modal = app.modal.as_ref().expect("restart should open a confirm modal");
+    assert_eq!(
+      modal.on_confirm,
+      IoEvent::PatchResource {
+        block: ActiveBlock::Deployments,
+        name: "web".into(),
+        namespace: Some("team-a".into()),
+        patch: ResourcePatch::RolloutRestart,
+      }
+    );
+  }
+
+  #[tokio::test]
+  async fn test_restart_key_is_noop_on_non_workload_block() {
+    let mut app = App::default();
+    app.route_home();
+    let mut pod = KubePod::default();
+    pod.name = "p".into();
+    pod.namespace = "n".into();
+    app.data.pods.set_items(vec![pod]);
+
+    let r = KeyEvent::from(KeyCode::Char('r'));
+    handle_key_events(Key::from(r), r, &mut app).await;
+
+    assert!(app.modal.is_none());
+  }
+
+  #[tokio::test]
   async fn test_previous_logs_key_in_containers_opens_previous_log_view() {
     let mut app = App::default();
     app.route_home();
@@ -1954,7 +2030,10 @@ mod tests {
     let esc = KeyEvent::from(KeyCode::Esc);
     handle_key_events(Key::from(esc), esc, &mut app).await;
     assert!(!app.log_previous);
-    assert_eq!(app.get_current_route().active_block, ActiveBlock::Containers);
+    assert_eq!(
+      app.get_current_route().active_block,
+      ActiveBlock::Containers
+    );
   }
 
   #[tokio::test]

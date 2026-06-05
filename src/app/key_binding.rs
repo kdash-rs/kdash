@@ -77,6 +77,7 @@ generate_keybindings! {
   select_all_namespace,
   open_action_menu,
   delete_resource,
+  restart_resource,
   previous_logs,
   jump_to_namespace,
   describe_resource,
@@ -280,6 +281,12 @@ const DEFAULT_KEYBINDINGS: KeyBindings = KeyBindings {
     key: Key::Ctrl('d'),
     alt: None,
     desc: "Delete selected resource",
+    context: HContext::Overview,
+  },
+  restart_resource: KeyBinding {
+    key: Key::Char('r'),
+    alt: None,
+    desc: "Rollout restart workload (deploy/sts/ds)",
     context: HContext::Overview,
   },
   previous_logs: KeyBinding {

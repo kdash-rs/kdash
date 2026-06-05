@@ -16,6 +16,7 @@ pub enum ResourceAction {
   Yaml,
   Shell,
   PreviousLogs,
+  Restart,
   DecodeSecret,
   Delete,
 }
@@ -28,6 +29,7 @@ impl ResourceAction {
       ResourceAction::Yaml => "YAML",
       ResourceAction::Shell => "Shell",
       ResourceAction::PreviousLogs => "Previous logs",
+      ResourceAction::Restart => "Rollout restart",
       ResourceAction::DecodeSecret => "Decode secret",
       ResourceAction::Delete => "Delete",
     }
@@ -41,6 +43,7 @@ impl ResourceAction {
       ResourceAction::Yaml => DEFAULT_KEYBINDING.resource_yaml.key,
       ResourceAction::Shell => DEFAULT_KEYBINDING.shell_exec.key,
       ResourceAction::PreviousLogs => DEFAULT_KEYBINDING.previous_logs.key,
+      ResourceAction::Restart => DEFAULT_KEYBINDING.restart_resource.key,
       ResourceAction::DecodeSecret => DEFAULT_KEYBINDING.decode_secret.key,
       ResourceAction::Delete => DEFAULT_KEYBINDING.delete_resource.key,
     }
@@ -56,14 +59,14 @@ pub fn actions_for(block: ActiveBlock) -> Vec<ResourceAction> {
     ActiveBlock::Containers => vec![Shell, PreviousLogs],
     ActiveBlock::Pods => vec![Describe, Yaml, PreviousLogs, Delete],
     ActiveBlock::Secrets => vec![Describe, Yaml, DecodeSecret, Delete],
+    ActiveBlock::Deployments | ActiveBlock::StatefulSets | ActiveBlock::DaemonSets => {
+      vec![Describe, Yaml, Restart, Delete]
+    }
     ActiveBlock::Services
     | ActiveBlock::Nodes
     | ActiveBlock::ConfigMaps
-    | ActiveBlock::StatefulSets
     | ActiveBlock::ReplicaSets
-    | ActiveBlock::Deployments
     | ActiveBlock::Jobs
-    | ActiveBlock::DaemonSets
     | ActiveBlock::CronJobs
     | ActiveBlock::ReplicationControllers
     | ActiveBlock::StorageClasses

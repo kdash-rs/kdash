@@ -16,7 +16,7 @@ use k8s_openapi::{
   NamespaceResourceScope,
 };
 use kube::{
-  api::{DeleteParams, ListParams},
+  api::{DeleteParams, ListParams, Patch, PatchParams},
   config::{KubeConfigOptions, Kubeconfig},
   core::{DynamicObject, GroupVersion},
   discovery::{pinned_group, verbs, Scope},
@@ -88,13 +88,60 @@ pub enum IoEvent {
   DiscoverDynamicRes,
   GetDynamicRes,
   GetNetworkPolicies,
-  GetPodsBySelector { namespace: String, selector: String },
-  GetPodsByNode { node_name: String },
+  GetPodsBySelector {
+    namespace: String,
+    selector: String,
+  },
+  GetPodsByNode {
+    node_name: String,
+  },
   DeleteResource {
     block: ActiveBlock,
     name: String,
     namespace: Option<String>,
   },
+  PatchResource {
+    block: ActiveBlock,
+    name: String,
+    namespace: Option<String>,
+    patch: ResourcePatch,
+  },
+}
+
+/// A merge-patch a resource action applies. Kept as a small enum (rather than
+/// raw JSON) so `IoEvent` stays `Eq` and each patch is built fresh on the
+/// network thread.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ResourcePatch {
+  /// `kubectl rollout restart` — stamps the pod template's restart annotation.
+  RolloutRestart,
+}
+
+impl ResourcePatch {
+  /// Build the JSON merge patch body. Time-sensitive values are generated here
+  /// so the patch reflects the moment it is applied.
+  fn to_merge_patch(&self) -> serde_json::Value {
+    match self {
+      ResourcePatch::RolloutRestart => serde_json::json!({
+        "spec": {
+          "template": {
+            "metadata": {
+              "annotations": {
+                "kubectl.kubernetes.io/restartedAt": chrono::Utc::now().to_rfc3339()
+              }
+            }
+          }
+        }
+      }),
+    }
+  }
+
+  /// Status message shown on success.
+  fn status_message(&self, name: &str) -> String {
+    match self {
+      ResourcePatch::RolloutRestart => format!("Restarting {}", name),
+    }
+  }
 }
 
 async fn refresh_kube_config(context: &Option<String>) -> Result<kube::Client> {
@@ -488,6 +535,16 @@ impl<'a> Network<'a> {
           .delete_resource(block, &name, namespace.as_deref())
           .await;
       }
+      IoEvent::PatchResource {
+        block,
+        name,
+        namespace,
+        patch,
+      } => {
+        self
+          .patch_resource(block, &name, namespace.as_deref(), patch)
+          .await;
+      }
     };
 
     let mut app = self.app.lock().await;
@@ -673,12 +730,7 @@ impl<'a> Network<'a> {
   /// Delete the named resource for the given block via the dynamic `Api`, then
   /// refresh the affected view. Works for any block that maps to a mutable
   /// resource (see [`api_resource_for_block`]).
-  pub async fn delete_resource(
-    &self,
-    block: ActiveBlock,
-    name: &str,
-    namespace: Option<&str>,
-  ) {
+  pub async fn delete_resource(&self, block: ActiveBlock, name: &str, namespace: Option<&str>) {
     let dynamic_kind = {
       let app = self.app.lock().await;
       app.data.selected.dynamic_kind.clone()
@@ -708,6 +760,50 @@ impl<'a> Network<'a> {
       Err(e) => {
         self
           .handle_error(anyhow!("Failed to delete {}. {}", name, e))
+          .await;
+      }
+    }
+  }
+
+  /// Apply a merge patch to the named resource for the given block via the
+  /// dynamic `Api`, then refresh the affected view.
+  pub async fn patch_resource(
+    &self,
+    block: ActiveBlock,
+    name: &str,
+    namespace: Option<&str>,
+    patch: ResourcePatch,
+  ) {
+    let dynamic_kind = {
+      let app = self.app.lock().await;
+      app.data.selected.dynamic_kind.clone()
+    };
+
+    let Some((api_resource, scope)) = api_resource_for_block(block, dynamic_kind.as_ref()) else {
+      self
+        .handle_error(anyhow!("This action is not supported for this resource."))
+        .await;
+      return;
+    };
+
+    let api: Api<DynamicObject> = match scope {
+      Scope::Cluster => Api::all_with(self.client.clone(), &api_resource),
+      Scope::Namespaced => match namespace {
+        Some(ns) => Api::namespaced_with(self.client.clone(), ns, &api_resource),
+        None => Api::all_with(self.client.clone(), &api_resource),
+      },
+    };
+
+    let body = patch.to_merge_patch();
+    match api.patch(name, &PatchParams::default(), &Patch::Merge(body)).await {
+      Ok(_) => {
+        let mut app = self.app.lock().await;
+        app.set_status_message(patch.status_message(name));
+        app.dispatch_by_active_block(block).await;
+      }
+      Err(e) => {
+        self
+          .handle_error(anyhow!("Failed to update {}. {}", name, e))
           .await;
       }
     }
@@ -1108,6 +1204,23 @@ users:
     assert!(error.contains("ignored blank kubeconfig"));
 
     fs::remove_dir_all(dir).expect("temp test dir should be removed");
+  }
+
+  #[test]
+  fn test_rollout_restart_patch_sets_template_annotation() {
+    let patch = ResourcePatch::RolloutRestart.to_merge_patch();
+    let annotation =
+      &patch["spec"]["template"]["metadata"]["annotations"]["kubectl.kubernetes.io/restartedAt"];
+    assert!(annotation.is_string());
+    assert!(!annotation.as_str().unwrap().is_empty());
+  }
+
+  #[test]
+  fn test_rollout_restart_status_message_names_resource() {
+    assert_eq!(
+      ResourcePatch::RolloutRestart.status_message("web"),
+      "Restarting web"
+    );
   }
 
   #[test]
