@@ -70,6 +70,13 @@ The app follows an async event-driven architecture with three main communication
 - Navigation uses a stack (`nav_stack`) of `Route` objects with `ActiveBlock` enum variants.
 - Each K8s resource type follows a consistent pattern: data struct in `app/<resource>.rs`, network fetch in `network/mod.rs`, UI rendering in `ui/resource_tabs.rs`, key handling in `handlers/mod.rs`.
 
+### Resource Actions (write path)
+
+- **Registry:** `app/actions.rs` is the single source of truth for per-block actions. `ResourceAction` carries a label and an optional hotkey; `actions_for(block)` lists what the `m` action menu shows. Menu selection replays an action's hotkey for hotkey-backed actions, or dispatches directly for menu-only ones (`execute_resource_action` in `handlers/mod.rs`).
+- **Generic writes:** `app/dynamic.rs::api_resource_for_block` maps an `ActiveBlock` to `(ApiResource, Scope)`; `network/mod.rs` uses a dynamic `Api<DynamicObject>` for `delete_resource` and `patch_resource` (driven by the `ResourcePatch` enum) so one helper covers most kinds. Typed `Api<K>` is used only where a subresource/create needs a concrete type (e.g. `trigger_cronjob`).
+- **Safety:** impactful actions route through a confirmation overlay (`actions::Modal`, stored as `App.modal`, drawn by `ui::draw_modal`). The modal consumes keys first in `handlers::handle_key_events`; there is no separate read-only mode. Every successful write re-dispatches the view's `Get*` via `dispatch_by_active_block`.
+- Adding a keybinding bumps the help-page fixtures in `ui/help.rs` (the `[N]` count and `[1/N]`); update them when `generate_keybindings!` grows.
+
 ## Pre-commit Hooks
 
 cargo-husky runs pre-commit (format + test + lint) and pre-push (lint + test) hooks. Run `cargo test` once after clone to set them up.
