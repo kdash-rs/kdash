@@ -18,6 +18,8 @@ pub enum ResourceAction {
   PreviousLogs,
   Restart,
   Cordon,
+  Suspend,
+  Trigger,
   DecodeSecret,
   Delete,
 }
@@ -32,6 +34,8 @@ impl ResourceAction {
       ResourceAction::PreviousLogs => "Previous logs",
       ResourceAction::Restart => "Rollout restart",
       ResourceAction::Cordon => "Cordon / Uncordon",
+      ResourceAction::Suspend => "Suspend / Resume",
+      ResourceAction::Trigger => "Trigger now",
       ResourceAction::DecodeSecret => "Decode secret",
       ResourceAction::Delete => "Delete",
     }
@@ -50,7 +54,7 @@ impl ResourceAction {
       ResourceAction::Restart => Some(DEFAULT_KEYBINDING.restart_resource.key),
       ResourceAction::DecodeSecret => Some(DEFAULT_KEYBINDING.decode_secret.key),
       ResourceAction::Delete => Some(DEFAULT_KEYBINDING.delete_resource.key),
-      ResourceAction::Cordon => None,
+      ResourceAction::Cordon | ResourceAction::Suspend | ResourceAction::Trigger => None,
     }
   }
 }
@@ -68,11 +72,11 @@ pub fn actions_for(block: ActiveBlock) -> Vec<ResourceAction> {
       vec![Describe, Yaml, Restart, Delete]
     }
     ActiveBlock::Nodes => vec![Describe, Yaml, Cordon, Delete],
+    ActiveBlock::CronJobs => vec![Describe, Yaml, Suspend, Trigger, Delete],
     ActiveBlock::Services
     | ActiveBlock::ConfigMaps
     | ActiveBlock::ReplicaSets
     | ActiveBlock::Jobs
-    | ActiveBlock::CronJobs
     | ActiveBlock::ReplicationControllers
     | ActiveBlock::StorageClasses
     | ActiveBlock::Roles

@@ -16,7 +16,7 @@ use k8s_openapi::{
   NamespaceResourceScope,
 };
 use kube::{
-  api::{DeleteParams, ListParams, Patch, PatchParams},
+  api::{DeleteParams, ListParams, Patch, PatchParams, PostParams},
   config::{KubeConfigOptions, Kubeconfig},
   core::{DynamicObject, GroupVersion},
   discovery::{pinned_group, verbs, Scope},
@@ -106,6 +106,10 @@ pub enum IoEvent {
     namespace: Option<String>,
     patch: ResourcePatch,
   },
+  TriggerCronJob {
+    name: String,
+    namespace: String,
+  },
 }
 
 /// A merge-patch a resource action applies. Kept as a small enum (rather than
@@ -117,6 +121,8 @@ pub enum ResourcePatch {
   RolloutRestart,
   /// Cordon (`true`) or uncordon (`false`) a node via `spec.unschedulable`.
   SetUnschedulable(bool),
+  /// Suspend (`true`) or resume (`false`) a cronjob via `spec.suspend`.
+  SetSuspend(bool),
 }
 
 impl ResourcePatch {
@@ -138,6 +144,9 @@ impl ResourcePatch {
       ResourcePatch::SetUnschedulable(unschedulable) => serde_json::json!({
         "spec": { "unschedulable": unschedulable }
       }),
+      ResourcePatch::SetSuspend(suspend) => serde_json::json!({
+        "spec": { "suspend": suspend }
+      }),
     }
   }
 
@@ -147,6 +156,8 @@ impl ResourcePatch {
       ResourcePatch::RolloutRestart => format!("Restarting {}", name),
       ResourcePatch::SetUnschedulable(true) => format!("Cordoning {}", name),
       ResourcePatch::SetUnschedulable(false) => format!("Uncordoning {}", name),
+      ResourcePatch::SetSuspend(true) => format!("Suspending {}", name),
+      ResourcePatch::SetSuspend(false) => format!("Resuming {}", name),
     }
   }
 }
@@ -552,6 +563,9 @@ impl<'a> Network<'a> {
           .patch_resource(block, &name, namespace.as_deref(), patch)
           .await;
       }
+      IoEvent::TriggerCronJob { name, namespace } => {
+        self.trigger_cronjob(&name, &namespace).await;
+      }
     };
 
     let mut app = self.app.lock().await;
@@ -814,6 +828,75 @@ impl<'a> Network<'a> {
       Err(e) => {
         self
           .handle_error(anyhow!("Failed to update {}. {}", name, e))
+          .await;
+      }
+    }
+  }
+
+  /// Trigger an immediate run of a cronjob by creating a Job from its
+  /// `jobTemplate`, mirroring `kubectl create job --from=cronjob/<name>`.
+  pub async fn trigger_cronjob(&self, name: &str, namespace: &str) {
+    use k8s_openapi::api::batch::v1::{CronJob, Job};
+    use k8s_openapi::apimachinery::pkg::apis::meta::v1::OwnerReference;
+
+    let cj_api: Api<CronJob> = Api::namespaced(self.client.clone(), namespace);
+    let cronjob = match cj_api.get(name).await {
+      Ok(cronjob) => cronjob,
+      Err(e) => {
+        self
+          .handle_error(anyhow!("Failed to read cronjob {}. {}", name, e))
+          .await;
+        return;
+      }
+    };
+
+    let Some(template) = cronjob.spec.map(|spec| spec.job_template) else {
+      self
+        .handle_error(anyhow!("CronJob {} has no job template.", name))
+        .await;
+      return;
+    };
+
+    let mut job = Job {
+      metadata: template.metadata.unwrap_or_default(),
+      spec: template.spec,
+      ..Default::default()
+    };
+    // Let the API server assign a unique name, like kubectl's manual trigger.
+    job.metadata.name = None;
+    job.metadata.generate_name = Some(format!("{}-manual-", name));
+    job.metadata.namespace = Some(namespace.to_owned());
+    job
+      .metadata
+      .annotations
+      .get_or_insert_with(Default::default)
+      .insert(
+        "cronjob.kubernetes.io/instantiate".to_owned(),
+        "manual".to_owned(),
+      );
+    job.metadata.owner_references = Some(vec![OwnerReference {
+      api_version: "batch/v1".to_owned(),
+      kind: "CronJob".to_owned(),
+      name: name.to_owned(),
+      uid: cronjob.metadata.uid.clone().unwrap_or_default(),
+      controller: Some(true),
+      block_owner_deletion: Some(true),
+    }]);
+
+    let job_api: Api<Job> = Api::namespaced(self.client.clone(), namespace);
+    match job_api.create(&PostParams::default(), &job).await {
+      Ok(created) => {
+        let mut app = self.app.lock().await;
+        app.set_status_message(format!(
+          "Triggered cronjob {} (created job {})",
+          name,
+          created.metadata.name.as_deref().unwrap_or("?")
+        ));
+        app.dispatch_by_active_block(ActiveBlock::CronJobs).await;
+      }
+      Err(e) => {
+        self
+          .handle_error(anyhow!("Failed to trigger cronjob {}. {}", name, e))
           .await;
       }
     }
@@ -1250,6 +1333,22 @@ users:
     assert_eq!(
       ResourcePatch::SetUnschedulable(false).status_message("n1"),
       "Uncordoning n1"
+    );
+  }
+
+  #[test]
+  fn test_set_suspend_patch_and_messages() {
+    assert_eq!(
+      ResourcePatch::SetSuspend(true).to_merge_patch(),
+      serde_json::json!({"spec": {"suspend": true}})
+    );
+    assert_eq!(
+      ResourcePatch::SetSuspend(true).status_message("cj"),
+      "Suspending cj"
+    );
+    assert_eq!(
+      ResourcePatch::SetSuspend(false).status_message("cj"),
+      "Resuming cj"
     );
   }
 

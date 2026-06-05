@@ -425,12 +425,55 @@ async fn handle_action_menu_key(key: Key, app: &mut App) {
 async fn execute_resource_action(action: ResourceAction, app: &mut App) {
   match action {
     ResourceAction::Cordon => handle_cordon_toggle(app).await,
+    ResourceAction::Suspend => handle_cronjob_suspend_toggle(app).await,
+    ResourceAction::Trigger => handle_cronjob_trigger(app).await,
     other => {
       if let Some(key) = other.hotkey() {
         handle_route_events(key, app).await;
       }
     }
   }
+}
+
+/// Open a suspend/resume confirmation for the selected cronjob. The direction is
+/// derived from the cronjob's current `spec.suspend` state.
+async fn handle_cronjob_suspend_toggle(app: &mut App) {
+  let Some(cronjob) = app.data.cronjobs.get_selected_item_copy() else {
+    return;
+  };
+  let suspend = !cronjob.suspend;
+  let verb = if suspend { "Suspend" } else { "Resume" };
+  app.open_modal(Modal::confirm(
+    "Confirm suspend",
+    format!(
+      "{} cronjob '{}' in namespace '{}'?",
+      verb, cronjob.name, cronjob.namespace
+    ),
+    IoEvent::PatchResource {
+      block: ActiveBlock::CronJobs,
+      name: cronjob.name.clone(),
+      namespace: Some(cronjob.namespace.clone()),
+      patch: ResourcePatch::SetSuspend(suspend),
+    },
+  ));
+}
+
+/// Open a confirmation to trigger an immediate run of the selected cronjob.
+async fn handle_cronjob_trigger(app: &mut App) {
+  let Some(cronjob) = app.data.cronjobs.get_selected_item_copy() else {
+    return;
+  };
+  app.open_modal(Modal::confirm(
+    "Confirm trigger",
+    format!(
+      "Trigger cronjob '{}' now? This creates a one-off Job.",
+      cronjob.name
+    ),
+    IoEvent::TriggerCronJob {
+      name: cronjob.name.clone(),
+      namespace: cronjob.namespace.clone(),
+    },
+  ));
 }
 
 /// Open a cordon/uncordon confirmation for the selected node. The direction is
@@ -1923,7 +1966,10 @@ mod tests {
     // Nodes menu: Describe, YAML, Cordon, Delete → Cordon at index 2.
     open_menu_and_select(&mut app, 2).await;
 
-    let modal = app.modal.as_ref().expect("cordon should open a confirm modal");
+    let modal = app
+      .modal
+      .as_ref()
+      .expect("cordon should open a confirm modal");
     assert!(modal.prompt.contains("Cordon node 'n1'"));
     assert_eq!(
       modal.on_confirm,
@@ -1945,7 +1991,10 @@ mod tests {
 
     open_menu_and_select(&mut app, 2).await;
 
-    let modal = app.modal.as_ref().expect("uncordon should open a confirm modal");
+    let modal = app
+      .modal
+      .as_ref()
+      .expect("uncordon should open a confirm modal");
     assert!(modal.prompt.contains("Uncordon node 'n1'"));
     assert_eq!(
       modal.on_confirm,
@@ -2113,6 +2162,67 @@ mod tests {
     handle_key_events(Key::from(r), r, &mut app).await;
 
     assert!(app.modal.is_none());
+  }
+
+  #[tokio::test]
+  async fn test_menu_suspend_cronjob_confirms_suspend() {
+    use crate::app::cronjobs::KubeCronJob;
+    use k8s_openapi::api::batch::v1::CronJob;
+
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::CronJobs);
+    let mut cronjob = KubeCronJob::from(CronJob::default());
+    cronjob.name = "backup".into();
+    cronjob.namespace = "default".into();
+    cronjob.suspend = false;
+    app.data.cronjobs.set_items(vec![cronjob]);
+
+    // CronJobs menu: Describe, YAML, Suspend, Trigger, Delete → Suspend at index 2.
+    open_menu_and_select(&mut app, 2).await;
+
+    let modal = app
+      .modal
+      .as_ref()
+      .expect("suspend should open a confirm modal");
+    assert_eq!(
+      modal.on_confirm,
+      IoEvent::PatchResource {
+        block: ActiveBlock::CronJobs,
+        name: "backup".into(),
+        namespace: Some("default".into()),
+        patch: ResourcePatch::SetSuspend(true),
+      }
+    );
+  }
+
+  #[tokio::test]
+  async fn test_menu_trigger_cronjob_confirms_trigger() {
+    use crate::app::cronjobs::KubeCronJob;
+    use k8s_openapi::api::batch::v1::CronJob;
+
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::CronJobs);
+    let mut cronjob = KubeCronJob::from(CronJob::default());
+    cronjob.name = "backup".into();
+    cronjob.namespace = "default".into();
+    app.data.cronjobs.set_items(vec![cronjob]);
+
+    // Trigger at index 3.
+    open_menu_and_select(&mut app, 3).await;
+
+    let modal = app
+      .modal
+      .as_ref()
+      .expect("trigger should open a confirm modal");
+    assert_eq!(
+      modal.on_confirm,
+      IoEvent::TriggerCronJob {
+        name: "backup".into(),
+        namespace: "default".into(),
+      }
+    );
   }
 
   #[tokio::test]

@@ -175,8 +175,8 @@ pub fn api_resource_for_block(
     apps::v1::{DaemonSet, Deployment, ReplicaSet, StatefulSet},
     batch::v1::{CronJob, Job},
     core::v1::{
-      ConfigMap, Event, Node, PersistentVolume, PersistentVolumeClaim, Pod,
-      ReplicationController, Secret, Service, ServiceAccount,
+      ConfigMap, Event, Node, PersistentVolume, PersistentVolumeClaim, Pod, ReplicationController,
+      Secret, Service, ServiceAccount,
     },
     networking::v1::{Ingress, NetworkPolicy},
     rbac::v1::{ClusterRole, ClusterRoleBinding, Role, RoleBinding},
@@ -212,9 +212,10 @@ pub fn api_resource_for_block(
     ActiveBlock::PersistentVolumes => (ApiResource::erase::<PersistentVolume>(&()), Scope::Cluster),
     ActiveBlock::StorageClasses => (ApiResource::erase::<StorageClass>(&()), Scope::Cluster),
     ActiveBlock::ClusterRoles => (ApiResource::erase::<ClusterRole>(&()), Scope::Cluster),
-    ActiveBlock::ClusterRoleBindings => {
-      (ApiResource::erase::<ClusterRoleBinding>(&()), Scope::Cluster)
-    }
+    ActiveBlock::ClusterRoleBindings => (
+      ApiResource::erase::<ClusterRoleBinding>(&()),
+      Scope::Cluster,
+    ),
     ActiveBlock::DynamicResource => {
       let kind = dynamic_kind?;
       (kind.api_resource.clone(), kind.scope.clone())
@@ -441,7 +442,8 @@ mod tests {
 
   #[test]
   fn test_api_resource_for_block_maps_cluster_kind() {
-    let (ar, scope) = api_resource_for_block(ActiveBlock::Nodes, None).expect("nodes are deletable");
+    let (ar, scope) =
+      api_resource_for_block(ActiveBlock::Nodes, None).expect("nodes are deletable");
     assert_eq!(ar.kind, "Node");
     assert!(matches!(scope, Scope::Cluster));
   }
@@ -460,8 +462,8 @@ mod tests {
       },
       Scope::Namespaced,
     );
-    let (ar, scope) =
-      api_resource_for_block(ActiveBlock::DynamicResource, Some(&kind)).expect("dynamic kind given");
+    let (ar, scope) = api_resource_for_block(ActiveBlock::DynamicResource, Some(&kind))
+      .expect("dynamic kind given");
     assert_eq!(ar.kind, "Widget");
     assert!(matches!(scope, Scope::Namespaced));
   }
