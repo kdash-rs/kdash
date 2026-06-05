@@ -9,7 +9,7 @@ use std::{
 
 use crate::{
   app::{
-    actions::Modal,
+    actions::{Modal, ResourceAction},
     key_binding::DEFAULT_KEYBINDING,
     models::{
       HasPodSelector, KubeResource, Scrollable, ScrollableTxt, StatefulList, StatefulTable,
@@ -413,12 +413,50 @@ async fn handle_action_menu_key(key: Key, app: &mut App) {
       });
       app.close_action_menu();
       if let Some(action) = selected {
-        // Route the action through its hotkey so menu and hotkey share one path.
-        handle_route_events(action.hotkey(), app).await;
+        execute_resource_action(action, app).await;
       }
     }
     _ => {}
   }
+}
+
+/// Dispatch a menu-selected action. Hotkey-backed actions replay their key so
+/// the menu and hotkey share one path; menu-only actions are handled directly.
+async fn execute_resource_action(action: ResourceAction, app: &mut App) {
+  match action {
+    ResourceAction::Cordon => handle_cordon_toggle(app).await,
+    other => {
+      if let Some(key) = other.hotkey() {
+        handle_route_events(key, app).await;
+      }
+    }
+  }
+}
+
+/// Open a cordon/uncordon confirmation for the selected node. The direction is
+/// derived from the node's current `spec.unschedulable` state.
+async fn handle_cordon_toggle(app: &mut App) {
+  let Some(node) = app.data.nodes.get_selected_item_copy() else {
+    return;
+  };
+  let currently_unschedulable = node
+    .get_k8s_obj()
+    .spec
+    .as_ref()
+    .and_then(|spec| spec.unschedulable)
+    .unwrap_or(false);
+  let cordon = !currently_unschedulable;
+  let verb = if cordon { "Cordon" } else { "Uncordon" };
+  app.open_modal(Modal::confirm(
+    "Confirm cordon",
+    format!("{} node '{}'?", verb, node.name),
+    IoEvent::PatchResource {
+      block: ActiveBlock::Nodes,
+      name: node.name.clone(),
+      namespace: None,
+      patch: ResourcePatch::SetUnschedulable(cordon),
+    },
+  ));
 }
 
 pub async fn handle_mouse_events(mouse: MouseEvent, app: &mut App) {
@@ -1835,6 +1873,91 @@ mod tests {
     }
   }
 
+  fn make_node(name: &str, unschedulable: bool) -> crate::app::nodes::KubeNode {
+    use k8s_openapi::api::core::v1::{Node, NodeSpec, Pod};
+    use k8s_openapi::apimachinery::pkg::apis::meta::v1::{ListMeta, ObjectMeta};
+    use kube::{api::ObjectList, core::TypeMeta};
+
+    let node = Node {
+      metadata: ObjectMeta {
+        name: Some(name.into()),
+        ..Default::default()
+      },
+      spec: Some(NodeSpec {
+        unschedulable: Some(unschedulable),
+        ..Default::default()
+      }),
+      ..Default::default()
+    };
+    let pods = ObjectList::<Pod> {
+      types: TypeMeta {
+        api_version: "v1".into(),
+        kind: "List".into(),
+      },
+      metadata: ListMeta::default(),
+      items: vec![],
+    };
+    let seed = tokio::sync::Mutex::new(App::default());
+    let mut guard = seed.try_lock().expect("uncontended lock");
+    crate::app::nodes::KubeNode::from_api_with_pods(&node, &pods, &mut guard)
+  }
+
+  async fn open_menu_and_select(app: &mut App, steps: usize) {
+    let m = KeyEvent::from(KeyCode::Char('m'));
+    handle_key_events(Key::from(m), m, app).await;
+    for _ in 0..steps {
+      let down = KeyEvent::from(KeyCode::Down);
+      handle_key_events(Key::from(down), down, app).await;
+    }
+    let enter = KeyEvent::from(KeyCode::Enter);
+    handle_key_events(Key::from(enter), enter, app).await;
+  }
+
+  #[tokio::test]
+  async fn test_menu_cordon_on_schedulable_node_confirms_cordon() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Nodes);
+    app.data.nodes.set_items(vec![make_node("n1", false)]);
+
+    // Nodes menu: Describe, YAML, Cordon, Delete → Cordon at index 2.
+    open_menu_and_select(&mut app, 2).await;
+
+    let modal = app.modal.as_ref().expect("cordon should open a confirm modal");
+    assert!(modal.prompt.contains("Cordon node 'n1'"));
+    assert_eq!(
+      modal.on_confirm,
+      IoEvent::PatchResource {
+        block: ActiveBlock::Nodes,
+        name: "n1".into(),
+        namespace: None,
+        patch: ResourcePatch::SetUnschedulable(true),
+      }
+    );
+  }
+
+  #[tokio::test]
+  async fn test_menu_cordon_on_cordoned_node_confirms_uncordon() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Nodes);
+    app.data.nodes.set_items(vec![make_node("n1", true)]);
+
+    open_menu_and_select(&mut app, 2).await;
+
+    let modal = app.modal.as_ref().expect("uncordon should open a confirm modal");
+    assert!(modal.prompt.contains("Uncordon node 'n1'"));
+    assert_eq!(
+      modal.on_confirm,
+      IoEvent::PatchResource {
+        block: ActiveBlock::Nodes,
+        name: "n1".into(),
+        namespace: None,
+        patch: ResourcePatch::SetUnschedulable(false),
+      }
+    );
+  }
+
   #[tokio::test]
   async fn test_delete_key_opens_confirm_modal_with_correct_event() {
     let mut app = App::default();
@@ -1962,7 +2085,10 @@ mod tests {
     let r = KeyEvent::from(KeyCode::Char('r'));
     handle_key_events(Key::from(r), r, &mut app).await;
 
-    let modal = app.modal.as_ref().expect("restart should open a confirm modal");
+    let modal = app
+      .modal
+      .as_ref()
+      .expect("restart should open a confirm modal");
     assert_eq!(
       modal.on_confirm,
       IoEvent::PatchResource {

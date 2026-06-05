@@ -17,6 +17,7 @@ pub enum ResourceAction {
   Shell,
   PreviousLogs,
   Restart,
+  Cordon,
   DecodeSecret,
   Delete,
 }
@@ -30,22 +31,26 @@ impl ResourceAction {
       ResourceAction::Shell => "Shell",
       ResourceAction::PreviousLogs => "Previous logs",
       ResourceAction::Restart => "Rollout restart",
+      ResourceAction::Cordon => "Cordon / Uncordon",
       ResourceAction::DecodeSecret => "Decode secret",
       ResourceAction::Delete => "Delete",
     }
   }
 
-  /// The hotkey that triggers this action. Selecting the action from the menu
-  /// replays this key through the normal handler so there is one dispatch path.
-  pub fn hotkey(self) -> Key {
+  /// The hotkey that triggers this action, if it has one. Hotkey-backed actions
+  /// are replayed through the normal handler when selected from the menu so the
+  /// menu and hotkeys share one dispatch path; menu-only actions return `None`
+  /// and are dispatched directly by the menu handler.
+  pub fn hotkey(self) -> Option<Key> {
     match self {
-      ResourceAction::Describe => DEFAULT_KEYBINDING.describe_resource.key,
-      ResourceAction::Yaml => DEFAULT_KEYBINDING.resource_yaml.key,
-      ResourceAction::Shell => DEFAULT_KEYBINDING.shell_exec.key,
-      ResourceAction::PreviousLogs => DEFAULT_KEYBINDING.previous_logs.key,
-      ResourceAction::Restart => DEFAULT_KEYBINDING.restart_resource.key,
-      ResourceAction::DecodeSecret => DEFAULT_KEYBINDING.decode_secret.key,
-      ResourceAction::Delete => DEFAULT_KEYBINDING.delete_resource.key,
+      ResourceAction::Describe => Some(DEFAULT_KEYBINDING.describe_resource.key),
+      ResourceAction::Yaml => Some(DEFAULT_KEYBINDING.resource_yaml.key),
+      ResourceAction::Shell => Some(DEFAULT_KEYBINDING.shell_exec.key),
+      ResourceAction::PreviousLogs => Some(DEFAULT_KEYBINDING.previous_logs.key),
+      ResourceAction::Restart => Some(DEFAULT_KEYBINDING.restart_resource.key),
+      ResourceAction::DecodeSecret => Some(DEFAULT_KEYBINDING.decode_secret.key),
+      ResourceAction::Delete => Some(DEFAULT_KEYBINDING.delete_resource.key),
+      ResourceAction::Cordon => None,
     }
   }
 }
@@ -62,8 +67,8 @@ pub fn actions_for(block: ActiveBlock) -> Vec<ResourceAction> {
     ActiveBlock::Deployments | ActiveBlock::StatefulSets | ActiveBlock::DaemonSets => {
       vec![Describe, Yaml, Restart, Delete]
     }
+    ActiveBlock::Nodes => vec![Describe, Yaml, Cordon, Delete],
     ActiveBlock::Services
-    | ActiveBlock::Nodes
     | ActiveBlock::ConfigMaps
     | ActiveBlock::ReplicaSets
     | ActiveBlock::Jobs
@@ -151,11 +156,13 @@ mod tests {
   fn test_resource_action_hotkey_matches_bindings() {
     assert_eq!(
       ResourceAction::Describe.hotkey(),
-      DEFAULT_KEYBINDING.describe_resource.key
+      Some(DEFAULT_KEYBINDING.describe_resource.key)
     );
     assert_eq!(
       ResourceAction::DecodeSecret.hotkey(),
-      DEFAULT_KEYBINDING.decode_secret.key
+      Some(DEFAULT_KEYBINDING.decode_secret.key)
     );
+    // Menu-only actions have no hotkey.
+    assert_eq!(ResourceAction::Cordon.hotkey(), None);
   }
 }

@@ -115,6 +115,8 @@ pub enum IoEvent {
 pub enum ResourcePatch {
   /// `kubectl rollout restart` — stamps the pod template's restart annotation.
   RolloutRestart,
+  /// Cordon (`true`) or uncordon (`false`) a node via `spec.unschedulable`.
+  SetUnschedulable(bool),
 }
 
 impl ResourcePatch {
@@ -133,6 +135,9 @@ impl ResourcePatch {
           }
         }
       }),
+      ResourcePatch::SetUnschedulable(unschedulable) => serde_json::json!({
+        "spec": { "unschedulable": unschedulable }
+      }),
     }
   }
 
@@ -140,6 +145,8 @@ impl ResourcePatch {
   fn status_message(&self, name: &str) -> String {
     match self {
       ResourcePatch::RolloutRestart => format!("Restarting {}", name),
+      ResourcePatch::SetUnschedulable(true) => format!("Cordoning {}", name),
+      ResourcePatch::SetUnschedulable(false) => format!("Uncordoning {}", name),
     }
   }
 }
@@ -795,7 +802,10 @@ impl<'a> Network<'a> {
     };
 
     let body = patch.to_merge_patch();
-    match api.patch(name, &PatchParams::default(), &Patch::Merge(body)).await {
+    match api
+      .patch(name, &PatchParams::default(), &Patch::Merge(body))
+      .await
+    {
       Ok(_) => {
         let mut app = self.app.lock().await;
         app.set_status_message(patch.status_message(name));
@@ -1220,6 +1230,26 @@ users:
     assert_eq!(
       ResourcePatch::RolloutRestart.status_message("web"),
       "Restarting web"
+    );
+  }
+
+  #[test]
+  fn test_set_unschedulable_patch_and_messages() {
+    assert_eq!(
+      ResourcePatch::SetUnschedulable(true).to_merge_patch(),
+      serde_json::json!({"spec": {"unschedulable": true}})
+    );
+    assert_eq!(
+      ResourcePatch::SetUnschedulable(false).to_merge_patch(),
+      serde_json::json!({"spec": {"unschedulable": false}})
+    );
+    assert_eq!(
+      ResourcePatch::SetUnschedulable(true).status_message("n1"),
+      "Cordoning n1"
+    );
+    assert_eq!(
+      ResourcePatch::SetUnschedulable(false).status_message("n1"),
+      "Uncordoning n1"
     );
   }
 

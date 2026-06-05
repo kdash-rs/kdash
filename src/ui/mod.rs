@@ -155,10 +155,14 @@ fn draw_action_menu(f: &mut Frame<'_>, app: &mut App) {
     .items
     .iter()
     .map(|action| {
+      let key_hint = action
+        .hotkey()
+        .map(|key| key.to_string())
+        .unwrap_or_default();
       ListItem::new(mixed_line(
         [
           default_part(format!("{}  ", action.label())),
-          help_part(action.hotkey().to_string()),
+          help_part(key_hint),
         ],
         light,
       ))
