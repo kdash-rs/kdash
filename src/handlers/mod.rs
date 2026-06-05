@@ -121,6 +121,13 @@ macro_rules! handle_resource_scroll {
 
 pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
   let _ = key_event;
+
+  // The action menu consumes input before anything else while it is open.
+  if app.action_menu.is_some() {
+    handle_action_menu_key(key, app).await;
+    return;
+  }
+
   let resource_filter_active = app
     .current_resource_table()
     .is_some_and(|table| table.is_filter_active());
@@ -200,8 +207,49 @@ pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
       _ if key == DEFAULT_KEYBINDING.cycle_main_views.key => {
         app.cycle_main_routes();
       }
+      _ if key == DEFAULT_KEYBINDING.open_action_menu.key => {
+        let block = app.get_current_route().active_block;
+        app.open_action_menu(block);
+      }
       _ => handle_route_events(key, app).await,
     }
+  }
+}
+
+/// Handle keys while the `m` action menu overlay is active.
+async fn handle_action_menu_key(key: Key, app: &mut App) {
+  match key {
+    _ if key == DEFAULT_KEYBINDING.esc.key => app.close_action_menu(),
+    _ if key == DEFAULT_KEYBINDING.up.key
+      || key == DEFAULT_KEYBINDING.up.alt.unwrap()
+      || key == Key::Up =>
+    {
+      if let Some(menu) = app.action_menu.as_mut() {
+        menu.handle_scroll(true, false);
+      }
+    }
+    _ if key == DEFAULT_KEYBINDING.down.key
+      || key == DEFAULT_KEYBINDING.down.alt.unwrap()
+      || key == Key::Down =>
+    {
+      if let Some(menu) = app.action_menu.as_mut() {
+        menu.handle_scroll(false, false);
+      }
+    }
+    _ if key == DEFAULT_KEYBINDING.submit.key => {
+      let selected = app.action_menu.as_ref().and_then(|menu| {
+        menu
+          .state
+          .selected()
+          .and_then(|i| menu.items.get(i).copied())
+      });
+      app.close_action_menu();
+      if let Some(action) = selected {
+        // Route the action through its hotkey so menu and hotkey share one path.
+        handle_route_events(action.hotkey(), app).await;
+      }
+    }
+    _ => {}
   }
 }
 
@@ -1475,6 +1523,94 @@ mod tests {
     let key_evt = KeyEvent::from(KeyCode::Esc);
     handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
     assert!(!app.data.containers.filter_active);
+  }
+
+  #[tokio::test]
+  async fn test_action_menu_opens_and_closes_on_pods() {
+    use crate::app::actions::ResourceAction;
+
+    let mut app = App::default();
+    app.route_home();
+
+    let m = KeyEvent::from(KeyCode::Char('m'));
+    handle_key_events(Key::from(m), m, &mut app).await;
+
+    let menu = app.action_menu.as_ref().expect("action menu should open");
+    assert_eq!(
+      menu.items,
+      vec![ResourceAction::Describe, ResourceAction::Yaml]
+    );
+
+    let esc = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(esc), esc, &mut app).await;
+    assert!(app.action_menu.is_none());
+  }
+
+  #[tokio::test]
+  async fn test_action_menu_not_opened_on_blocks_without_actions() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::More);
+
+    let m = KeyEvent::from(KeyCode::Char('m'));
+    handle_key_events(Key::from(m), m, &mut app).await;
+
+    assert!(app.action_menu.is_none());
+  }
+
+  #[tokio::test]
+  async fn test_action_menu_swallows_unrelated_keys_while_open() {
+    let mut app = App::default();
+    app.route_home();
+
+    let m = KeyEvent::from(KeyCode::Char('m'));
+    handle_key_events(Key::from(m), m, &mut app).await;
+    assert!(app.action_menu.is_some());
+    let block_before = app.get_current_route().active_block;
+
+    // A tab-switch key must be swallowed by the menu, not change the view.
+    let right = KeyEvent::from(KeyCode::Right);
+    handle_key_events(Key::from(right), right, &mut app).await;
+
+    assert!(app.action_menu.is_some());
+    assert_eq!(app.get_current_route().active_block, block_before);
+  }
+
+  #[tokio::test]
+  async fn test_action_menu_shell_replays_shell_exec_in_containers() {
+    use crate::app::actions::ResourceAction;
+
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
+
+    let mut pod = KubePod::default();
+    pod.namespace = "team-a".into();
+    pod.name = "pod-1".into();
+    app.data.pods.set_items(vec![pod]);
+    let mut container = KubeContainer::default();
+    container.name = "app".into();
+    app.data.containers.set_items(vec![container]);
+
+    let m = KeyEvent::from(KeyCode::Char('m'));
+    handle_key_events(Key::from(m), m, &mut app).await;
+    assert_eq!(
+      app.action_menu.as_ref().unwrap().items,
+      vec![ResourceAction::Shell]
+    );
+
+    let enter = KeyEvent::from(KeyCode::Enter);
+    handle_key_events(Key::from(enter), enter, &mut app).await;
+
+    assert!(app.action_menu.is_none());
+    assert_eq!(
+      app.pending_shell_exec(),
+      Some(&PendingShellExec {
+        namespace: "team-a".into(),
+        pod: "pod-1".into(),
+        container: "app".into(),
+      })
+    );
   }
 
   #[tokio::test]

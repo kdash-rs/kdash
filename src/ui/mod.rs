@@ -9,7 +9,7 @@ use ratatui::{
   layout::{Alignment, Constraint, Rect},
   style::Modifier,
   text::{Line, Text},
-  widgets::{Block, Borders, Paragraph, Tabs, Wrap},
+  widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Tabs, Wrap},
   Frame,
 };
 
@@ -17,7 +17,7 @@ use self::{
   help::draw_help,
   overview::draw_overview,
   utils::{
-    action_hint, default_part, help_part, horizontal_chunks_with_margin, key_hints,
+    action_hint, centered_rect, default_part, help_part, horizontal_chunks_with_margin, key_hints,
     mixed_bold_line, mixed_line, split_hint_suffix, style_failure, style_header,
     style_main_background, style_primary, style_secondary, style_success, vertical_chunks,
   },
@@ -92,6 +92,56 @@ pub fn draw(f: &mut Frame<'_>, app: &mut App) {
       draw_overview(f, app, last_chunk);
     }
   }
+
+  // The action-menu overlay is drawn last so it sits above the current view.
+  if app.action_menu.is_some() {
+    draw_action_menu(f, app);
+  }
+}
+
+fn draw_action_menu(f: &mut Frame<'_>, app: &mut App) {
+  let light = app.light_theme;
+  let Some(menu) = app.action_menu.as_mut() else {
+    return;
+  };
+
+  let items: Vec<ListItem<'_>> = menu
+    .items
+    .iter()
+    .map(|action| {
+      ListItem::new(mixed_line(
+        [
+          default_part(format!("{}  ", action.label())),
+          help_part(action.hotkey().to_string()),
+        ],
+        light,
+      ))
+    })
+    .collect();
+
+  let width = 40;
+  let height = (items.len() as u16).saturating_add(2);
+  let area = centered_rect(width, height, f.area());
+
+  let block = Block::default()
+    .title(mixed_bold_line(
+      [
+        default_part(" Actions "),
+        help_part(format!("· close {} ", DEFAULT_KEYBINDING.esc.key)),
+      ],
+      light,
+    ))
+    .borders(Borders::ALL)
+    .style(style_secondary(light));
+
+  let list = List::new(items)
+    .block(block)
+    .style(style_primary(light))
+    .highlight_style(style_secondary(light).add_modifier(Modifier::BOLD))
+    .highlight_symbol(HIGHLIGHT);
+
+  f.render_widget(Clear, area);
+  f.render_stateful_widget(list, area, &mut menu.state);
 }
 
 fn draw_app_title(f: &mut Frame<'_>, app: &App, area: Rect) {
@@ -170,7 +220,7 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
     )],
     RouteId::Home => vec![mixed_line(
       [help_part(format!(
-        "{} · {} switch tabs · <char> select block · {} scroll · {} select · {} ",
+        "{} · {} switch tabs · <char> select block · {} scroll · {} select · {} · {} ",
         action_hint("help", DEFAULT_KEYBINDING.help.key),
         key_hints(&[
           DEFAULT_KEYBINDING.cycle_main_views.key,
@@ -180,6 +230,7 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
         key_hints(&[DEFAULT_KEYBINDING.up.key, DEFAULT_KEYBINDING.down.key]),
         DEFAULT_KEYBINDING.submit.key,
         action_hint("filter", DEFAULT_KEYBINDING.filter.key),
+        action_hint("menu", DEFAULT_KEYBINDING.open_action_menu.key),
       ))],
       app.light_theme,
     )],

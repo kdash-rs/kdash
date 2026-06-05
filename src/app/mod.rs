@@ -1,3 +1,4 @@
+pub(crate) mod actions;
 pub(crate) mod configmaps;
 pub(crate) mod contexts;
 pub(crate) mod cronjobs;
@@ -38,6 +39,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::{mpsc::Sender, watch};
 
 use self::{
+  actions::ResourceAction,
   configmaps::KubeConfigMap,
   contexts::KubeContext,
   cronjobs::KubeCronJob,
@@ -298,6 +300,8 @@ pub struct App {
   pub help_docs: StatefulTable<Vec<String>>,
   pub error_history: VecDeque<ErrorRecord>,
   pending_shell_exec: Option<PendingShellExec>,
+  /// Transient `m` action-menu overlay for the selected resource.
+  pub action_menu: Option<StatefulList<ResourceAction>>,
   pub config: KdashConfig,
   pub data: Data,
 }
@@ -544,6 +548,7 @@ impl Default for App {
       background_cache_pending: false,
       error_history: VecDeque::with_capacity(MAX_ERROR_HISTORY),
       pending_shell_exec: None,
+      action_menu: None,
       config: KdashConfig::default(),
       data: Data::default(),
     }
@@ -725,9 +730,24 @@ impl App {
     self.tick_count = 0;
     self.api_error = String::new();
     self.status_message.clear();
+    self.action_menu = None;
     self.utilization_group_by = Self::default_utilization_group_by();
     self.data = Data::default();
     self.route_home();
+  }
+
+  /// Open the `m` action menu for the selected item in the given block.
+  /// No-op when the block has no item-level actions.
+  pub fn open_action_menu(&mut self, block: ActiveBlock) {
+    let actions = actions::actions_for(block);
+    if !actions.is_empty() {
+      self.action_menu = Some(StatefulList::with_items(actions));
+    }
+  }
+
+  /// Dismiss the active action menu, if any.
+  pub fn close_action_menu(&mut self) {
+    self.action_menu = None;
   }
 
   pub fn selected_dynamic_cache_key(&self) -> Option<String> {

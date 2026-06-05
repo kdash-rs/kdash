@@ -75,6 +75,7 @@ generate_keybindings! {
   shell_exec,
   log_auto_scroll,
   select_all_namespace,
+  open_action_menu,
   jump_to_namespace,
   describe_resource,
   resource_yaml,
@@ -265,6 +266,12 @@ const DEFAULT_KEYBINDINGS: KeyBindings = KeyBindings {
     key: Key::Char('a'),
     alt: None,
     desc: "Select all namespaces",
+    context: HContext::Overview,
+  },
+  open_action_menu: KeyBinding {
+    key: Key::Char('m'),
+    alt: None,
+    desc: "Show actions menu for selected resource",
     context: HContext::Overview,
   },
   describe_resource: KeyBinding {
