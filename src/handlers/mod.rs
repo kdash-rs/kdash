@@ -452,6 +452,7 @@ fn handle_escape(app: &mut App) {
       }
       ActiveBlock::Logs => {
         app.cancel_log_stream();
+        app.log_previous = false;
         // Clear resource context when leaving aggregate logs
         if app.data.selected.pod_selector.is_none() {
           app.data.selected.pod_selector_resource = None;
@@ -809,6 +810,8 @@ async fn handle_route_events(key: Key, app: &mut App) {
                 app.data.containers.set_items(pod.containers);
                 app.dispatch_pod_logs(pod.name, RouteId::Home).await;
               }
+            } else if key == DEFAULT_KEYBINDING.previous_logs.key {
+              handle_previous_logs_for_pod(app, RouteId::Home).await;
             } else if let Some(pod) = handle_block_action(key, &app.data.pods) {
               let ok = handle_describe_decode_or_yaml_action(
                 key,
@@ -831,6 +834,8 @@ async fn handle_route_events(key: Key, app: &mut App) {
           ActiveBlock::Containers => {
             if key == DEFAULT_KEYBINDING.shell_exec.key {
               queue_selected_container_shell_exec(app);
+            } else if key == DEFAULT_KEYBINDING.previous_logs.key {
+              handle_previous_logs_for_container(app, RouteId::Home).await;
             } else if let Some(c) = handle_block_action(key, &app.data.containers) {
               app.data.selected.container = Some(c.name.clone());
               app.dispatch_container_logs(c.name, RouteId::Home).await;
@@ -961,6 +966,8 @@ async fn handle_route_events(key: Key, app: &mut App) {
         ActiveBlock::Containers => {
           if key == DEFAULT_KEYBINDING.shell_exec.key {
             queue_selected_container_shell_exec(app);
+          } else if key == DEFAULT_KEYBINDING.previous_logs.key {
+            handle_previous_logs_for_container(app, RouteId::Troubleshoot).await;
           } else if let Some(c) = handle_block_action(key, &app.data.containers) {
             app.data.selected.container = Some(c.name.clone());
             app
@@ -1089,6 +1096,33 @@ async fn handle_route_events(key: Key, app: &mut App) {
   if key == DEFAULT_KEYBINDING.submit.key {
     app.tick_count = 0;
   }
+}
+
+/// View previous logs for the selected container in the Containers view.
+async fn handle_previous_logs_for_container(app: &mut App, route_id: RouteId) {
+  let Some(container) = app.data.containers.get_selected_item_copy() else {
+    return;
+  };
+  app.data.selected.container = Some(container.name.clone());
+  app.dispatch_previous_logs(container.name, route_id).await;
+}
+
+/// View previous logs from the Pods view, resolving the target container the
+/// same way shell-exec does (single/selected container).
+async fn handle_previous_logs_for_pod(app: &mut App, route_id: RouteId) {
+  let Some(pod) = app.data.pods.get_selected_item_copy() else {
+    return;
+  };
+  let Some(container) = resolve_shell_container(app, &pod) else {
+    app.handle_error(anyhow!(
+      "Open the containers view to pick a container for previous logs on pod {}",
+      pod.name
+    ));
+    return;
+  };
+  app.data.selected.pod = Some(pod.name.clone());
+  app.data.selected.container = Some(container.name.clone());
+  app.dispatch_previous_logs(container.name, route_id).await;
 }
 
 fn queue_selected_container_shell_exec(app: &mut App) {
@@ -1682,6 +1716,7 @@ mod tests {
       vec![
         ResourceAction::Describe,
         ResourceAction::Yaml,
+        ResourceAction::PreviousLogs,
         ResourceAction::Delete
       ]
     );
@@ -1741,7 +1776,7 @@ mod tests {
     handle_key_events(Key::from(m), m, &mut app).await;
     assert_eq!(
       app.action_menu.as_ref().unwrap().items,
-      vec![ResourceAction::Shell]
+      vec![ResourceAction::Shell, ResourceAction::PreviousLogs]
     );
 
     let enter = KeyEvent::from(KeyCode::Enter);
@@ -1779,7 +1814,10 @@ mod tests {
     let ctrl_d = ctrl_key('d');
     handle_key_events(Key::from(ctrl_d), ctrl_d, &mut app).await;
 
-    let modal = app.modal.as_ref().expect("delete should open a confirm modal");
+    let modal = app
+      .modal
+      .as_ref()
+      .expect("delete should open a confirm modal");
     assert_eq!(
       modal.on_confirm,
       IoEvent::DeleteResource {
@@ -1849,10 +1887,11 @@ mod tests {
     pod.name = "pod-1".into();
     app.data.pods.set_items(vec![pod]);
 
-    // Open the action menu and move to the Delete entry (Describe, YAML, Delete).
+    // Open the action menu and move to the Delete entry
+    // (Describe, YAML, Previous logs, Delete).
     let m = KeyEvent::from(KeyCode::Char('m'));
     handle_key_events(Key::from(m), m, &mut app).await;
-    for _ in 0..2 {
+    for _ in 0..3 {
       let down = KeyEvent::from(KeyCode::Down);
       handle_key_events(Key::from(down), down, &mut app).await;
     }
@@ -1860,7 +1899,10 @@ mod tests {
     handle_key_events(Key::from(enter), enter, &mut app).await;
 
     assert!(app.action_menu.is_none());
-    let modal = app.modal.as_ref().expect("menu delete should open confirm modal");
+    let modal = app
+      .modal
+      .as_ref()
+      .expect("menu delete should open confirm modal");
     assert_eq!(
       modal.on_confirm,
       IoEvent::DeleteResource {
@@ -1869,6 +1911,50 @@ mod tests {
         namespace: Some("team-a".into()),
       }
     );
+  }
+
+  #[tokio::test]
+  async fn test_previous_logs_key_in_containers_opens_previous_log_view() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
+    let mut pod = KubePod::default();
+    pod.namespace = "team-a".into();
+    pod.name = "pod-1".into();
+    app.data.pods.set_items(vec![pod]);
+    let mut container = KubeContainer::default();
+    container.name = "app".into();
+    app.data.containers.set_items(vec![container]);
+
+    let p = KeyEvent::from(KeyCode::Char('p'));
+    handle_key_events(Key::from(p), p, &mut app).await;
+
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Logs);
+    assert!(app.log_previous);
+    assert_eq!(app.data.selected.container.as_deref(), Some("app"));
+  }
+
+  #[tokio::test]
+  async fn test_leaving_previous_logs_resets_flag() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
+    let mut pod = KubePod::default();
+    pod.namespace = "team-a".into();
+    pod.name = "pod-1".into();
+    app.data.pods.set_items(vec![pod]);
+    let mut container = KubeContainer::default();
+    container.name = "app".into();
+    app.data.containers.set_items(vec![container]);
+
+    let p = KeyEvent::from(KeyCode::Char('p'));
+    handle_key_events(Key::from(p), p, &mut app).await;
+    assert!(app.log_previous);
+
+    let esc = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(esc), esc, &mut app).await;
+    assert!(!app.log_previous);
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Containers);
   }
 
   #[tokio::test]

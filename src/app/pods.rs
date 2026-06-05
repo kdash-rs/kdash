@@ -400,9 +400,10 @@ pub(crate) fn draw_containers_block(f: &mut Frame<'_>, app: &mut App, area: Rect
       inline_help: mixed_bold_line(
         [
           help_part(format!(
-            "{} · {} · ",
+            "{} · {} · {} · ",
             action_hint("logs", DEFAULT_KEYBINDING.submit.key),
             action_hint("shell", DEFAULT_KEYBINDING.shell_exec.key),
+            action_hint("prev logs", DEFAULT_KEYBINDING.previous_logs.key),
           )),
           help_part(format!("back {} ", DEFAULT_KEYBINDING.esc.key)),
         ],

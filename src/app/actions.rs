@@ -15,6 +15,7 @@ pub enum ResourceAction {
   Describe,
   Yaml,
   Shell,
+  PreviousLogs,
   DecodeSecret,
   Delete,
 }
@@ -26,6 +27,7 @@ impl ResourceAction {
       ResourceAction::Describe => "Describe",
       ResourceAction::Yaml => "YAML",
       ResourceAction::Shell => "Shell",
+      ResourceAction::PreviousLogs => "Previous logs",
       ResourceAction::DecodeSecret => "Decode secret",
       ResourceAction::Delete => "Delete",
     }
@@ -38,6 +40,7 @@ impl ResourceAction {
       ResourceAction::Describe => DEFAULT_KEYBINDING.describe_resource.key,
       ResourceAction::Yaml => DEFAULT_KEYBINDING.resource_yaml.key,
       ResourceAction::Shell => DEFAULT_KEYBINDING.shell_exec.key,
+      ResourceAction::PreviousLogs => DEFAULT_KEYBINDING.previous_logs.key,
       ResourceAction::DecodeSecret => DEFAULT_KEYBINDING.decode_secret.key,
       ResourceAction::Delete => DEFAULT_KEYBINDING.delete_resource.key,
     }
@@ -50,10 +53,10 @@ impl ResourceAction {
 pub fn actions_for(block: ActiveBlock) -> Vec<ResourceAction> {
   use ResourceAction::*;
   match block {
-    ActiveBlock::Containers => vec![Shell],
+    ActiveBlock::Containers => vec![Shell, PreviousLogs],
+    ActiveBlock::Pods => vec![Describe, Yaml, PreviousLogs, Delete],
     ActiveBlock::Secrets => vec![Describe, Yaml, DecodeSecret, Delete],
-    ActiveBlock::Pods
-    | ActiveBlock::Services
+    ActiveBlock::Services
     | ActiveBlock::Nodes
     | ActiveBlock::ConfigMaps
     | ActiveBlock::StatefulSets
@@ -92,11 +95,7 @@ pub struct Modal {
 
 impl Modal {
   /// Build a confirmation modal that dispatches `on_confirm` when accepted.
-  pub fn confirm(
-    title: impl Into<String>,
-    prompt: impl Into<String>,
-    on_confirm: IoEvent,
-  ) -> Self {
+  pub fn confirm(title: impl Into<String>, prompt: impl Into<String>, on_confirm: IoEvent) -> Self {
     Modal {
       title: title.into(),
       prompt: prompt.into(),
@@ -113,7 +112,7 @@ mod tests {
   fn test_actions_for_containers_offers_shell() {
     assert_eq!(
       actions_for(ActiveBlock::Containers),
-      vec![ResourceAction::Shell]
+      vec![ResourceAction::Shell, ResourceAction::PreviousLogs]
     );
   }
 

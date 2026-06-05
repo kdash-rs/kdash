@@ -77,6 +77,7 @@ generate_keybindings! {
   select_all_namespace,
   open_action_menu,
   delete_resource,
+  previous_logs,
   jump_to_namespace,
   describe_resource,
   resource_yaml,
@@ -279,6 +280,12 @@ const DEFAULT_KEYBINDINGS: KeyBindings = KeyBindings {
     key: Key::Ctrl('d'),
     alt: None,
     desc: "Delete selected resource",
+    context: HContext::Overview,
+  },
+  previous_logs: KeyBinding {
+    key: Key::Char('p'),
+    alt: None,
+    desc: "Show previous (restarted) container logs",
     context: HContext::Overview,
   },
   describe_resource: KeyBinding {

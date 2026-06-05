@@ -295,6 +295,9 @@ pub struct App {
   pub wide_columns: bool,
   pub refresh: bool,
   pub log_auto_scroll: bool,
+  /// True while the log view shows previous (terminated) container logs, so the
+  /// periodic poll does not overwrite it with a live stream.
+  pub log_previous: bool,
   pub log_tail_lines: u32,
   pub utilization_group_by: Vec<GroupBy>,
   pub help_docs: StatefulTable<Vec<String>>,
@@ -544,6 +547,7 @@ impl Default for App {
       wide_columns: false,
       refresh: true,
       log_auto_scroll: true,
+      log_previous: false,
       log_tail_lines: DEFAULT_LOG_TAIL_LINES,
       utilization_group_by: Self::default_utilization_group_by(),
       help_docs: StatefulTable::with_items(key_binding::get_help_docs()),
@@ -735,6 +739,7 @@ impl App {
     self.status_message.clear();
     self.modal = None;
     self.action_menu = None;
+    self.log_previous = false;
     self.utilization_group_by = Self::default_utilization_group_by();
     self.data = Data::default();
     self.route_home();
@@ -980,6 +985,7 @@ impl App {
 
   pub async fn dispatch_pod_logs(&mut self, pod_name: String, route_id: RouteId) {
     self.cancel_log_stream();
+    self.log_previous = false;
     self.data.logs = LogsState::new(format!("agg:{}", pod_name));
     self.push_navigation_stack(route_id, ActiveBlock::Logs);
     self
@@ -989,9 +995,21 @@ impl App {
 
   pub async fn dispatch_container_logs(&mut self, id: String, route_id: RouteId) {
     self.cancel_log_stream();
+    self.log_previous = false;
     self.data.logs = LogsState::new(id);
     self.push_navigation_stack(route_id, ActiveBlock::Logs);
     self.dispatch_stream(IoStreamEvent::GetPodLogs(true)).await;
+  }
+
+  /// View the previous (terminated) instance's logs for the selected container.
+  /// One-shot fetch — sets `log_previous` so the periodic poll does not replace
+  /// it with a live stream.
+  pub async fn dispatch_previous_logs(&mut self, id: String, route_id: RouteId) {
+    self.cancel_log_stream();
+    self.log_previous = true;
+    self.data.logs = LogsState::new(format!("prev:{}", id));
+    self.push_navigation_stack(route_id, ActiveBlock::Logs);
+    self.dispatch_stream(IoStreamEvent::GetPreviousLogs).await;
   }
 
   /// Start aggregate log streaming from all pods matching a label selector.
@@ -1004,6 +1022,7 @@ impl App {
     route_id: RouteId,
   ) {
     self.cancel_log_stream();
+    self.log_previous = false;
     self.data.selected.pod_selector_resource = Some(resource_name);
     self.data.logs = LogsState::new(format!("agg:{}", name));
     self.push_navigation_stack(route_id, ActiveBlock::Logs);
@@ -1232,7 +1251,7 @@ impl App {
       ActiveBlock::DynamicResource => {
         self.dispatch(IoEvent::GetDynamicRes).await;
       }
-      ActiveBlock::Logs if !self.is_streaming => {
+      ActiveBlock::Logs if !self.is_streaming && !self.log_previous => {
         self.dispatch_stream(IoStreamEvent::GetPodLogs(false)).await;
       }
       _ => {}
