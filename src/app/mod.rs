@@ -1,3 +1,4 @@
+pub(crate) mod actions;
 pub(crate) mod configmaps;
 pub(crate) mod contexts;
 pub(crate) mod cronjobs;
@@ -38,6 +39,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::{mpsc::Sender, watch};
 
 use self::{
+  actions::{InputModal, Modal, ResourceAction},
   configmaps::KubeConfigMap,
   contexts::KubeContext,
   cronjobs::KubeCronJob,
@@ -293,11 +295,20 @@ pub struct App {
   pub wide_columns: bool,
   pub refresh: bool,
   pub log_auto_scroll: bool,
+  /// True while the log view shows previous (terminated) container logs, so the
+  /// periodic poll does not overwrite it with a live stream.
+  pub log_previous: bool,
   pub log_tail_lines: u32,
   pub utilization_group_by: Vec<GroupBy>,
   pub help_docs: StatefulTable<Vec<String>>,
   pub error_history: VecDeque<ErrorRecord>,
   pending_shell_exec: Option<PendingShellExec>,
+  /// Transient confirmation overlay guarding an impactful action.
+  pub modal: Option<Modal>,
+  /// Transient single-line input overlay for actions that need a value (scale).
+  pub input_modal: Option<InputModal>,
+  /// Transient `m` action-menu overlay for the selected resource.
+  pub action_menu: Option<StatefulList<ResourceAction>>,
   pub config: KdashConfig,
   pub data: Data,
 }
@@ -538,12 +549,16 @@ impl Default for App {
       wide_columns: false,
       refresh: true,
       log_auto_scroll: true,
+      log_previous: false,
       log_tail_lines: DEFAULT_LOG_TAIL_LINES,
       utilization_group_by: Self::default_utilization_group_by(),
       help_docs: StatefulTable::with_items(key_binding::get_help_docs()),
       background_cache_pending: false,
       error_history: VecDeque::with_capacity(MAX_ERROR_HISTORY),
       pending_shell_exec: None,
+      modal: None,
+      input_modal: None,
+      action_menu: None,
       config: KdashConfig::default(),
       data: Data::default(),
     }
@@ -660,6 +675,7 @@ impl App {
     log_tail_lines: u32,
     config: KdashConfig,
   ) -> Self {
+    let show_info_bar = !config.hide_info_on_start;
     App {
       io_tx: Some(io_tx),
       io_stream_tx: Some(io_stream_tx),
@@ -667,6 +683,7 @@ impl App {
       enhanced_graphics,
       tick_until_poll,
       log_tail_lines,
+      show_info_bar,
       config,
       ..App::default()
     }
@@ -723,9 +740,47 @@ impl App {
     self.tick_count = 0;
     self.api_error = String::new();
     self.status_message.clear();
+    self.modal = None;
+    self.input_modal = None;
+    self.action_menu = None;
+    self.log_previous = false;
     self.utilization_group_by = Self::default_utilization_group_by();
     self.data = Data::default();
     self.route_home();
+  }
+
+  /// Open a transient confirmation overlay.
+  pub fn open_modal(&mut self, modal: Modal) {
+    self.modal = Some(modal);
+  }
+
+  /// Dismiss the active confirmation overlay, if any.
+  pub fn close_modal(&mut self) {
+    self.modal = None;
+  }
+
+  /// Open a transient single-line input overlay.
+  pub fn open_input_modal(&mut self, modal: InputModal) {
+    self.input_modal = Some(modal);
+  }
+
+  /// Dismiss the active input overlay, if any.
+  pub fn close_input_modal(&mut self) {
+    self.input_modal = None;
+  }
+
+  /// Open the `m` action menu for the selected item in the given block.
+  /// No-op when the block has no item-level actions.
+  pub fn open_action_menu(&mut self, block: ActiveBlock) {
+    let actions = actions::actions_for(block);
+    if !actions.is_empty() {
+      self.action_menu = Some(StatefulList::with_items(actions));
+    }
+  }
+
+  /// Dismiss the active action menu, if any.
+  pub fn close_action_menu(&mut self) {
+    self.action_menu = None;
   }
 
   pub fn selected_dynamic_cache_key(&self) -> Option<String> {
@@ -944,6 +999,7 @@ impl App {
 
   pub async fn dispatch_pod_logs(&mut self, pod_name: String, route_id: RouteId) {
     self.cancel_log_stream();
+    self.log_previous = false;
     self.data.logs = LogsState::new(format!("agg:{}", pod_name));
     self.push_navigation_stack(route_id, ActiveBlock::Logs);
     self
@@ -953,9 +1009,24 @@ impl App {
 
   pub async fn dispatch_container_logs(&mut self, id: String, route_id: RouteId) {
     self.cancel_log_stream();
+    self.log_previous = false;
     self.data.logs = LogsState::new(id);
     self.push_navigation_stack(route_id, ActiveBlock::Logs);
     self.dispatch_stream(IoStreamEvent::GetPodLogs(true)).await;
+  }
+
+  /// View the previous (terminated) instance's logs for the selected container.
+  /// One-shot fetch — sets `log_previous` so the periodic poll does not replace
+  /// it with a live stream.
+  pub async fn dispatch_previous_logs(&mut self, id: String, route_id: RouteId) {
+    self.cancel_log_stream();
+    self.log_previous = true;
+    // Use the container name as the id (matching the live-logs view) so the log
+    // view's `container == logs.id` render guard passes; `log_previous` keeps
+    // the periodic poll from replacing it with a live stream.
+    self.data.logs = LogsState::new(id);
+    self.push_navigation_stack(route_id, ActiveBlock::Logs);
+    self.dispatch_stream(IoStreamEvent::GetPreviousLogs).await;
   }
 
   /// Start aggregate log streaming from all pods matching a label selector.
@@ -968,6 +1039,7 @@ impl App {
     route_id: RouteId,
   ) {
     self.cancel_log_stream();
+    self.log_previous = false;
     self.data.selected.pod_selector_resource = Some(resource_name);
     self.data.logs = LogsState::new(format!("agg:{}", name));
     self.push_navigation_stack(route_id, ActiveBlock::Logs);
@@ -1196,7 +1268,7 @@ impl App {
       ActiveBlock::DynamicResource => {
         self.dispatch(IoEvent::GetDynamicRes).await;
       }
-      ActiveBlock::Logs if !self.is_streaming => {
+      ActiveBlock::Logs if !self.is_streaming && !self.log_previous => {
         self.dispatch_stream(IoStreamEvent::GetPodLogs(false)).await;
       }
       _ => {}
@@ -1728,6 +1800,40 @@ mod tests {
   fn test_loading_counter_default() {
     let app = App::default();
     assert!(!app.is_loading());
+  }
+
+  #[test]
+  fn test_new_honors_hide_info_on_start_config() {
+    let (io_tx, _io_rx) = mpsc::channel::<IoEvent>(1);
+    let (io_stream_tx, _stream_rx) = mpsc::channel::<IoStreamEvent>(1);
+    let (io_cmd_tx, _cmd_rx) = mpsc::channel::<IoCmdEvent>(1);
+
+    let config = KdashConfig {
+      hide_info_on_start: true,
+      ..KdashConfig::default()
+    };
+    let app = App::new(io_tx, io_stream_tx, io_cmd_tx, false, 1, 100, config);
+
+    assert!(!app.show_info_bar);
+  }
+
+  #[test]
+  fn test_new_defaults_show_info_bar_to_true() {
+    let (io_tx, _io_rx) = mpsc::channel::<IoEvent>(1);
+    let (io_stream_tx, _stream_rx) = mpsc::channel::<IoStreamEvent>(1);
+    let (io_cmd_tx, _cmd_rx) = mpsc::channel::<IoCmdEvent>(1);
+
+    let app = App::new(
+      io_tx,
+      io_stream_tx,
+      io_cmd_tx,
+      false,
+      1,
+      100,
+      KdashConfig::default(),
+    );
+
+    assert!(app.show_info_bar);
   }
 
   #[test]

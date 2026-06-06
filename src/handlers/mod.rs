@@ -9,6 +9,7 @@ use std::{
 
 use crate::{
   app::{
+    actions::{InputAction, InputModal, Modal, ResourceAction},
     key_binding::DEFAULT_KEYBINDING,
     models::{
       HasPodSelector, KubeResource, Scrollable, ScrollableTxt, StatefulList, StatefulTable,
@@ -19,6 +20,7 @@ use crate::{
   },
   cmd::IoCmdEvent,
   event::Key,
+  network::{IoEvent, ResourcePatch},
 };
 
 /// Handles Enter/`o` key on a workload resource: describe/yaml, drill-down to pods, or aggregate logs.
@@ -121,6 +123,21 @@ macro_rules! handle_resource_scroll {
 
 pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
   let _ = key_event;
+
+  // Overlay modals and the action menu consume input before anything else.
+  if app.modal.is_some() {
+    handle_modal_key(key, app).await;
+    return;
+  }
+  if app.input_modal.is_some() {
+    handle_input_modal_key(key, app);
+    return;
+  }
+  if app.action_menu.is_some() {
+    handle_action_menu_key(key, app).await;
+    return;
+  }
+
   let resource_filter_active = app
     .current_resource_table()
     .is_some_and(|table| table.is_filter_active());
@@ -200,9 +217,397 @@ pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
       _ if key == DEFAULT_KEYBINDING.cycle_main_views.key => {
         app.cycle_main_routes();
       }
+      _ if key == DEFAULT_KEYBINDING.open_action_menu.key => {
+        let block = app.get_current_route().active_block;
+        app.open_action_menu(block);
+      }
       _ => handle_route_events(key, app).await,
     }
   }
+}
+
+/// Handle keys while a confirmation modal overlay is active.
+async fn handle_modal_key(key: Key, app: &mut App) {
+  if key == Key::Char('y') || key == DEFAULT_KEYBINDING.submit.key {
+    if let Some(modal) = app.modal.take() {
+      app.dispatch(modal.on_confirm).await;
+      // Refresh the affected view promptly after a write.
+      app.tick_count = 0;
+    }
+  } else if key == Key::Char('n') || key == DEFAULT_KEYBINDING.esc.key {
+    app.close_modal();
+  }
+}
+
+/// Handle keys while a single-line input overlay is active. Printable chars edit
+/// the buffer, `Enter` validates (chaining into a confirm modal on success or
+/// showing an inline error on failure), `Esc` cancels.
+fn handle_input_modal_key(key: Key, app: &mut App) {
+  if key == DEFAULT_KEYBINDING.submit.key {
+    let result = app.input_modal.as_ref().map(|input| input.validate());
+    match result {
+      Some(Ok(modal)) => {
+        app.close_input_modal();
+        app.open_modal(modal);
+      }
+      Some(Err(err)) => {
+        if let Some(input) = app.input_modal.as_mut() {
+          input.error = Some(err);
+        }
+      }
+      None => {}
+    }
+  } else if key == DEFAULT_KEYBINDING.esc.key {
+    app.close_input_modal();
+  } else if let Some(input) = app.input_modal.as_mut() {
+    match key {
+      Key::Char(c) => {
+        input.buffer.push(c);
+        input.error = None;
+      }
+      Key::Backspace => {
+        input.buffer.pop();
+        input.error = None;
+      }
+      _ => {}
+    }
+  }
+}
+
+/// Resolve the `(name, namespace)` of the selected row for a mutable block.
+fn selected_target(app: &App, block: ActiveBlock) -> Option<(String, Option<String>)> {
+  macro_rules! namespaced {
+    ($field:ident) => {
+      app
+        .data
+        .$field
+        .get_selected_item_copy()
+        .map(|res| (res.name.clone(), Some(res.namespace.clone())))
+    };
+  }
+  macro_rules! cluster {
+    ($field:ident) => {
+      app
+        .data
+        .$field
+        .get_selected_item_copy()
+        .map(|res| (res.name.clone(), None))
+    };
+  }
+
+  match block {
+    ActiveBlock::Pods => namespaced!(pods),
+    ActiveBlock::Services => namespaced!(services),
+    ActiveBlock::ConfigMaps => namespaced!(config_maps),
+    ActiveBlock::Secrets => namespaced!(secrets),
+    ActiveBlock::StatefulSets => namespaced!(stateful_sets),
+    ActiveBlock::ReplicaSets => namespaced!(replica_sets),
+    ActiveBlock::Deployments => namespaced!(deployments),
+    ActiveBlock::Jobs => namespaced!(jobs),
+    ActiveBlock::DaemonSets => namespaced!(daemon_sets),
+    ActiveBlock::CronJobs => namespaced!(cronjobs),
+    ActiveBlock::ReplicationControllers => namespaced!(replication_controllers),
+    ActiveBlock::Roles => namespaced!(roles),
+    ActiveBlock::RoleBindings => namespaced!(role_bindings),
+    ActiveBlock::Ingresses => namespaced!(ingress),
+    ActiveBlock::PersistentVolumeClaims => namespaced!(persistent_volume_claims),
+    ActiveBlock::NetworkPolicies => namespaced!(network_policies),
+    ActiveBlock::ServiceAccounts => namespaced!(service_accounts),
+    ActiveBlock::Events => namespaced!(events),
+    ActiveBlock::Nodes => cluster!(nodes),
+    ActiveBlock::PersistentVolumes => cluster!(persistent_volumes),
+    ActiveBlock::StorageClasses => cluster!(storage_classes),
+    ActiveBlock::ClusterRoles => cluster!(cluster_roles),
+    ActiveBlock::ClusterRoleBindings => cluster!(cluster_role_bindings),
+    ActiveBlock::DynamicResource => app
+      .data
+      .dynamic_resources
+      .get_selected_item_copy()
+      .map(|res| (res.name.clone(), res.namespace.clone())),
+    _ => None,
+  }
+}
+
+/// Human-readable kind label for confirmation prompts.
+fn resource_kind_label(app: &App, block: ActiveBlock) -> String {
+  let label = match block {
+    ActiveBlock::Pods => "pod",
+    ActiveBlock::Services => "service",
+    ActiveBlock::ConfigMaps => "configmap",
+    ActiveBlock::Secrets => "secret",
+    ActiveBlock::StatefulSets => "statefulset",
+    ActiveBlock::ReplicaSets => "replicaset",
+    ActiveBlock::Deployments => "deployment",
+    ActiveBlock::Jobs => "job",
+    ActiveBlock::DaemonSets => "daemonset",
+    ActiveBlock::CronJobs => "cronjob",
+    ActiveBlock::ReplicationControllers => "replicationcontroller",
+    ActiveBlock::Roles => "role",
+    ActiveBlock::RoleBindings => "rolebinding",
+    ActiveBlock::Ingresses => "ingress",
+    ActiveBlock::PersistentVolumeClaims => "persistentvolumeclaim",
+    ActiveBlock::NetworkPolicies => "networkpolicy",
+    ActiveBlock::ServiceAccounts => "serviceaccount",
+    ActiveBlock::Events => "event",
+    ActiveBlock::Nodes => "node",
+    ActiveBlock::PersistentVolumes => "persistentvolume",
+    ActiveBlock::StorageClasses => "storageclass",
+    ActiveBlock::ClusterRoles => "clusterrole",
+    ActiveBlock::ClusterRoleBindings => "clusterrolebinding",
+    ActiveBlock::DynamicResource => {
+      return app
+        .data
+        .selected
+        .dynamic_kind
+        .as_ref()
+        .map(|kind| kind.kind.to_lowercase())
+        .unwrap_or_else(|| "resource".to_owned());
+    }
+    _ => "resource",
+  };
+  label.to_owned()
+}
+
+/// Open a delete-confirmation modal for the selected row in the current block.
+async fn handle_delete_resource(app: &mut App) {
+  let block = app.get_current_route().active_block;
+  let Some((name, namespace)) = selected_target(app, block) else {
+    return;
+  };
+  let kind = resource_kind_label(app, block);
+  let prompt = match &namespace {
+    Some(ns) => format!(
+      "Delete {} '{}' in namespace '{}'? This cannot be undone.",
+      kind, name, ns
+    ),
+    None => format!("Delete {} '{}'? This cannot be undone.", kind, name),
+  };
+  app.open_modal(Modal::confirm(
+    "Confirm delete",
+    prompt,
+    IoEvent::DeleteResource {
+      block,
+      name,
+      namespace,
+    },
+  ));
+}
+
+/// Open a restart-confirmation modal for the selected workload. Only offered for
+/// the rollout-capable kinds (deployments, statefulsets, daemonsets).
+async fn handle_restart_resource(app: &mut App) {
+  let block = app.get_current_route().active_block;
+  if !matches!(
+    block,
+    ActiveBlock::Deployments | ActiveBlock::StatefulSets | ActiveBlock::DaemonSets
+  ) {
+    return;
+  }
+  let Some((name, namespace)) = selected_target(app, block) else {
+    return;
+  };
+  let kind = resource_kind_label(app, block);
+  let prompt = match &namespace {
+    Some(ns) => format!("Rollout restart {} '{}' in namespace '{}'?", kind, name, ns),
+    None => format!("Rollout restart {} '{}'?", kind, name),
+  };
+  app.open_modal(Modal::confirm(
+    "Confirm restart",
+    prompt,
+    IoEvent::PatchResource {
+      block,
+      name,
+      namespace,
+      patch: ResourcePatch::RolloutRestart,
+    },
+  ));
+}
+
+/// Workloads that expose a `spec.replicas` count we can scale.
+fn is_scalable(block: ActiveBlock) -> bool {
+  matches!(
+    block,
+    ActiveBlock::Deployments
+      | ActiveBlock::StatefulSets
+      | ActiveBlock::ReplicaSets
+      | ActiveBlock::ReplicationControllers
+  )
+}
+
+/// Current desired replica count of the selected workload, read from the typed
+/// object so it works uniformly across scalable kinds. Used to prefill the input.
+fn current_replicas(app: &App, block: ActiveBlock) -> Option<i32> {
+  match block {
+    ActiveBlock::Deployments => app
+      .data
+      .deployments
+      .get_selected_item_copy()
+      .and_then(|r| r.get_k8s_obj().spec.as_ref().and_then(|s| s.replicas)),
+    ActiveBlock::StatefulSets => app
+      .data
+      .stateful_sets
+      .get_selected_item_copy()
+      .and_then(|r| r.get_k8s_obj().spec.as_ref().and_then(|s| s.replicas)),
+    ActiveBlock::ReplicaSets => app
+      .data
+      .replica_sets
+      .get_selected_item_copy()
+      .and_then(|r| r.get_k8s_obj().spec.as_ref().and_then(|s| s.replicas)),
+    ActiveBlock::ReplicationControllers => app
+      .data
+      .replication_controllers
+      .get_selected_item_copy()
+      .and_then(|r| r.get_k8s_obj().spec.as_ref().and_then(|s| s.replicas)),
+    _ => None,
+  }
+}
+
+/// Open the scale input modal for the selected workload, prefilled with the
+/// current replica count. Menu-only (no hotkey); only offered for scalable kinds.
+fn handle_scale_resource(app: &mut App) {
+  let block = app.get_current_route().active_block;
+  if !is_scalable(block) {
+    return;
+  }
+  let Some((name, namespace)) = selected_target(app, block) else {
+    return;
+  };
+  let kind = resource_kind_label(app, block);
+  let buffer = current_replicas(app, block)
+    .map(|n| n.to_string())
+    .unwrap_or_default();
+  app.open_input_modal(InputModal {
+    title: "Scale".to_owned(),
+    prompt: format!("New replica count for {} '{}':", kind, name),
+    buffer,
+    error: None,
+    action: InputAction::Scale {
+      block,
+      name,
+      namespace,
+      kind,
+    },
+  });
+}
+
+/// Handle keys while the `m` action menu overlay is active.
+async fn handle_action_menu_key(key: Key, app: &mut App) {
+  match key {
+    _ if key == DEFAULT_KEYBINDING.esc.key => app.close_action_menu(),
+    _ if key == DEFAULT_KEYBINDING.up.key
+      || key == DEFAULT_KEYBINDING.up.alt.unwrap()
+      || key == Key::Up =>
+    {
+      if let Some(menu) = app.action_menu.as_mut() {
+        menu.handle_scroll(true, false);
+      }
+    }
+    _ if key == DEFAULT_KEYBINDING.down.key
+      || key == DEFAULT_KEYBINDING.down.alt.unwrap()
+      || key == Key::Down =>
+    {
+      if let Some(menu) = app.action_menu.as_mut() {
+        menu.handle_scroll(false, false);
+      }
+    }
+    _ if key == DEFAULT_KEYBINDING.submit.key => {
+      let selected = app.action_menu.as_ref().and_then(|menu| {
+        menu
+          .state
+          .selected()
+          .and_then(|i| menu.items.get(i).copied())
+      });
+      app.close_action_menu();
+      if let Some(action) = selected {
+        execute_resource_action(action, app).await;
+      }
+    }
+    _ => {}
+  }
+}
+
+/// Dispatch a menu-selected action. Hotkey-backed actions replay their key so
+/// the menu and hotkey share one path; menu-only actions are handled directly.
+async fn execute_resource_action(action: ResourceAction, app: &mut App) {
+  match action {
+    ResourceAction::Scale => handle_scale_resource(app),
+    ResourceAction::Cordon => handle_cordon_toggle(app).await,
+    ResourceAction::Suspend => handle_cronjob_suspend_toggle(app).await,
+    ResourceAction::Trigger => handle_cronjob_trigger(app).await,
+    other => {
+      let block = app.get_current_route().active_block;
+      if let Some(key) = other.hotkey(block) {
+        handle_route_events(key, app).await;
+      }
+    }
+  }
+}
+
+/// Open a suspend/resume confirmation for the selected cronjob. The direction is
+/// derived from the cronjob's current `spec.suspend` state.
+async fn handle_cronjob_suspend_toggle(app: &mut App) {
+  let Some(cronjob) = app.data.cronjobs.get_selected_item_copy() else {
+    return;
+  };
+  let suspend = !cronjob.suspend;
+  let verb = if suspend { "Suspend" } else { "Resume" };
+  app.open_modal(Modal::confirm(
+    "Confirm suspend",
+    format!(
+      "{} cronjob '{}' in namespace '{}'?",
+      verb, cronjob.name, cronjob.namespace
+    ),
+    IoEvent::PatchResource {
+      block: ActiveBlock::CronJobs,
+      name: cronjob.name.clone(),
+      namespace: Some(cronjob.namespace.clone()),
+      patch: ResourcePatch::SetSuspend(suspend),
+    },
+  ));
+}
+
+/// Open a confirmation to trigger an immediate run of the selected cronjob.
+async fn handle_cronjob_trigger(app: &mut App) {
+  let Some(cronjob) = app.data.cronjobs.get_selected_item_copy() else {
+    return;
+  };
+  app.open_modal(Modal::confirm(
+    "Confirm trigger",
+    format!(
+      "Trigger cronjob '{}' now? This creates a one-off Job.",
+      cronjob.name
+    ),
+    IoEvent::TriggerCronJob {
+      name: cronjob.name.clone(),
+      namespace: cronjob.namespace.clone(),
+    },
+  ));
+}
+
+/// Open a cordon/uncordon confirmation for the selected node. The direction is
+/// derived from the node's current `spec.unschedulable` state.
+async fn handle_cordon_toggle(app: &mut App) {
+  let Some(node) = app.data.nodes.get_selected_item_copy() else {
+    return;
+  };
+  let currently_unschedulable = node
+    .get_k8s_obj()
+    .spec
+    .as_ref()
+    .and_then(|spec| spec.unschedulable)
+    .unwrap_or(false);
+  let cordon = !currently_unschedulable;
+  let verb = if cordon { "Cordon" } else { "Uncordon" };
+  app.open_modal(Modal::confirm(
+    "Confirm cordon",
+    format!("{} node '{}'?", verb, node.name),
+    IoEvent::PatchResource {
+      block: ActiveBlock::Nodes,
+      name: node.name.clone(),
+      namespace: None,
+      patch: ResourcePatch::SetUnschedulable(cordon),
+    },
+  ));
 }
 
 pub async fn handle_mouse_events(mouse: MouseEvent, app: &mut App) {
@@ -266,6 +671,7 @@ fn handle_escape(app: &mut App) {
       }
       ActiveBlock::Logs => {
         app.cancel_log_stream();
+        app.log_previous = false;
         // Clear resource context when leaving aggregate logs
         if app.data.selected.pod_selector.is_none() {
           app.data.selected.pod_selector_resource = None;
@@ -476,6 +882,12 @@ async fn handle_route_events(key: Key, app: &mut App) {
           app.show_info_bar = !app.show_info_bar;
         }
         _ if key == DEFAULT_KEYBINDING.select_all_namespace.key => app.data.selected.ns = None,
+        _ if key == DEFAULT_KEYBINDING.delete_resource.key => {
+          handle_delete_resource(app).await;
+        }
+        _ if key == DEFAULT_KEYBINDING.restart_resource.key => {
+          handle_restart_resource(app).await;
+        }
         _ if key == DEFAULT_KEYBINDING.jump_to_namespace.key
           && app.get_current_route().active_block != ActiveBlock::Namespaces =>
         {
@@ -620,6 +1032,8 @@ async fn handle_route_events(key: Key, app: &mut App) {
                 app.data.containers.set_items(pod.containers);
                 app.dispatch_pod_logs(pod.name, RouteId::Home).await;
               }
+            } else if key == DEFAULT_KEYBINDING.previous_logs.key {
+              handle_previous_logs_for_pod(app, RouteId::Home).await;
             } else if let Some(pod) = handle_block_action(key, &app.data.pods) {
               let ok = handle_describe_decode_or_yaml_action(
                 key,
@@ -642,6 +1056,8 @@ async fn handle_route_events(key: Key, app: &mut App) {
           ActiveBlock::Containers => {
             if key == DEFAULT_KEYBINDING.shell_exec.key {
               queue_selected_container_shell_exec(app);
+            } else if key == DEFAULT_KEYBINDING.previous_logs.key {
+              handle_previous_logs_for_container(app, RouteId::Home).await;
             } else if let Some(c) = handle_block_action(key, &app.data.containers) {
               app.data.selected.container = Some(c.name.clone());
               app.dispatch_container_logs(c.name, RouteId::Home).await;
@@ -772,6 +1188,8 @@ async fn handle_route_events(key: Key, app: &mut App) {
         ActiveBlock::Containers => {
           if key == DEFAULT_KEYBINDING.shell_exec.key {
             queue_selected_container_shell_exec(app);
+          } else if key == DEFAULT_KEYBINDING.previous_logs.key {
+            handle_previous_logs_for_container(app, RouteId::Troubleshoot).await;
           } else if let Some(c) = handle_block_action(key, &app.data.containers) {
             app.data.selected.container = Some(c.name.clone());
             app
@@ -900,6 +1318,33 @@ async fn handle_route_events(key: Key, app: &mut App) {
   if key == DEFAULT_KEYBINDING.submit.key {
     app.tick_count = 0;
   }
+}
+
+/// View previous logs for the selected container in the Containers view.
+async fn handle_previous_logs_for_container(app: &mut App, route_id: RouteId) {
+  let Some(container) = app.data.containers.get_selected_item_copy() else {
+    return;
+  };
+  app.data.selected.container = Some(container.name.clone());
+  app.dispatch_previous_logs(container.name, route_id).await;
+}
+
+/// View previous logs from the Pods view, resolving the target container the
+/// same way shell-exec does (single/selected container).
+async fn handle_previous_logs_for_pod(app: &mut App, route_id: RouteId) {
+  let Some(pod) = app.data.pods.get_selected_item_copy() else {
+    return;
+  };
+  let Some(container) = resolve_shell_container(app, &pod) else {
+    app.handle_error(anyhow!(
+      "Open the containers view to pick a container for previous logs on pod {}",
+      pod.name
+    ));
+    return;
+  };
+  app.data.selected.pod = Some(pod.name.clone());
+  app.data.selected.container = Some(container.name.clone());
+  app.dispatch_previous_logs(container.name, route_id).await;
 }
 
 fn queue_selected_container_shell_exec(app: &mut App) {
@@ -1475,6 +1920,652 @@ mod tests {
     let key_evt = KeyEvent::from(KeyCode::Esc);
     handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
     assert!(!app.data.containers.filter_active);
+  }
+
+  #[tokio::test]
+  async fn test_action_menu_opens_and_closes_on_pods() {
+    use crate::app::actions::ResourceAction;
+
+    let mut app = App::default();
+    app.route_home();
+
+    let m = KeyEvent::from(KeyCode::Char('m'));
+    handle_key_events(Key::from(m), m, &mut app).await;
+
+    let menu = app.action_menu.as_ref().expect("action menu should open");
+    assert_eq!(
+      menu.items,
+      vec![
+        ResourceAction::Describe,
+        ResourceAction::Yaml,
+        ResourceAction::Logs,
+        ResourceAction::PreviousLogs,
+        ResourceAction::Delete
+      ]
+    );
+
+    let esc = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(esc), esc, &mut app).await;
+    assert!(app.action_menu.is_none());
+  }
+
+  #[tokio::test]
+  async fn test_action_menu_not_opened_on_blocks_without_actions() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::More);
+
+    let m = KeyEvent::from(KeyCode::Char('m'));
+    handle_key_events(Key::from(m), m, &mut app).await;
+
+    assert!(app.action_menu.is_none());
+  }
+
+  #[tokio::test]
+  async fn test_action_menu_swallows_unrelated_keys_while_open() {
+    let mut app = App::default();
+    app.route_home();
+
+    let m = KeyEvent::from(KeyCode::Char('m'));
+    handle_key_events(Key::from(m), m, &mut app).await;
+    assert!(app.action_menu.is_some());
+    let block_before = app.get_current_route().active_block;
+
+    // A tab-switch key must be swallowed by the menu, not change the view.
+    let right = KeyEvent::from(KeyCode::Right);
+    handle_key_events(Key::from(right), right, &mut app).await;
+
+    assert!(app.action_menu.is_some());
+    assert_eq!(app.get_current_route().active_block, block_before);
+  }
+
+  #[tokio::test]
+  async fn test_action_menu_shell_replays_shell_exec_in_containers() {
+    use crate::app::actions::ResourceAction;
+
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
+
+    let mut pod = KubePod::default();
+    pod.namespace = "team-a".into();
+    pod.name = "pod-1".into();
+    app.data.pods.set_items(vec![pod]);
+    let mut container = KubeContainer::default();
+    container.name = "app".into();
+    app.data.containers.set_items(vec![container]);
+
+    let m = KeyEvent::from(KeyCode::Char('m'));
+    handle_key_events(Key::from(m), m, &mut app).await;
+    assert_eq!(
+      app.action_menu.as_ref().unwrap().items,
+      vec![
+        ResourceAction::Logs,
+        ResourceAction::PreviousLogs,
+        ResourceAction::Shell
+      ]
+    );
+
+    // Navigate to Shell (index 2) and select it.
+    for _ in 0..2 {
+      let down = KeyEvent::from(KeyCode::Down);
+      handle_key_events(Key::from(down), down, &mut app).await;
+    }
+    let enter = KeyEvent::from(KeyCode::Enter);
+    handle_key_events(Key::from(enter), enter, &mut app).await;
+
+    assert!(app.action_menu.is_none());
+    assert_eq!(
+      app.pending_shell_exec(),
+      Some(&PendingShellExec {
+        namespace: "team-a".into(),
+        pod: "pod-1".into(),
+        container: "app".into(),
+      })
+    );
+  }
+
+  fn ctrl_key(c: char) -> KeyEvent {
+    KeyEvent {
+      code: KeyCode::Char(c),
+      modifiers: crossterm::event::KeyModifiers::CONTROL,
+      kind: crossterm::event::KeyEventKind::Press,
+      state: crossterm::event::KeyEventState::NONE,
+    }
+  }
+
+  fn make_node(name: &str, unschedulable: bool) -> crate::app::nodes::KubeNode {
+    use k8s_openapi::api::core::v1::{Node, NodeSpec, Pod};
+    use k8s_openapi::apimachinery::pkg::apis::meta::v1::{ListMeta, ObjectMeta};
+    use kube::{api::ObjectList, core::TypeMeta};
+
+    let node = Node {
+      metadata: ObjectMeta {
+        name: Some(name.into()),
+        ..Default::default()
+      },
+      spec: Some(NodeSpec {
+        unschedulable: Some(unschedulable),
+        ..Default::default()
+      }),
+      ..Default::default()
+    };
+    let pods = ObjectList::<Pod> {
+      types: TypeMeta {
+        api_version: "v1".into(),
+        kind: "List".into(),
+      },
+      metadata: ListMeta::default(),
+      items: vec![],
+    };
+    let seed = tokio::sync::Mutex::new(App::default());
+    let mut guard = seed.try_lock().expect("uncontended lock");
+    crate::app::nodes::KubeNode::from_api_with_pods(&node, &pods, &mut guard)
+  }
+
+  async fn open_menu_and_select(app: &mut App, steps: usize) {
+    let m = KeyEvent::from(KeyCode::Char('m'));
+    handle_key_events(Key::from(m), m, app).await;
+    for _ in 0..steps {
+      let down = KeyEvent::from(KeyCode::Down);
+      handle_key_events(Key::from(down), down, app).await;
+    }
+    let enter = KeyEvent::from(KeyCode::Enter);
+    handle_key_events(Key::from(enter), enter, app).await;
+  }
+
+  /// Drive a whole key sequence through one loop. `handle_key_events` produces a
+  /// large async future, and a separate `.await` per key inflates the caller's
+  /// future enough to overflow Windows' 1 MB test stack; a single await point
+  /// inside this loop keeps it small.
+  async fn send_keys(app: &mut App, codes: &[KeyCode]) {
+    for &code in codes {
+      let evt = KeyEvent::from(code);
+      handle_key_events(Key::from(evt), evt, app).await;
+    }
+  }
+
+  #[tokio::test]
+  async fn test_menu_cordon_on_schedulable_node_confirms_cordon() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Nodes);
+    app.data.nodes.set_items(vec![make_node("n1", false)]);
+
+    // Nodes menu: Describe, YAML, Cordon, Delete → Cordon at index 2.
+    open_menu_and_select(&mut app, 2).await;
+
+    let modal = app
+      .modal
+      .as_ref()
+      .expect("cordon should open a confirm modal");
+    assert!(modal.prompt.contains("Cordon node 'n1'"));
+    assert_eq!(
+      modal.on_confirm,
+      IoEvent::PatchResource {
+        block: ActiveBlock::Nodes,
+        name: "n1".into(),
+        namespace: None,
+        patch: ResourcePatch::SetUnschedulable(true),
+      }
+    );
+  }
+
+  #[tokio::test]
+  async fn test_menu_cordon_on_cordoned_node_confirms_uncordon() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Nodes);
+    app.data.nodes.set_items(vec![make_node("n1", true)]);
+
+    open_menu_and_select(&mut app, 2).await;
+
+    let modal = app
+      .modal
+      .as_ref()
+      .expect("uncordon should open a confirm modal");
+    assert!(modal.prompt.contains("Uncordon node 'n1'"));
+    assert_eq!(
+      modal.on_confirm,
+      IoEvent::PatchResource {
+        block: ActiveBlock::Nodes,
+        name: "n1".into(),
+        namespace: None,
+        patch: ResourcePatch::SetUnschedulable(false),
+      }
+    );
+  }
+
+  #[tokio::test]
+  async fn test_delete_key_opens_confirm_modal_with_correct_event() {
+    let mut app = App::default();
+    app.route_home();
+    let mut pod = KubePod::default();
+    pod.namespace = "team-a".into();
+    pod.name = "pod-1".into();
+    app.data.pods.set_items(vec![pod]);
+
+    let ctrl_d = ctrl_key('d');
+    handle_key_events(Key::from(ctrl_d), ctrl_d, &mut app).await;
+
+    let modal = app
+      .modal
+      .as_ref()
+      .expect("delete should open a confirm modal");
+    assert_eq!(
+      modal.on_confirm,
+      IoEvent::DeleteResource {
+        block: ActiveBlock::Pods,
+        name: "pod-1".into(),
+        namespace: Some("team-a".into()),
+      }
+    );
+    assert!(modal.prompt.contains("pod-1"));
+    assert!(modal.prompt.contains("team-a"));
+  }
+
+  #[tokio::test]
+  async fn test_delete_key_is_noop_without_selected_row() {
+    let mut app = App::default();
+    app.route_home();
+    // No pods set → nothing selected.
+
+    let ctrl_d = ctrl_key('d');
+    handle_key_events(Key::from(ctrl_d), ctrl_d, &mut app).await;
+
+    assert!(app.modal.is_none());
+  }
+
+  #[tokio::test]
+  async fn test_modal_cancel_closes_without_dispatch() {
+    let mut app = App::default();
+    app.route_home();
+    let mut pod = KubePod::default();
+    pod.namespace = "team-a".into();
+    pod.name = "pod-1".into();
+    app.data.pods.set_items(vec![pod]);
+
+    let ctrl_d = ctrl_key('d');
+    handle_key_events(Key::from(ctrl_d), ctrl_d, &mut app).await;
+    assert!(app.modal.is_some());
+
+    let n = KeyEvent::from(KeyCode::Char('n'));
+    handle_key_events(Key::from(n), n, &mut app).await;
+    assert!(app.modal.is_none());
+  }
+
+  #[tokio::test]
+  async fn test_modal_confirm_clears_modal() {
+    let mut app = App::default();
+    app.route_home();
+    let mut pod = KubePod::default();
+    pod.namespace = "team-a".into();
+    pod.name = "pod-1".into();
+    app.data.pods.set_items(vec![pod]);
+
+    let ctrl_d = ctrl_key('d');
+    handle_key_events(Key::from(ctrl_d), ctrl_d, &mut app).await;
+    assert!(app.modal.is_some());
+
+    let y = KeyEvent::from(KeyCode::Char('y'));
+    handle_key_events(Key::from(y), y, &mut app).await;
+    assert!(app.modal.is_none());
+  }
+
+  #[tokio::test]
+  async fn test_action_menu_delete_entry_opens_confirm_modal() {
+    let mut app = App::default();
+    app.route_home();
+    let mut pod = KubePod::default();
+    pod.namespace = "team-a".into();
+    pod.name = "pod-1".into();
+    app.data.pods.set_items(vec![pod]);
+
+    // Open the action menu and move to the Delete entry
+    // (Describe, YAML, Logs, Previous logs, Delete → index 4).
+    let m = KeyEvent::from(KeyCode::Char('m'));
+    handle_key_events(Key::from(m), m, &mut app).await;
+    for _ in 0..4 {
+      let down = KeyEvent::from(KeyCode::Down);
+      handle_key_events(Key::from(down), down, &mut app).await;
+    }
+    let enter = KeyEvent::from(KeyCode::Enter);
+    handle_key_events(Key::from(enter), enter, &mut app).await;
+
+    assert!(app.action_menu.is_none());
+    let modal = app
+      .modal
+      .as_ref()
+      .expect("menu delete should open confirm modal");
+    assert_eq!(
+      modal.on_confirm,
+      IoEvent::DeleteResource {
+        block: ActiveBlock::Pods,
+        name: "pod-1".into(),
+        namespace: Some("team-a".into()),
+      }
+    );
+  }
+
+  #[tokio::test]
+  async fn test_restart_key_opens_confirm_for_deployment() {
+    use crate::app::deployments::KubeDeployment;
+    use k8s_openapi::api::apps::v1::Deployment;
+
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Deployments);
+    let mut dep = KubeDeployment::from(Deployment::default());
+    dep.name = "web".into();
+    dep.namespace = "team-a".into();
+    app.data.deployments.set_items(vec![dep]);
+
+    let r = KeyEvent::from(KeyCode::Char('r'));
+    handle_key_events(Key::from(r), r, &mut app).await;
+
+    let modal = app
+      .modal
+      .as_ref()
+      .expect("restart should open a confirm modal");
+    assert_eq!(
+      modal.on_confirm,
+      IoEvent::PatchResource {
+        block: ActiveBlock::Deployments,
+        name: "web".into(),
+        namespace: Some("team-a".into()),
+        patch: ResourcePatch::RolloutRestart,
+      }
+    );
+  }
+
+  fn deployment_with_replicas(
+    name: &str,
+    ns: &str,
+    replicas: Option<i32>,
+  ) -> crate::app::deployments::KubeDeployment {
+    use crate::app::deployments::KubeDeployment;
+    use k8s_openapi::api::apps::v1::{Deployment, DeploymentSpec};
+
+    let dep = Deployment {
+      spec: replicas.map(|r| DeploymentSpec {
+        replicas: Some(r),
+        ..Default::default()
+      }),
+      ..Default::default()
+    };
+    let mut dep = KubeDeployment::from(dep);
+    dep.name = name.into();
+    dep.namespace = ns.into();
+    dep
+  }
+
+  #[tokio::test]
+  async fn test_menu_scale_deployment_opens_input_prefilled() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Deployments);
+    app
+      .data
+      .deployments
+      .set_items(vec![deployment_with_replicas("web", "team-a", Some(2))]);
+
+    // Deployments menu: Describe, YAML, Logs, Restart, Scale, Delete → Scale at index 4.
+    open_menu_and_select(&mut app, 4).await;
+
+    let input = app
+      .input_modal
+      .as_ref()
+      .expect("scale should open an input modal");
+    // Prefilled with the current replica count.
+    assert_eq!(input.buffer, "2");
+    assert_eq!(
+      input.action,
+      InputAction::Scale {
+        block: ActiveBlock::Deployments,
+        name: "web".into(),
+        namespace: Some("team-a".into()),
+        kind: "deployment".into(),
+      }
+    );
+    // No confirm modal yet — only the input overlay.
+    assert!(app.modal.is_none());
+  }
+
+  #[tokio::test]
+  async fn test_scale_input_submit_chains_to_confirm_modal() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Deployments);
+    app
+      .data
+      .deployments
+      .set_items(vec![deployment_with_replicas("web", "team-a", Some(2))]);
+
+    // Menu: Describe, YAML, Logs, Restart, Scale, Delete → Scale at index 4.
+    // Open the input modal, replace the prefilled "2" with "5", then submit.
+    send_keys(
+      &mut app,
+      &[
+        KeyCode::Char('m'),
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Enter,
+        KeyCode::Backspace,
+        KeyCode::Char('5'),
+        KeyCode::Enter,
+      ],
+    )
+    .await;
+
+    // Input modal closed, confirm modal opened with the scale patch.
+    assert!(app.input_modal.is_none());
+    let modal = app
+      .modal
+      .as_ref()
+      .expect("valid scale submit should chain into a confirm modal");
+    assert!(modal.prompt.contains("to 5 replica(s)"));
+    assert_eq!(
+      modal.on_confirm,
+      IoEvent::PatchResource {
+        block: ActiveBlock::Deployments,
+        name: "web".into(),
+        namespace: Some("team-a".into()),
+        patch: ResourcePatch::SetReplicas(5),
+      }
+    );
+  }
+
+  #[tokio::test]
+  async fn test_scale_input_invalid_keeps_modal_open_with_error() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Deployments);
+    app
+      .data
+      .deployments
+      .set_items(vec![deployment_with_replicas("web", "team-a", Some(2))]);
+
+    // Open the scale input modal (Scale at index 4), type a non-numeric value
+    // and submit.
+    send_keys(
+      &mut app,
+      &[
+        KeyCode::Char('m'),
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Enter,
+        KeyCode::Char('x'),
+        KeyCode::Enter,
+      ],
+    )
+    .await;
+
+    // Stays open with an inline error; no confirm modal, no dispatch.
+    let input = app
+      .input_modal
+      .as_ref()
+      .expect("invalid input keeps the modal open");
+    assert!(input.error.is_some());
+    assert!(app.modal.is_none());
+  }
+
+  #[tokio::test]
+  async fn test_scale_input_esc_cancels() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Deployments);
+    app
+      .data
+      .deployments
+      .set_items(vec![deployment_with_replicas("web", "team-a", Some(2))]);
+
+    // Open the scale input modal (Scale at index 4), then cancel with Esc.
+    send_keys(
+      &mut app,
+      &[
+        KeyCode::Char('m'),
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Enter,
+        KeyCode::Esc,
+      ],
+    )
+    .await;
+
+    assert!(app.input_modal.is_none());
+    assert!(app.modal.is_none());
+  }
+
+  #[tokio::test]
+  async fn test_restart_key_is_noop_on_non_workload_block() {
+    let mut app = App::default();
+    app.route_home();
+    let mut pod = KubePod::default();
+    pod.name = "p".into();
+    pod.namespace = "n".into();
+    app.data.pods.set_items(vec![pod]);
+
+    let r = KeyEvent::from(KeyCode::Char('r'));
+    handle_key_events(Key::from(r), r, &mut app).await;
+
+    assert!(app.modal.is_none());
+  }
+
+  #[tokio::test]
+  async fn test_menu_suspend_cronjob_confirms_suspend() {
+    use crate::app::cronjobs::KubeCronJob;
+    use k8s_openapi::api::batch::v1::CronJob;
+
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::CronJobs);
+    let mut cronjob = KubeCronJob::from(CronJob::default());
+    cronjob.name = "backup".into();
+    cronjob.namespace = "default".into();
+    cronjob.suspend = false;
+    app.data.cronjobs.set_items(vec![cronjob]);
+
+    // CronJobs menu: Describe, YAML, Logs, Suspend, Trigger, Delete → Suspend at index 3.
+    open_menu_and_select(&mut app, 3).await;
+
+    let modal = app
+      .modal
+      .as_ref()
+      .expect("suspend should open a confirm modal");
+    assert_eq!(
+      modal.on_confirm,
+      IoEvent::PatchResource {
+        block: ActiveBlock::CronJobs,
+        name: "backup".into(),
+        namespace: Some("default".into()),
+        patch: ResourcePatch::SetSuspend(true),
+      }
+    );
+  }
+
+  #[tokio::test]
+  async fn test_menu_trigger_cronjob_confirms_trigger() {
+    use crate::app::cronjobs::KubeCronJob;
+    use k8s_openapi::api::batch::v1::CronJob;
+
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::CronJobs);
+    let mut cronjob = KubeCronJob::from(CronJob::default());
+    cronjob.name = "backup".into();
+    cronjob.namespace = "default".into();
+    app.data.cronjobs.set_items(vec![cronjob]);
+
+    // CronJobs menu: Describe, YAML, Logs, Suspend, Trigger, Delete → Trigger at index 4.
+    open_menu_and_select(&mut app, 4).await;
+
+    let modal = app
+      .modal
+      .as_ref()
+      .expect("trigger should open a confirm modal");
+    assert_eq!(
+      modal.on_confirm,
+      IoEvent::TriggerCronJob {
+        name: "backup".into(),
+        namespace: "default".into(),
+      }
+    );
+  }
+
+  #[tokio::test]
+  async fn test_previous_logs_key_in_containers_opens_previous_log_view() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
+    let mut pod = KubePod::default();
+    pod.namespace = "team-a".into();
+    pod.name = "pod-1".into();
+    app.data.pods.set_items(vec![pod]);
+    let mut container = KubeContainer::default();
+    container.name = "app".into();
+    app.data.containers.set_items(vec![container]);
+
+    let p = KeyEvent::from(KeyCode::Char('p'));
+    handle_key_events(Key::from(p), p, &mut app).await;
+
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Logs);
+    assert!(app.log_previous);
+    assert_eq!(app.data.selected.container.as_deref(), Some("app"));
+    // The log id must match the selected container so the log view's render
+    // guard (`container == logs.id`) shows the fetched previous logs.
+    assert_eq!(app.data.logs.id, "app");
+  }
+
+  #[tokio::test]
+  async fn test_leaving_previous_logs_resets_flag() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Containers);
+    let mut pod = KubePod::default();
+    pod.namespace = "team-a".into();
+    pod.name = "pod-1".into();
+    app.data.pods.set_items(vec![pod]);
+    let mut container = KubeContainer::default();
+    container.name = "app".into();
+    app.data.containers.set_items(vec![container]);
+
+    let p = KeyEvent::from(KeyCode::Char('p'));
+    handle_key_events(Key::from(p), p, &mut app).await;
+    assert!(app.log_previous);
+
+    let esc = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(esc), esc, &mut app).await;
+    assert!(!app.log_previous);
+    assert_eq!(
+      app.get_current_route().active_block,
+      ActiveBlock::Containers
+    );
   }
 
   #[tokio::test]

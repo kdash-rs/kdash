@@ -9,7 +9,7 @@ use ratatui::{
   layout::{Alignment, Constraint, Rect},
   style::Modifier,
   text::{Line, Text},
-  widgets::{Block, Borders, Paragraph, Tabs, Wrap},
+  widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Tabs, Wrap},
   Frame,
 };
 
@@ -17,7 +17,7 @@ use self::{
   help::draw_help,
   overview::draw_overview,
   utils::{
-    action_hint, default_part, help_part, horizontal_chunks_with_margin, key_hints,
+    action_hint, centered_rect, default_part, help_part, horizontal_chunks_with_margin, key_hints,
     mixed_bold_line, mixed_line, split_hint_suffix, style_failure, style_header,
     style_main_background, style_primary, style_secondary, style_success, vertical_chunks,
   },
@@ -26,6 +26,7 @@ use crate::app::{
   contexts::ContextResource, key_binding::DEFAULT_KEYBINDING, metrics::UtilizationResource,
   models::AppResource, troubleshoot::TroubleshootResource, ActiveBlock, App, RouteId,
 };
+use crate::event::Key;
 
 pub static HIGHLIGHT: &str = "=> ";
 
@@ -92,6 +93,162 @@ pub fn draw(f: &mut Frame<'_>, app: &mut App) {
       draw_overview(f, app, last_chunk);
     }
   }
+
+  // Transient overlays are drawn last so they sit above the current view.
+  if app.action_menu.is_some() {
+    draw_action_menu(f, app);
+  }
+  if app.input_modal.is_some() {
+    draw_input_modal(f, app);
+  }
+  if app.modal.is_some() {
+    draw_modal(f, app);
+  }
+}
+
+fn draw_modal(f: &mut Frame<'_>, app: &App) {
+  let light = app.light_theme;
+  let Some(modal) = app.modal.as_ref() else {
+    return;
+  };
+
+  let width: u16 = 64;
+  // Pre-wrap the prompt to the inner width so the box height (and therefore the
+  // confirm/cancel hint line) always fits regardless of prompt length.
+  let inner_width = width.saturating_sub(2).max(1) as usize;
+  let mut lines: Vec<Line<'_>> = textwrap::wrap(&modal.prompt, inner_width)
+    .into_iter()
+    .map(|line| Line::from(line.into_owned()))
+    .collect();
+  lines.push(Line::from(""));
+  lines.push(mixed_line(
+    [help_part(format!(
+      "confirm {}/{} · cancel {}/{} ",
+      Key::Char('y'),
+      DEFAULT_KEYBINDING.submit.key,
+      Key::Char('n'),
+      DEFAULT_KEYBINDING.esc.key,
+    ))],
+    light,
+  ));
+
+  let height = (lines.len() as u16).saturating_add(2);
+  let area = centered_rect(width, height, f.area());
+
+  let block = Block::default()
+    .title(mixed_bold_line(
+      [default_part(format!(" {} ", modal.title))],
+      light,
+    ))
+    .borders(Borders::ALL)
+    .style(style_failure(light));
+
+  let paragraph = Paragraph::new(lines)
+    .block(block)
+    .style(style_primary(light));
+
+  f.render_widget(Clear, area);
+  f.render_widget(paragraph, area);
+}
+
+fn draw_input_modal(f: &mut Frame<'_>, app: &App) {
+  let light = app.light_theme;
+  let Some(input) = app.input_modal.as_ref() else {
+    return;
+  };
+
+  let width: u16 = 60;
+  let inner_width = width.saturating_sub(2).max(1) as usize;
+
+  // Prompt (wrapped), the live buffer with a cursor block, an optional inline
+  // error, then the submit/cancel hint — so the box always sizes to its content.
+  let mut lines: Vec<Line<'_>> = textwrap::wrap(&input.prompt, inner_width)
+    .into_iter()
+    .map(|line| Line::from(line.into_owned()))
+    .collect();
+  lines.push(mixed_line(
+    [default_part(format!("> {}_", input.buffer))],
+    light,
+  ));
+  if let Some(err) = &input.error {
+    lines.push(Line::styled(err.clone(), style_failure(light)));
+  }
+  lines.push(Line::from(""));
+  lines.push(mixed_line(
+    [help_part(format!(
+      "submit {} · cancel {} ",
+      DEFAULT_KEYBINDING.submit.key, DEFAULT_KEYBINDING.esc.key,
+    ))],
+    light,
+  ));
+
+  let height = (lines.len() as u16).saturating_add(2);
+  let area = centered_rect(width, height, f.area());
+
+  let block = Block::default()
+    .title(mixed_bold_line(
+      [default_part(format!(" {} ", input.title))],
+      light,
+    ))
+    .borders(Borders::ALL)
+    .style(style_secondary(light));
+
+  let paragraph = Paragraph::new(lines)
+    .block(block)
+    .style(style_primary(light));
+
+  f.render_widget(Clear, area);
+  f.render_widget(paragraph, area);
+}
+
+fn draw_action_menu(f: &mut Frame<'_>, app: &mut App) {
+  let light = app.light_theme;
+  let block = app.get_current_route().active_block;
+  let Some(menu) = app.action_menu.as_mut() else {
+    return;
+  };
+
+  let items: Vec<ListItem<'_>> = menu
+    .items
+    .iter()
+    .map(|action| {
+      let key_hint = action
+        .hotkey(block)
+        .map(|key| key.to_string())
+        .unwrap_or_default();
+      ListItem::new(mixed_line(
+        [
+          default_part(format!("{}  ", action.label())),
+          help_part(key_hint),
+        ],
+        light,
+      ))
+    })
+    .collect();
+
+  let width = 40;
+  let height = (items.len() as u16).saturating_add(2);
+  let area = centered_rect(width, height, f.area());
+
+  let block = Block::default()
+    .title(mixed_bold_line(
+      [
+        default_part(" Actions "),
+        help_part(format!("· close {} ", DEFAULT_KEYBINDING.esc.key)),
+      ],
+      light,
+    ))
+    .borders(Borders::ALL)
+    .style(style_secondary(light));
+
+  let list = List::new(items)
+    .block(block)
+    .style(style_primary(light))
+    .highlight_style(style_secondary(light).add_modifier(Modifier::BOLD))
+    .highlight_symbol(HIGHLIGHT);
+
+  f.render_widget(Clear, area);
+  f.render_stateful_widget(list, area, &mut menu.state);
 }
 
 fn draw_app_title(f: &mut Frame<'_>, app: &App, area: Rect) {
@@ -160,7 +317,7 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
   let text = match app.get_current_route().id {
     RouteId::Contexts => vec![mixed_line(
       [help_part(format!(
-        "{} | {} scroll | {} select | {} ",
+        "{} · {} scroll · {} select · {} ",
         action_hint("help", DEFAULT_KEYBINDING.help.key),
         key_hints(&[DEFAULT_KEYBINDING.up.key, DEFAULT_KEYBINDING.down.key]),
         DEFAULT_KEYBINDING.submit.key,
@@ -170,7 +327,7 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
     )],
     RouteId::Home => vec![mixed_line(
       [help_part(format!(
-        "{} | {} switch tabs | <char> select block | {} scroll | {} select | {} ",
+        "{} · {} switch tabs · <char> select block · {} scroll · {} select · {} ",
         action_hint("help", DEFAULT_KEYBINDING.help.key),
         key_hints(&[
           DEFAULT_KEYBINDING.cycle_main_views.key,
@@ -185,7 +342,7 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
     )],
     RouteId::Utilization => vec![mixed_line(
       [help_part(format!(
-        "{} | {} scroll | {} | {} ",
+        "{} · {} scroll · {} · {} ",
         action_hint("help", DEFAULT_KEYBINDING.help.key),
         key_hints(&[DEFAULT_KEYBINDING.up.key, DEFAULT_KEYBINDING.down.key]),
         action_hint("filter", DEFAULT_KEYBINDING.filter.key),
@@ -195,7 +352,7 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
     )],
     RouteId::Troubleshoot => vec![mixed_line(
       [help_part(format!(
-        "{} | {} scroll | {} ",
+        "{} · {} scroll · {} ",
         action_hint("help", DEFAULT_KEYBINDING.help.key),
         key_hints(&[DEFAULT_KEYBINDING.up.key, DEFAULT_KEYBINDING.down.key]),
         action_hint("filter", DEFAULT_KEYBINDING.filter.key),
@@ -215,7 +372,7 @@ fn draw_app_error(f: &mut Frame<'_>, app: &App, size: Rect) {
     .title(mixed_bold_line(
       [
         default_part(" Error "),
-        help_part(format!("| close {} ", DEFAULT_KEYBINDING.esc.key)),
+        help_part(format!("· close {} ", DEFAULT_KEYBINDING.esc.key)),
       ],
       app.light_theme,
     ))
@@ -237,7 +394,7 @@ fn draw_app_status(f: &mut Frame<'_>, app: &App, size: Rect) {
     .title(mixed_bold_line(
       [
         default_part(" Info "),
-        help_part(format!("| close {} ", DEFAULT_KEYBINDING.esc.key)),
+        help_part(format!("· close {} ", DEFAULT_KEYBINDING.esc.key)),
       ],
       app.light_theme,
     ))
@@ -345,6 +502,73 @@ mod tests {
 
     assert!(joined.contains("Error"));
     assert!(joined.contains("Kubernetes API unavailable"));
+  }
+
+  #[test]
+  fn test_draw_modal_shows_confirm_hint_even_with_long_prompt() {
+    let mut app = App::default();
+    app.route_home();
+    app.open_modal(crate::app::actions::Modal::confirm(
+      "Confirm delete",
+      "Delete configmap 'app-config' in namespace 'kdash-test'? This cannot be undone.",
+      crate::network::IoEvent::GetPods,
+    ));
+
+    let lines = render_lines(&mut app, 120, 30);
+    let joined = lines.join("\n");
+
+    assert!(joined.contains("Confirm delete"));
+    // The prompt is shown (a token that won't straddle a wrap boundary).
+    assert!(joined.contains("undone"));
+    // The wrapping prompt must not push the confirm/cancel hint out of the box.
+    assert!(joined.contains("confirm"));
+    assert!(joined.contains("cancel"));
+  }
+
+  #[test]
+  fn test_draw_input_modal_shows_prompt_buffer_and_hints() {
+    use crate::app::actions::{InputAction, InputModal};
+
+    let mut app = App::default();
+    app.route_home();
+    app.open_input_modal(InputModal {
+      title: "Scale".into(),
+      prompt: "New replica count for deployment 'web':".into(),
+      buffer: "3".into(),
+      error: Some("Enter a non-negative whole number".into()),
+      action: InputAction::Scale {
+        block: ActiveBlock::Deployments,
+        name: "web".into(),
+        namespace: Some("default".into()),
+        kind: "deployment".into(),
+      },
+    });
+
+    let lines = render_lines(&mut app, 120, 30);
+    let joined = lines.join("\n");
+
+    assert!(joined.contains("Scale"));
+    assert!(joined.contains("replica count"));
+    // The live buffer is shown with a cursor block.
+    assert!(joined.contains("> 3_"));
+    // The inline error and submit/cancel hints are visible.
+    assert!(joined.contains("non-negative"));
+    assert!(joined.contains("submit"));
+    assert!(joined.contains("cancel"));
+  }
+
+  #[test]
+  fn test_draw_action_menu_lists_actions_for_block() {
+    let mut app = App::default();
+    app.route_home();
+    app.open_action_menu(ActiveBlock::Pods);
+
+    let lines = render_lines(&mut app, 120, 30);
+    let joined = lines.join("\n");
+
+    assert!(joined.contains("Actions"));
+    assert!(joined.contains("Describe"));
+    assert!(joined.contains("Delete"));
   }
 
   #[test]

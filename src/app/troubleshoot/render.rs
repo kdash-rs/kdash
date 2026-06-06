@@ -48,7 +48,7 @@ pub fn render_troubleshoot(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   if !filter_active {
     inline_help.extend([
       help_part(format!(
-        " | {} | ",
+        " · {} · ",
         action_hint("resource", DEFAULT_KEYBINDING.submit.key)
       )),
       help_part(describe_and_yaml_hint()),

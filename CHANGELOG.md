@@ -1,5 +1,24 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **NEW:** Resource management actions. KDash can now act on resources, not just observe them:
+  - Delete any resource (`Ctrl-d`)
+  - View previous (restarted) container logs (`p`)
+  - Rollout restart Deployments/StatefulSets/DaemonSets (`r`)
+  - Scale Deployments/StatefulSets/ReplicaSets/ReplicationControllers to a replica count
+  - Cordon/uncordon nodes and suspend/resume/trigger CronJobs
+- **NEW:** Action menu (`m`) lists every available action for the selected resource; the most-used actions also have dedicated hotkeys surfaced as hints.
+- Impactful actions are guarded by a confirmation prompt before any change is applied.
+
+## [1.1.2] - 2026-05-16
+
+### Added
+
+- New `hide_logo` and `hide_info_on_start` config options to hide the logo block and start with the info bar collapsed. Fix [#521](https://github.com/kdash-rs/kdash/issues/521)
+
 ## [1.1.1] - 2026-04-24
 
 ### Changed

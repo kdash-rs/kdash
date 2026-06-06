@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use k8s_openapi::api::core::v1::{
   Container, ContainerPort, ContainerState, ContainerStateWaiting, ContainerStatus, Pod, PodSpec,
   PodStatus,
@@ -74,7 +74,13 @@ impl KubeResource<Option<Container>> for KubeContainer {
 
 impl From<Pod> for KubePod {
   fn from(pod: Pod) -> Self {
-    let age = utils::to_age(pod.metadata.creation_timestamp.as_ref(), Utc::now());
+    Self::from_pod_at(pod, Utc::now())
+  }
+}
+
+impl KubePod {
+  fn from_pod_at(pod: Pod, now: DateTime<Utc>) -> Self {
+    let age = utils::to_age(pod.metadata.creation_timestamp.as_ref(), now);
     let pod_name = pod.metadata.name.clone().unwrap_or_default();
     let main_containers = pod
       .spec
@@ -278,7 +284,7 @@ pub(crate) fn draw_block_as_sub(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: help_bold_line(
         format!(
-          "{} | {} | {} | back {} ",
+          "{} · {} · {} · back {} ",
           action_hint("containers", DEFAULT_KEYBINDING.submit.key),
           describe_yaml_and_logs_hint().trim_end(),
           wide_hint(),
@@ -336,7 +342,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: help_bold_line(
         format!(
-          "{} | {} | {}",
+          "{} · {} · {}",
           action_hint("containers", DEFAULT_KEYBINDING.submit.key),
           describe_yaml_and_logs_hint(),
           wide_hint()
@@ -394,9 +400,11 @@ pub(crate) fn draw_containers_block(f: &mut Frame<'_>, app: &mut App, area: Rect
       inline_help: mixed_bold_line(
         [
           help_part(format!(
-            "{} | {} | ",
+            "{} · {} · {} · {} · ",
             action_hint("logs", DEFAULT_KEYBINDING.submit.key),
             action_hint("shell", DEFAULT_KEYBINDING.shell_exec.key),
+            action_hint("prev logs", DEFAULT_KEYBINDING.previous_logs.key),
+            action_hint("menu", DEFAULT_KEYBINDING.open_action_menu.key),
           )),
           help_part(format!("back {} ", DEFAULT_KEYBINDING.esc.key)),
         ],
@@ -451,7 +459,7 @@ pub(crate) fn draw_logs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       format!(" {} -> Logs ({}) ", resource, agg_name),
       help_bold_line(
         format!(
-          "{} | {} | back {} ",
+          "{} · {} · back {} ",
           action_hint("copy", DEFAULT_KEYBINDING.copy_to_clipboard.key),
           action_hint(
             if app.log_auto_scroll {
@@ -469,12 +477,13 @@ pub(crate) fn draw_logs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   } else {
     let selected_container = app.data.selected.container.clone();
     let container_name = selected_container.unwrap_or_default();
+    let logs_label = if app.log_previous {
+      format!("-> Logs ({} · previous) ", container_name)
+    } else {
+      format!("-> Logs ({}) ", container_name)
+    };
     (
-      get_container_title(
-        app,
-        app.data.containers.items.len(),
-        format!("-> Logs ({}) ", container_name),
-      ),
+      get_container_title(app, app.data.containers.items.len(), logs_label),
       copy_scroll_and_escape_title_line("Containers", app.log_auto_scroll, app.light_theme),
     )
   };
@@ -769,7 +778,13 @@ mod tests {
 
   #[test]
   fn test_pod_from_api() {
-    let (pods, pods_list): (Vec<KubePod>, Vec<_>) = convert_resource_from_file("pods");
+    let now = Utc::now();
+    let raw = load_resource_from_file::<Pod>("pods");
+    let pods_list: Vec<Pod> = raw.items.clone();
+    let pods: Vec<KubePod> = raw
+      .into_iter()
+      .map(|p| KubePod::from_pod_at(p, now))
+      .collect();
 
     assert_eq!(pods.len(), 13);
     assert_eq!(
@@ -784,7 +799,7 @@ mod tests {
         mem: "".into(),
         node: "".into(),
         ip: "".into(),
-        age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
+        age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), now),
         containers: vec![KubeContainer {
           name: "server".into(),
           image: "gcr.io/google-samples/microservices-demo/adservice:v0.2.2".into(),
@@ -794,7 +809,7 @@ mod tests {
           liveliness_probe: true,
           readiness_probe: true,
           ports: "9555".into(),
-          age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
+          age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), now),
           pod_name: "adservice-f787c8dcd-tb6x2".into(),
           init: false,
           k8s_obj: None,
@@ -814,7 +829,7 @@ mod tests {
         mem: "".into(),
         node: "gke-hello-hipster-default-pool-9e6f6ffb-q16l".into(),
         ip: "10.24.1.9".into(),
-        age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
+        age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), now),
         containers: vec![KubeContainer {
           name: "server".into(),
           image: "gcr.io/google-samples/microservices-demo/cartservice:v0.2.2".into(),
@@ -824,7 +839,7 @@ mod tests {
           liveliness_probe: true,
           readiness_probe: true,
           ports: "7070".into(),
-          age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
+          age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), now),
           pod_name: "cartservice-67b89ffc69-s5qp8".into(),
           init: false,
           k8s_obj: None,
@@ -844,7 +859,7 @@ mod tests {
         mem: "".into(),
         node: "gke-hello-hipster-default-pool-9e6f6ffb-xzbc".into(),
         ip: "10.24.0.3".into(),
-        age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
+        age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), now),
         containers: vec![KubeContainer {
           name: "server".into(),
           image: "gcr.io/google-samples/microservices-demo/emailservice:v0.2.2".into(),
@@ -854,7 +869,7 @@ mod tests {
           liveliness_probe: true,
           readiness_probe: true,
           ports: "8080".into(),
-          age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
+          age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), now),
           pod_name: "emailservice-5f8fc7dbb4-5lqdb".into(),
           init: false,
           k8s_obj: None,
@@ -872,7 +887,7 @@ mod tests {
     assert_eq!(out_of_cpu_pod.mem, "");
     assert_eq!(
       out_of_cpu_pod.age,
-      utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now())
+      utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), now)
     );
     assert_eq!(
       out_of_cpu_pod.containers,
@@ -885,7 +900,7 @@ mod tests {
         liveliness_probe: true,
         readiness_probe: true,
         ports: "8080".into(),
-        age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
+        age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), now),
         pod_name: "frontend-5c4745dfdb-6k8wf".into(),
         k8s_obj: None,
         init: false,
@@ -907,7 +922,7 @@ mod tests {
         mem: "".into(),
         node: "gke-hello-hipster-default-pool-9e6f6ffb-q16l".into(),
         ip: "".into(),
-        age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
+        age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), now),
         containers: vec![KubeContainer {
           name: "server".into(),
           image: "gcr.io/google-samples/microservices-demo/frontend:v0.2.2".into(),
@@ -917,7 +932,7 @@ mod tests {
           liveliness_probe: false,
           readiness_probe: true,
           ports: "8080/HTTP".into(),
-          age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
+          age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), now),
           pod_name: "frontend-5c4745dfdb-qz7fg".into(),
           k8s_obj: None,
           init: false,
@@ -937,7 +952,7 @@ mod tests {
         mem: "".into(),
         node: "gke-hello-hipster-default-pool-9e6f6ffb-q16l".into(),
         ip: "".into(),
-        age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
+        age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), now),
         containers: vec![KubeContainer {
           name: "server".into(),
           image: "gcr.io/google-samples/microservices-demo/frontend:v0.2.2".into(),
@@ -947,7 +962,7 @@ mod tests {
           liveliness_probe: true,
           readiness_probe: true,
           ports: "8080, 8081/UDP, Foo:8082/UDP, 8083".into(),
-          age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), Utc::now()),
+          age: utils::to_age(Some(&get_time("2021-04-27T10:13:58Z")), now),
           pod_name: "frontend-5c4745dfdb-6k8wf".into(),
           k8s_obj: None,
           init: false,
@@ -967,7 +982,7 @@ mod tests {
         mem: "".into(),
         node: "k3d-my-kdash-cluster-server-0".into(),
         ip: "10.42.0.20".into(),
-        age: utils::to_age(Some(&get_time("2021-06-18T08:57:56Z")), Utc::now()),
+        age: utils::to_age(Some(&get_time("2021-06-18T08:57:56Z")), now),
         containers: vec![
           KubeContainer {
             name: "main-busybox".into(),
@@ -978,7 +993,7 @@ mod tests {
             liveliness_probe: false,
             readiness_probe: false,
             ports: "".into(),
-            age: utils::to_age(Some(&get_time("2021-06-18T08:57:56Z")), Utc::now()),
+            age: utils::to_age(Some(&get_time("2021-06-18T08:57:56Z")), now),
             pod_name: "pod-init-container".into(),
             k8s_obj: None,
             init: false,
@@ -992,7 +1007,7 @@ mod tests {
             liveliness_probe: false,
             readiness_probe: false,
             ports: "".into(),
-            age: utils::to_age(Some(&get_time("2021-06-18T08:57:56Z")), Utc::now()),
+            age: utils::to_age(Some(&get_time("2021-06-18T08:57:56Z")), now),
             pod_name: "pod-init-container".into(),
             k8s_obj: None,
             init: true,
@@ -1006,7 +1021,7 @@ mod tests {
             liveliness_probe: false,
             readiness_probe: false,
             ports: "".into(),
-            age: utils::to_age(Some(&get_time("2021-06-18T08:57:56Z")), Utc::now()),
+            age: utils::to_age(Some(&get_time("2021-06-18T08:57:56Z")), now),
             pod_name: "pod-init-container".into(),
             k8s_obj: None,
             init: true,
@@ -1027,7 +1042,7 @@ mod tests {
         mem: "".into(),
         node: "k3d-my-kdash-cluster-server-0".into(),
         ip: "10.42.0.21".into(),
-        age: utils::to_age(Some(&get_time("2021-06-18T09:26:11Z")), Utc::now()),
+        age: utils::to_age(Some(&get_time("2021-06-18T09:26:11Z")), now),
         containers: vec![
           KubeContainer {
             name: "main-busybox".into(),
@@ -1038,7 +1053,7 @@ mod tests {
             liveliness_probe: false,
             readiness_probe: false,
             ports: "".into(),
-            age: utils::to_age(Some(&get_time("2021-06-18T09:26:11Z")), Utc::now()),
+            age: utils::to_age(Some(&get_time("2021-06-18T09:26:11Z")), now),
             pod_name: "pod-init-container-2".into(),
             k8s_obj: None,
             init: false,
@@ -1052,7 +1067,7 @@ mod tests {
             liveliness_probe: false,
             readiness_probe: false,
             ports: "".into(),
-            age: utils::to_age(Some(&get_time("2021-06-18T09:26:11Z")), Utc::now()),
+            age: utils::to_age(Some(&get_time("2021-06-18T09:26:11Z")), now),
             pod_name: "pod-init-container-2".into(),
             k8s_obj: None,
             init: true,
@@ -1066,7 +1081,7 @@ mod tests {
             liveliness_probe: false,
             readiness_probe: false,
             ports: "".into(),
-            age: utils::to_age(Some(&get_time("2021-06-18T09:26:11Z")), Utc::now()),
+            age: utils::to_age(Some(&get_time("2021-06-18T09:26:11Z")), now),
             pod_name: "pod-init-container-2".into(),
             k8s_obj: None,
             init: true,

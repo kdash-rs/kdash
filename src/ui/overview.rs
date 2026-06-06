@@ -32,20 +32,23 @@ pub fn draw_overview(f: &mut Frame<'_>, app: &mut App, area: Rect) {
 }
 
 fn draw_status_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
-  let chunks = horizontal_chunks(
-    vec![
-      Constraint::Length(45),
-      Constraint::Min(10),
-      Constraint::Length(30),
-      Constraint::Length(15),
-    ],
-    area,
-  );
+  let hide_logo = app.config.hide_logo;
+  let mut constraints = vec![
+    Constraint::Length(45),
+    Constraint::Min(10),
+    Constraint::Length(30),
+  ];
+  if !hide_logo {
+    constraints.push(Constraint::Length(15));
+  }
+  let chunks = horizontal_chunks(constraints, area);
 
   NamespaceResource::render(ActiveBlock::Namespaces, f, app, chunks[0]);
   draw_context_info_block(f, app, chunks[1]);
   draw_cli_version_block(f, app, chunks[2]);
-  draw_logo_block(f, app, chunks[3]);
+  if !hide_logo {
+    draw_logo_block(f, app, chunks[3]);
+  }
 }
 
 fn draw_logo_block(f: &mut Frame<'_>, app: &App, area: Rect) {
