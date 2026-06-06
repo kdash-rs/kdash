@@ -14,6 +14,7 @@ use crate::network::IoEvent;
 pub enum ResourceAction {
   Describe,
   Yaml,
+  Logs,
   Shell,
   PreviousLogs,
   Restart,
@@ -30,6 +31,7 @@ impl ResourceAction {
     match self {
       ResourceAction::Describe => "Describe",
       ResourceAction::Yaml => "YAML",
+      ResourceAction::Logs => "Logs",
       ResourceAction::Shell => "Shell",
       ResourceAction::PreviousLogs => "Previous logs",
       ResourceAction::Restart => "Rollout restart",
@@ -41,14 +43,22 @@ impl ResourceAction {
     }
   }
 
-  /// The hotkey that triggers this action, if it has one. Hotkey-backed actions
-  /// are replayed through the normal handler when selected from the menu so the
-  /// menu and hotkeys share one dispatch path; menu-only actions return `None`
-  /// and are dispatched directly by the menu handler.
-  pub fn hotkey(self) -> Option<Key> {
+  /// The hotkey that triggers this action for the given block, if it has one.
+  /// Hotkey-backed actions are replayed through the normal handler when selected
+  /// from the menu so the menu and hotkeys share one dispatch path; menu-only
+  /// actions return `None` and are dispatched directly by the menu handler.
+  /// `block` is needed because a few actions (logs) map to different keys
+  /// depending on the view.
+  pub fn hotkey(self, block: ActiveBlock) -> Option<Key> {
     match self {
       ResourceAction::Describe => Some(DEFAULT_KEYBINDING.describe_resource.key),
       ResourceAction::Yaml => Some(DEFAULT_KEYBINDING.resource_yaml.key),
+      // In the Containers view Enter opens the selected container's logs; for
+      // pods and workloads logs come from the aggregate-logs key.
+      ResourceAction::Logs => Some(match block {
+        ActiveBlock::Containers => DEFAULT_KEYBINDING.submit.key,
+        _ => DEFAULT_KEYBINDING.aggregate_logs.key,
+      }),
       ResourceAction::Shell => Some(DEFAULT_KEYBINDING.shell_exec.key),
       ResourceAction::PreviousLogs => Some(DEFAULT_KEYBINDING.previous_logs.key),
       ResourceAction::Restart => Some(DEFAULT_KEYBINDING.restart_resource.key),
@@ -65,19 +75,22 @@ impl ResourceAction {
 pub fn actions_for(block: ActiveBlock) -> Vec<ResourceAction> {
   use ResourceAction::*;
   match block {
-    ActiveBlock::Containers => vec![Shell, PreviousLogs],
-    ActiveBlock::Pods => vec![Describe, Yaml, PreviousLogs, Delete],
+    ActiveBlock::Containers => vec![Logs, PreviousLogs, Shell],
+    ActiveBlock::Pods => vec![Describe, Yaml, Logs, PreviousLogs, Delete],
     ActiveBlock::Secrets => vec![Describe, Yaml, DecodeSecret, Delete],
     ActiveBlock::Deployments | ActiveBlock::StatefulSets | ActiveBlock::DaemonSets => {
-      vec![Describe, Yaml, Restart, Delete]
+      vec![Describe, Yaml, Logs, Restart, Delete]
+    }
+    ActiveBlock::ReplicaSets | ActiveBlock::Jobs | ActiveBlock::ReplicationControllers => {
+      vec![Describe, Yaml, Logs, Delete]
     }
     ActiveBlock::Nodes => vec![Describe, Yaml, Cordon, Delete],
-    ActiveBlock::CronJobs => vec![Describe, Yaml, Suspend, Trigger, Delete],
+    ActiveBlock::CronJobs => vec![Describe, Yaml, Logs, Suspend, Trigger, Delete],
+    // Troubleshoot findings support describe/yaml (handled by the troubleshoot
+    // route), so the `m` hint shown on that pane is honest.
+    ActiveBlock::Troubleshoot => vec![Describe, Yaml],
     ActiveBlock::Services
     | ActiveBlock::ConfigMaps
-    | ActiveBlock::ReplicaSets
-    | ActiveBlock::Jobs
-    | ActiveBlock::ReplicationControllers
     | ActiveBlock::StorageClasses
     | ActiveBlock::Roles
     | ActiveBlock::RoleBindings
@@ -121,11 +134,25 @@ mod tests {
   use super::*;
 
   #[test]
-  fn test_actions_for_containers_offers_shell() {
+  fn test_actions_for_containers_offers_logs_and_shell() {
     assert_eq!(
       actions_for(ActiveBlock::Containers),
-      vec![ResourceAction::Shell, ResourceAction::PreviousLogs]
+      vec![
+        ResourceAction::Logs,
+        ResourceAction::PreviousLogs,
+        ResourceAction::Shell
+      ]
     );
+  }
+
+  #[test]
+  fn test_actions_for_workloads_offer_logs() {
+    assert!(actions_for(ActiveBlock::Deployments).contains(&ResourceAction::Logs));
+    assert!(actions_for(ActiveBlock::Pods).contains(&ResourceAction::Logs));
+    assert!(actions_for(ActiveBlock::Jobs).contains(&ResourceAction::Logs));
+    // Non-pod-bearing resources do not offer logs.
+    assert!(!actions_for(ActiveBlock::ConfigMaps).contains(&ResourceAction::Logs));
+    assert!(!actions_for(ActiveBlock::Nodes).contains(&ResourceAction::Logs));
   }
 
   #[test]
@@ -159,14 +186,27 @@ mod tests {
   #[test]
   fn test_resource_action_hotkey_matches_bindings() {
     assert_eq!(
-      ResourceAction::Describe.hotkey(),
+      ResourceAction::Describe.hotkey(ActiveBlock::Pods),
       Some(DEFAULT_KEYBINDING.describe_resource.key)
     );
     assert_eq!(
-      ResourceAction::DecodeSecret.hotkey(),
+      ResourceAction::DecodeSecret.hotkey(ActiveBlock::Secrets),
       Some(DEFAULT_KEYBINDING.decode_secret.key)
     );
     // Menu-only actions have no hotkey.
-    assert_eq!(ResourceAction::Cordon.hotkey(), None);
+    assert_eq!(ResourceAction::Cordon.hotkey(ActiveBlock::Nodes), None);
+  }
+
+  #[test]
+  fn test_logs_hotkey_is_context_aware() {
+    // Containers open logs with Enter; pods/workloads use the aggregate-logs key.
+    assert_eq!(
+      ResourceAction::Logs.hotkey(ActiveBlock::Containers),
+      Some(DEFAULT_KEYBINDING.submit.key)
+    );
+    assert_eq!(
+      ResourceAction::Logs.hotkey(ActiveBlock::Pods),
+      Some(DEFAULT_KEYBINDING.aggregate_logs.key)
+    );
   }
 }

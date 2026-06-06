@@ -150,6 +150,7 @@ fn draw_modal(f: &mut Frame<'_>, app: &App) {
 
 fn draw_action_menu(f: &mut Frame<'_>, app: &mut App) {
   let light = app.light_theme;
+  let block = app.get_current_route().active_block;
   let Some(menu) = app.action_menu.as_mut() else {
     return;
   };
@@ -159,7 +160,7 @@ fn draw_action_menu(f: &mut Frame<'_>, app: &mut App) {
     .iter()
     .map(|action| {
       let key_hint = action
-        .hotkey()
+        .hotkey(block)
         .map(|key| key.to_string())
         .unwrap_or_default();
       ListItem::new(mixed_line(
@@ -273,7 +274,7 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
     )],
     RouteId::Home => vec![mixed_line(
       [help_part(format!(
-        "{} · {} switch tabs · <char> select block · {} scroll · {} select · {} · {} · {} ",
+        "{} · {} switch tabs · <char> select block · {} scroll · {} select · {} ",
         action_hint("help", DEFAULT_KEYBINDING.help.key),
         key_hints(&[
           DEFAULT_KEYBINDING.cycle_main_views.key,
@@ -283,8 +284,6 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
         key_hints(&[DEFAULT_KEYBINDING.up.key, DEFAULT_KEYBINDING.down.key]),
         DEFAULT_KEYBINDING.submit.key,
         action_hint("filter", DEFAULT_KEYBINDING.filter.key),
-        action_hint("menu", DEFAULT_KEYBINDING.open_action_menu.key),
-        action_hint("delete", DEFAULT_KEYBINDING.delete_resource.key),
       ))],
       app.light_theme,
     )],

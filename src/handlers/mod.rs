@@ -428,7 +428,8 @@ async fn execute_resource_action(action: ResourceAction, app: &mut App) {
     ResourceAction::Suspend => handle_cronjob_suspend_toggle(app).await,
     ResourceAction::Trigger => handle_cronjob_trigger(app).await,
     other => {
-      if let Some(key) = other.hotkey() {
+      let block = app.get_current_route().active_block;
+      if let Some(key) = other.hotkey(block) {
         handle_route_events(key, app).await;
       }
     }
@@ -1830,6 +1831,7 @@ mod tests {
       vec![
         ResourceAction::Describe,
         ResourceAction::Yaml,
+        ResourceAction::Logs,
         ResourceAction::PreviousLogs,
         ResourceAction::Delete
       ]
@@ -1890,9 +1892,18 @@ mod tests {
     handle_key_events(Key::from(m), m, &mut app).await;
     assert_eq!(
       app.action_menu.as_ref().unwrap().items,
-      vec![ResourceAction::Shell, ResourceAction::PreviousLogs]
+      vec![
+        ResourceAction::Logs,
+        ResourceAction::PreviousLogs,
+        ResourceAction::Shell
+      ]
     );
 
+    // Navigate to Shell (index 2) and select it.
+    for _ in 0..2 {
+      let down = KeyEvent::from(KeyCode::Down);
+      handle_key_events(Key::from(down), down, &mut app).await;
+    }
     let enter = KeyEvent::from(KeyCode::Enter);
     handle_key_events(Key::from(enter), enter, &mut app).await;
 
@@ -2093,10 +2104,10 @@ mod tests {
     app.data.pods.set_items(vec![pod]);
 
     // Open the action menu and move to the Delete entry
-    // (Describe, YAML, Previous logs, Delete).
+    // (Describe, YAML, Logs, Previous logs, Delete → index 4).
     let m = KeyEvent::from(KeyCode::Char('m'));
     handle_key_events(Key::from(m), m, &mut app).await;
-    for _ in 0..3 {
+    for _ in 0..4 {
       let down = KeyEvent::from(KeyCode::Down);
       handle_key_events(Key::from(down), down, &mut app).await;
     }
@@ -2178,8 +2189,8 @@ mod tests {
     cronjob.suspend = false;
     app.data.cronjobs.set_items(vec![cronjob]);
 
-    // CronJobs menu: Describe, YAML, Suspend, Trigger, Delete → Suspend at index 2.
-    open_menu_and_select(&mut app, 2).await;
+    // CronJobs menu: Describe, YAML, Logs, Suspend, Trigger, Delete → Suspend at index 3.
+    open_menu_and_select(&mut app, 3).await;
 
     let modal = app
       .modal
@@ -2209,8 +2220,8 @@ mod tests {
     cronjob.namespace = "default".into();
     app.data.cronjobs.set_items(vec![cronjob]);
 
-    // Trigger at index 3.
-    open_menu_and_select(&mut app, 3).await;
+    // CronJobs menu: Describe, YAML, Logs, Suspend, Trigger, Delete → Trigger at index 4.
+    open_menu_and_select(&mut app, 4).await;
 
     let modal = app
       .modal
@@ -2244,6 +2255,9 @@ mod tests {
     assert_eq!(app.get_current_route().active_block, ActiveBlock::Logs);
     assert!(app.log_previous);
     assert_eq!(app.data.selected.container.as_deref(), Some("app"));
+    // The log id must match the selected container so the log view's render
+    // guard (`container == logs.id`) shows the fetched previous logs.
+    assert_eq!(app.data.logs.id, "app");
   }
 
   #[tokio::test]

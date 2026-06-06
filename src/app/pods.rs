@@ -400,10 +400,11 @@ pub(crate) fn draw_containers_block(f: &mut Frame<'_>, app: &mut App, area: Rect
       inline_help: mixed_bold_line(
         [
           help_part(format!(
-            "{} · {} · {} · ",
+            "{} · {} · {} · {} · ",
             action_hint("logs", DEFAULT_KEYBINDING.submit.key),
             action_hint("shell", DEFAULT_KEYBINDING.shell_exec.key),
             action_hint("prev logs", DEFAULT_KEYBINDING.previous_logs.key),
+            action_hint("menu", DEFAULT_KEYBINDING.open_action_menu.key),
           )),
           help_part(format!("back {} ", DEFAULT_KEYBINDING.esc.key)),
         ],
@@ -476,12 +477,13 @@ pub(crate) fn draw_logs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   } else {
     let selected_container = app.data.selected.container.clone();
     let container_name = selected_container.unwrap_or_default();
+    let logs_label = if app.log_previous {
+      format!("-> Logs ({} · previous) ", container_name)
+    } else {
+      format!("-> Logs ({}) ", container_name)
+    };
     (
-      get_container_title(
-        app,
-        app.data.containers.items.len(),
-        format!("-> Logs ({}) ", container_name),
-      ),
+      get_container_title(app, app.data.containers.items.len(), logs_label),
       copy_scroll_and_escape_title_line("Containers", app.log_auto_scroll, app.light_theme),
     )
   };

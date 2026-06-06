@@ -1007,7 +1007,10 @@ impl App {
   pub async fn dispatch_previous_logs(&mut self, id: String, route_id: RouteId) {
     self.cancel_log_stream();
     self.log_previous = true;
-    self.data.logs = LogsState::new(format!("prev:{}", id));
+    // Use the container name as the id (matching the live-logs view) so the log
+    // view's `container == logs.id` render guard passes; `log_previous` keeps
+    // the periodic poll from replacing it with a live stream.
+    self.data.logs = LogsState::new(id);
     self.push_navigation_stack(route_id, ActiveBlock::Logs);
     self.dispatch_stream(IoStreamEvent::GetPreviousLogs).await;
   }
