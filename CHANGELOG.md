@@ -8,6 +8,7 @@
   - Delete any resource (`Ctrl-d`)
   - View previous (restarted) container logs (`p`)
   - Rollout restart Deployments/StatefulSets/DaemonSets (`r`)
+  - Scale Deployments/StatefulSets/ReplicaSets/ReplicationControllers to a replica count
   - Cordon/uncordon nodes and suspend/resume/trigger CronJobs
 - **NEW:** Action menu (`m`) lists every available action for the selected resource; the most-used actions also have dedicated hotkeys surfaced as hints.
 - Impactful actions are guarded by a confirmation prompt before any change is applied.

@@ -123,6 +123,8 @@ pub enum ResourcePatch {
   SetUnschedulable(bool),
   /// Suspend (`true`) or resume (`false`) a cronjob via `spec.suspend`.
   SetSuspend(bool),
+  /// Scale a workload to a replica count via `spec.replicas`.
+  SetReplicas(u32),
 }
 
 impl ResourcePatch {
@@ -147,6 +149,9 @@ impl ResourcePatch {
       ResourcePatch::SetSuspend(suspend) => serde_json::json!({
         "spec": { "suspend": suspend }
       }),
+      ResourcePatch::SetReplicas(replicas) => serde_json::json!({
+        "spec": { "replicas": replicas }
+      }),
     }
   }
 
@@ -158,6 +163,7 @@ impl ResourcePatch {
       ResourcePatch::SetUnschedulable(false) => format!("Uncordoning {}", name),
       ResourcePatch::SetSuspend(true) => format!("Suspending {}", name),
       ResourcePatch::SetSuspend(false) => format!("Resuming {}", name),
+      ResourcePatch::SetReplicas(replicas) => format!("Scaling {} to {}", name, replicas),
     }
   }
 }
@@ -1349,6 +1355,22 @@ users:
     assert_eq!(
       ResourcePatch::SetSuspend(false).status_message("cj"),
       "Resuming cj"
+    );
+  }
+
+  #[test]
+  fn test_set_replicas_patch_and_message() {
+    assert_eq!(
+      ResourcePatch::SetReplicas(3).to_merge_patch(),
+      serde_json::json!({"spec": {"replicas": 3}})
+    );
+    assert_eq!(
+      ResourcePatch::SetReplicas(0).to_merge_patch(),
+      serde_json::json!({"spec": {"replicas": 0}})
+    );
+    assert_eq!(
+      ResourcePatch::SetReplicas(5).status_message("web"),
+      "Scaling web to 5"
     );
   }
 

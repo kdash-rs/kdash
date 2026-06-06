@@ -98,6 +98,9 @@ pub fn draw(f: &mut Frame<'_>, app: &mut App) {
   if app.action_menu.is_some() {
     draw_action_menu(f, app);
   }
+  if app.input_modal.is_some() {
+    draw_input_modal(f, app);
+  }
   if app.modal.is_some() {
     draw_modal(f, app);
   }
@@ -139,6 +142,56 @@ fn draw_modal(f: &mut Frame<'_>, app: &App) {
     ))
     .borders(Borders::ALL)
     .style(style_failure(light));
+
+  let paragraph = Paragraph::new(lines)
+    .block(block)
+    .style(style_primary(light));
+
+  f.render_widget(Clear, area);
+  f.render_widget(paragraph, area);
+}
+
+fn draw_input_modal(f: &mut Frame<'_>, app: &App) {
+  let light = app.light_theme;
+  let Some(input) = app.input_modal.as_ref() else {
+    return;
+  };
+
+  let width: u16 = 60;
+  let inner_width = width.saturating_sub(2).max(1) as usize;
+
+  // Prompt (wrapped), the live buffer with a cursor block, an optional inline
+  // error, then the submit/cancel hint — so the box always sizes to its content.
+  let mut lines: Vec<Line<'_>> = textwrap::wrap(&input.prompt, inner_width)
+    .into_iter()
+    .map(|line| Line::from(line.into_owned()))
+    .collect();
+  lines.push(mixed_line(
+    [default_part(format!("> {}_", input.buffer))],
+    light,
+  ));
+  if let Some(err) = &input.error {
+    lines.push(Line::styled(err.clone(), style_failure(light)));
+  }
+  lines.push(Line::from(""));
+  lines.push(mixed_line(
+    [help_part(format!(
+      "submit {} · cancel {} ",
+      DEFAULT_KEYBINDING.submit.key, DEFAULT_KEYBINDING.esc.key,
+    ))],
+    light,
+  ));
+
+  let height = (lines.len() as u16).saturating_add(2);
+  let area = centered_rect(width, height, f.area());
+
+  let block = Block::default()
+    .title(mixed_bold_line(
+      [default_part(format!(" {} ", input.title))],
+      light,
+    ))
+    .borders(Borders::ALL)
+    .style(style_secondary(light));
 
   let paragraph = Paragraph::new(lines)
     .block(block)
@@ -469,6 +522,38 @@ mod tests {
     assert!(joined.contains("undone"));
     // The wrapping prompt must not push the confirm/cancel hint out of the box.
     assert!(joined.contains("confirm"));
+    assert!(joined.contains("cancel"));
+  }
+
+  #[test]
+  fn test_draw_input_modal_shows_prompt_buffer_and_hints() {
+    use crate::app::actions::{InputAction, InputModal};
+
+    let mut app = App::default();
+    app.route_home();
+    app.open_input_modal(InputModal {
+      title: "Scale".into(),
+      prompt: "New replica count for deployment 'web':".into(),
+      buffer: "3".into(),
+      error: Some("Enter a non-negative whole number".into()),
+      action: InputAction::Scale {
+        block: ActiveBlock::Deployments,
+        name: "web".into(),
+        namespace: Some("default".into()),
+        kind: "deployment".into(),
+      },
+    });
+
+    let lines = render_lines(&mut app, 120, 30);
+    let joined = lines.join("\n");
+
+    assert!(joined.contains("Scale"));
+    assert!(joined.contains("replica count"));
+    // The live buffer is shown with a cursor block.
+    assert!(joined.contains("> 3_"));
+    // The inline error and submit/cancel hints are visible.
+    assert!(joined.contains("non-negative"));
+    assert!(joined.contains("submit"));
     assert!(joined.contains("cancel"));
   }
 

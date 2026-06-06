@@ -39,7 +39,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::{mpsc::Sender, watch};
 
 use self::{
-  actions::{Modal, ResourceAction},
+  actions::{InputModal, Modal, ResourceAction},
   configmaps::KubeConfigMap,
   contexts::KubeContext,
   cronjobs::KubeCronJob,
@@ -305,6 +305,8 @@ pub struct App {
   pending_shell_exec: Option<PendingShellExec>,
   /// Transient confirmation overlay guarding an impactful action.
   pub modal: Option<Modal>,
+  /// Transient single-line input overlay for actions that need a value (scale).
+  pub input_modal: Option<InputModal>,
   /// Transient `m` action-menu overlay for the selected resource.
   pub action_menu: Option<StatefulList<ResourceAction>>,
   pub config: KdashConfig,
@@ -555,6 +557,7 @@ impl Default for App {
       error_history: VecDeque::with_capacity(MAX_ERROR_HISTORY),
       pending_shell_exec: None,
       modal: None,
+      input_modal: None,
       action_menu: None,
       config: KdashConfig::default(),
       data: Data::default(),
@@ -738,6 +741,7 @@ impl App {
     self.api_error = String::new();
     self.status_message.clear();
     self.modal = None;
+    self.input_modal = None;
     self.action_menu = None;
     self.log_previous = false;
     self.utilization_group_by = Self::default_utilization_group_by();
@@ -753,6 +757,16 @@ impl App {
   /// Dismiss the active confirmation overlay, if any.
   pub fn close_modal(&mut self) {
     self.modal = None;
+  }
+
+  /// Open a transient single-line input overlay.
+  pub fn open_input_modal(&mut self, modal: InputModal) {
+    self.input_modal = Some(modal);
+  }
+
+  /// Dismiss the active input overlay, if any.
+  pub fn close_input_modal(&mut self) {
+    self.input_modal = None;
   }
 
   /// Open the `m` action menu for the selected item in the given block.

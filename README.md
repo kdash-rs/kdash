@@ -22,7 +22,7 @@ A simple terminal dashboard for Kubernetes built with Rust [![Follow @kdashrs](h
 
 ## New since v0.6.2
 
-- **Resource management actions** let you act on what you're watching without leaving KDash: delete any resource (`Ctrl-d`), rollout restart workloads (`r`), view previous container logs (`p`), and cordon nodes or suspend/resume/trigger CronJobs from a new action menu (`m`). Impactful actions are guarded by a confirmation prompt.
+- **Resource management actions** let you act on what you're watching without leaving KDash: delete any resource (`Ctrl-d`), rollout restart workloads (`r`), view previous container logs (`p`), scale workloads, and cordon nodes or suspend/resume/trigger CronJobs from a new action menu (`m`). Impactful actions are guarded by a confirmation prompt.
 - **Troubleshoot tab** surfaces severity-ranked findings for Pods, PVCs, and ReplicaSets, then lets you jump straight into containers, logs, describe, and YAML.
 - **Events tab** shows Kubernetes events with namespace, involved kind, reason, count, message, and age, with the same describe/YAML workflows as other resources.
 - **Deeper drill-down navigation** lets you move from workloads to owned Pods, from Pods to Containers, and from Nodes to the Pods scheduled on them.
@@ -264,6 +264,7 @@ See the sample config in [assets/kdash.sample-config.yaml](assets/kdash.sample-c
   - Delete any resource (`Ctrl-d`)
   - View previous (restarted) container logs (`p`)
   - Rollout restart Deployments/StatefulSets/DaemonSets (`r`)
+  - Scale Deployments/StatefulSets/ReplicaSets/ReplicationControllers to a replica count (via the action menu)
   - Cordon/uncordon nodes, suspend/resume/trigger CronJobs (via the action menu)
 - Action menu (`m`) lists every action available for the selected resource; the most-used ones also have dedicated hotkeys shown as hints
 - Context

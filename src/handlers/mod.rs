@@ -9,7 +9,7 @@ use std::{
 
 use crate::{
   app::{
-    actions::{Modal, ResourceAction},
+    actions::{InputAction, InputModal, Modal, ResourceAction},
     key_binding::DEFAULT_KEYBINDING,
     models::{
       HasPodSelector, KubeResource, Scrollable, ScrollableTxt, StatefulList, StatefulTable,
@@ -129,6 +129,10 @@ pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
     handle_modal_key(key, app).await;
     return;
   }
+  if app.input_modal.is_some() {
+    handle_input_modal_key(key, app);
+    return;
+  }
   if app.action_menu.is_some() {
     handle_action_menu_key(key, app).await;
     return;
@@ -232,6 +236,41 @@ async fn handle_modal_key(key: Key, app: &mut App) {
     }
   } else if key == Key::Char('n') || key == DEFAULT_KEYBINDING.esc.key {
     app.close_modal();
+  }
+}
+
+/// Handle keys while a single-line input overlay is active. Printable chars edit
+/// the buffer, `Enter` validates (chaining into a confirm modal on success or
+/// showing an inline error on failure), `Esc` cancels.
+fn handle_input_modal_key(key: Key, app: &mut App) {
+  if key == DEFAULT_KEYBINDING.submit.key {
+    let result = app.input_modal.as_ref().map(|input| input.validate());
+    match result {
+      Some(Ok(modal)) => {
+        app.close_input_modal();
+        app.open_modal(modal);
+      }
+      Some(Err(err)) => {
+        if let Some(input) = app.input_modal.as_mut() {
+          input.error = Some(err);
+        }
+      }
+      None => {}
+    }
+  } else if key == DEFAULT_KEYBINDING.esc.key {
+    app.close_input_modal();
+  } else if let Some(input) = app.input_modal.as_mut() {
+    match key {
+      Key::Char(c) => {
+        input.buffer.push(c);
+        input.error = None;
+      }
+      Key::Backspace => {
+        input.buffer.pop();
+        input.error = None;
+      }
+      _ => {}
+    }
   }
 }
 
@@ -384,6 +423,73 @@ async fn handle_restart_resource(app: &mut App) {
   ));
 }
 
+/// Workloads that expose a `spec.replicas` count we can scale.
+fn is_scalable(block: ActiveBlock) -> bool {
+  matches!(
+    block,
+    ActiveBlock::Deployments
+      | ActiveBlock::StatefulSets
+      | ActiveBlock::ReplicaSets
+      | ActiveBlock::ReplicationControllers
+  )
+}
+
+/// Current desired replica count of the selected workload, read from the typed
+/// object so it works uniformly across scalable kinds. Used to prefill the input.
+fn current_replicas(app: &App, block: ActiveBlock) -> Option<i32> {
+  match block {
+    ActiveBlock::Deployments => app
+      .data
+      .deployments
+      .get_selected_item_copy()
+      .and_then(|r| r.get_k8s_obj().spec.as_ref().and_then(|s| s.replicas)),
+    ActiveBlock::StatefulSets => app
+      .data
+      .stateful_sets
+      .get_selected_item_copy()
+      .and_then(|r| r.get_k8s_obj().spec.as_ref().and_then(|s| s.replicas)),
+    ActiveBlock::ReplicaSets => app
+      .data
+      .replica_sets
+      .get_selected_item_copy()
+      .and_then(|r| r.get_k8s_obj().spec.as_ref().and_then(|s| s.replicas)),
+    ActiveBlock::ReplicationControllers => app
+      .data
+      .replication_controllers
+      .get_selected_item_copy()
+      .and_then(|r| r.get_k8s_obj().spec.as_ref().and_then(|s| s.replicas)),
+    _ => None,
+  }
+}
+
+/// Open the scale input modal for the selected workload, prefilled with the
+/// current replica count. Menu-only (no hotkey); only offered for scalable kinds.
+fn handle_scale_resource(app: &mut App) {
+  let block = app.get_current_route().active_block;
+  if !is_scalable(block) {
+    return;
+  }
+  let Some((name, namespace)) = selected_target(app, block) else {
+    return;
+  };
+  let kind = resource_kind_label(app, block);
+  let buffer = current_replicas(app, block)
+    .map(|n| n.to_string())
+    .unwrap_or_default();
+  app.open_input_modal(InputModal {
+    title: "Scale".to_owned(),
+    prompt: format!("New replica count for {} '{}':", kind, name),
+    buffer,
+    error: None,
+    action: InputAction::Scale {
+      block,
+      name,
+      namespace,
+      kind,
+    },
+  });
+}
+
 /// Handle keys while the `m` action menu overlay is active.
 async fn handle_action_menu_key(key: Key, app: &mut App) {
   match key {
@@ -424,6 +530,7 @@ async fn handle_action_menu_key(key: Key, app: &mut App) {
 /// the menu and hotkey share one path; menu-only actions are handled directly.
 async fn execute_resource_action(action: ResourceAction, app: &mut App) {
   match action {
+    ResourceAction::Scale => handle_scale_resource(app),
     ResourceAction::Cordon => handle_cordon_toggle(app).await,
     ResourceAction::Suspend => handle_cronjob_suspend_toggle(app).await,
     ResourceAction::Trigger => handle_cronjob_trigger(app).await,
@@ -2158,6 +2265,144 @@ mod tests {
         patch: ResourcePatch::RolloutRestart,
       }
     );
+  }
+
+  fn deployment_with_replicas(
+    name: &str,
+    ns: &str,
+    replicas: Option<i32>,
+  ) -> crate::app::deployments::KubeDeployment {
+    use crate::app::deployments::KubeDeployment;
+    use k8s_openapi::api::apps::v1::{Deployment, DeploymentSpec};
+
+    let dep = Deployment {
+      spec: replicas.map(|r| DeploymentSpec {
+        replicas: Some(r),
+        ..Default::default()
+      }),
+      ..Default::default()
+    };
+    let mut dep = KubeDeployment::from(dep);
+    dep.name = name.into();
+    dep.namespace = ns.into();
+    dep
+  }
+
+  #[tokio::test]
+  async fn test_menu_scale_deployment_opens_input_prefilled() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Deployments);
+    app
+      .data
+      .deployments
+      .set_items(vec![deployment_with_replicas("web", "team-a", Some(2))]);
+
+    // Deployments menu: Describe, YAML, Logs, Restart, Scale, Delete → Scale at index 4.
+    open_menu_and_select(&mut app, 4).await;
+
+    let input = app
+      .input_modal
+      .as_ref()
+      .expect("scale should open an input modal");
+    // Prefilled with the current replica count.
+    assert_eq!(input.buffer, "2");
+    assert_eq!(
+      input.action,
+      InputAction::Scale {
+        block: ActiveBlock::Deployments,
+        name: "web".into(),
+        namespace: Some("team-a".into()),
+        kind: "deployment".into(),
+      }
+    );
+    // No confirm modal yet — only the input overlay.
+    assert!(app.modal.is_none());
+  }
+
+  #[tokio::test]
+  async fn test_scale_input_submit_chains_to_confirm_modal() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Deployments);
+    app
+      .data
+      .deployments
+      .set_items(vec![deployment_with_replicas("web", "team-a", Some(2))]);
+
+    open_menu_and_select(&mut app, 4).await;
+
+    // Replace the prefilled "2" with "5", then submit.
+    let backspace = KeyEvent::from(KeyCode::Backspace);
+    handle_key_events(Key::from(backspace), backspace, &mut app).await;
+    let five = KeyEvent::from(KeyCode::Char('5'));
+    handle_key_events(Key::from(five), five, &mut app).await;
+    let enter = KeyEvent::from(KeyCode::Enter);
+    handle_key_events(Key::from(enter), enter, &mut app).await;
+
+    // Input modal closed, confirm modal opened with the scale patch.
+    assert!(app.input_modal.is_none());
+    let modal = app
+      .modal
+      .as_ref()
+      .expect("valid scale submit should chain into a confirm modal");
+    assert!(modal.prompt.contains("to 5 replica(s)"));
+    assert_eq!(
+      modal.on_confirm,
+      IoEvent::PatchResource {
+        block: ActiveBlock::Deployments,
+        name: "web".into(),
+        namespace: Some("team-a".into()),
+        patch: ResourcePatch::SetReplicas(5),
+      }
+    );
+  }
+
+  #[tokio::test]
+  async fn test_scale_input_invalid_keeps_modal_open_with_error() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Deployments);
+    app
+      .data
+      .deployments
+      .set_items(vec![deployment_with_replicas("web", "team-a", Some(2))]);
+
+    open_menu_and_select(&mut app, 4).await;
+
+    // Type a non-numeric value and submit.
+    let x = KeyEvent::from(KeyCode::Char('x'));
+    handle_key_events(Key::from(x), x, &mut app).await;
+    let enter = KeyEvent::from(KeyCode::Enter);
+    handle_key_events(Key::from(enter), enter, &mut app).await;
+
+    // Stays open with an inline error; no confirm modal, no dispatch.
+    let input = app
+      .input_modal
+      .as_ref()
+      .expect("invalid input keeps the modal open");
+    assert!(input.error.is_some());
+    assert!(app.modal.is_none());
+  }
+
+  #[tokio::test]
+  async fn test_scale_input_esc_cancels() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Deployments);
+    app
+      .data
+      .deployments
+      .set_items(vec![deployment_with_replicas("web", "team-a", Some(2))]);
+
+    open_menu_and_select(&mut app, 4).await;
+    assert!(app.input_modal.is_some());
+
+    let esc = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(esc), esc, &mut app).await;
+
+    assert!(app.input_modal.is_none());
+    assert!(app.modal.is_none());
   }
 
   #[tokio::test]
