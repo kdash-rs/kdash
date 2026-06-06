@@ -1,6 +1,6 @@
 [package]
 name = "kdash"
-version = "0.6.2"
+version = "1.1.2"
 authors = ["Deepu K Sasidharan <d4udts@gmail.com>"]
 description = """
 A fast and simple dashboard for Kubernetes
@@ -12,7 +12,9 @@ homepage = "https://github.com/kdash-rs/kdash"
 readme = "README.md"
 license = "MIT"
 exclude = [
-    "assets/*",
+    "test_data/*",
+    "deployment/*",
+    "artwork/*",
     ".github",
     "Makefile.toml",
     "CONTRIBUTING.md",
@@ -35,8 +37,10 @@ ratatui = { version = "0.30", default-features = false, features = [
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
-strum = { version = "0.26", features = ["derive"] }
-syntect = { version = "5.3.0", default-features = false, features = ["default-fancy"] }
+strum = { version = "0.28", features = ["derive"] }
+syntect = { version = "5.3.0", default-features = false, features = [
+    "default-fancy",
+] }
 clap = { version = "4.6", default-features = false, features = [
     "help",
     "usage",
@@ -45,6 +49,7 @@ clap = { version = "4.6", default-features = false, features = [
 ] }
 tokio = { version = "1.50.0", default-features = false, features = [
     "macros",
+    "process",
     "rt-multi-thread",
 ] }
 tokio-stream = { version = "0.1.18", default-features = false, features = [
@@ -58,6 +63,7 @@ textwrap = "0.16.2"
 regex = "1.12.3"
 kube = { version = "3.1.0", default-features = false, features = [
     "socks5",
+    "http-proxy",
     "client",
     "rustls-tls",
     "oidc",
@@ -71,14 +77,15 @@ notify = { version = "8", default-features = false, features = [
     "macos_fsevent",
 ] }
 base64 = "0.22.1"
-human-panic = "2.0.7"
+human-panic = "2.0.8"
 kubectl-view-allocations = { version = "1.1.0", default-features = false }
 async-trait = "0.1.89"
 glob-match = "0.2.1"
-rand = "0.10.0"
+rand = "0.10.1"
 copypasta = "0.10.2"
 log = "0.4.29"
 simplelog = { version = "0.12.2", default-features = false }
+dirs = "6.0.0"
 
 [dev-dependencies.cargo-husky]
 version = "1"

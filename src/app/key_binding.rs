@@ -1,16 +1,49 @@
-use std::fmt;
+use std::{fmt, ops::Deref, sync::OnceLock};
 
+use log::warn;
+
+use crate::config::KdashConfig;
 use crate::event::Key;
 
 // using a macro so that we can automatically generate an iterable vector for bindings. This beats reflection :)
 macro_rules! generate_keybindings {
   ($($field:ident),+) => {
+    #[derive(Clone)]
     pub struct KeyBindings { $(pub $field: KeyBinding),+ }
     impl KeyBindings {
       pub fn as_iter(&self) -> Vec<&KeyBinding> {
         vec![
             $(&self.$field),+
         ]
+      }
+
+      pub fn with_overrides(&self, config: &KdashConfig) -> (Self, Vec<String>) {
+        let mut updated = self.clone();
+        let mut warnings = vec![];
+
+        if let Some(overrides) = &config.keybindings {
+          $(
+            if let Some(value) = overrides.values.get(stringify!($field)) {
+              match value.parse::<Key>() {
+                Ok(key) => updated.$field.key = key,
+                Err(error) => warnings.push(format!(
+                  "Invalid keybinding override for {}: {} ({})",
+                  stringify!($field),
+                  value,
+                  error
+                )),
+              }
+            }
+          )+
+
+          for field in overrides.values.keys() {
+            if ![ $(stringify!($field)),+ ].contains(&field.as_str()) {
+              warnings.push(format!("Unknown keybinding override: {}", field));
+            }
+          }
+        }
+
+        (updated, warnings)
       }
     }
   };
@@ -22,6 +55,7 @@ generate_keybindings! {
   esc,
   help,
   submit,
+  filter,
   refresh,
   toggle_theme,
   cycle_main_views,
@@ -30,6 +64,7 @@ generate_keybindings! {
   jump_to_utilization,
   jump_to_troubleshoot,
   copy_to_clipboard,
+  dump_error_log,
   pg_up,
   pg_down,
   up,
@@ -37,8 +72,13 @@ generate_keybindings! {
   left,
   right,
   toggle_info,
+  shell_exec,
   log_auto_scroll,
   select_all_namespace,
+  open_action_menu,
+  delete_resource,
+  restart_resource,
+  previous_logs,
   jump_to_namespace,
   describe_resource,
   resource_yaml,
@@ -54,8 +94,9 @@ generate_keybindings! {
   jump_to_daemonsets,
   jump_to_more_resources,
   jump_to_dynamic_resources,
+  aggregate_logs,
   cycle_group_by,
-  aggregate_logs
+  toggle_wide_columns
 }
 
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Debug)]
@@ -79,7 +120,7 @@ pub struct KeyBinding {
   pub context: HContext,
 }
 
-pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
+const DEFAULT_KEYBINDINGS: KeyBindings = KeyBindings {
   quit: KeyBinding {
     key: Key::Ctrl('c'),
     alt: Some(Key::Char('q')),
@@ -104,6 +145,12 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
     desc: "Select table row",
     context: HContext::General,
   },
+  filter: KeyBinding {
+    key: Key::Char('/'),
+    alt: None,
+    desc: "Filter current view",
+    context: HContext::General,
+  },
   refresh: KeyBinding {
     key: Key::Ctrl('r'),
     alt: None,
@@ -117,25 +164,25 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
     context: HContext::General,
   },
   jump_to_current_context: KeyBinding {
-    key: Key::Char('A'),
+    key: Key::Shift('a'),
     alt: None,
     desc: "Switch to active context view",
     context: HContext::General,
   },
   jump_to_all_context: KeyBinding {
-    key: Key::Char('C'),
+    key: Key::Shift('c'),
     alt: None,
     desc: "Switch to all contexts view",
     context: HContext::General,
   },
   jump_to_utilization: KeyBinding {
-    key: Key::Char('U'),
+    key: Key::Shift('u'),
     alt: None,
     desc: "Switch to resource utilization view",
     context: HContext::General,
   },
   jump_to_troubleshoot: KeyBinding {
-    key: Key::Char('T'),
+    key: Key::Shift('t'),
     alt: None,
     desc: "Switch to troubleshoot view",
     context: HContext::General,
@@ -150,6 +197,12 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
     key: Key::Char('c'),
     alt: None,
     desc: "Copy log/output to clipboard",
+    context: HContext::General,
+  },
+  dump_error_log: KeyBinding {
+    key: Key::Shift('d'),
+    alt: None,
+    desc: "Dump recent errors to file",
     context: HContext::General,
   },
   down: KeyBinding {
@@ -194,6 +247,12 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
     desc: "Show/Hide info bar",
     context: HContext::Overview,
   },
+  shell_exec: KeyBinding {
+    key: Key::Char('s'),
+    alt: None,
+    desc: "Open shell in selected container",
+    context: HContext::Overview,
+  },
   log_auto_scroll: KeyBinding {
     key: Key::Char('s'),
     alt: None,
@@ -210,6 +269,30 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
     key: Key::Char('a'),
     alt: None,
     desc: "Select all namespaces",
+    context: HContext::Overview,
+  },
+  open_action_menu: KeyBinding {
+    key: Key::Char('m'),
+    alt: None,
+    desc: "Show actions menu for selected resource",
+    context: HContext::Overview,
+  },
+  delete_resource: KeyBinding {
+    key: Key::Ctrl('d'),
+    alt: None,
+    desc: "Delete selected resource",
+    context: HContext::Overview,
+  },
+  restart_resource: KeyBinding {
+    key: Key::Char('r'),
+    alt: None,
+    desc: "Rollout restart workload (deploy/sts/ds)",
+    context: HContext::Overview,
+  },
+  previous_logs: KeyBinding {
+    key: Key::Char('p'),
+    alt: None,
+    desc: "Show previous (restarted) container logs",
     context: HContext::Overview,
   },
   describe_resource: KeyBinding {
@@ -296,19 +379,50 @@ pub const DEFAULT_KEYBINDING: KeyBindings = KeyBindings {
     desc: "Select dynamic resources",
     context: HContext::Overview,
   },
+  aggregate_logs: KeyBinding {
+    key: Key::Shift('l'),
+    alt: None,
+    desc: "Aggregate logs for resource",
+    context: HContext::Overview,
+  },
   cycle_group_by: KeyBinding {
     key: Key::Char('g'),
     alt: None,
     desc: "Cycle through grouping",
     context: HContext::Utilization,
   },
-  aggregate_logs: KeyBinding {
-    key: Key::Char('o'),
+  toggle_wide_columns: KeyBinding {
+    key: Key::Char('w'),
     alt: None,
-    desc: "Aggregate logs for resource",
-    context: HContext::Overview,
+    desc: "Toggle wide view (show all columns)",
+    context: HContext::General,
   },
 };
+
+static ACTIVE_KEYBINDINGS: OnceLock<KeyBindings> = OnceLock::new();
+
+pub struct ActiveKeyBindings;
+
+impl Deref for ActiveKeyBindings {
+  type Target = KeyBindings;
+
+  fn deref(&self) -> &Self::Target {
+    ACTIVE_KEYBINDINGS.get_or_init(|| DEFAULT_KEYBINDINGS.clone())
+  }
+}
+
+pub static DEFAULT_KEYBINDING: ActiveKeyBindings = ActiveKeyBindings;
+
+pub fn initialize_keybindings(config: &KdashConfig) -> Vec<String> {
+  let (keybindings, warnings) = DEFAULT_KEYBINDINGS.with_overrides(config);
+  let _ = ACTIVE_KEYBINDINGS.set(keybindings);
+
+  for warning in &warnings {
+    warn!("{}", warning);
+  }
+
+  warnings
+}
 
 pub fn get_help_docs() -> Vec<Vec<String>> {
   let items = DEFAULT_KEYBINDING.as_iter();
@@ -330,10 +444,73 @@ fn help_row(item: &KeyBinding) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-  use super::DEFAULT_KEYBINDING;
+  use super::{DEFAULT_KEYBINDINGS, *};
+  use crate::config::{KdashConfig, KeybindingOverrides};
+  use std::collections::BTreeMap;
 
   #[test]
   fn test_as_iter() {
     assert!(DEFAULT_KEYBINDING.as_iter().len() >= 28);
+  }
+
+  #[test]
+  fn test_with_overrides_updates_known_binding() {
+    let config = KdashConfig {
+      keybindings: Some(KeybindingOverrides {
+        values: BTreeMap::from([("quit".into(), "ctrl+q".into())]),
+      }),
+      ..Default::default()
+    };
+
+    let (keybindings, warnings) = DEFAULT_KEYBINDINGS.with_overrides(&config);
+
+    assert_eq!(keybindings.quit.key, Key::Ctrl('q'));
+    assert!(warnings.is_empty());
+  }
+
+  #[test]
+  fn test_with_overrides_treats_uppercase_and_shift_equally() {
+    let uppercase = KdashConfig {
+      keybindings: Some(KeybindingOverrides {
+        values: BTreeMap::from([("dump_error_log".into(), "D".into())]),
+      }),
+      ..Default::default()
+    };
+    let shifted = KdashConfig {
+      keybindings: Some(KeybindingOverrides {
+        values: BTreeMap::from([("dump_error_log".into(), "shift+d".into())]),
+      }),
+      ..Default::default()
+    };
+
+    let (uppercase_bindings, uppercase_warnings) = DEFAULT_KEYBINDINGS.with_overrides(&uppercase);
+    let (shifted_bindings, shifted_warnings) = DEFAULT_KEYBINDINGS.with_overrides(&shifted);
+
+    assert_eq!(uppercase_bindings.dump_error_log.key, Key::Shift('d'));
+    assert_eq!(
+      uppercase_bindings.dump_error_log.key,
+      shifted_bindings.dump_error_log.key
+    );
+    assert!(uppercase_warnings.is_empty());
+    assert!(shifted_warnings.is_empty());
+  }
+
+  #[test]
+  fn test_with_overrides_warns_on_invalid_or_unknown_binding() {
+    let config = KdashConfig {
+      keybindings: Some(KeybindingOverrides {
+        values: BTreeMap::from([
+          ("quit".into(), "shift+tab".into()),
+          ("made_up".into(), "x".into()),
+        ]),
+      }),
+      ..Default::default()
+    };
+
+    let (_, warnings) = DEFAULT_KEYBINDINGS.with_overrides(&config);
+
+    assert_eq!(warnings.len(), 2);
+    assert!(warnings.iter().any(|warning| warning.contains("quit")));
+    assert!(warnings.iter().any(|warning| warning.contains("made_up")));
   }
 }

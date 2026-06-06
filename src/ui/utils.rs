@@ -1,58 +1,132 @@
-use std::{collections::BTreeMap, rc::Rc, sync::OnceLock};
+use std::{borrow::Cow, collections::BTreeMap, io::Cursor, rc::Rc, sync::OnceLock};
 
 use glob_match::glob_match;
 use ratatui::{
-  layout::{Constraint, Direction, Layout, Rect},
+  layout::{Constraint, Direction, Layout, Position, Rect},
   style::{Color, Modifier, Style},
   symbols,
   text::{Line, Span, Text},
   widgets::{Block, Borders, Paragraph, Row, Table, Wrap},
   Frame,
 };
-use serde::Serialize;
 
 use super::HIGHLIGHT;
 use crate::app::{
-  models::{KubeResource, StatefulTable},
+  key_binding::DEFAULT_KEYBINDING,
+  models::{Named, StatefulTable},
   ActiveBlock, App,
 };
+use crate::event::Key;
+use crate::ui::theme::override_color;
+// Viewport width thresholds for responsive column display
+pub const COMPACT_WIDTH_THRESHOLD: u16 = 120;
+pub const WIDE_WIDTH_THRESHOLD: u16 = 180;
+
+/// Which responsive tier the current view is in.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ViewTier {
+  Compact,
+  Standard,
+  Wide,
+}
+
+impl ViewTier {
+  pub fn from_width(area_width: u16, force_wide: bool) -> Self {
+    if force_wide || area_width >= WIDE_WIDTH_THRESHOLD {
+      Self::Wide
+    } else if area_width >= COMPACT_WIDTH_THRESHOLD {
+      Self::Standard
+    } else {
+      Self::Compact
+    }
+  }
+}
+
+/// Declarative column definition with per-tier width percentages.
+/// A `None` width means the column is hidden at that tier.
+pub struct ColumnDef {
+  pub label: &'static str,
+  pub compact: Option<u16>,
+  pub standard: Option<u16>,
+  pub wide: Option<u16>,
+}
+
+impl ColumnDef {
+  /// Column visible at all tiers with different widths.
+  pub const fn all(label: &'static str, compact: u16, standard: u16, wide: u16) -> Self {
+    Self {
+      label,
+      compact: Some(compact),
+      standard: Some(standard),
+      wide: Some(wide),
+    }
+  }
+
+  /// Column visible only at Standard and Wide tiers.
+  pub const fn standard(label: &'static str, standard: u16, wide: u16) -> Self {
+    Self {
+      label,
+      compact: None,
+      standard: Some(standard),
+      wide: Some(wide),
+    }
+  }
+
+  /// Column visible only at Wide tier.
+  pub const fn wide(label: &'static str, wide: u16) -> Self {
+    Self {
+      label,
+      compact: None,
+      standard: None,
+      wide: Some(wide),
+    }
+  }
+}
+
+/// Given column definitions and a view tier, return the visible headers and widths.
+pub fn responsive_columns(columns: &[ColumnDef], tier: ViewTier) -> (Vec<&str>, Vec<Constraint>) {
+  columns
+    .iter()
+    .filter_map(|col| {
+      let w = match tier {
+        ViewTier::Wide => col.wide,
+        ViewTier::Standard => col.standard,
+        ViewTier::Compact => col.compact,
+      };
+      w.map(|w| (col.label, Constraint::Percentage(w)))
+    })
+    .unzip()
+}
+
 // Utils
 
-pub static COPY_HINT: &str = "| copy <c>";
-pub static DESCRIBE_AND_YAML_HINT: &str = "| describe <d> | yaml <y> ";
-pub static DESCRIBE_YAML_AND_LOGS_HINT: &str = "| describe <d> | yaml <y> | logs <o> ";
-pub static DESCRIBE_YAML_LOGS_AND_ESC_HINT: &str =
-  "| describe <d> | yaml <y> | logs <o> | back to menu <esc> ";
-pub static DESCRIBE_YAML_AND_ESC_HINT: &str = "| describe <d> | yaml <y> | back to menu <esc> ";
-pub static DESCRIBE_YAML_DECODE_AND_ESC_HINT: &str =
-  "| describe <d> | yaml <y> | decode <x> | back to menu <esc> ";
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum LinePart<'a> {
+  Default(Cow<'a, str>),
+  Help(Cow<'a, str>),
+}
 
-// default colors
-pub const COLOR_TEAL: Color = Color::Rgb(35, 50, 55);
-pub const COLOR_CYAN: Color = Color::Rgb(0, 230, 230);
-pub const COLOR_LIGHT_BLUE: Color = Color::Rgb(138, 196, 255);
-pub const COLOR_YELLOW: Color = Color::Rgb(249, 229, 113);
-pub const COLOR_GREEN: Color = Color::Rgb(72, 213, 150);
-pub const COLOR_RED: Color = Color::Rgb(249, 167, 164);
-pub const COLOR_ORANGE: Color = Color::Rgb(255, 170, 66);
-pub const COLOR_WHITE: Color = Color::Rgb(255, 255, 255);
-pub const COLOR_MAGENTA: Color = Color::Rgb(199, 146, 234);
-pub const COLOR_DARK_GRAY: Color = Color::Rgb(50, 50, 50);
-// light theme colors
-pub const COLOR_MAGENTA_DARK: Color = Color::Rgb(153, 26, 237);
-pub const COLOR_GRAY: Color = Color::Rgb(91, 87, 87);
-pub const COLOR_BLUE: Color = Color::Rgb(0, 82, 163);
-pub const COLOR_GREEN_DARK: Color = Color::Rgb(20, 97, 73);
-pub const COLOR_RED_DARK: Color = Color::Rgb(173, 25, 20);
-pub const COLOR_ORANGE_DARK: Color = Color::Rgb(184, 49, 15);
-// YAML background colors
-const YAML_BACKGROUND_LIGHT: syntect::highlighting::Color = syntect::highlighting::Color::WHITE;
-const YAML_BACKGROUND_DARK: syntect::highlighting::Color = syntect::highlighting::Color {
-  r: 35,
-  g: 50,
-  b: 55,
-  a: 255,
-}; // corresponds to TEAL
+// Catppuccin Macchiato (dark)
+pub const MACCHIATO_BASE: Color = Color::Rgb(36, 39, 58);
+pub const MACCHIATO_BLUE: Color = Color::Rgb(138, 173, 244);
+pub const MACCHIATO_GREEN: Color = Color::Rgb(166, 218, 149);
+pub const MACCHIATO_RED: Color = Color::Rgb(237, 135, 150);
+pub const MACCHIATO_YELLOW: Color = Color::Rgb(238, 212, 159);
+pub const MACCHIATO_PEACH: Color = Color::Rgb(245, 169, 127);
+pub const MACCHIATO_TEXT: Color = Color::Rgb(202, 211, 245);
+pub const MACCHIATO_MAUVE: Color = Color::Rgb(198, 160, 246);
+// Catppuccin Latte (light)
+pub const LATTE_MAUVE: Color = Color::Rgb(136, 57, 239);
+pub const LATTE_TEXT: Color = Color::Rgb(76, 79, 105);
+pub const LATTE_BLUE: Color = Color::Rgb(30, 102, 245);
+pub const LATTE_MAROON: Color = Color::Rgb(230, 69, 83);
+pub const LATTE_GREEN: Color = Color::Rgb(64, 160, 43);
+pub const LATTE_RED: Color = Color::Rgb(210, 15, 57);
+pub const LATTE_PEACH: Color = Color::Rgb(254, 100, 11);
+pub const LATTE_BASE: Color = Color::Rgb(239, 241, 245);
+const CATPPUCCIN_MACCHIATO_THEME: &[u8] =
+  include_bytes!("../../assets/themes/CatppuccinMacchiato.tmTheme");
+const CATPPUCCIN_LATTE_THEME: &[u8] = include_bytes!("../../assets/themes/CatppuccinLatte.tmTheme");
 
 /// Convert a syntect highlight segment into an owned ratatui Span.
 fn syntect_to_ratatui_span_owned(
@@ -121,20 +195,20 @@ struct YamlThemes {
 fn get_yaml_themes() -> &'static YamlThemes {
   static YAML_THEMES: OnceLock<YamlThemes> = OnceLock::new();
   YAML_THEMES.get_or_init(|| {
-    let ts = syntect::highlighting::ThemeSet::load_defaults();
-    let mut dark = ts.themes["Solarized (dark)"].clone();
-    dark.settings.background = Some(YAML_BACKGROUND_DARK);
-    let mut light = ts.themes["Solarized (light)"].clone();
-    light.settings.background = Some(YAML_BACKGROUND_LIGHT);
+    let dark = load_embedded_theme(CATPPUCCIN_MACCHIATO_THEME);
+    let light = load_embedded_theme(CATPPUCCIN_LATTE_THEME);
     YamlThemes { dark, light }
   })
 }
 
+fn load_embedded_theme(theme_bytes: &[u8]) -> syntect::highlighting::Theme {
+  syntect::highlighting::ThemeSet::load_from_reader(&mut Cursor::new(theme_bytes))
+    .expect("embedded theme should load")
+}
+
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Styles {
-  Default,
-  Header,
-  Logo,
+  Text,
   Failure,
   Warning,
   Success,
@@ -145,68 +219,82 @@ pub enum Styles {
 }
 
 pub fn theme_styles(light: bool) -> BTreeMap<Styles, Style> {
-  if light {
+  let mut styles = if light {
     BTreeMap::from([
-      (Styles::Default, Style::default().fg(COLOR_GRAY)),
-      (Styles::Header, Style::default().fg(COLOR_DARK_GRAY)),
-      (Styles::Logo, Style::default().fg(COLOR_GREEN_DARK)),
-      (Styles::Failure, Style::default().fg(COLOR_RED_DARK)),
-      (Styles::Warning, Style::default().fg(COLOR_ORANGE_DARK)),
-      (Styles::Success, Style::default().fg(COLOR_GREEN_DARK)),
-      (Styles::Primary, Style::default().fg(COLOR_BLUE)),
-      (Styles::Secondary, Style::default().fg(COLOR_MAGENTA_DARK)),
-      (Styles::Help, Style::default().fg(COLOR_BLUE)),
+      (Styles::Text, Style::default().fg(LATTE_TEXT)),
+      (Styles::Failure, Style::default().fg(LATTE_RED)),
+      (Styles::Warning, Style::default().fg(LATTE_PEACH)),
+      (Styles::Success, Style::default().fg(LATTE_GREEN)),
+      (Styles::Primary, Style::default().fg(LATTE_MAUVE)),
+      (Styles::Secondary, Style::default().fg(LATTE_MAROON)),
+      (Styles::Help, Style::default().fg(LATTE_BLUE)),
       (
         Styles::Background,
-        Style::default().bg(COLOR_WHITE).fg(COLOR_GRAY),
+        Style::default().bg(LATTE_BASE).fg(LATTE_TEXT),
       ),
     ])
   } else {
     BTreeMap::from([
-      (Styles::Default, Style::default().fg(COLOR_WHITE)),
-      (Styles::Header, Style::default().fg(COLOR_DARK_GRAY)),
-      (Styles::Logo, Style::default().fg(COLOR_GREEN)),
-      (Styles::Failure, Style::default().fg(COLOR_RED)),
-      (Styles::Warning, Style::default().fg(COLOR_ORANGE)),
-      (Styles::Success, Style::default().fg(COLOR_GREEN)),
-      (Styles::Primary, Style::default().fg(COLOR_CYAN)),
-      (Styles::Secondary, Style::default().fg(COLOR_YELLOW)),
-      (Styles::Help, Style::default().fg(COLOR_LIGHT_BLUE)),
+      (Styles::Text, Style::default().fg(MACCHIATO_TEXT)),
+      (Styles::Failure, Style::default().fg(MACCHIATO_RED)),
+      (Styles::Warning, Style::default().fg(MACCHIATO_PEACH)),
+      (Styles::Success, Style::default().fg(MACCHIATO_GREEN)),
+      (Styles::Primary, Style::default().fg(MACCHIATO_MAUVE)),
+      (Styles::Secondary, Style::default().fg(MACCHIATO_YELLOW)),
+      (Styles::Help, Style::default().fg(MACCHIATO_BLUE)),
       (
         Styles::Background,
-        Style::default().bg(COLOR_TEAL).fg(COLOR_WHITE),
+        Style::default().bg(MACCHIATO_BASE).fg(MACCHIATO_TEXT),
       ),
     ])
-  }
+  };
+
+  apply_theme_override(&mut styles, Styles::Text, "text", false, light);
+  apply_theme_override(&mut styles, Styles::Failure, "failure", false, light);
+  apply_theme_override(&mut styles, Styles::Warning, "warning", false, light);
+  apply_theme_override(&mut styles, Styles::Success, "success", false, light);
+  apply_theme_override(&mut styles, Styles::Primary, "primary", false, light);
+  apply_theme_override(&mut styles, Styles::Secondary, "secondary", false, light);
+  apply_theme_override(&mut styles, Styles::Help, "help", false, light);
+  apply_theme_override(&mut styles, Styles::Background, "background", true, light);
+
+  styles
 }
 
 pub fn title_style(txt: &str) -> Span<'_> {
   Span::styled(txt, style_bold())
 }
 
-pub fn style_header_text(light: bool) -> Style {
-  *theme_styles(light).get(&Styles::Header).unwrap()
+pub fn default_part<'a, S: Into<Cow<'a, str>>>(text: S) -> LinePart<'a> {
+  LinePart::Default(text.into())
 }
 
-pub fn style_header() -> Style {
-  Style::default().bg(COLOR_MAGENTA)
+pub fn help_part<'a, S: Into<Cow<'a, str>>>(text: S) -> LinePart<'a> {
+  LinePart::Help(text.into())
+}
+
+pub fn style_header(light: bool) -> Style {
+  style_primary(light).add_modifier(Modifier::REVERSED)
 }
 
 pub fn style_bold() -> Style {
   Style::default().add_modifier(Modifier::BOLD)
 }
 
-pub fn style_default(light: bool) -> Style {
-  *theme_styles(light).get(&Styles::Default).unwrap()
+pub fn style_text(light: bool) -> Style {
+  *theme_styles(light).get(&Styles::Text).unwrap()
 }
 pub fn style_logo(light: bool) -> Style {
-  *theme_styles(light).get(&Styles::Logo).unwrap()
+  style_primary(light)
 }
 pub fn style_failure(light: bool) -> Style {
   *theme_styles(light).get(&Styles::Failure).unwrap()
 }
 pub fn style_warning(light: bool) -> Style {
   *theme_styles(light).get(&Styles::Warning).unwrap()
+}
+pub fn style_caution(light: bool) -> Style {
+  style_warning(light)
 }
 pub fn style_success(light: bool) -> Style {
   *theme_styles(light).get(&Styles::Success).unwrap()
@@ -230,6 +318,136 @@ pub fn style_highlight() -> Style {
   Style::default().add_modifier(Modifier::REVERSED)
 }
 
+fn line_part_style(part: &LinePart<'_>, light: bool, bold: bool) -> Style {
+  let style = match part {
+    LinePart::Default(_) => style_text(light),
+    LinePart::Help(_) => style_help(light),
+  };
+  if bold {
+    style.add_modifier(Modifier::BOLD)
+  } else {
+    style
+  }
+}
+
+fn apply_theme_override(
+  styles: &mut BTreeMap<Styles, Style>,
+  slot: Styles,
+  config_key: &str,
+  background: bool,
+  light: bool,
+) {
+  if let Some(color) = override_color(config_key, light) {
+    let style = styles.entry(slot).or_default();
+    *style = if background {
+      style.bg(color)
+    } else {
+      style.fg(color)
+    };
+  }
+}
+
+pub fn mixed_line<'a, I>(parts: I, light: bool) -> Line<'a>
+where
+  I: IntoIterator<Item = LinePart<'a>>,
+{
+  styled_line(parts, light, false)
+}
+
+pub fn mixed_bold_line<'a, I>(parts: I, light: bool) -> Line<'a>
+where
+  I: IntoIterator<Item = LinePart<'a>>,
+{
+  styled_line(parts, light, true)
+}
+
+pub fn help_bold_line<'a, S: Into<Cow<'a, str>>>(text: S, light: bool) -> Line<'a> {
+  mixed_bold_line([help_part(text)], light)
+}
+
+pub fn key_hints(keys: &[Key]) -> String {
+  keys
+    .iter()
+    .map(ToString::to_string)
+    .collect::<Vec<_>>()
+    .join("/")
+}
+
+pub fn action_hint(action: &str, key: Key) -> String {
+  format!("{} {}", action, key)
+}
+
+pub fn describe_and_yaml_hint() -> String {
+  format!(
+    "{} · {} · {} ",
+    action_hint("describe", DEFAULT_KEYBINDING.describe_resource.key),
+    action_hint("yaml", DEFAULT_KEYBINDING.resource_yaml.key),
+    action_hint("menu", DEFAULT_KEYBINDING.open_action_menu.key)
+  )
+}
+
+pub fn describe_yaml_and_logs_hint() -> String {
+  format!(
+    "{} · {} ",
+    describe_and_yaml_hint().trim_end(),
+    action_hint("logs", DEFAULT_KEYBINDING.aggregate_logs.key)
+  )
+}
+
+pub fn describe_yaml_logs_and_esc_hint() -> String {
+  format!(
+    "{} · back {} ",
+    describe_yaml_and_logs_hint().trim_end(),
+    DEFAULT_KEYBINDING.esc.key
+  )
+}
+
+pub fn describe_yaml_and_esc_hint() -> String {
+  format!(
+    "{} · back {} ",
+    describe_and_yaml_hint().trim_end(),
+    DEFAULT_KEYBINDING.esc.key
+  )
+}
+
+pub fn describe_yaml_decode_and_esc_hint() -> String {
+  format!(
+    "{} · {} · back {} ",
+    describe_and_yaml_hint().trim_end(),
+    action_hint("decode", DEFAULT_KEYBINDING.decode_secret.key),
+    DEFAULT_KEYBINDING.esc.key
+  )
+}
+
+pub fn wide_hint() -> String {
+  format!("wide {}", DEFAULT_KEYBINDING.toggle_wide_columns.key)
+}
+
+pub fn filter_cursor_position(area: Rect, prefix_width: usize, filter: &str) -> Position {
+  Position {
+    x: area.x
+      + (prefix_width as u16 + 1 + filter.chars().count() as u16).min(area.width.saturating_sub(2)),
+    y: area.y,
+  }
+}
+
+fn styled_line<'a, I>(parts: I, light: bool, bold: bool) -> Line<'a>
+where
+  I: IntoIterator<Item = LinePart<'a>>,
+{
+  Line::from(
+    parts
+      .into_iter()
+      .map(|part| {
+        let style = line_part_style(&part, light, bold);
+        match part {
+          LinePart::Default(text) | LinePart::Help(text) => Span::styled(text, style),
+        }
+      })
+      .collect::<Vec<_>>(),
+  )
+}
+
 pub fn get_gauge_symbol(enhanced_graphics: bool) -> &'static str {
   if enhanced_graphics {
     symbols::line::THICK_HORIZONTAL
@@ -239,7 +457,7 @@ pub fn get_gauge_symbol(enhanced_graphics: bool) -> &'static str {
 }
 
 pub fn table_header_style(cells: Vec<&str>, light: bool) -> Row<'_> {
-  Row::new(cells).style(style_default(light)).bottom_margin(0)
+  Row::new(cells).style(style_text(light)).bottom_margin(0)
 }
 
 pub fn horizontal_chunks(constraints: Vec<Constraint>, size: Rect) -> Rc<[Rect]> {
@@ -296,15 +514,19 @@ pub fn layout_block_default(title: &str) -> Block<'_> {
   layout_block(title_style(title))
 }
 
-pub fn layout_block_active(title: &str, light: bool) -> Block<'_> {
-  layout_block(title_style(title)).style(style_secondary(light))
+pub fn layout_block_default_line(title: Line<'_>) -> Block<'_> {
+  Block::default().borders(Borders::ALL).title(title)
 }
 
-pub fn layout_block_active_span(title: Line<'_>, light: bool) -> Block<'_> {
+pub fn layout_block_active_line(title: Line<'_>, light: bool) -> Block<'_> {
   Block::default()
     .borders(Borders::ALL)
     .title(title)
     .style(style_secondary(light))
+}
+
+pub fn layout_block_active_span(title: Line<'_>, light: bool) -> Block<'_> {
+  layout_block_active_line(title, light)
 }
 
 pub fn layout_block_top_border(title: Line<'_>) -> Block<'_> {
@@ -327,55 +549,99 @@ fn filter_display_state(filter: &str, active: bool) -> FilterDisplayState<'_> {
   }
 }
 
-pub fn filter_status_hint(filter: &str, active: bool) -> String {
-  match filter_display_state(filter, active) {
-    FilterDisplayState::Inactive => "filter < / >".to_string(),
-    FilterDisplayState::EditingEmpty => "type to filter | clear <esc>".to_string(),
-    FilterDisplayState::Value {
-      filter,
-      active: true,
-    } => format!("[{}] | clear <esc>", filter),
-    FilterDisplayState::Value {
-      filter,
-      active: false,
-    } => format!("[{}] | edit < / >", filter),
-  }
-}
+fn filter_display_parts(filter: &str, active: bool) -> Vec<LinePart<'_>> {
+  let state = filter_display_state(filter, active);
+  let inactive_text = action_hint("filter", DEFAULT_KEYBINDING.filter.key);
+  let clear_suffix = format!(" · clear {} ", DEFAULT_KEYBINDING.esc.key);
+  let edit_suffix = format!(" · edit {} ", DEFAULT_KEYBINDING.filter.key);
 
-pub fn filter_bar_title<'a>(filter: &'a str, active: bool, light: bool) -> Line<'a> {
-  match filter_display_state(filter, active) {
-    FilterDisplayState::Inactive => {
-      Line::from(vec![Span::styled(" filter < / > ", style_secondary(light))])
+  match state {
+    FilterDisplayState::Inactive => vec![help_part(inactive_text)],
+    FilterDisplayState::EditingEmpty => {
+      vec![help_part("[type to filter]"), help_part(clear_suffix)]
     }
-    FilterDisplayState::EditingEmpty => Line::from(vec![
-      Span::styled(" / ", style_secondary(light)),
-      Span::styled("type to filter", style_default(light)),
-      Span::styled("  | clear <esc> ", style_secondary(light)),
-    ]),
     FilterDisplayState::Value {
       filter,
       active: true,
-    } => Line::from(vec![
-      Span::styled(" / ", style_secondary(light)),
-      Span::styled(filter, style_default(light)),
-      Span::styled("  | clear <esc> ", style_secondary(light)),
-    ]),
+    } => vec![
+      default_part(format!("[{}]", filter)),
+      help_part(clear_suffix),
+    ],
     FilterDisplayState::Value {
       filter,
       active: false,
-    } => Line::from(vec![
-      Span::styled(" / ", style_secondary(light)),
-      Span::styled(filter, style_default(light)),
-      Span::styled("  | edit < / > ", style_secondary(light)),
-    ]),
+    } => vec![
+      default_part(format!("[{}]", filter)),
+      help_part(edit_suffix),
+    ],
   }
 }
 
-pub fn title_with_dual_style<'a>(part_1: String, part_2: String, light: bool) -> Line<'a> {
-  Line::from(vec![
-    Span::styled(part_1, style_secondary(light).add_modifier(Modifier::BOLD)),
-    Span::styled(part_2, style_default(light).add_modifier(Modifier::BOLD)),
-  ])
+pub fn filter_status_parts(filter: &str, active: bool) -> Vec<LinePart<'_>> {
+  filter_display_parts(filter, active)
+}
+
+pub fn owned_filter_status_parts(filter: &str, active: bool) -> Vec<LinePart<'static>> {
+  filter_display_parts(filter, active)
+    .into_iter()
+    .map(|part| match part {
+      LinePart::Default(text) => default_part(text.into_owned()),
+      LinePart::Help(text) => help_part(text.into_owned()),
+    })
+    .collect()
+}
+
+pub fn title_with_dual_style<'a>(part_1: String, part_2: Line<'a>, light: bool) -> Line<'a> {
+  let mut spans = vec![Span::styled(
+    part_1,
+    style_secondary(light).add_modifier(Modifier::BOLD),
+  )];
+  spans.extend(part_2.spans);
+  Line::from(spans)
+}
+
+pub fn copy_and_escape_title_line<'a, S: Into<Cow<'a, str>>>(_target: S, light: bool) -> Line<'a> {
+  mixed_bold_line(
+    [
+      help_part(format!(
+        "{} · ",
+        action_hint("copy", DEFAULT_KEYBINDING.copy_to_clipboard.key)
+      )),
+      help_part(format!("back {} ", DEFAULT_KEYBINDING.esc.key)),
+    ],
+    light,
+  )
+}
+
+pub fn copy_scroll_and_escape_title_line<'a, S: Into<Cow<'a, str>>>(
+  _target: S,
+  auto_scroll: bool,
+  light: bool,
+) -> Line<'a> {
+  let auto_scroll_action = if auto_scroll {
+    "pause scroll"
+  } else {
+    "resume scroll"
+  };
+  mixed_bold_line(
+    [
+      help_part(format!(
+        "{} · {} · ",
+        action_hint("copy", DEFAULT_KEYBINDING.copy_to_clipboard.key),
+        action_hint(auto_scroll_action, DEFAULT_KEYBINDING.log_auto_scroll.key)
+      )),
+      help_part(format!("back {} ", DEFAULT_KEYBINDING.esc.key)),
+    ],
+    light,
+  )
+}
+
+pub fn split_hint_suffix(text: &str) -> (&str, Option<&str>) {
+  if let Some(pos) = text.rfind(" <") {
+    (&text[..pos], Some(&text[(pos + 1)..]))
+  } else {
+    (text, None)
+  }
 }
 
 /// helper function to create a centered rect using up
@@ -442,7 +708,7 @@ macro_rules! draw_resource_tab {
         $area,
         title_with_dual_style(
           get_resource_title($app, $title, get_describe_active($block), $res.items.len()),
-          format!("{} | {} <esc> ", COPY_HINT, $title),
+          $crate::ui::utils::copy_and_escape_title_line($title, $app.light_theme),
           $app.light_theme,
         ),
       ),
@@ -452,7 +718,7 @@ macro_rules! draw_resource_tab {
         $area,
         title_with_dual_style(
           get_resource_title($app, $title, get_describe_active($block), $res.items.len()),
-          format!("{} | {} <esc> ", COPY_HINT, $title),
+          $crate::ui::utils::copy_and_escape_title_line($title, $app.light_theme),
           $app.light_theme,
         ),
       ),
@@ -467,7 +733,7 @@ macro_rules! draw_resource_tab {
 
 pub struct ResourceTableProps<'a, T> {
   pub title: String,
-  pub inline_help: String,
+  pub inline_help: Line<'a>,
   pub resource: &'a mut StatefulTable<T>,
   pub table_headers: Vec<&'a str>,
   pub column_widths: Vec<Constraint>,
@@ -477,96 +743,107 @@ pub fn draw_describe_block(f: &mut Frame<'_>, app: &mut App, area: Rect, title: 
   draw_yaml_block(f, app, area, title);
 }
 
+/// Refreshes the syntax-highlight cache when empty or the theme changed.
+/// Returns `false` when there is no content to highlight.
+fn ensure_highlight_cache(app: &mut App) -> bool {
+  if app.data.describe_out.get_txt().is_empty() {
+    return false;
+  }
+  if app.data.describe_out.highlighted_lines.is_empty()
+    || app.data.describe_out.highlight_light_theme != app.light_theme
+  {
+    let ss = get_syntax_set();
+    let syntax = get_yaml_syntax_reference();
+    let theme = if app.light_theme {
+      &get_yaml_themes().light
+    } else {
+      &get_yaml_themes().dark
+    };
+    let mut h = syntect::easy::HighlightLines::new(syntax, theme);
+    let txt = app.data.describe_out.get_txt();
+    let lines: Vec<_> = syntect::util::LinesWithEndings::from(txt)
+      .filter_map(|line| match h.highlight_line(line, ss) {
+        Ok(segments) => {
+          let line_spans: Vec<_> = segments
+            .into_iter()
+            .filter_map(syntect_to_ratatui_span_owned)
+            .collect();
+          Some(ratatui::text::Line::from(line_spans))
+        }
+        Err(_) => None,
+      })
+      .collect();
+    app.data.describe_out.highlighted_lines = lines;
+    app.data.describe_out.highlight_light_theme = app.light_theme;
+  }
+  true
+}
+
+/// Compute the (start, end, scroll-within-slice) window into a buffer of
+/// `total` highlighted lines for the given `offset` and visible row count.
+/// Clamps `offset` to a valid index and ensures `start <= end <= total`.
+fn highlight_window(offset: usize, total: usize, view_h: usize) -> (usize, usize, u16) {
+  // Caller guarantees total > 0; clamp here defensively too.
+  let view_h = view_h.max(1);
+  let effective_offset = offset.min(total.saturating_sub(1));
+  let slice_start = effective_offset.saturating_sub(view_h);
+  let slice_end = total.min(effective_offset + view_h * 3);
+  let adjusted_offset = (effective_offset - slice_start).min(u16::MAX as usize) as u16;
+  (slice_start, slice_end, adjusted_offset)
+}
+
 /// common for all resources
 pub fn draw_yaml_block(f: &mut Frame<'_>, app: &mut App, area: Rect, title: Line<'_>) {
   let block = layout_block_top_border(title);
-
-  let txt = app.data.describe_out.get_txt();
-  if !txt.is_empty() {
-    // Re-highlight only when the cache is empty or the theme changed.
-    if app.data.describe_out.highlighted_lines.is_empty()
-      || app.data.describe_out.highlight_light_theme != app.light_theme
-    {
-      let ss = get_syntax_set();
-      let syntax = get_yaml_syntax_reference();
-      let theme = if app.light_theme {
-        &get_yaml_themes().light
-      } else {
-        &get_yaml_themes().dark
-      };
-      let mut h = syntect::easy::HighlightLines::new(syntax, theme);
-      let lines: Vec<_> = syntect::util::LinesWithEndings::from(txt)
-        .filter_map(|line| match h.highlight_line(line, ss) {
-          Ok(segments) => {
-            let line_spans: Vec<_> = segments
-              .into_iter()
-              .filter_map(syntect_to_ratatui_span_owned)
-              .collect();
-            Some(ratatui::text::Line::from(line_spans))
-          }
-          Err(_) => None,
-        })
-        .collect();
-      app.data.describe_out.highlighted_lines = lines;
-      app.data.describe_out.highlight_light_theme = app.light_theme;
+  if ensure_highlight_cache(app) {
+    let total = app.data.describe_out.highlighted_lines.len();
+    if total == 0 {
+      loading(f, block, area, app.is_loading(), app.light_theme);
+      return;
     }
-
-    let paragraph = Paragraph::new(app.data.describe_out.highlighted_lines.clone())
+    let offset = app.data.describe_out.offset;
+    // Subtract 2 for the top-border of the block; clamp to >=1 so a tiny
+    // terminal doesn't degenerate into an empty slice.
+    let view_h = (area.height.saturating_sub(2) as usize).max(1);
+    let (slice_start, slice_end, adjusted_offset) = highlight_window(offset, total, view_h);
+    let visible_lines = app.data.describe_out.highlighted_lines[slice_start..slice_end].to_vec();
+    let paragraph = Paragraph::new(visible_lines)
       .block(block)
       .wrap(Wrap { trim: false })
-      .scroll((
-        app.data.describe_out.offset.min(u16::MAX as usize) as u16,
-        0,
-      ));
+      .scroll((adjusted_offset, 0));
     f.render_widget(paragraph, area);
   } else {
     loading(f, block, area, app.is_loading(), app.light_theme);
   }
 }
 
-/// Draw a kubernetes resource overview tab
-pub fn draw_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
+fn draw_resource_table<'a, T: Named, F>(
   f: &mut Frame<'_>,
   area: Rect,
   table_props: ResourceTableProps<'a, T>,
   row_cell_mapper: F,
   light_theme: bool,
   is_loading: bool,
+  block: Block<'a>,
 ) where
   F: Fn(&T) -> Row<'a>,
 {
-  let title = title_with_dual_style(table_props.title, table_props.inline_help, light_theme);
-  let block = layout_block_top_border(title);
-
   if !table_props.resource.items.is_empty() {
     let filter = table_props.resource.filter.to_lowercase();
-    // Build filtered rows and track the mapping from visible index → items index.
     let has_filter = !filter.is_empty();
     let mut filtered_indices: Vec<usize> = Vec::new();
-    let rows: Vec<Row<'a>> = table_props
-      .resource
-      .items
-      .iter()
-      .enumerate()
-      .filter_map(|(idx, c)| {
-        let mapper = row_cell_mapper(c);
-        if filter.is_empty() || filter_by_name(&filter, c) {
-          Some((idx, mapper))
-        } else {
-          None
-        }
-      })
-      .map(|(idx, row)| {
+    let mut filtered_items: Vec<&T> = Vec::new();
+    for (idx, item) in table_props.resource.items.iter().enumerate() {
+      if !has_filter || filter_by_name(&filter, item) {
         if has_filter {
           filtered_indices.push(idx);
         }
-        row
-      })
-      .collect();
+        filtered_items.push(item);
+      }
+    }
 
-    // Clamp selection to the filtered list length.
     if has_filter {
-      let max = filtered_indices.len().saturating_sub(1);
+      let max = filtered_items.len().saturating_sub(1);
       if let Some(sel) = table_props.resource.state.selected() {
         if sel > max {
           table_props.resource.state.select(Some(max));
@@ -574,6 +851,29 @@ pub fn draw_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
       }
     }
     table_props.resource.filtered_indices = filtered_indices;
+
+    // Skip row_cell_mapper for off-screen items: ratatui's Table only paints
+    // rows intersecting the visible area, so we can hand it cheap empty Rows
+    // outside the window. The window must bracket the legal range of
+    // state.offset() (which ratatui keeps within `selected ± view_h`),
+    // hence `selected.saturating_sub(view_h)` and `selected + view_h * 2`.
+    // view_h is clamped to >=1 so a tiny terminal still renders one row.
+    let selected = table_props.resource.state.selected().unwrap_or(0);
+    let view_h = (area.height.saturating_sub(3) as usize).max(1);
+    let visible_start = selected.saturating_sub(view_h);
+    let visible_end = (selected + view_h * 2).min(filtered_items.len());
+
+    let rows: Vec<Row<'a>> = filtered_items
+      .iter()
+      .enumerate()
+      .map(|(fi, item)| {
+        if fi >= visible_start && fi < visible_end {
+          row_cell_mapper(item)
+        } else {
+          Row::default()
+        }
+      })
+      .collect();
 
     let table = Table::new(rows, &table_props.column_widths)
       .header(table_header_style(table_props.table_headers, light_theme))
@@ -587,7 +887,174 @@ pub fn draw_resource_block<'a, T: KubeResource<U>, F, U: Serialize>(
   }
 }
 
-pub fn filter_by_resource_name<T: KubeResource<U>, U: Serialize>(
+/// Builds the help `Line` for a resource block title, weaving filter status
+/// into any existing inline help (placing it after a "containers" prefix when present).
+fn build_resource_help_line(
+  inline_help: Line<'_>,
+  filter: &str,
+  filter_active: bool,
+  light_theme: bool,
+) -> Line<'static> {
+  let inline_help_text = inline_help
+    .spans
+    .iter()
+    .map(|span| span.content.as_ref())
+    .collect::<String>();
+  let containers_prefix = format!(
+    "{} · ",
+    action_hint("containers", DEFAULT_KEYBINDING.submit.key)
+  );
+  let mut help_parts: Vec<LinePart<'static>> = Vec::new();
+  if let Some(rest) = inline_help_text.strip_prefix(&containers_prefix) {
+    help_parts.push(help_part(containers_prefix));
+    help_parts.extend(owned_filter_status_parts(filter, filter_active));
+    if !rest.is_empty() {
+      help_parts.push(help_part(" · ".to_string()));
+      help_parts.push(help_part(rest.to_string()));
+    }
+  } else {
+    help_parts.extend(owned_filter_status_parts(filter, filter_active));
+    if !inline_help_text.is_empty() {
+      help_parts.push(help_part(" · ".to_string()));
+      help_parts.push(help_part(inline_help_text));
+    }
+  }
+  mixed_bold_line(help_parts, light_theme)
+}
+
+/// Draw a kubernetes resource overview tab
+pub fn draw_resource_block<'a, T: Named, F>(
+  f: &mut Frame<'_>,
+  area: Rect,
+  table_props: ResourceTableProps<'a, T>,
+  row_cell_mapper: F,
+  light_theme: bool,
+  is_loading: bool,
+) where
+  F: Fn(&T) -> Row<'a>,
+{
+  let ResourceTableProps {
+    title,
+    inline_help,
+    resource,
+    table_headers,
+    column_widths,
+  } = table_props;
+  let filter = resource.filter.clone();
+  let filter_active = resource.filter_active;
+  if filter_active {
+    let title_width = title.chars().count();
+    let title = title_with_dual_style(
+      title,
+      mixed_bold_line(owned_filter_status_parts(&filter, true), light_theme),
+      light_theme,
+    );
+    let block = layout_block_top_border(title);
+    draw_resource_table(
+      f,
+      area,
+      ResourceTableProps {
+        title: String::new(),
+        inline_help: Line::default(),
+        resource,
+        table_headers,
+        column_widths,
+      },
+      row_cell_mapper,
+      light_theme,
+      is_loading,
+      block,
+    );
+    f.set_cursor_position(filter_cursor_position(area, title_width, &filter));
+    return;
+  }
+
+  let help_line = build_resource_help_line(inline_help, &filter, filter_active, light_theme);
+  let title = title_with_dual_style(title, help_line, light_theme);
+  let block = layout_block_top_border(title);
+  draw_resource_table(
+    f,
+    area,
+    ResourceTableProps {
+      title: String::new(),
+      inline_help: Line::default(),
+      resource,
+      table_headers,
+      column_widths,
+    },
+    row_cell_mapper,
+    light_theme,
+    is_loading,
+    block,
+  );
+}
+
+pub fn draw_route_resource_block<'a, T: Named, F>(
+  f: &mut Frame<'_>,
+  area: Rect,
+  table_props: ResourceTableProps<'a, T>,
+  row_cell_mapper: F,
+  light_theme: bool,
+  is_loading: bool,
+) where
+  F: Fn(&T) -> Row<'a>,
+{
+  let ResourceTableProps {
+    title,
+    inline_help,
+    resource,
+    table_headers,
+    column_widths,
+  } = table_props;
+  let filter = resource.filter.clone();
+  let filter_active = resource.filter_active;
+  if filter_active {
+    let title_width = title.chars().count();
+    let title = title_with_dual_style(
+      title,
+      mixed_bold_line(owned_filter_status_parts(&filter, true), light_theme),
+      light_theme,
+    );
+    let block = layout_block_active_span(title, light_theme);
+    draw_resource_table(
+      f,
+      area,
+      ResourceTableProps {
+        title: String::new(),
+        inline_help: Line::default(),
+        resource,
+        table_headers,
+        column_widths,
+      },
+      row_cell_mapper,
+      light_theme,
+      is_loading,
+      block,
+    );
+    f.set_cursor_position(filter_cursor_position(area, title_width, &filter));
+    return;
+  }
+
+  let title = title_with_dual_style(title, inline_help, light_theme);
+  let block = layout_block_active_span(title, light_theme);
+  draw_resource_table(
+    f,
+    area,
+    ResourceTableProps {
+      title: String::new(),
+      inline_help: Line::default(),
+      resource,
+      table_headers,
+      column_widths,
+    },
+    row_cell_mapper,
+    light_theme,
+    is_loading,
+    block,
+  );
+}
+
+pub fn filter_by_resource_name<T: Named>(
   filter: &str,
   res: &T,
   row_cell_mapper: Row<'static>,
@@ -605,7 +1072,7 @@ pub fn text_matches_filter(filter: &str, value: &str) -> bool {
   filter.is_empty() || glob_match(&filter, &value) || value.contains(&filter)
 }
 
-fn filter_by_name<T: KubeResource<U>, U: Serialize>(ft: &str, res: &T) -> bool {
+fn filter_by_name<T: Named>(ft: &str, res: &T) -> bool {
   text_matches_filter(ft, res.get_name())
 }
 
@@ -661,7 +1128,7 @@ mod tests {
   };
 
   use super::*;
-  use crate::ui::utils::{COLOR_CYAN, COLOR_WHITE, COLOR_YELLOW};
+  use crate::ui::utils::{MACCHIATO_BLUE, MACCHIATO_MAUVE, MACCHIATO_TEXT, MACCHIATO_YELLOW};
 
   #[test]
   fn test_draw_resource_block() {
@@ -675,12 +1142,9 @@ mod tests {
       pub age: String,
     }
 
-    impl KubeResource<Option<String>> for RenderTest {
+    impl Named for RenderTest {
       fn get_name(&self) -> &String {
         &self.name
-      }
-      fn get_k8s_obj(&self) -> &Option<String> {
-        &None
       }
     }
     terminal
@@ -712,7 +1176,7 @@ mod tests {
           size,
           ResourceTableProps {
             title: "Test".into(),
-            inline_help: "-> yaml <y>".into(),
+            inline_help: help_bold_line("-> yaml <y>", false),
             resource: &mut resource,
             table_headers: vec!["Namespace", "Name", "Data", "Age"],
             column_widths: vec![
@@ -738,7 +1202,7 @@ mod tests {
       .unwrap();
 
     let mut expected = Buffer::with_lines(vec![
-        "Test-> yaml <y>─────────────────────────────────────────────────────────────────────────────────────",
+        "Testfilter </> · -> yaml <y>────────────────────────────────────────────────────────────────────────",
         "   Namespace                     Name                                 Data           Age            ",
         "=> Test ns                       Test 1                               5              65h3m          ",
         "   Test ns                       Test long name that should be trunca 3              65h3m          ",
@@ -752,14 +1216,14 @@ mod tests {
         0..=3 => {
           expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
-              .fg(COLOR_YELLOW)
+              .fg(MACCHIATO_YELLOW)
               .add_modifier(Modifier::BOLD),
           );
         }
-        4..=14 => {
+        4..=27 => {
           expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
-              .fg(COLOR_WHITE)
+              .fg(MACCHIATO_BLUE)
               .add_modifier(Modifier::BOLD),
           );
         }
@@ -772,13 +1236,13 @@ mod tests {
       expected
         .cell_mut(Position::new(col, 1))
         .unwrap()
-        .set_style(Style::default().fg(COLOR_WHITE));
+        .set_style(Style::default().fg(MACCHIATO_TEXT));
     }
     // first table data row style
     for col in 0..=99 {
       expected.cell_mut(Position::new(col, 2)).unwrap().set_style(
         Style::default()
-          .fg(COLOR_CYAN)
+          .fg(MACCHIATO_MAUVE)
           .add_modifier(Modifier::REVERSED),
       );
     }
@@ -788,7 +1252,7 @@ mod tests {
         expected
           .cell_mut(Position::new(col, row))
           .unwrap()
-          .set_style(Style::default().fg(COLOR_CYAN));
+          .set_style(Style::default().fg(MACCHIATO_MAUVE));
       }
     }
 
@@ -806,12 +1270,9 @@ mod tests {
       pub data: i32,
       pub age: String,
     }
-    impl KubeResource<Option<String>> for RenderTest {
+    impl Named for RenderTest {
       fn get_name(&self) -> &String {
         &self.name
-      }
-      fn get_k8s_obj(&self) -> &Option<String> {
-        &None
       }
     }
 
@@ -845,7 +1306,7 @@ mod tests {
           size,
           ResourceTableProps {
             title: "Test".into(),
-            inline_help: "-> yaml <y>".into(),
+            inline_help: help_bold_line("-> yaml <y>", false),
             resource: &mut resource,
             table_headers: vec!["Namespace", "Name", "Data", "Age"],
             column_widths: vec![
@@ -871,7 +1332,7 @@ mod tests {
       .unwrap();
 
     let mut expected = Buffer::with_lines(vec![
-        "Test-> yaml <y>─────────────────────────────────────────────────────────────────────────────────────",
+        "Test[truncated] · edit </>  · -> yaml <y>───────────────────────────────────────────────────────────",
         "   Namespace                     Name                                 Data           Age            ",
         "=> Test ns                       Test long name that should be trunca 3              65h3m          ",
         "   Test ns long value check that test_long_name_that_should_be_trunca 6              65h3m          ",
@@ -885,14 +1346,21 @@ mod tests {
         0..=3 => {
           expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
-              .fg(COLOR_YELLOW)
+              .fg(MACCHIATO_YELLOW)
               .add_modifier(Modifier::BOLD),
           );
         }
         4..=14 => {
           expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
-              .fg(COLOR_WHITE)
+              .fg(MACCHIATO_TEXT)
+              .add_modifier(Modifier::BOLD),
+          );
+        }
+        15..=40 => {
+          expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
+            Style::default()
+              .fg(MACCHIATO_BLUE)
               .add_modifier(Modifier::BOLD),
           );
         }
@@ -905,13 +1373,13 @@ mod tests {
       expected
         .cell_mut(Position::new(col, 1))
         .unwrap()
-        .set_style(Style::default().fg(COLOR_WHITE));
+        .set_style(Style::default().fg(MACCHIATO_TEXT));
     }
     // first table data row style
     for col in 0..=99 {
       expected.cell_mut(Position::new(col, 2)).unwrap().set_style(
         Style::default()
-          .fg(COLOR_CYAN)
+          .fg(MACCHIATO_MAUVE)
           .add_modifier(Modifier::REVERSED),
       );
     }
@@ -921,7 +1389,7 @@ mod tests {
         expected
           .cell_mut(Position::new(col, row))
           .unwrap()
-          .set_style(Style::default().fg(COLOR_CYAN));
+          .set_style(Style::default().fg(MACCHIATO_MAUVE));
       }
     }
 
@@ -939,12 +1407,9 @@ mod tests {
       pub data: i32,
       pub age: String,
     }
-    impl KubeResource<Option<String>> for RenderTest {
+    impl Named for RenderTest {
       fn get_name(&self) -> &String {
         &self.name
-      }
-      fn get_k8s_obj(&self) -> &Option<String> {
-        &None
       }
     }
 
@@ -978,7 +1443,7 @@ mod tests {
           size,
           ResourceTableProps {
             title: "Test".into(),
-            inline_help: "-> yaml <y>".into(),
+            inline_help: help_bold_line("-> yaml <y>", false),
             resource: &mut resource,
             table_headers: vec!["Namespace", "Name", "Data", "Age"],
             column_widths: vec![
@@ -1004,7 +1469,7 @@ mod tests {
       .unwrap();
 
     let mut expected = Buffer::with_lines(vec![
-        "Test-> yaml <y>─────────────────────────────────────────────────────────────────────────────────────",
+        "Test[*long*truncated*] · edit </>  · -> yaml <y>────────────────────────────────────────────────────",
         "   Namespace                     Name                                 Data           Age            ",
         "=> Test ns                       Test long name that should be trunca 3              65h3m          ",
         "   Test ns long value check that test_long_name_that_should_be_trunca 6              65h3m          ",
@@ -1018,14 +1483,21 @@ mod tests {
         0..=3 => {
           expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
-              .fg(COLOR_YELLOW)
+              .fg(MACCHIATO_YELLOW)
               .add_modifier(Modifier::BOLD),
           );
         }
-        4..=14 => {
+        4..=21 => {
           expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
-              .fg(COLOR_WHITE)
+              .fg(MACCHIATO_TEXT)
+              .add_modifier(Modifier::BOLD),
+          );
+        }
+        22..=47 => {
+          expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
+            Style::default()
+              .fg(MACCHIATO_BLUE)
               .add_modifier(Modifier::BOLD),
           );
         }
@@ -1038,13 +1510,13 @@ mod tests {
       expected
         .cell_mut(Position::new(col, 1))
         .unwrap()
-        .set_style(Style::default().fg(COLOR_WHITE));
+        .set_style(Style::default().fg(MACCHIATO_TEXT));
     }
     // first table data row style
     for col in 0..=99 {
       expected.cell_mut(Position::new(col, 2)).unwrap().set_style(
         Style::default()
-          .fg(COLOR_CYAN)
+          .fg(MACCHIATO_MAUVE)
           .add_modifier(Modifier::REVERSED),
       );
     }
@@ -1054,7 +1526,7 @@ mod tests {
         expected
           .cell_mut(Position::new(col, row))
           .unwrap()
-          .set_style(Style::default().fg(COLOR_CYAN));
+          .set_style(Style::default().fg(MACCHIATO_MAUVE));
       }
     }
 
@@ -1068,6 +1540,56 @@ mod tests {
       get_resource_title(&app, "Title", "-> hello", 5),
       " Title (ns: all) [5] -> hello"
     );
+  }
+
+  #[test]
+  fn test_draw_resource_block_filter_hides_other_hints_when_active() {
+    let backend = TestBackend::new(100, 4);
+    let mut terminal = Terminal::new(backend).unwrap();
+
+    struct RenderTest {
+      pub name: String,
+    }
+
+    impl Named for RenderTest {
+      fn get_name(&self) -> &String {
+        &self.name
+      }
+    }
+
+    terminal
+      .draw(|f| {
+        let size = f.area();
+        let mut resource: StatefulTable<RenderTest> = StatefulTable::new();
+        resource.set_items(vec![RenderTest {
+          name: "test".into(),
+        }]);
+        resource.filter = "pod".into();
+        resource.filter_active = true;
+        draw_resource_block(
+          f,
+          size,
+          ResourceTableProps {
+            title: "Test".into(),
+            inline_help: help_bold_line("describe <d> · back <Esc>", false),
+            resource: &mut resource,
+            table_headers: vec!["Name"],
+            column_widths: vec![Constraint::Percentage(100)],
+          },
+          |c| Row::new(vec![Cell::from(c.name.to_owned())]).style(style_primary(false)),
+          false,
+          false,
+        );
+      })
+      .unwrap();
+
+    let first_line = (0..terminal.backend().buffer().area.width)
+      .map(|col| terminal.backend().buffer()[(col, 0)].symbol())
+      .collect::<String>();
+    assert!(first_line.contains("[pod]"));
+    assert!(first_line.contains("clear <Esc>"));
+    assert!(!first_line.contains("describe <d>"));
+    assert!(!first_line.contains("back <Esc>"));
   }
 
   #[test]
@@ -1085,5 +1607,99 @@ mod tests {
       get_cluster_wide_resource_title("Nodes", 10, "-> hello"),
       " Nodes [10] -> hello"
     );
+  }
+
+  #[test]
+  fn test_build_resource_help_line() {
+    // Case 1: Empty inline_help, empty filter, filter_active=false
+    // -> line text should contain the inactive "filter <key>" action hint
+    let line = build_resource_help_line(Line::default(), "", false, false);
+    let text: String = line.spans.iter().map(|s| s.content.as_ref()).collect();
+    let expected_filter_hint = action_hint("filter", DEFAULT_KEYBINDING.filter.key);
+    assert!(
+      text.contains(&expected_filter_hint),
+      "Case 1: expected '{text}' to contain '{expected_filter_hint}'"
+    );
+
+    // Case 2: Non-empty inline_help, empty filter, filter_active=false
+    // -> line text should contain the inline help hint after " · "
+    let line2 = build_resource_help_line(help_bold_line("-> yaml <y>", false), "", false, false);
+    let text2: String = line2.spans.iter().map(|s| s.content.as_ref()).collect();
+    assert!(
+      text2.contains("-> yaml <y>"),
+      "Case 2: expected '{text2}' to contain '-> yaml <y>'"
+    );
+
+    // Case 3: inline_help starting with the containers prefix
+    // -> line text should start with the containers hint
+    let containers_prefix_str = format!(
+      "{} · ",
+      action_hint("containers", DEFAULT_KEYBINDING.submit.key)
+    );
+    let line3 = build_resource_help_line(
+      help_bold_line(containers_prefix_str.as_str(), false),
+      "",
+      false,
+      false,
+    );
+    let text3: String = line3.spans.iter().map(|s| s.content.as_ref()).collect();
+    let containers_hint = action_hint("containers", DEFAULT_KEYBINDING.submit.key);
+    assert!(
+      text3.starts_with(&containers_hint),
+      "Case 3: expected '{text3}' to start with '{containers_hint}'"
+    );
+
+    // Case 4: Empty inline_help, filter="foo", filter_active=false
+    // -> line text should contain "[foo]"
+    let line4 = build_resource_help_line(Line::default(), "foo", false, false);
+    let text4: String = line4.spans.iter().map(|s| s.content.as_ref()).collect();
+    assert!(
+      text4.contains("[foo]"),
+      "Case 4: expected '{text4}' to contain '[foo]'"
+    );
+  }
+
+  #[test]
+  fn test_highlight_window_offset_within_bounds() {
+    // total=100, view_h=10, offset=50 → window straddles the offset.
+    let (start, end, scroll) = highlight_window(50, 100, 10);
+    assert_eq!(start, 40);
+    assert_eq!(end, 80);
+    assert_eq!(scroll, 10);
+    assert!(start <= end && end <= 100);
+  }
+
+  #[test]
+  fn test_highlight_window_offset_at_zero() {
+    let (start, end, scroll) = highlight_window(0, 100, 10);
+    assert_eq!(start, 0);
+    assert_eq!(end, 30);
+    assert_eq!(scroll, 0);
+  }
+
+  #[test]
+  fn test_highlight_window_offset_exceeds_total_does_not_panic() {
+    // Regression: items.len() can exceed highlighted_lines.len() when
+    // some lines fail to highlight, leaving offset stale relative to total.
+    // The slice [start..end] must remain valid.
+    let (start, end, _) = highlight_window(50, 5, 10);
+    assert!(start <= end, "start {start} must not exceed end {end}");
+    assert!(end <= 5, "end {end} must not exceed total");
+  }
+
+  #[test]
+  fn test_highlight_window_view_h_zero_clamps_to_one() {
+    // A view height of 0 should not collapse the window to empty.
+    let (start, end, _) = highlight_window(2, 10, 0);
+    assert!(start < end, "window must not be empty when content exists");
+  }
+
+  #[test]
+  fn test_highlight_window_total_one() {
+    // Single-line buffer must produce a non-empty window.
+    let (start, end, scroll) = highlight_window(0, 1, 5);
+    assert_eq!(start, 0);
+    assert_eq!(end, 1);
+    assert_eq!(scroll, 0);
   }
 }

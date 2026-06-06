@@ -3,6 +3,7 @@
 mod app;
 mod banner;
 mod cmd;
+mod config;
 mod event;
 mod handlers;
 mod network;
@@ -16,12 +17,17 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use app::App;
+use app::{key_binding::initialize_keybindings, App, DEFAULT_LOG_TAIL_LINES};
 use banner::BANNER;
 use chrono::{self};
 use clap::{builder::PossibleValuesParser, Parser};
-use cmd::{CmdRunner, IoCmdEvent};
+use cmd::{
+  shell::{prepare_shell_exec, run_shell_exec, ShellExecTarget},
+  CmdRunner, IoCmdEvent,
+};
+use config::load_config;
 use crossterm::{
+  event::{KeyEvent, MouseEvent},
   execute,
   terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -38,6 +44,7 @@ use ratatui::{
 };
 use simplelog::{Config, WriteLogger};
 use tokio::sync::{mpsc, Mutex};
+use ui::theme::initialize_theme;
 
 /// kdash CLI
 #[derive(Parser, Debug)]
@@ -66,6 +73,9 @@ pub struct Cli {
     value_parser = PossibleValuesParser::new(&["info", "debug", "trace", "warn", "error"])
   )]
   pub debug: Option<String>,
+  /// Set how many historical log lines to fetch before live streaming starts.
+  #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
+  pub log_tail_lines: Option<u32>,
 }
 
 #[tokio::main]
@@ -100,6 +110,14 @@ async fn main() -> Result<()> {
   let (sync_io_tx, sync_io_rx) = mpsc::channel::<IoEvent>(500);
   let (sync_io_stream_tx, sync_io_stream_rx) = mpsc::channel::<IoStreamEvent>(500);
   let (sync_io_cmd_tx, sync_io_cmd_rx) = mpsc::channel::<IoCmdEvent>(500);
+  let loaded_config = load_config();
+  let log_tail_lines = resolve_log_tail_lines(cli.log_tail_lines, &loaded_config.config);
+  let mut config_warnings = vec![];
+  if let Some(warning) = loaded_config.warning.clone() {
+    config_warnings.push(warning);
+  }
+  config_warnings.extend(initialize_keybindings(&loaded_config.config));
+  config_warnings.extend(initialize_theme(&loaded_config.config));
 
   // Initialize app state
   let app = Arc::new(Mutex::new(App::new(
@@ -108,7 +126,21 @@ async fn main() -> Result<()> {
     sync_io_cmd_tx,
     cli.enhanced_graphics,
     cli.poll_rate / cli.tick_rate,
+    log_tail_lines,
+    loaded_config.config,
   )));
+
+  {
+    let app = app.lock().await;
+    if app.config.keybindings.is_some() || app.config.theme.is_some() {
+      info!("Loaded config overrides from file");
+    }
+  }
+
+  if !config_warnings.is_empty() {
+    let mut app = app.lock().await;
+    app.handle_error(anyhow!(config_warnings.join(" | ")));
+  }
 
   // Launch network, stream, and cmd tasks on a dedicated tokio runtime running
   // on its own OS thread.  This keeps all network I/O off the main runtime so
@@ -172,6 +204,12 @@ async fn start_network(mut io_rx: mpsc::Receiver<IoEvent>, app: &Arc<Mutex<App>>
   }
 }
 
+fn resolve_log_tail_lines(cli_value: Option<u32>, config: &config::KdashConfig) -> u32 {
+  cli_value
+    .or(config.log_tail_lines)
+    .unwrap_or(DEFAULT_LOG_TAIL_LINES)
+}
+
 async fn start_stream_network(mut io_rx: mpsc::Receiver<IoStreamEvent>, app: &Arc<Mutex<App>>) {
   match get_client(None).await {
     Ok(client) => {
@@ -198,6 +236,41 @@ async fn start_cmd_runner(mut io_rx: mpsc::Receiver<IoCmdEvent>, app: &Arc<Mutex
   }
 }
 
+/// Process a single UI event.  Returns `true` when the app should exit (Ctrl+C).
+async fn process_event(
+  app: &mut App,
+  ev: event::Event<KeyEvent, MouseEvent>,
+  is_first_render: &mut bool,
+  tick_seen: &mut bool,
+) -> bool {
+  match ev {
+    event::Event::Input(key_event) => {
+      let key = Key::from(key_event);
+      if key == Key::Ctrl('c') {
+        true
+      } else {
+        handlers::handle_key_events(key, key_event, app).await;
+        false
+      }
+    }
+    event::Event::MouseInput(mouse) => {
+      handlers::handle_mouse_events(mouse, app).await;
+      false
+    }
+    event::Event::Tick => {
+      app.on_tick(*is_first_render).await;
+      *is_first_render = false;
+      *tick_seen = true;
+      false
+    }
+    event::Event::KubeConfigChange => {
+      info!("Kubeconfig change detected, reloading");
+      app.dispatch(IoEvent::GetKubeConfig).await;
+      false
+    }
+  }
+}
+
 async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
   info!("Starting UI");
   // see https://docs.rs/crossterm/0.17.7/crossterm/terminal/#raw-mode
@@ -212,56 +285,82 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
   terminal.clear()?;
   terminal.hide_cursor()?;
   // custom events
-  let events = event::Events::new(cli.tick_rate);
+  let mut events = event::Events::new(cli.tick_rate);
   let mut is_first_render = true;
+  // Perform initial draw so the user sees the UI immediately
+  {
+    let mut app = app.lock().await;
+    if let Ok(size) = terminal.backend().size() {
+      app.size.width = size.width;
+      app.size.height = size.height;
+    }
+    terminal.draw(|f| ui::draw(f, &mut app))?;
+  }
   // main UI loop
   loop {
     // Wait for the next event BEFORE acquiring the lock.
     // This is the blocking call — no reason to hold the mutex while waiting.
     let event = events.next()?;
 
-    let mut app = app.lock().await;
-    // Get the size of the screen on each loop to account for resize event
-    if let Ok(size) = terminal.backend().size() {
-      // Reset the help menu if the terminal was resized
-      if app.refresh || app.size.as_size() != size {
-        app.size.width = size.width;
-        app.size.height = size.height;
+    let (pending_shell_exec, should_quit) = {
+      let mut app = app.lock().await;
+
+      // Handle events BEFORE drawing so the frame always reflects
+      // the latest state, eliminating the 1-event visual lag.
+
+      // Process the blocking event
+      let mut tick_seen = false;
+      let mut should_break =
+        process_event(&mut app, event, &mut is_first_render, &mut tick_seen).await;
+
+      // Drain any pending events so rapid key-presses are batched into a
+      // single render pass instead of each triggering a stale redraw.
+      // Cap at 20 to bound worst-case lock hold under input flood.
+      // Coalesce Ticks: after one Tick fires `on_tick`, drop the rest in
+      // this batch so a stall doesn't replay the backlog as a poll burst.
+      if !should_break {
+        for _ in 0..20 {
+          match events.try_next() {
+            Some(event::Event::Tick) if tick_seen => continue,
+            Some(ev) => {
+              should_break =
+                process_event(&mut app, ev, &mut is_first_render, &mut tick_seen).await;
+              if should_break {
+                break;
+              }
+            }
+            None => break,
+          }
+        }
       }
+
+      if should_break {
+        break;
+      }
+
+      // Get the size of the screen on each loop to account for resize events
+      if let Ok(size) = terminal.backend().size() {
+        if app.refresh || app.size.as_size() != size {
+          app.size.width = size.width;
+          app.size.height = size.height;
+        }
+      }
+
+      // Draw the UI layout AFTER processing events so the frame is up-to-date
+      terminal.draw(|f| ui::draw(f, &mut app))?;
+
+      let pending_shell_exec = app.take_pending_shell_exec();
+      let should_quit = app.should_quit;
+      (pending_shell_exec, should_quit)
     };
 
-    // draw the UI layout
-    terminal.draw(|f| ui::draw(f, &mut app))?;
-
-    // handle events
-    match event {
-      event::Event::Input(key_event) => {
-        info!("Input event received: {:?}", key_event);
-        // quit on CTRL + C
-        let key = Key::from(key_event);
-
-        if key == Key::Ctrl('c') {
-          break;
-        }
-        // handle all other keys
-        handlers::handle_key_events(key, key_event, &mut app).await
-      }
-      // handle mouse events
-      event::Event::MouseInput(mouse) => handlers::handle_mouse_events(mouse, &mut app).await,
-      // handle tick events
-      event::Event::Tick => {
-        app.on_tick(is_first_render).await;
-      }
-      // handle kubeconfig file changes (live sync)
-      event::Event::KubeConfigChange => {
-        info!("Kubeconfig change detected, reloading");
-        app.dispatch(IoEvent::GetKubeConfig).await;
-      }
+    if let Some(request) = pending_shell_exec {
+      drop(events);
+      execute_pending_shell_exec(app, &mut terminal, request).await?;
+      events = event::Events::new(cli.tick_rate);
     }
 
-    is_first_render = false;
-
-    if app.should_quit {
+    if should_quit {
       break;
     }
   }
@@ -278,6 +377,99 @@ fn shutdown(mut terminal: Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
   execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
   terminal.show_cursor()?;
   Ok(())
+}
+
+fn suspend_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
+  disable_raw_mode()?;
+  execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+  terminal.show_cursor()?;
+  Ok(())
+}
+
+fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
+  enable_raw_mode()?;
+  execute!(terminal.backend_mut(), EnterAlternateScreen)?;
+  terminal.hide_cursor()?;
+  terminal.clear()?;
+  Ok(())
+}
+
+trait ShellTerminal {
+  fn suspend(&mut self) -> Result<()>;
+  fn restore(&mut self) -> Result<()>;
+}
+
+impl ShellTerminal for Terminal<CrosstermBackend<Stdout>> {
+  fn suspend(&mut self) -> Result<()> {
+    suspend_terminal(self)
+  }
+
+  fn restore(&mut self) -> Result<()> {
+    restore_terminal(self)
+  }
+}
+
+async fn execute_pending_shell_exec(
+  app: &Arc<Mutex<App>>,
+  terminal: &mut Terminal<CrosstermBackend<Stdout>>,
+  request: app::PendingShellExec,
+) -> Result<()> {
+  execute_pending_shell_exec_with(app, terminal, request, |request| {
+    let target = ShellExecTarget {
+      namespace: request.namespace,
+      pod: request.pod,
+      container: request.container,
+    };
+    let command = prepare_shell_exec(&target).map_err(|error| anyhow!(error.to_string()))?;
+    let shell = command.shell.clone();
+    run_shell_exec(&command).map_err(|error| anyhow!(error.to_string()))?;
+    Ok(shell)
+  })
+  .await
+}
+
+async fn execute_pending_shell_exec_with<F, T>(
+  app: &Arc<Mutex<App>>,
+  terminal: &mut T,
+  request: app::PendingShellExec,
+  run_shell: F,
+) -> Result<()>
+where
+  F: FnOnce(app::PendingShellExec) -> Result<String>,
+  T: ShellTerminal,
+{
+  terminal.suspend()?;
+  let shell_result = run_shell(request.clone());
+  let restore_result = terminal.restore();
+
+  let mut app = app.lock().await;
+
+  if let Err(error) = restore_result {
+    app.handle_error(anyhow!(
+      "Unable to restore terminal after shell exec: {}",
+      error
+    ));
+    return Err(error);
+  }
+
+  match shell_result {
+    Ok(shell) => {
+      app.set_status_message(format!(
+        "Closed {} shell for {}/{}",
+        shell, request.pod, request.container
+      ));
+      Ok(())
+    }
+    Err(error) => {
+      app.handle_error(anyhow!(
+        "Unable to open shell for {}/{}: {}",
+        request.pod,
+        request.container,
+        error
+      ));
+      Ok(())
+    }
+  }
 }
 
 fn setup_logging(debug: Option<String>) -> Result<(), SetLoggerError> {
@@ -365,4 +557,172 @@ fn get_panic_info(info: &PanicHookInfo<'_>) -> (String, String) {
   };
 
   (msg.to_string(), format!("{}", location))
+}
+
+#[cfg(test)]
+mod tests {
+  use super::{execute_pending_shell_exec_with, process_event, resolve_log_tail_lines};
+  use crate::{app::App, config::KdashConfig, event};
+  use anyhow::anyhow;
+  use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+  use std::sync::Arc;
+  use tokio::sync::Mutex;
+
+  struct StubTerminal;
+
+  impl super::ShellTerminal for StubTerminal {
+    fn suspend(&mut self) -> anyhow::Result<()> {
+      Ok(())
+    }
+
+    fn restore(&mut self) -> anyhow::Result<()> {
+      Ok(())
+    }
+  }
+
+  #[test]
+  fn test_resolve_log_tail_lines_uses_default() {
+    assert_eq!(resolve_log_tail_lines(None, &KdashConfig::default()), 100);
+  }
+
+  #[test]
+  fn test_resolve_log_tail_lines_uses_config_when_cli_missing() {
+    let config = KdashConfig {
+      log_tail_lines: Some(250),
+      ..KdashConfig::default()
+    };
+
+    assert_eq!(resolve_log_tail_lines(None, &config), 250);
+  }
+
+  #[test]
+  fn test_resolve_log_tail_lines_prefers_cli() {
+    let config = KdashConfig {
+      log_tail_lines: Some(250),
+      ..KdashConfig::default()
+    };
+
+    assert_eq!(resolve_log_tail_lines(Some(500), &config), 500);
+  }
+
+  #[tokio::test]
+  async fn test_execute_pending_shell_exec_with_sets_success_status_and_clears_request() {
+    let app = Arc::new(Mutex::new(App::default()));
+    let mut terminal = StubTerminal;
+
+    let result = execute_pending_shell_exec_with(
+      &app,
+      &mut terminal,
+      crate::app::PendingShellExec {
+        namespace: "default".into(),
+        pod: "api-123".into(),
+        container: "web".into(),
+      },
+      |_| Ok("/bin/sh".into()),
+    )
+    .await;
+
+    assert!(result.is_ok());
+
+    let app = app.lock().await;
+    assert!(app.api_error.is_empty());
+    assert_eq!(
+      app.status_message.text(),
+      "Closed /bin/sh shell for api-123/web"
+    );
+    assert!(app.pending_shell_exec().is_none());
+  }
+
+  #[tokio::test]
+  async fn test_execute_pending_shell_exec_with_reports_shell_errors_after_restoring_terminal() {
+    let app = Arc::new(Mutex::new(App::default()));
+    let mut terminal = StubTerminal;
+
+    let result = execute_pending_shell_exec_with(
+      &app,
+      &mut terminal,
+      crate::app::PendingShellExec {
+        namespace: "default".into(),
+        pod: "api-123".into(),
+        container: "web".into(),
+      },
+      |_| Err(anyhow!("probe failed")),
+    )
+    .await;
+
+    assert!(result.is_ok());
+
+    let app = app.lock().await;
+    assert_eq!(
+      app.api_error,
+      "Unable to open shell for api-123/web: probe failed"
+    );
+    assert!(app.status_message.is_empty());
+  }
+
+  #[tokio::test]
+  async fn test_process_event_tick_advances_state_and_sets_tick_seen() {
+    let mut app = App::default();
+    let mut is_first_render = true;
+    let mut tick_seen = false;
+
+    let exit = process_event(
+      &mut app,
+      event::Event::Tick,
+      &mut is_first_render,
+      &mut tick_seen,
+    )
+    .await;
+
+    assert!(!exit);
+    assert!(
+      tick_seen,
+      "Tick should set tick_seen so the drain can coalesce"
+    );
+    assert!(!is_first_render, "Tick should flip the first-render flag");
+    assert_eq!(app.tick_count, 1);
+  }
+
+  #[tokio::test]
+  async fn test_process_event_input_does_not_flip_first_render_or_tick_seen() {
+    let mut app = App::default();
+    let mut is_first_render = true;
+    let mut tick_seen = false;
+
+    let exit = process_event(
+      &mut app,
+      event::Event::Input(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)),
+      &mut is_first_render,
+      &mut tick_seen,
+    )
+    .await;
+
+    assert!(!exit);
+    assert!(
+      is_first_render,
+      "non-Tick events must not consume the first-render gate"
+    );
+    assert!(
+      !tick_seen,
+      "non-Tick events must not mark a tick as processed"
+    );
+    assert_eq!(app.tick_count, 0);
+  }
+
+  #[tokio::test]
+  async fn test_process_event_ctrl_c_signals_exit() {
+    let mut app = App::default();
+    let mut is_first_render = true;
+    let mut tick_seen = false;
+
+    let exit = process_event(
+      &mut app,
+      event::Event::Input(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL)),
+      &mut is_first_render,
+      &mut tick_seen,
+    )
+    .await;
+
+    assert!(exit);
+  }
 }

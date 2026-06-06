@@ -5,20 +5,26 @@ use std::{
   env, fmt,
   io::ErrorKind,
   path::{Path, PathBuf},
+  process::Stdio,
   sync::Arc,
+  time::Duration,
 };
 
-use anyhow::{anyhow, Result};
-use k8s_openapi::{api::core::v1::Pod, NamespaceResourceScope};
+use anyhow::{anyhow, Context, Result};
+use k8s_openapi::{
+  api::core::v1::Pod, apimachinery::pkg::apis::meta::v1::APIGroup as DiscoveryApiGroup,
+  NamespaceResourceScope,
+};
 use kube::{
-  api::ListParams,
+  api::{DeleteParams, ListParams, Patch, PatchParams, PostParams},
   config::{KubeConfigOptions, Kubeconfig},
-  discovery::verbs,
-  Api, Client, Discovery, Resource as ApiResource,
+  core::{DynamicObject, GroupVersion},
+  discovery::{pinned_group, verbs, Scope},
+  Api, Client, Resource as ApiResource,
 };
 use log::{debug, error, info, warn};
 use serde::de::DeserializeOwned;
-use tokio::sync::Mutex;
+use tokio::{process::Command, sync::Mutex, time::timeout};
 
 use crate::app::{
   configmaps::ConfigMapResource,
@@ -26,7 +32,8 @@ use crate::app::{
   cronjobs::CronJobResource,
   daemonsets::DaemonSetResource,
   deployments::DeploymentResource,
-  dynamic::{DynamicResource, KubeDynamicKind},
+  dynamic::{api_resource_for_block, DynamicResource, KubeDynamicKind},
+  events::EventResource,
   ingress::IngressResource,
   jobs::JobResource,
   metrics::UtilizationResource,
@@ -49,7 +56,7 @@ use crate::app::{
   ActiveBlock, App,
 };
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum IoEvent {
   GetKubeConfig,
   GetNodes,
@@ -74,35 +81,163 @@ pub enum IoEvent {
   GetPvcs,
   GetPvs,
   GetServiceAccounts,
+  GetEvents,
   GetMetrics,
   GetTroubleshootFindings,
   RefreshClient,
   DiscoverDynamicRes,
   GetDynamicRes,
   GetNetworkPolicies,
-  GetPodsBySelector { namespace: String, selector: String },
-  GetPodsByNode { node_name: String },
+  GetPodsBySelector {
+    namespace: String,
+    selector: String,
+  },
+  GetPodsByNode {
+    node_name: String,
+  },
+  DeleteResource {
+    block: ActiveBlock,
+    name: String,
+    namespace: Option<String>,
+  },
+  PatchResource {
+    block: ActiveBlock,
+    name: String,
+    namespace: Option<String>,
+    patch: ResourcePatch,
+  },
+  TriggerCronJob {
+    name: String,
+    namespace: String,
+  },
+}
+
+/// A merge-patch a resource action applies. Kept as a small enum (rather than
+/// raw JSON) so `IoEvent` stays `Eq` and each patch is built fresh on the
+/// network thread.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ResourcePatch {
+  /// `kubectl rollout restart` — stamps the pod template's restart annotation.
+  RolloutRestart,
+  /// Cordon (`true`) or uncordon (`false`) a node via `spec.unschedulable`.
+  SetUnschedulable(bool),
+  /// Suspend (`true`) or resume (`false`) a cronjob via `spec.suspend`.
+  SetSuspend(bool),
+  /// Scale a workload to a replica count via `spec.replicas`.
+  SetReplicas(u32),
+}
+
+impl ResourcePatch {
+  /// Build the JSON merge patch body. Time-sensitive values are generated here
+  /// so the patch reflects the moment it is applied.
+  fn to_merge_patch(&self) -> serde_json::Value {
+    match self {
+      ResourcePatch::RolloutRestart => serde_json::json!({
+        "spec": {
+          "template": {
+            "metadata": {
+              "annotations": {
+                "kubectl.kubernetes.io/restartedAt": chrono::Utc::now().to_rfc3339()
+              }
+            }
+          }
+        }
+      }),
+      ResourcePatch::SetUnschedulable(unschedulable) => serde_json::json!({
+        "spec": { "unschedulable": unschedulable }
+      }),
+      ResourcePatch::SetSuspend(suspend) => serde_json::json!({
+        "spec": { "suspend": suspend }
+      }),
+      ResourcePatch::SetReplicas(replicas) => serde_json::json!({
+        "spec": { "replicas": replicas }
+      }),
+    }
+  }
+
+  /// Status message shown on success.
+  fn status_message(&self, name: &str) -> String {
+    match self {
+      ResourcePatch::RolloutRestart => format!("Restarting {}", name),
+      ResourcePatch::SetUnschedulable(true) => format!("Cordoning {}", name),
+      ResourcePatch::SetUnschedulable(false) => format!("Uncordoning {}", name),
+      ResourcePatch::SetSuspend(true) => format!("Suspending {}", name),
+      ResourcePatch::SetSuspend(false) => format!("Resuming {}", name),
+      ResourcePatch::SetReplicas(replicas) => format!("Scaling {} to {}", name, replicas),
+    }
+  }
 }
 
 async fn refresh_kube_config(context: &Option<String>) -> Result<kube::Client> {
-  // HACK force refresh token by calling "kubectl cluster-info before loading configuration"
-  let mut args = vec!["cluster-info"];
+  match get_client(context.clone()).await {
+    Ok(client) => Ok(client),
+    Err(err) if should_retry_kubectl_refresh(&err) => {
+      warn!(
+        "Initial client refresh failed with auth-related error, retrying after `kubectl cluster-info`: {:#}",
+        err
+      );
+      run_kubectl_cluster_info(context, Duration::from_secs(3)).await?;
+      get_client(context.clone()).await
+    }
+    Err(err) => Err(err),
+  }
+}
+
+fn should_retry_kubectl_refresh(error: &anyhow::Error) -> bool {
+  error.chain().any(|cause| {
+    cause
+      .downcast_ref::<kube::Error>()
+      .is_some_and(|error| match error {
+        kube::Error::Auth(_) => true,
+        kube::Error::Api(status) => status.code == 401 || status.reason == "Unauthorized",
+        _ => false,
+      })
+      || {
+        let message = cause.to_string().to_lowercase();
+        message.contains("auth exec")
+          || message.contains("failed exec auth")
+          || message.contains("exec-plugin")
+          || message.contains("oidc")
+          || message.contains("oauth")
+          || message.contains("unauthorized")
+      }
+  })
+}
+
+async fn run_kubectl_cluster_info(context: &Option<String>, max_wait: Duration) -> Result<()> {
+  let mut command = Command::new("kubectl");
+  command
+    .arg("cluster-info")
+    .stderr(Stdio::null())
+    .stdout(Stdio::null())
+    .kill_on_drop(true);
 
   if let Some(context) = context {
-    args.push("--context");
-    args.push(context.as_str());
+    command.arg("--context").arg(context);
   }
-  let out = duct::cmd("kubectl", &args)
-    .stderr_null()
-    // we don't care about the output
-    .stdout_null()
-    .read();
 
-  if out.is_err() {
-    error!("Running `kubectl cluster-info` failed");
-    return Err(anyhow!("Running `kubectl cluster-info` failed",));
+  let mut child = command
+    .spawn()
+    .context("Failed to start `kubectl cluster-info`")?;
+  match timeout(max_wait, child.wait()).await {
+    Ok(Ok(status)) if status.success() => Ok(()),
+    Ok(Ok(status)) => Err(anyhow!(
+      "`kubectl cluster-info` exited with status {}",
+      status
+    )),
+    Ok(Err(err)) => Err(anyhow!(
+      "Failed to wait for `kubectl cluster-info`. {}",
+      err
+    )),
+    Err(_) => {
+      let _ = child.kill().await;
+      let _ = child.wait().await;
+      Err(anyhow!(
+        "`kubectl cluster-info` timed out after {} seconds",
+        max_wait.as_secs()
+      ))
+    }
   }
-  get_client(context.to_owned()).await
 }
 
 fn is_blank_kubeconfig(config: &Kubeconfig) -> bool {
@@ -204,9 +339,7 @@ async fn load_client_config(context: Option<String>) -> Result<kube::Config> {
   };
 
   if let Some(kubeconfig) = load_local_kubeconfig()? {
-    return kube::Config::from_custom_kubeconfig(kubeconfig, &options)
-      .await
-      .map_err(|e| anyhow!("Failed to load Kubernetes config. {}", e));
+    return load_client_config_from_kubeconfig(kubeconfig, options).await;
   }
 
   if let Some(context) = context {
@@ -215,8 +348,42 @@ async fn load_client_config(context: Option<String>) -> Result<kube::Config> {
       context
     ))
   } else {
-    kube::Config::incluster().map_err(|e| anyhow!("Failed to load Kubernetes config. {}", e))
+    kube::Config::incluster().context("Failed to load Kubernetes config")
   }
+}
+
+async fn load_client_config_from_kubeconfig(
+  kubeconfig: Kubeconfig,
+  options: KubeConfigOptions,
+) -> Result<kube::Config> {
+  let mut config = kube::Config::from_custom_kubeconfig(kubeconfig, &options)
+    .await
+    .context("Failed to load Kubernetes config")?;
+
+  if config.proxy_url.is_none() {
+    if let Some(proxy_url) = env_https_proxy_url() {
+      match proxy_url.parse() {
+        Ok(parsed) => config.proxy_url = Some(parsed),
+        Err(error) => warn!(
+          "Ignoring invalid HTTPS proxy URL {:?}: {}",
+          proxy_url, error
+        ),
+      }
+    }
+  }
+
+  Ok(config)
+}
+
+fn env_https_proxy_url() -> Option<String> {
+  env::vars_os().find_map(|(key, value)| {
+    let normalized = key.to_string_lossy();
+    if normalized.eq_ignore_ascii_case("HTTPS_PROXY") {
+      Some(value.to_string_lossy().into_owned())
+    } else {
+      None
+    }
+  })
 }
 
 pub async fn get_client(context: Option<String>) -> Result<kube::Client> {
@@ -233,7 +400,7 @@ pub async fn get_client(context: Option<String>) -> Result<kube::Client> {
   };
   debug!("Kubernetes client config: {:?}", client_config);
   info!("Kubernetes client connected");
-  Ok(kube::Client::try_from(client_config)?)
+  kube::Client::try_from(client_config).context("Failed to create Kubernetes client")
 }
 
 #[derive(Clone)]
@@ -248,13 +415,16 @@ impl<'a> Network<'a> {
   }
 
   pub async fn refresh_client(&mut self) {
-    let (context, ns) = {
+    let (context, ns, main_tab_index, context_tab_index, route) = {
       let mut app = self.app.lock().await;
       let context = app.data.selected.context.clone();
       let ns = app.data.selected.ns.clone();
+      let main_tab_index = app.main_tabs.index;
+      let context_tab_index = app.context_tabs.index;
+      let route = app.refresh_restore_route();
       // so that if refresh fails we dont see mixed results
       app.data.selected.context = None;
-      (context, ns)
+      (context, ns, main_tab_index, context_tab_index, route)
     };
 
     match refresh_kube_config(&context).await {
@@ -264,6 +434,8 @@ impl<'a> Network<'a> {
         app.reset();
         app.data.selected.context = context;
         app.data.selected.ns = ns;
+        app.restore_route_state(main_tab_index, context_tab_index, route);
+        app.status_message.show("Refresh complete!");
       }
       Err(e) => {
         self
@@ -360,6 +532,9 @@ impl<'a> Network<'a> {
       IoEvent::GetNetworkPolicies => {
         NetworkPolicyResource::get_resource(self).await;
       }
+      IoEvent::GetEvents => {
+        EventResource::get_resource(self).await;
+      }
       IoEvent::DiscoverDynamicRes => {
         self.discover_dynamic_resources().await;
       }
@@ -374,6 +549,28 @@ impl<'a> Network<'a> {
       }
       IoEvent::GetPodsByNode { node_name } => {
         self.get_pods_by_node(&node_name).await;
+      }
+      IoEvent::DeleteResource {
+        block,
+        name,
+        namespace,
+      } => {
+        self
+          .delete_resource(block, &name, namespace.as_deref())
+          .await;
+      }
+      IoEvent::PatchResource {
+        block,
+        name,
+        namespace,
+        patch,
+      } => {
+        self
+          .patch_resource(block, &name, namespace.as_deref(), patch)
+          .await;
+      }
+      IoEvent::TriggerCronJob { name, namespace } => {
+        self.trigger_cronjob(&name, &namespace).await;
       }
     };
 
@@ -533,10 +730,188 @@ impl<'a> Network<'a> {
     }
   }
 
+  pub async fn get_dynamic_resources(
+    &self,
+    drs: &KubeDynamicKind,
+    namespace: Option<&str>,
+  ) -> Result<Vec<crate::app::dynamic::KubeDynamicResource>> {
+    let api: Api<DynamicObject> = if drs.scope == Scope::Cluster {
+      Api::all_with(self.client.clone(), &drs.api_resource)
+    } else {
+      match namespace {
+        Some(ns) => Api::namespaced_with(self.client.clone(), ns, &drs.api_resource),
+        None => Api::all_with(self.client.clone(), &drs.api_resource),
+      }
+    };
+
+    let list = api.list(&Default::default()).await?;
+    Ok(
+      list
+        .items
+        .into_iter()
+        .map(crate::app::dynamic::KubeDynamicResource::from)
+        .collect(),
+    )
+  }
+
+  /// Delete the named resource for the given block via the dynamic `Api`, then
+  /// refresh the affected view. Works for any block that maps to a mutable
+  /// resource (see [`api_resource_for_block`]).
+  pub async fn delete_resource(&self, block: ActiveBlock, name: &str, namespace: Option<&str>) {
+    let dynamic_kind = {
+      let app = self.app.lock().await;
+      app.data.selected.dynamic_kind.clone()
+    };
+
+    let Some((api_resource, scope)) = api_resource_for_block(block, dynamic_kind.as_ref()) else {
+      self
+        .handle_error(anyhow!("Delete is not supported for this resource."))
+        .await;
+      return;
+    };
+
+    let api: Api<DynamicObject> = match scope {
+      Scope::Cluster => Api::all_with(self.client.clone(), &api_resource),
+      Scope::Namespaced => match namespace {
+        Some(ns) => Api::namespaced_with(self.client.clone(), ns, &api_resource),
+        None => Api::all_with(self.client.clone(), &api_resource),
+      },
+    };
+
+    match api.delete(name, &DeleteParams::default()).await {
+      Ok(_) => {
+        let mut app = self.app.lock().await;
+        app.set_status_message(format!("Deleting {}", name));
+        app.dispatch_by_active_block(block).await;
+      }
+      Err(e) => {
+        self
+          .handle_error(anyhow!("Failed to delete {}. {}", name, e))
+          .await;
+      }
+    }
+  }
+
+  /// Apply a merge patch to the named resource for the given block via the
+  /// dynamic `Api`, then refresh the affected view.
+  pub async fn patch_resource(
+    &self,
+    block: ActiveBlock,
+    name: &str,
+    namespace: Option<&str>,
+    patch: ResourcePatch,
+  ) {
+    let dynamic_kind = {
+      let app = self.app.lock().await;
+      app.data.selected.dynamic_kind.clone()
+    };
+
+    let Some((api_resource, scope)) = api_resource_for_block(block, dynamic_kind.as_ref()) else {
+      self
+        .handle_error(anyhow!("This action is not supported for this resource."))
+        .await;
+      return;
+    };
+
+    let api: Api<DynamicObject> = match scope {
+      Scope::Cluster => Api::all_with(self.client.clone(), &api_resource),
+      Scope::Namespaced => match namespace {
+        Some(ns) => Api::namespaced_with(self.client.clone(), ns, &api_resource),
+        None => Api::all_with(self.client.clone(), &api_resource),
+      },
+    };
+
+    let body = patch.to_merge_patch();
+    match api
+      .patch(name, &PatchParams::default(), &Patch::Merge(body))
+      .await
+    {
+      Ok(_) => {
+        let mut app = self.app.lock().await;
+        app.set_status_message(patch.status_message(name));
+        app.dispatch_by_active_block(block).await;
+      }
+      Err(e) => {
+        self
+          .handle_error(anyhow!("Failed to update {}. {}", name, e))
+          .await;
+      }
+    }
+  }
+
+  /// Trigger an immediate run of a cronjob by creating a Job from its
+  /// `jobTemplate`, mirroring `kubectl create job --from=cronjob/<name>`.
+  pub async fn trigger_cronjob(&self, name: &str, namespace: &str) {
+    use k8s_openapi::api::batch::v1::{CronJob, Job};
+    use k8s_openapi::apimachinery::pkg::apis::meta::v1::OwnerReference;
+
+    let cj_api: Api<CronJob> = Api::namespaced(self.client.clone(), namespace);
+    let cronjob = match cj_api.get(name).await {
+      Ok(cronjob) => cronjob,
+      Err(e) => {
+        self
+          .handle_error(anyhow!("Failed to read cronjob {}. {}", name, e))
+          .await;
+        return;
+      }
+    };
+
+    let Some(template) = cronjob.spec.map(|spec| spec.job_template) else {
+      self
+        .handle_error(anyhow!("CronJob {} has no job template.", name))
+        .await;
+      return;
+    };
+
+    let mut job = Job {
+      metadata: template.metadata.unwrap_or_default(),
+      spec: template.spec,
+      ..Default::default()
+    };
+    // Let the API server assign a unique name, like kubectl's manual trigger.
+    job.metadata.name = None;
+    job.metadata.generate_name = Some(format!("{}-manual-", name));
+    job.metadata.namespace = Some(namespace.to_owned());
+    job
+      .metadata
+      .annotations
+      .get_or_insert_with(Default::default)
+      .insert(
+        "cronjob.kubernetes.io/instantiate".to_owned(),
+        "manual".to_owned(),
+      );
+    job.metadata.owner_references = Some(vec![OwnerReference {
+      api_version: "batch/v1".to_owned(),
+      kind: "CronJob".to_owned(),
+      name: name.to_owned(),
+      uid: cronjob.metadata.uid.clone().unwrap_or_default(),
+      controller: Some(true),
+      block_owner_deletion: Some(true),
+    }]);
+
+    let job_api: Api<Job> = Api::namespaced(self.client.clone(), namespace);
+    match job_api.create(&PostParams::default(), &job).await {
+      Ok(created) => {
+        let mut app = self.app.lock().await;
+        app.set_status_message(format!(
+          "Triggered cronjob {} (created job {})",
+          name,
+          created.metadata.name.as_deref().unwrap_or("?")
+        ));
+        app.dispatch_by_active_block(ActiveBlock::CronJobs).await;
+      }
+      Err(e) => {
+        self
+          .handle_error(anyhow!("Failed to trigger cronjob {}. {}", name, e))
+          .await;
+      }
+    }
+  }
+
   /// Discover and cache custom resources on the cluster
   pub async fn discover_dynamic_resources(&self) {
-    let discovery = match Discovery::new(self.client.clone()).run().await {
-      Ok(d) => d,
+    let api_groups = match self.client.list_api_groups().await {
+      Ok(groups) => groups.groups,
       Err(e) => {
         self
           .handle_error(anyhow!("Failed to get dynamic resources. {}", e))
@@ -548,7 +923,7 @@ impl<'a> Network<'a> {
     let mut dynamic_resources = vec![];
     let mut dynamic_menu = vec![];
 
-    let excluded = vec![
+    let excluded = [
       "Namespace",
       "Pod",
       "Service",
@@ -571,17 +946,39 @@ impl<'a> Network<'a> {
       "ClusterRoleBinding",
       "ServiceAccount",
       "Ingress",
+      "Event",
       "NetworkPolicy",
     ];
 
-    for group in discovery.groups() {
-      for (ar, caps) in group.recommended_resources() {
-        if !caps.supports_operation(verbs::LIST) || excluded.contains(&ar.kind.as_str()) {
-          continue;
-        }
+    for api_group in api_groups {
+      let group_name = api_group.name.clone();
+      let Some(group_version) = preferred_group_version(&api_group) else {
+        warn!(
+          "Skipping dynamic API group '{}' because it has no preferred or parseable version",
+          group_name
+        );
+        continue;
+      };
 
-        dynamic_menu.push((ar.kind.to_string(), ActiveBlock::DynamicResource));
-        dynamic_resources.push(KubeDynamicKind::new(ar, caps.scope));
+      match pinned_group(&self.client, &group_version).await {
+        Ok(group) => {
+          for (ar, caps) in group.recommended_resources() {
+            if !caps.supports_operation(verbs::LIST) || excluded.contains(&ar.kind.as_str()) {
+              continue;
+            }
+
+            dynamic_menu.push((ar.kind.to_string(), ActiveBlock::DynamicResource));
+            dynamic_resources.push(KubeDynamicKind::new(ar, caps.scope));
+          }
+        }
+        Err(e) => {
+          warn!(
+            "Skipping dynamic API group '{}' at '{}' due to discovery error: {}",
+            group_name,
+            group_version.api_version(),
+            e
+          );
+        }
       }
     }
     let mut app = self.app.lock().await;
@@ -592,11 +989,33 @@ impl<'a> Network<'a> {
   }
 }
 
+fn preferred_group_version(api_group: &DiscoveryApiGroup) -> Option<GroupVersion> {
+  api_group
+    .preferred_version
+    .as_ref()
+    .map(|version| version.group_version.as_str())
+    .or_else(|| {
+      api_group
+        .versions
+        .first()
+        .map(|version| version.group_version.as_str())
+    })
+    .and_then(|group_version| {
+      let parsed: GroupVersion = group_version.parse().ok()?;
+      (parsed.group == api_group.name && !parsed.version.is_empty()).then_some(parsed)
+    })
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::app::{ActiveBlock, App, RouteId};
+  use k8s_openapi::apimachinery::pkg::apis::meta::v1::GroupVersionForDiscovery;
+  use kube::{client::AuthError, core::Status};
   use std::{
+    ffi::OsString,
     fs,
+    sync::{Mutex as StdMutex, OnceLock},
     time::{SystemTime, UNIX_EPOCH},
   };
 
@@ -619,6 +1038,73 @@ mod tests {
     fs::write(path, contents).expect("kubeconfig fixture should be written");
   }
 
+  fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: OnceLock<StdMutex<()>> = OnceLock::new();
+    LOCK
+      .get_or_init(|| StdMutex::new(()))
+      .lock()
+      .unwrap_or_else(|poisoned| poisoned.into_inner())
+  }
+
+  struct ProxyEnvGuard {
+    https_proxy: Option<OsString>,
+    https_proxy_lower: Option<OsString>,
+  }
+
+  impl ProxyEnvGuard {
+    fn capture() -> Self {
+      Self {
+        https_proxy: env::var_os("HTTPS_PROXY"),
+        https_proxy_lower: env::var_os("https_proxy"),
+      }
+    }
+  }
+
+  impl Drop for ProxyEnvGuard {
+    fn drop(&mut self) {
+      match &self.https_proxy {
+        Some(value) => env::set_var("HTTPS_PROXY", value),
+        None => env::remove_var("HTTPS_PROXY"),
+      }
+
+      match &self.https_proxy_lower {
+        Some(value) => env::set_var("https_proxy", value),
+        None => env::remove_var("https_proxy"),
+      }
+    }
+  }
+
+  fn clear_https_proxy_env() {
+    env::remove_var("HTTPS_PROXY");
+    env::remove_var("https_proxy");
+  }
+
+  fn kubeconfig_with_proxy(proxy_url: Option<&str>) -> String {
+    let proxy_yaml = proxy_url
+      .map(|proxy| format!("      proxy-url: {}\n", proxy))
+      .unwrap_or_default();
+
+    format!(
+      r#"apiVersion: v1
+kind: Config
+clusters:
+  - name: test-cluster
+    cluster:
+      server: https://127.0.0.1:6443
+{proxy_yaml}contexts:
+  - name: test-context
+    context:
+      cluster: test-cluster
+      user: test-user
+current-context: test-context
+users:
+  - name: test-user
+    user:
+      token: test-token
+"#
+    )
+  }
+
   fn valid_kubeconfig() -> &'static str {
     r#"apiVersion: v1
 kind: Config
@@ -637,6 +1123,131 @@ users:
     user:
       token: test-token
 "#
+  }
+
+  #[test]
+  fn test_load_client_config_from_kubeconfig_uses_cluster_proxy_url() {
+    let _env_lock = env_lock();
+    let _proxy_env = ProxyEnvGuard::capture();
+    clear_https_proxy_env();
+
+    let kubeconfig: Kubeconfig = serde_yaml::from_str(&kubeconfig_with_proxy(Some(
+      "http://cluster-proxy.internal:8443",
+    )))
+    .expect("proxy kubeconfig should deserialize");
+
+    let config = tokio::runtime::Runtime::new()
+      .expect("runtime should build")
+      .block_on(load_client_config_from_kubeconfig(
+        kubeconfig,
+        KubeConfigOptions::default(),
+      ))
+      .expect("config should load");
+
+    assert_eq!(
+      config.proxy_url.as_ref().map(ToString::to_string),
+      Some("http://cluster-proxy.internal:8443/".to_string())
+    );
+  }
+
+  #[test]
+  fn test_load_client_config_from_kubeconfig_uses_https_proxy_env_var() {
+    let _env_lock = env_lock();
+    let _proxy_env = ProxyEnvGuard::capture();
+    clear_https_proxy_env();
+    env::set_var("HTTPS_PROXY", "http://env-proxy.internal:8080");
+
+    let kubeconfig: Kubeconfig = serde_yaml::from_str(&kubeconfig_with_proxy(None))
+      .expect("base kubeconfig should deserialize");
+
+    let config = tokio::runtime::Runtime::new()
+      .expect("runtime should build")
+      .block_on(load_client_config_from_kubeconfig(
+        kubeconfig,
+        KubeConfigOptions::default(),
+      ))
+      .expect("config should load");
+
+    assert_eq!(
+      config.proxy_url.as_ref().map(ToString::to_string),
+      Some("http://env-proxy.internal:8080/".to_string())
+    );
+  }
+
+  #[test]
+  fn test_load_client_config_from_kubeconfig_uses_https_proxy_env_var_case_insensitively() {
+    let _env_lock = env_lock();
+    let _proxy_env = ProxyEnvGuard::capture();
+    clear_https_proxy_env();
+    env::set_var("Https_PrOxY", "http://env-proxy.internal:8080");
+
+    let kubeconfig: Kubeconfig = serde_yaml::from_str(&kubeconfig_with_proxy(None))
+      .expect("base kubeconfig should deserialize");
+
+    let config = tokio::runtime::Runtime::new()
+      .expect("runtime should build")
+      .block_on(load_client_config_from_kubeconfig(
+        kubeconfig,
+        KubeConfigOptions::default(),
+      ))
+      .expect("config should load");
+
+    env::remove_var("Https_PrOxY");
+
+    assert_eq!(
+      config.proxy_url.as_ref().map(ToString::to_string),
+      Some("http://env-proxy.internal:8080/".to_string())
+    );
+  }
+
+  #[test]
+  fn test_load_client_config_from_kubeconfig_prefers_cluster_proxy_over_env_var() {
+    let _env_lock = env_lock();
+    let _proxy_env = ProxyEnvGuard::capture();
+    clear_https_proxy_env();
+    env::set_var("HTTPS_PROXY", "http://env-proxy.internal:8080");
+
+    let kubeconfig: Kubeconfig = serde_yaml::from_str(&kubeconfig_with_proxy(Some(
+      "http://cluster-proxy.internal:8443",
+    )))
+    .expect("proxy kubeconfig should deserialize");
+
+    let config = tokio::runtime::Runtime::new()
+      .expect("runtime should build")
+      .block_on(load_client_config_from_kubeconfig(
+        kubeconfig,
+        KubeConfigOptions::default(),
+      ))
+      .expect("config should load");
+
+    assert_eq!(
+      config.proxy_url.as_ref().map(ToString::to_string),
+      Some("http://cluster-proxy.internal:8443/".to_string())
+    );
+  }
+
+  #[test]
+  fn test_get_client_supports_http_proxy_configuration() {
+    let _env_lock = env_lock();
+    let _proxy_env = ProxyEnvGuard::capture();
+    clear_https_proxy_env();
+
+    let kubeconfig: Kubeconfig = serde_yaml::from_str(&kubeconfig_with_proxy(Some(
+      "http://cluster-proxy.internal:8443",
+    )))
+    .expect("proxy kubeconfig should deserialize");
+
+    let config = tokio::runtime::Runtime::new()
+      .expect("runtime should build")
+      .block_on(load_client_config_from_kubeconfig(
+        kubeconfig,
+        KubeConfigOptions::default(),
+      ))
+      .expect("config should load");
+    let runtime = tokio::runtime::Runtime::new().expect("runtime should build");
+    let _enter = runtime.enter();
+
+    Client::try_from(config).expect("http proxy support should be enabled");
   }
 
   #[test]
@@ -692,6 +1303,75 @@ users:
     assert!(error.contains("ignored blank kubeconfig"));
 
     fs::remove_dir_all(dir).expect("temp test dir should be removed");
+  }
+
+  #[test]
+  fn test_rollout_restart_patch_sets_template_annotation() {
+    let patch = ResourcePatch::RolloutRestart.to_merge_patch();
+    let annotation =
+      &patch["spec"]["template"]["metadata"]["annotations"]["kubectl.kubernetes.io/restartedAt"];
+    assert!(annotation.is_string());
+    assert!(!annotation.as_str().unwrap().is_empty());
+  }
+
+  #[test]
+  fn test_rollout_restart_status_message_names_resource() {
+    assert_eq!(
+      ResourcePatch::RolloutRestart.status_message("web"),
+      "Restarting web"
+    );
+  }
+
+  #[test]
+  fn test_set_unschedulable_patch_and_messages() {
+    assert_eq!(
+      ResourcePatch::SetUnschedulable(true).to_merge_patch(),
+      serde_json::json!({"spec": {"unschedulable": true}})
+    );
+    assert_eq!(
+      ResourcePatch::SetUnschedulable(false).to_merge_patch(),
+      serde_json::json!({"spec": {"unschedulable": false}})
+    );
+    assert_eq!(
+      ResourcePatch::SetUnschedulable(true).status_message("n1"),
+      "Cordoning n1"
+    );
+    assert_eq!(
+      ResourcePatch::SetUnschedulable(false).status_message("n1"),
+      "Uncordoning n1"
+    );
+  }
+
+  #[test]
+  fn test_set_suspend_patch_and_messages() {
+    assert_eq!(
+      ResourcePatch::SetSuspend(true).to_merge_patch(),
+      serde_json::json!({"spec": {"suspend": true}})
+    );
+    assert_eq!(
+      ResourcePatch::SetSuspend(true).status_message("cj"),
+      "Suspending cj"
+    );
+    assert_eq!(
+      ResourcePatch::SetSuspend(false).status_message("cj"),
+      "Resuming cj"
+    );
+  }
+
+  #[test]
+  fn test_set_replicas_patch_and_message() {
+    assert_eq!(
+      ResourcePatch::SetReplicas(3).to_merge_patch(),
+      serde_json::json!({"spec": {"replicas": 3}})
+    );
+    assert_eq!(
+      ResourcePatch::SetReplicas(0).to_merge_patch(),
+      serde_json::json!({"spec": {"replicas": 0}})
+    );
+    assert_eq!(
+      ResourcePatch::SetReplicas(5).status_message("web"),
+      "Scaling web to 5"
+    );
   }
 
   #[test]
@@ -800,6 +1480,127 @@ users:
     assert_eq!(config.contexts.len(), 2);
     assert_eq!(config.auth_infos.len(), 2);
 
+    fs::remove_dir_all(dir).expect("temp test dir should be removed");
+  }
+
+  #[test]
+  fn test_preferred_group_version_uses_preferred_version() {
+    let api_group = DiscoveryApiGroup {
+      name: "example.io".into(),
+      preferred_version: Some(GroupVersionForDiscovery {
+        group_version: "example.io/v1".into(),
+        version: "v1".into(),
+      }),
+      server_address_by_client_cidrs: None,
+      versions: vec![GroupVersionForDiscovery {
+        group_version: "example.io/v1beta1".into(),
+        version: "v1beta1".into(),
+      }],
+    };
+
+    let group_version =
+      preferred_group_version(&api_group).expect("preferred version should parse");
+    assert_eq!(group_version.group, "example.io");
+    assert_eq!(group_version.version, "v1");
+  }
+
+  #[test]
+  fn test_preferred_group_version_falls_back_to_first_served_version() {
+    let api_group = DiscoveryApiGroup {
+      name: "example.io".into(),
+      preferred_version: None,
+      server_address_by_client_cidrs: None,
+      versions: vec![GroupVersionForDiscovery {
+        group_version: "example.io/v1beta1".into(),
+        version: "v1beta1".into(),
+      }],
+    };
+
+    let group_version = preferred_group_version(&api_group).expect("served version should parse");
+    assert_eq!(group_version.group, "example.io");
+    assert_eq!(group_version.version, "v1beta1");
+  }
+
+  #[test]
+  fn test_preferred_group_version_returns_none_for_invalid_version_string() {
+    let api_group = DiscoveryApiGroup {
+      name: "example.io".into(),
+      preferred_version: Some(GroupVersionForDiscovery {
+        group_version: "too/many/slashes".into(),
+        version: "v1".into(),
+      }),
+      server_address_by_client_cidrs: None,
+      versions: vec![],
+    };
+
+    assert!(preferred_group_version(&api_group).is_none());
+  }
+
+  #[test]
+  fn test_should_retry_kubectl_refresh_for_auth_error() {
+    let error = anyhow!(kube::Error::Auth(AuthError::AuthExec(
+      "refresh failed".into()
+    )));
+
+    assert!(should_retry_kubectl_refresh(&error));
+  }
+
+  #[test]
+  fn test_should_retry_kubectl_refresh_for_unauthorized_api_error() {
+    let error = anyhow!(kube::Error::Api(
+      Status::failure("unauthorized", "Unauthorized")
+        .with_code(401)
+        .boxed()
+    ));
+
+    assert!(should_retry_kubectl_refresh(&error));
+  }
+
+  #[test]
+  fn test_should_not_retry_kubectl_refresh_for_non_auth_error() {
+    let error = anyhow!("Failed to load Kubernetes config");
+
+    assert!(!should_retry_kubectl_refresh(&error));
+  }
+
+  #[allow(clippy::await_holding_lock)]
+  #[tokio::test]
+  async fn test_refresh_client_restores_home_route_and_resource_tab_state() {
+    let _env_lock = env_lock();
+    let previous_kubeconfig = env::var_os("KUBECONFIG");
+    let dir = temp_test_dir("refresh-route-state");
+    let kubeconfig_path = dir.join("config");
+    write_kubeconfig(&kubeconfig_path, valid_kubeconfig());
+    env::set_var("KUBECONFIG", &kubeconfig_path);
+
+    let client = get_client(None)
+      .await
+      .expect("test kubeconfig should produce a client");
+    let app = Arc::new(Mutex::new(App::default()));
+
+    {
+      let mut app = app.lock().await;
+      app.data.selected.context = Some("test-context".into());
+      app.data.selected.ns = Some("team-a".into());
+      let route = app.context_tabs.set_index(1).route.clone();
+      app.push_navigation_route(route);
+    }
+
+    let mut network = Network::new(client, &app);
+    network.refresh_client().await;
+
+    let app = app.lock().await;
+    assert_eq!(app.main_tabs.index, 0);
+    assert_eq!(app.context_tabs.index, 1);
+    assert_eq!(app.get_current_route().id, RouteId::Home);
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Services);
+    assert_eq!(app.data.selected.context.as_deref(), Some("test-context"));
+    assert_eq!(app.data.selected.ns.as_deref(), Some("team-a"));
+
+    match previous_kubeconfig {
+      Some(value) => env::set_var("KUBECONFIG", value),
+      None => env::remove_var("KUBECONFIG"),
+    }
     fs::remove_dir_all(dir).expect("temp test dir should be removed");
   }
 }

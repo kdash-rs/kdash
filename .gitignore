@@ -8,3 +8,4 @@ rustc-ice-*
 .remember/
 docs/
 .codex
+.claude/

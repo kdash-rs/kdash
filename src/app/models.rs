@@ -36,9 +36,12 @@ pub fn labels_to_selector(labels: &std::collections::BTreeMap<String, String>) -
     .join(",")
 }
 
-pub trait KubeResource<T: Serialize> {
+/// Minimal trait for types that expose a resource name (used by filtering/display).
+pub trait Named {
   fn get_name(&self) -> &String;
+}
 
+pub trait KubeResource<T: Serialize>: Named {
   fn get_k8s_obj(&self) -> &T;
 
   /// generate YAML from the original kubernetes resource
@@ -128,7 +131,6 @@ pub struct StatefulTable<T> {
 }
 
 pub trait FilterableTable {
-  fn filter_text(&self) -> &str;
   fn is_filter_active(&self) -> bool;
   fn count_label(&self) -> String;
   fn filter_parts_mut(&mut self) -> (&mut String, &mut bool, &mut TableState);
@@ -173,10 +175,6 @@ impl<T> StatefulTable<T> {
 }
 
 impl<T> FilterableTable for StatefulTable<T> {
-  fn filter_text(&self) -> &str {
-    &self.filter
-  }
-
   fn is_filter_active(&self) -> bool {
     self.filter_active
   }
@@ -245,11 +243,16 @@ pub struct TabRoute {
 pub struct TabsState {
   pub items: Vec<TabRoute>,
   pub index: usize,
+  pub scroll_start: usize,
 }
 
 impl TabsState {
   pub fn new(items: Vec<TabRoute>) -> TabsState {
-    TabsState { items, index: 0 }
+    TabsState {
+      items,
+      index: 0,
+      scroll_start: 0,
+    }
   }
   pub fn set_index(&mut self, index: usize) -> &TabRoute {
     self.index = index;
@@ -349,6 +352,7 @@ pub struct LogsState {
   #[allow(clippy::type_complexity)]
   records: VecDeque<(String, Option<(Vec<ListItem<'static>>, u16)>)>,
   wrapped_length: usize,
+  viewport_height: usize,
   pub state: ListState,
   pub id: String,
 }
@@ -359,6 +363,7 @@ impl LogsState {
       records: VecDeque::with_capacity(512),
       state: ListState::default(),
       wrapped_length: 0,
+      viewport_height: 0,
       id,
     }
   }
@@ -382,67 +387,16 @@ impl LogsState {
     follow: bool,
   ) {
     let available_lines = logs_area.height as usize;
-    let logs_area_width = logs_area.width as usize;
-
-    let num_records = self.records.len();
-    // Keep track of the number of lines after wrapping so we can skip lines as
-    // needed below
-    let mut wrapped_lines_len = 0;
-
-    let mut items = Vec::with_capacity(logs_area.height as usize);
-
-    let lines_to_skip = if follow {
-      self.unselect();
-      num_records.saturating_sub(available_lines)
-    } else {
-      0
-    };
-
-    items.extend(
-      self
-        .records
-        .iter_mut()
-        // Only wrap the records we could potentially be displaying
-        .skip(lines_to_skip)
-        .flat_map(|r| {
-          // See if we can use a cached wrapped line
-          if let Some(wrapped) = &r.1 {
-            if wrapped.1 as usize == logs_area_width {
-              wrapped_lines_len += wrapped.0.len();
-              return wrapped.0.clone();
-            }
-          }
-
-          // If not, wrap the line and cache it
-          r.1 = Some((
-            textwrap::wrap(r.0.as_ref(), logs_area_width)
-              .into_iter()
-              .map(|s| s.to_string())
-              .map(|c| Span::styled(c, style))
-              .map(ListItem::new)
-              .collect::<Vec<ListItem<'_>>>(),
-            logs_area.width,
-          ));
-
-          wrapped_lines_len += r.1.as_ref().unwrap().0.len();
-          r.1.as_ref().unwrap().0.clone()
-        }),
-    );
-
-    let wrapped_lines_to_skip = if follow {
-      wrapped_lines_len.saturating_sub(available_lines)
-    } else {
-      0
-    };
-
-    let items = items
-      .into_iter()
-      // Wrapping could have created more lines than what we can display;
-      // skip them
-      .skip(wrapped_lines_to_skip)
-      .collect::<Vec<_>>();
-
+    self.viewport_height = available_lines;
+    let wrap_width = logs_area.width.max(1);
+    let mut items = self.wrapped_items(wrap_width, style);
     self.wrapped_length = items.len();
+
+    if follow {
+      self.unselect();
+      let wrapped_lines_to_skip = items.len().saturating_sub(available_lines);
+      items = items.into_iter().skip(wrapped_lines_to_skip).collect();
+    }
 
     // TODO: All this is a workaround. we should be wrapping text with paragraph, but it currently
     // doesn't support wrapping and staying scrolled to the bottom
@@ -487,6 +441,45 @@ impl LogsState {
   fn unselect(&mut self) {
     self.state.select(None);
   }
+
+  pub fn freeze_follow_position(&mut self) {
+    if self.state.selected().is_none() {
+      let offset = self.wrapped_length.saturating_sub(self.viewport_height);
+      self.state.select(Some(offset));
+    }
+  }
+
+  fn wrapped_items(&mut self, width: u16, style: Style) -> Vec<ListItem<'static>> {
+    let logs_area_width = width as usize;
+
+    self
+      .records
+      .iter_mut()
+      .flat_map(|record| {
+        if let Some(wrapped) = &record.1 {
+          if wrapped.1 == width {
+            return wrapped.0.clone();
+          }
+        }
+
+        record.1 = Some((
+          textwrap::wrap(record.0.as_ref(), logs_area_width)
+            .into_iter()
+            .map(|line| line.to_string())
+            .map(|line| Span::styled(line, style))
+            .map(ListItem::new)
+            .collect::<Vec<ListItem<'_>>>(),
+          width,
+        ));
+
+        record
+          .1
+          .as_ref()
+          .map(|wrapped| wrapped.0.clone())
+          .unwrap_or_default()
+      })
+      .collect()
+  }
 }
 
 impl Scrollable for LogsState {
@@ -528,10 +521,12 @@ mod tests {
       name: String,
       k8s_obj: Namespace,
     }
-    impl KubeResource<Namespace> for TestStruct {
+    impl Named for TestStruct {
       fn get_name(&self) -> &String {
         &self.name
       }
+    }
+    impl KubeResource<Namespace> for TestStruct {
       fn get_k8s_obj(&self) -> &Namespace {
         &self.k8s_obj
       }
@@ -696,6 +691,7 @@ mod tests {
     ]);
 
     assert_eq!(tab.index, 0);
+    assert_eq!(tab.scroll_start, 0);
     assert_eq!(tab.get_active_route().active_block, ActiveBlock::Pods);
     tab.next();
     assert_eq!(tab.index, 1);
@@ -1020,5 +1016,62 @@ mod tests {
 
     let text = log.get_plain_text();
     assert_eq!(text, "\nfirst\nsecond\nthird");
+  }
+
+  #[test]
+  fn test_logs_state_follow_tracks_last_wrapped_lines() {
+    let mut log = LogsState::new("follow".into());
+    let backend = TestBackend::new(12, 4);
+    let mut terminal = Terminal::new(backend).unwrap();
+
+    log.add_record("alpha".into());
+    log.add_record("beta".into());
+    log.add_record("gamma delta epsilon".into());
+
+    terminal
+      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), true))
+      .unwrap();
+
+    let expected_initial = Buffer::with_lines(vec![
+      "alpha       ",
+      "beta        ",
+      "gamma delta ",
+      "epsilon     ",
+    ]);
+    terminal.backend().assert_buffer(&expected_initial);
+
+    log.add_record("zeta eta theta".into());
+
+    terminal
+      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), true))
+      .unwrap();
+
+    let expected_after_append = Buffer::with_lines(vec![
+      "gamma delta ",
+      "epsilon     ",
+      "zeta eta    ",
+      "theta       ",
+    ]);
+    terminal.backend().assert_buffer(&expected_after_append);
+  }
+
+  #[test]
+  fn test_logs_state_freeze_follow_position_keeps_current_bottom_offset() {
+    let mut log = LogsState::new("freeze".into());
+    let backend = TestBackend::new(12, 4);
+    let mut terminal = Terminal::new(backend).unwrap();
+
+    log.add_record("alpha".into());
+    log.add_record("beta".into());
+    log.add_record("gamma delta epsilon".into());
+    log.add_record("zeta eta theta".into());
+
+    terminal
+      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), true))
+      .unwrap();
+
+    log.freeze_follow_position();
+
+    assert_eq!(log.state.selected(), Some(2));
   }
 }

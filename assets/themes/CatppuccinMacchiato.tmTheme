@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>name</key>
+  <string>Catppuccin Macchiato</string>
+  <key>settings</key>
+  <array>
+    <dict>
+      <key>settings</key>
+      <dict>
+        <key>background</key>
+        <string>#24273A</string>
+        <key>foreground</key>
+        <string>#CAD3F5</string>
+        <key>caret</key>
+        <string>#F4DBD6</string>
+        <key>selection</key>
+        <string>#5B6078</string>
+        <key>selectionForeground</key>
+        <string>#CAD3F5</string>
+      </dict>
+    </dict>
+    <dict>
+      <key>name</key>
+      <string>Comments</string>
+      <key>scope</key>
+      <string>comment, punctuation.definition.comment</string>
+      <key>settings</key>
+      <dict>
+        <key>foreground</key>
+        <string>#939AB7</string>
+        <key>fontStyle</key>
+        <string>italic</string>
+      </dict>
+    </dict>
+    <dict>
+      <key>name</key>
+      <string>Strings</string>
+      <key>scope</key>
+      <string>string</string>
+      <key>settings</key>
+      <dict>
+        <key>foreground</key>
+        <string>#A6DA95</string>
+      </dict>
+    </dict>
+    <dict>
+      <key>name</key>
+      <string>Numbers and Constants</string>
+      <key>scope</key>
+      <string>constant.numeric, constant.language, constant.character, constant.other</string>
+      <key>settings</key>
+      <dict>
+        <key>foreground</key>
+        <string>#F5A97F</string>
+      </dict>
+    </dict>
+    <dict>
+      <key>name</key>
+      <string>Keywords and Storage</string>
+      <key>scope</key>
+      <string>keyword, storage, keyword.operator.word</string>
+      <key>settings</key>
+      <dict>
+        <key>foreground</key>
+        <string>#C6A0F6</string>
+      </dict>
+    </dict>
+    <dict>
+      <key>name</key>
+      <string>Names and Tags</string>
+      <key>scope</key>
+      <string>entity.name, entity.name.tag, support.type, support.class, variable.other.key, meta.mapping.key</string>
+      <key>settings</key>
+      <dict>
+        <key>foreground</key>
+        <string>#8AADF4</string>
+      </dict>
+    </dict>
+    <dict>
+      <key>name</key>
+      <string>Functions and Attributes</string>
+      <key>scope</key>
+      <string>entity.name.function, support.function, variable.function, entity.other.attribute-name</string>
+      <key>settings</key>
+      <dict>
+        <key>foreground</key>
+        <string>#8BD5CA</string>
+      </dict>
+    </dict>
+    <dict>
+      <key>name</key>
+      <string>Punctuation</string>
+      <key>scope</key>
+      <string>punctuation, meta.brace, meta.delimiter</string>
+      <key>settings</key>
+      <dict>
+        <key>foreground</key>
+        <string>#B7BDF8</string>
+      </dict>
+    </dict>
+    <dict>
+      <key>name</key>
+      <string>Invalid</string>
+      <key>scope</key>
+      <string>invalid, invalid.illegal</string>
+      <key>settings</key>
+      <dict>
+        <key>foreground</key>
+        <string>#ED8796</string>
+      </dict>
+    </dict>
+  </array>
+</dict>
+</plist>

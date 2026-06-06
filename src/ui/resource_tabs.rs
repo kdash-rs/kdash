@@ -1,14 +1,15 @@
 use ratatui::{
-  layout::{Constraint, Position, Rect},
-  text::{Line, Span},
-  widgets::{List, ListItem, ListState, Tabs},
+  layout::{Constraint, Rect},
+  text::Line,
+  widgets::{List, ListItem, ListState, Paragraph, Tabs},
   Frame,
 };
 
 use super::{
   utils::{
-    centered_rect, filter_bar_title, layout_block_default, layout_block_top_border, style_default,
-    style_highlight, style_secondary, vertical_chunks, vertical_chunks_with_margin,
+    centered_rect, default_part, filter_cursor_position, help_part, layout_block_default,
+    layout_block_default_line, mixed_bold_line, mixed_line, split_hint_suffix, style_highlight,
+    style_secondary, vertical_chunks_with_margin,
   },
   HIGHLIGHT,
 };
@@ -18,8 +19,10 @@ use crate::app::{
   daemonsets::DaemonSetResource,
   deployments::DeploymentResource,
   dynamic::DynamicResource,
+  events::EventResource,
   ingress::IngressResource,
   jobs::JobResource,
+  key_binding::DEFAULT_KEYBINDING,
   models::{AppResource, StatefulList},
   network_policies::NetworkPolicyResource,
   nodes::NodeResource,
@@ -37,53 +40,58 @@ use crate::app::{
   ActiveBlock, App,
 };
 
+const TAB_PADDING_WIDTH: usize = 2;
+const TAB_DIVIDER_WIDTH: usize = 1;
+
+enum MenuItemCount {
+  Hidden,
+  Value(usize),
+  Unknown,
+}
+
 pub fn draw_resource_tabs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
-  let current_filter = app
-    .current_or_selected_resource_table()
-    .map(|table| (table.filter_text(), table.is_filter_active()));
-  let chunks = vertical_chunks_with_margin(
-    vec![
-      Constraint::Length(2),
-      Constraint::Length(2),
-      Constraint::Min(0),
-    ],
-    area,
-    1,
-  );
+  let chunks =
+    vertical_chunks_with_margin(vec![Constraint::Length(3), Constraint::Min(0)], area, 1);
 
   let mut block = layout_block_default(" Resources ");
   if app.get_current_route().active_block != ActiveBlock::Namespaces {
     block = block.style(style_secondary(app.light_theme))
   }
 
-  let titles: Vec<_> = app
-    .context_tabs
-    .items
-    .iter()
-    .enumerate()
-    .map(|(i, t)| {
-      let count = tab_count_label(app, i);
-      let label = if let Some(pos) = t.title.find('<') {
-        let (name, hint) = t.title.split_at(pos);
-        format!("{}[{}] {}", name, count, hint)
-      } else {
-        format!("{} [{}]", t.title, count)
-      };
-      Line::from(Span::styled(label, style_default(app.light_theme)))
-    })
-    .collect();
-  let tabs = Tabs::new(titles)
+  let titles = resource_tab_titles(app);
+  let visible_range = adjusted_visible_resource_tab_range(
+    &mut app.context_tabs.scroll_start,
+    app.context_tabs.index,
+    &titles,
+    area.width.saturating_sub(2) as usize,
+  );
+  let visible_titles = titles[visible_range.clone()].to_vec();
+  let selected_index = app.context_tabs.index.saturating_sub(visible_range.start);
+  let tabs = Tabs::new(visible_titles)
     .block(block)
     .highlight_style(style_secondary(app.light_theme))
-    .select(app.context_tabs.index);
+    .select(selected_index);
 
   f.render_widget(tabs, area);
-  let filter_chunks = vertical_chunks(
-    vec![Constraint::Length(1), Constraint::Length(1)],
-    chunks[1],
+  render_tab_overflow_indicators(
+    f,
+    area,
+    visible_range.start > 0,
+    visible_range.end < titles.len(),
+    app.light_theme,
   );
-  draw_filter_bar(f, app, filter_chunks[0], current_filter);
-  let content_chunk = chunks[2];
+  let separator_area = Rect {
+    x: area.x + 1,
+    y: chunks[0].y + chunks[0].height - 2,
+    width: area.width.saturating_sub(2),
+    height: 1,
+  };
+  f.render_widget(
+    Paragraph::new("─".repeat(separator_area.width as usize))
+      .style(style_secondary(app.light_theme)),
+    separator_area,
+  );
+  let content_chunk = chunks[1];
 
   // render tab content
   match app.context_tabs.index {
@@ -101,29 +109,232 @@ pub fn draw_resource_tabs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   };
 }
 
+fn resource_tab_titles(app: &App) -> Vec<Line<'static>> {
+  app
+    .context_tabs
+    .items
+    .iter()
+    .enumerate()
+    .map(|(i, t)| {
+      let count = tab_count_label(app, i);
+      let (name, hint) = split_hint_suffix(&t.title);
+      let label = format_tab_label(name, &count);
+      if i == app.context_tabs.index {
+        Line::from(label)
+      } else if let Some(hint) = hint {
+        mixed_line(
+          [default_part(label), help_part(format!(" {}", hint))],
+          app.light_theme,
+        )
+      } else {
+        Line::from(format_tab_label(&t.title, &count))
+      }
+    })
+    .collect()
+}
+
+fn format_tab_label(name: &str, count: &str) -> String {
+  if count == "0" {
+    name.to_string()
+  } else {
+    format!("{} [{}]", name, count)
+  }
+}
+
+fn visible_resource_tab_range(
+  scroll_start: &mut usize,
+  selected_index: usize,
+  titles: &[Line<'_>],
+  available_width: usize,
+) -> std::ops::Range<usize> {
+  if titles.is_empty() {
+    *scroll_start = 0;
+    return 0..0;
+  }
+
+  let selected_index = selected_index.min(titles.len().saturating_sub(1));
+  *scroll_start = (*scroll_start).min(titles.len().saturating_sub(1));
+
+  let widths: Vec<usize> = titles.iter().map(tab_width).collect();
+  let current_end = visible_end(*scroll_start, &widths, available_width);
+  let desired_left = selected_index.checked_sub(1);
+  let desired_right = (selected_index + 1 < titles.len()).then_some(selected_index + 1);
+
+  if selected_index < *scroll_start {
+    *scroll_start = selected_index;
+  } else if selected_index >= current_end {
+    *scroll_start = reveal_selected_start(selected_index, &widths, available_width);
+  }
+
+  let mut best_start = *scroll_start;
+  let mut best_end = visible_end(best_start, &widths, available_width);
+  let mut best_missing_neighbors =
+    missing_neighbors(best_start..best_end, desired_left, desired_right);
+  let mut best_shift = best_start.abs_diff(*scroll_start);
+
+  for candidate_start in 0..=selected_index {
+    let candidate_end = visible_end(candidate_start, &widths, available_width);
+    let candidate_range = candidate_start..candidate_end;
+    if !candidate_range.contains(&selected_index) {
+      continue;
+    }
+
+    let candidate_missing_neighbors =
+      missing_neighbors(candidate_range.clone(), desired_left, desired_right);
+    let candidate_shift = candidate_start.abs_diff(*scroll_start);
+
+    if candidate_missing_neighbors < best_missing_neighbors
+      || (candidate_missing_neighbors == best_missing_neighbors && candidate_shift < best_shift)
+    {
+      best_start = candidate_start;
+      best_end = candidate_end;
+      best_missing_neighbors = candidate_missing_neighbors;
+      best_shift = candidate_shift;
+    }
+  }
+
+  *scroll_start = best_start;
+  best_start..best_end
+}
+
+fn adjusted_visible_resource_tab_range(
+  scroll_start: &mut usize,
+  selected_index: usize,
+  titles: &[Line<'_>],
+  available_width: usize,
+) -> std::ops::Range<usize> {
+  let mut range = visible_resource_tab_range(scroll_start, selected_index, titles, available_width);
+
+  loop {
+    let marker_slots = usize::from(range.start > 0) + usize::from(range.end < titles.len());
+    let adjusted_width = available_width.saturating_sub(marker_slots);
+    let previous_start = *scroll_start;
+    let adjusted_range =
+      visible_resource_tab_range(scroll_start, selected_index, titles, adjusted_width);
+    let adjusted_marker_slots =
+      usize::from(adjusted_range.start > 0) + usize::from(adjusted_range.end < titles.len());
+
+    range = adjusted_range;
+    if adjusted_marker_slots == marker_slots || *scroll_start == previous_start {
+      return range;
+    }
+  }
+}
+
+fn render_tab_overflow_indicators(
+  f: &mut Frame<'_>,
+  area: Rect,
+  has_left_overflow: bool,
+  has_right_overflow: bool,
+  light_theme: bool,
+) {
+  let indicator_y = area.y.saturating_add(1);
+
+  if has_left_overflow {
+    f.render_widget(
+      Paragraph::new("‹").style(style_secondary(light_theme)),
+      Rect {
+        x: area.x.saturating_add(1),
+        y: indicator_y,
+        width: 1,
+        height: 1,
+      },
+    );
+  }
+
+  if has_right_overflow {
+    f.render_widget(
+      Paragraph::new("›").style(style_secondary(light_theme)),
+      Rect {
+        x: area.x + area.width.saturating_sub(2),
+        y: indicator_y,
+        width: 1,
+        height: 1,
+      },
+    );
+  }
+}
+
+fn reveal_selected_start(selected_index: usize, widths: &[usize], available_width: usize) -> usize {
+  let mut start = selected_index;
+  let mut used = widths[selected_index];
+
+  while start > 0 {
+    let next_used = used + TAB_DIVIDER_WIDTH + widths[start - 1];
+    if next_used > available_width {
+      break;
+    }
+    start -= 1;
+    used = next_used;
+  }
+
+  start
+}
+
+fn visible_end(start: usize, widths: &[usize], available_width: usize) -> usize {
+  let mut used = 0;
+  let mut end = start;
+
+  for (offset, width) in widths[start..].iter().enumerate() {
+    let extra = if offset == 0 {
+      *width
+    } else {
+      TAB_DIVIDER_WIDTH + *width
+    };
+
+    if used + extra > available_width {
+      break;
+    }
+
+    used += extra;
+    end = start + offset + 1;
+  }
+
+  if end == start {
+    (start + 1).min(widths.len())
+  } else {
+    end
+  }
+}
+
+fn tab_width(title: &Line<'_>) -> usize {
+  TAB_PADDING_WIDTH + title_width(title)
+}
+
+fn missing_neighbors(
+  range: std::ops::Range<usize>,
+  left_neighbor: Option<usize>,
+  right_neighbor: Option<usize>,
+) -> usize {
+  let mut missing = 0;
+
+  if let Some(left_neighbor) = left_neighbor {
+    if !range.contains(&left_neighbor) {
+      missing += 1;
+    }
+  }
+
+  if let Some(right_neighbor) = right_neighbor {
+    if !range.contains(&right_neighbor) {
+      missing += 1;
+    }
+  }
+
+  missing
+}
+
+fn title_width(title: &Line<'_>) -> usize {
+  title
+    .spans
+    .iter()
+    .map(|span| span.content.chars().count())
+    .sum()
+}
+
 fn tab_count_label(app: &App, index: usize) -> String {
   app
     .context_tab_resource_table(index)
     .map_or_else(|| "0".to_string(), |table| table.count_label())
-}
-
-fn draw_filter_bar(f: &mut Frame<'_>, app: &App, area: Rect, current_filter: Option<(&str, bool)>) {
-  let (filter, filter_active) = current_filter.unwrap_or(("", false));
-  let title = filter_bar_title(filter, filter_active, app.light_theme);
-
-  f.render_widget(layout_block_top_border(title), area);
-
-  if filter_active {
-    let cursor_offset = if filter.is_empty() {
-      3
-    } else {
-      3 + filter.chars().count() as u16
-    };
-    f.set_cursor_position(Position {
-      x: area.x + cursor_offset.min(area.width.saturating_sub(2)),
-      y: area.y,
-    });
-  }
 }
 
 /// more resources tab
@@ -166,6 +377,7 @@ fn draw_more(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
       ActiveBlock::ServiceAccounts,
       app.data.service_accounts.items.len(),
     ),
+    (ActiveBlock::Events, app.data.events.items.len()),
     (
       ActiveBlock::NetworkPolicies,
       app.data.network_policies.items.len(),
@@ -177,7 +389,20 @@ fn draw_more(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
       &mut app.more_resources_menu,
       &app.menu_filter,
       app.menu_filter_active,
-      &counts,
+      |(_, block)| {
+        counts
+          .iter()
+          .find(|(candidate, _)| candidate == block)
+          .map(|(_, count)| *count)
+          .map_or(MenuItemCount::Hidden, |count| {
+            if count > 0 {
+              MenuItemCount::Value(count)
+            } else {
+              MenuItemCount::Hidden
+            }
+          })
+      },
+      app.light_theme,
       area,
     ),
     ActiveBlock::DynamicView => draw_menu(
@@ -185,7 +410,30 @@ fn draw_more(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
       &mut app.dynamic_resources_menu,
       &app.menu_filter,
       app.menu_filter_active,
-      &counts,
+      |(name, _)| {
+        app
+          .data
+          .dynamic_kinds
+          .iter()
+          .find(|kind| kind.kind == *name)
+          .map_or(MenuItemCount::Unknown, |kind| {
+            app
+              .data
+              .dynamic_resource_cache
+              .item_count(&crate::app::dynamic::dynamic_cache_key(
+                kind,
+                app.data.selected.ns.as_deref(),
+              ))
+              .map_or(MenuItemCount::Unknown, |count| {
+                if count > 0 {
+                  MenuItemCount::Value(count)
+                } else {
+                  MenuItemCount::Hidden
+                }
+              })
+          })
+      },
+      app.light_theme,
       area,
     ),
     ActiveBlock::CronJobs => CronJobResource::render(block, f, app, area),
@@ -199,6 +447,7 @@ fn draw_more(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     ActiveBlock::ClusterRoles => ClusterRoleResource::render(block, f, app, area),
     ActiveBlock::ClusterRoleBindings => ClusterRoleBindingResource::render(block, f, app, area),
     ActiveBlock::Ingresses => IngressResource::render(block, f, app, area),
+    ActiveBlock::Events => EventResource::render(block, f, app, area),
     ActiveBlock::PersistentVolumeClaims => PvcResource::render(block, f, app, area),
     ActiveBlock::PersistentVolumes => PvResource::render(block, f, app, area),
     ActiveBlock::ServiceAccounts => SvcAcctResource::render(block, f, app, area),
@@ -221,6 +470,7 @@ fn draw_more(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
         ActiveBlock::ClusterRoles => ClusterRoleResource::render(block, f, app, area),
         ActiveBlock::ClusterRoleBindings => ClusterRoleBindingResource::render(block, f, app, area),
         ActiveBlock::Ingresses => IngressResource::render(block, f, app, area),
+        ActiveBlock::Events => EventResource::render(block, f, app, area),
         ActiveBlock::PersistentVolumeClaims => PvcResource::render(block, f, app, area),
         ActiveBlock::PersistentVolumes => PvResource::render(block, f, app, area),
         ActiveBlock::ServiceAccounts => SvcAcctResource::render(block, f, app, area),
@@ -243,7 +493,8 @@ fn draw_menu(
   more_resources_menu: &mut StatefulList<(String, ActiveBlock)>,
   filter: &str,
   filter_active: bool,
-  counts: &[(ActiveBlock, usize)],
+  count_for_item: impl Fn(&(String, ActiveBlock)) -> MenuItemCount,
+  light_theme: bool,
   area: Rect,
 ) {
   use crate::handlers::filter_menu_items;
@@ -253,26 +504,40 @@ fn draw_menu(
   let filtered = filter_menu_items(&more_resources_menu.items, filter);
   let items: Vec<ListItem<'_>> = filtered
     .iter()
-    .map(|(_, (name, block))| {
-      let count = counts
-        .iter()
-        .find(|(b, _)| b == block)
-        .map(|(_, c)| *c)
-        .unwrap_or(0);
-      if count > 0 {
-        ListItem::new(format!("{} [{}]", name, count))
-      } else {
-        ListItem::new(name.clone())
+    .map(|(_, item)| {
+      let (name, _) = item;
+      match count_for_item(item) {
+        MenuItemCount::Hidden => ListItem::new(name.clone()),
+        MenuItemCount::Value(count) => ListItem::new(format!("{} [{}]", name, count)),
+        MenuItemCount::Unknown => ListItem::new(format!("{} [?]", name)),
       }
     })
     .collect();
 
   let title = if filter_active && !filter.is_empty() {
-    format!(" Select Resource [{}] ", filter)
+    mixed_bold_line(
+      [
+        default_part(" Select Resource ".to_string()),
+        default_part(format!("[{}] ", filter)),
+      ],
+      light_theme,
+    )
   } else if filter_active {
-    " Select Resource (type to filter) ".to_string()
+    mixed_bold_line(
+      [
+        default_part(" Select Resource ".to_string()),
+        help_part("[type to filter] ".to_string()),
+      ],
+      light_theme,
+    )
   } else {
-    " Select Resource (< / > to filter) ".to_string()
+    mixed_bold_line(
+      [
+        default_part(" Select Resource ".to_string()),
+        help_part(format!("{} to filter ", DEFAULT_KEYBINDING.filter.key)),
+      ],
+      light_theme,
+    )
   };
 
   // Use a local ListState so selection operates within filtered bounds
@@ -285,12 +550,20 @@ fn draw_menu(
 
   f.render_stateful_widget(
     List::new(items)
-      .block(layout_block_default(&title))
+      .block(layout_block_default_line(title))
       .highlight_style(style_highlight())
       .highlight_symbol(HIGHLIGHT),
     area,
     &mut local_state,
   );
+
+  if filter_active {
+    f.set_cursor_position(filter_cursor_position(
+      area,
+      " Select Resource [".chars().count(),
+      filter,
+    ));
+  }
 
   // Sync the clamped selection back
   more_resources_menu.state.select(local_state.selected());
@@ -302,8 +575,15 @@ mod tests {
 
   use super::*;
   use crate::{
+    app::dynamic::{dynamic_cache_key, KubeDynamicKind, KubeDynamicResource},
+    app::models::StatefulList,
     app::pods::KubePod,
-    ui::utils::{COLOR_RED, COLOR_WHITE, COLOR_YELLOW},
+    ui::utils::{MACCHIATO_RED, MACCHIATO_TEXT, MACCHIATO_YELLOW},
+  };
+  use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
+  use kube::{
+    core::DynamicObject,
+    discovery::{ApiResource, Scope},
   };
 
   #[test]
@@ -338,35 +618,425 @@ mod tests {
       lines,
       vec![
         "┌ Resources ───────────────────────────────────────────────────────────────────────────────────────┐",
-        "│ Pods [1] <1> │ Services [0] <2> │ Nodes [0] <3> │ ConfigMaps [0] <4> │ StatefulSets [0] <5> │ Rep│",
+        "│ Pods [1] │ Services <2> │ Nodes <3> │ ConfigMaps <4> │ StatefulSets <5> │ ReplicaSets <6>       ›│",
+        "│──────────────────────────────────────────────────────────────────────────────────────────────────│",
         "│                                                                                                  │",
-        "│ filter < / > ────────────────────────────────────────────────────────────────────────────────────│",
-        "│                                                                                                  │",
-        "│ Pods (ns: all) [1] | Containers <enter> | describe <d> | yaml <y> | logs <o> ────────────────────│",
+        "│ Pods (ns: all) [1] containers <Enter> · filter </> · describe <d> · yaml <y> · menu <m> · logs <L│",
         "│   Namespace                Name                         Ready      Status    Restarts   Age      │",
         "│=> pod namespace test       pod name test                0/2        Failed    0          6h52m    │",
+        "│                                                                                                  │",
         "│                                                                                                  │",
         "└──────────────────────────────────────────────────────────────────────────────────────────────────┘",
       ]
     );
 
-    assert_eq!(buffer[(0, 0)].fg, COLOR_YELLOW);
-    assert_eq!(buffer[(1, 0)].fg, COLOR_YELLOW);
+    assert_eq!(buffer[(0, 0)].fg, MACCHIATO_YELLOW);
+    assert_eq!(buffer[(1, 0)].fg, MACCHIATO_YELLOW);
     assert!(buffer[(1, 0)].modifier.contains(Modifier::BOLD));
-    assert_eq!(buffer[(17, 1)].fg, COLOR_WHITE);
-    assert_eq!(buffer[(33, 1)].fg, COLOR_YELLOW);
-    assert_eq!(buffer[(1, 3)].fg, COLOR_YELLOW);
-    assert_eq!(buffer[(0, 4)].fg, COLOR_YELLOW);
-    assert_eq!(buffer[(99, 4)].fg, COLOR_YELLOW);
-    assert_eq!(buffer[(1, 5)].fg, COLOR_YELLOW);
-    assert!(buffer[(1, 5)].modifier.contains(Modifier::BOLD));
-    assert_eq!(buffer[(21, 5)].fg, COLOR_WHITE);
-    assert!(buffer[(21, 5)].modifier.contains(Modifier::BOLD));
-    assert_eq!(buffer[(79, 5)].fg, COLOR_YELLOW);
-    assert_eq!(buffer[(1, 6)].fg, COLOR_WHITE);
-    assert_eq!(buffer[(99, 6)].fg, COLOR_YELLOW);
-    assert_eq!(buffer[(1, 7)].fg, COLOR_RED);
-    assert!(buffer[(1, 7)].modifier.contains(Modifier::REVERSED));
-    assert_eq!(buffer[(99, 7)].fg, COLOR_YELLOW);
+    assert_eq!(buffer[(17, 1)].fg, MACCHIATO_TEXT);
+    assert_eq!(buffer[(1, 4)].fg, MACCHIATO_YELLOW);
+    assert!(buffer[(1, 4)].modifier.contains(Modifier::BOLD));
+    assert_eq!(buffer[(1, 5)].fg, MACCHIATO_TEXT);
+    assert_eq!(buffer[(1, 6)].fg, MACCHIATO_RED);
+    assert!(buffer[(1, 6)].modifier.contains(Modifier::REVERSED));
+    assert_eq!(buffer[(99, 9)].fg, MACCHIATO_YELLOW);
+  }
+
+  #[test]
+  fn test_draw_resource_tabs_block_shows_active_filter_inline() {
+    let backend = TestBackend::new(100, 10);
+    let mut terminal = Terminal::new(backend).unwrap();
+
+    terminal
+      .draw(|f| {
+        let size = f.area();
+        let mut app = App::default();
+        let mut pod = KubePod::default();
+        pod.name = "pod name test".into();
+        pod.namespace = "pod namespace test".into();
+        pod.ready = (0, 2);
+        pod.status = "Failed".into();
+        pod.age = "6h52m".into();
+        app.data.pods.set_items(vec![pod]);
+        app.data.pods.filter = "pod".into();
+        app.data.pods.filter_active = true;
+        draw_resource_tabs_block(f, &mut app, size);
+      })
+      .unwrap();
+
+    let lines: Vec<String> = (0..terminal.backend().buffer().area.height)
+      .map(|row| {
+        (0..terminal.backend().buffer().area.width)
+          .map(|col| terminal.backend().buffer()[(col, row)].symbol())
+          .collect::<String>()
+      })
+      .collect();
+
+    let joined = lines.join("\n");
+    assert!(joined.contains("[pod]"));
+    assert!(joined.contains("clear <Esc>"));
+    assert!(!joined.contains("containers <Enter>"));
+    assert!(!joined.contains("describe <d>"));
+    assert!(!joined.contains("yaml <y>"));
+    assert!(!joined.contains("logs <L>"));
+    assert!(!joined.contains("filter </> ─"));
+  }
+
+  #[test]
+  fn test_draw_resource_tabs_block_keeps_leftmost_window_for_visible_selection() {
+    let backend = TestBackend::new(55, 10);
+    let mut terminal = Terminal::new(backend).unwrap();
+    let mut app = App::default();
+    let route = app.context_tabs.set_index(1).route.clone();
+    app.push_navigation_route(route);
+
+    terminal
+      .draw(|f| {
+        draw_resource_tabs_block(f, &mut app, f.area());
+      })
+      .unwrap();
+
+    let row = buffer_row(terminal.backend().buffer(), 1);
+    assert!(row.contains("Pods"));
+    assert!(row.contains("Services"));
+    assert!(row.contains("Nodes"));
+    assert!(!row.contains('‹'));
+    assert!(row.contains('›'));
+    assert_eq!(app.context_tabs.scroll_start, 0);
+  }
+
+  #[test]
+  fn test_draw_resource_tabs_block_scrolls_to_far_right_selected_tab() {
+    let backend = TestBackend::new(55, 10);
+    let mut terminal = Terminal::new(backend).unwrap();
+    let mut app = App::default();
+    let route = app.context_tabs.set_index(8).route.clone();
+    app.push_navigation_route(route);
+
+    terminal
+      .draw(|f| {
+        draw_resource_tabs_block(f, &mut app, f.area());
+      })
+      .unwrap();
+
+    let buffer = terminal.backend().buffer();
+    let row = buffer_row(buffer, 1);
+    assert!(row.contains("Jobs"));
+    assert!(row.contains("DaemonSets"));
+    assert!(row.contains("More"));
+    assert!(row.contains('‹'));
+    assert!(app.context_tabs.scroll_start > 0);
+
+    let highlighted_col = row.find("DaemonSets").unwrap() as u16 + 1;
+    assert_eq!(buffer[(highlighted_col, 1)].fg, MACCHIATO_YELLOW);
+  }
+
+  #[test]
+  fn test_draw_resource_tabs_block_minimal_reveal_keeps_neighbors_visible() {
+    let backend = TestBackend::new(55, 10);
+    let mut terminal = Terminal::new(backend).unwrap();
+    let mut app = App::default();
+
+    let route = app.context_tabs.set_index(8).route.clone();
+    app.push_navigation_route(route);
+    terminal
+      .draw(|f| {
+        draw_resource_tabs_block(f, &mut app, f.area());
+      })
+      .unwrap();
+    let initial_scroll_start = app.context_tabs.scroll_start;
+
+    let route = app.context_tabs.set_index(7).route.clone();
+    app.push_navigation_route(route);
+    terminal
+      .draw(|f| {
+        draw_resource_tabs_block(f, &mut app, f.area());
+      })
+      .unwrap();
+
+    let row = buffer_row(terminal.backend().buffer(), 1);
+    assert!(row.contains("Deployments"));
+    assert!(row.contains("Jobs"));
+    assert!(row.contains("DaemonSets"));
+    assert!(row.contains('‹'));
+    assert!(row.contains('›'));
+    assert!(app.context_tabs.scroll_start.abs_diff(initial_scroll_start) <= 1);
+  }
+
+  #[test]
+  fn test_draw_resource_tabs_block_jump_to_hidden_tab_reveals_it() {
+    let backend = TestBackend::new(55, 10);
+    let mut terminal = Terminal::new(backend).unwrap();
+    let mut app = App::default();
+    let route = app.context_tabs.set_index(10).route.clone();
+    app.push_navigation_route(route);
+
+    terminal
+      .draw(|f| {
+        draw_resource_tabs_block(f, &mut app, f.area());
+      })
+      .unwrap();
+
+    let row = buffer_row(terminal.backend().buffer(), 1);
+    assert!(row.contains("More"));
+    assert!(row.contains("Dynamic"));
+    assert!(row.contains('‹'));
+    assert!(!row.contains('›'));
+    assert!(app.context_tabs.scroll_start > 0);
+  }
+
+  #[test]
+  fn test_tab_count_label_returns_zero_for_unknown_index() {
+    let app = App::default();
+
+    assert_eq!(tab_count_label(&app, 99), "0");
+  }
+
+  #[test]
+  fn test_tab_count_label_uses_visible_table_count() {
+    let mut app = App::default();
+    app
+      .data
+      .pods
+      .set_items(vec![KubePod::default(), KubePod::default()]);
+
+    assert_eq!(tab_count_label(&app, 0), "2");
+  }
+
+  #[test]
+  fn test_format_tab_label_omits_zero_count() {
+    assert_eq!(format_tab_label("StatefulSets", "0"), "StatefulSets");
+    assert_eq!(format_tab_label("Pods", "2"), "Pods [2]");
+  }
+
+  #[test]
+  fn test_draw_menu_shows_filter_prompt_when_active_without_text() {
+    let lines = render_menu_lines(
+      StatefulList::with_items(vec![("Secrets".into(), ActiveBlock::Secrets)]),
+      "",
+      true,
+      |_| MenuItemCount::Hidden,
+    );
+    let joined = lines.join("\n");
+
+    assert!(joined.contains("Select Resource"));
+    assert!(joined.contains("[type to filter]"));
+  }
+
+  #[test]
+  fn test_draw_menu_shows_filter_text_and_counts() {
+    let lines = render_menu_lines(
+      StatefulList::with_items(vec![
+        ("Secrets".into(), ActiveBlock::Secrets),
+        ("Events".into(), ActiveBlock::Events),
+      ]),
+      "e",
+      true,
+      |(_, block)| match block {
+        ActiveBlock::Secrets => MenuItemCount::Value(3),
+        _ => MenuItemCount::Hidden,
+      },
+    );
+    let joined = lines.join("\n");
+
+    assert!(joined.contains("Select Resource [e]"));
+    assert!(joined.contains("Secrets [3]"));
+    assert!(joined.contains("Events"));
+    assert!(!joined.contains("Events [0]"));
+  }
+
+  #[test]
+  fn test_draw_menu_shows_filter_hint_when_inactive() {
+    let lines = render_menu_lines(
+      StatefulList::with_items(vec![("Secrets".into(), ActiveBlock::Secrets)]),
+      "",
+      false,
+      |_| MenuItemCount::Hidden,
+    );
+    let joined = lines.join("\n");
+
+    assert!(joined.contains("Select Resource"));
+    assert!(joined.contains("to filter"));
+    assert!(joined.contains("</>"));
+  }
+
+  #[test]
+  fn test_draw_menu_clamps_selection_to_filtered_items() {
+    let mut menu = StatefulList::with_items(vec![
+      ("Secrets".into(), ActiveBlock::Secrets),
+      ("Events".into(), ActiveBlock::Events),
+    ]);
+    menu.state.select(Some(1));
+
+    let backend = TestBackend::new(60, 10);
+    let mut terminal = Terminal::new(backend).unwrap();
+
+    terminal
+      .draw(|f| {
+        draw_menu(
+          f,
+          &mut menu,
+          "sec",
+          true,
+          |_| MenuItemCount::Hidden,
+          false,
+          f.area(),
+        );
+      })
+      .unwrap();
+
+    assert_eq!(menu.state.selected(), Some(0));
+  }
+
+  #[test]
+  fn test_draw_menu_shows_dynamic_count_from_cache() {
+    let mut app = App::default();
+    let kind = KubeDynamicKind::new(
+      ApiResource {
+        group: "example.com".into(),
+        version: "v1".into(),
+        api_version: "example.com/v1".into(),
+        kind: "Widget".into(),
+        plural: "widgets".into(),
+      },
+      Scope::Namespaced,
+    );
+    app.data.dynamic_kinds = vec![kind.clone()];
+    app.data.selected.ns = Some("team-a".into());
+    app.data.dynamic_resource_cache.insert(
+      dynamic_cache_key(&kind, Some("team-a")),
+      vec![
+        KubeDynamicResource::from(DynamicObject {
+          types: None,
+          metadata: ObjectMeta {
+            name: Some("widget-1".into()),
+            namespace: Some("team-a".into()),
+            ..Default::default()
+          },
+          data: Default::default(),
+        }),
+        KubeDynamicResource::from(DynamicObject {
+          types: None,
+          metadata: ObjectMeta {
+            name: Some("widget-2".into()),
+            namespace: Some("team-a".into()),
+            ..Default::default()
+          },
+          data: Default::default(),
+        }),
+      ],
+    );
+
+    let backend = TestBackend::new(60, 10);
+    let mut terminal = Terminal::new(backend).unwrap();
+    let mut menu = StatefulList::with_items(vec![("Widget".into(), ActiveBlock::DynamicResource)]);
+
+    terminal
+      .draw(|f| {
+        draw_menu(
+          f,
+          &mut menu,
+          "",
+          false,
+          |(name, _)| {
+            app
+              .data
+              .dynamic_kinds
+              .iter()
+              .find(|candidate| candidate.kind == *name)
+              .and_then(|candidate| {
+                app
+                  .data
+                  .dynamic_resource_cache
+                  .item_count(&dynamic_cache_key(
+                    candidate,
+                    app.data.selected.ns.as_deref(),
+                  ))
+              })
+              .map_or(MenuItemCount::Unknown, MenuItemCount::Value)
+          },
+          false,
+          f.area(),
+        );
+      })
+      .unwrap();
+
+    let rendered = (0..terminal.backend().buffer().area.height)
+      .map(|row| buffer_row(terminal.backend().buffer(), row))
+      .collect::<Vec<_>>()
+      .join("\n");
+    assert!(rendered.contains("Widget [2]"));
+  }
+
+  #[test]
+  fn test_draw_menu_shows_unknown_dynamic_count_when_cache_missing() {
+    let backend = TestBackend::new(60, 10);
+    let mut terminal = Terminal::new(backend).unwrap();
+    let mut menu = StatefulList::with_items(vec![("Widget".into(), ActiveBlock::DynamicResource)]);
+
+    terminal
+      .draw(|f| {
+        draw_menu(
+          f,
+          &mut menu,
+          "",
+          false,
+          |(name, _)| {
+            if name == "Widget" {
+              MenuItemCount::Unknown
+            } else {
+              MenuItemCount::Hidden
+            }
+          },
+          false,
+          f.area(),
+        );
+      })
+      .unwrap();
+
+    let rendered = (0..terminal.backend().buffer().area.height)
+      .map(|row| buffer_row(terminal.backend().buffer(), row))
+      .collect::<Vec<_>>()
+      .join("\n");
+    assert!(rendered.contains("Widget [?]"));
+  }
+
+  fn render_menu_lines(
+    mut menu: StatefulList<(String, ActiveBlock)>,
+    filter: &str,
+    filter_active: bool,
+    count_for_item: impl Fn(&(String, ActiveBlock)) -> MenuItemCount,
+  ) -> Vec<String> {
+    let backend = TestBackend::new(60, 10);
+    let mut terminal = Terminal::new(backend).unwrap();
+
+    terminal
+      .draw(|f| {
+        draw_menu(
+          f,
+          &mut menu,
+          filter,
+          filter_active,
+          &count_for_item,
+          false,
+          f.area(),
+        );
+      })
+      .unwrap();
+
+    let buffer = terminal.backend().buffer();
+    (0..buffer.area.height)
+      .map(|row| {
+        (0..buffer.area.width)
+          .map(|col| buffer[(col, row)].symbol())
+          .collect::<String>()
+      })
+      .collect()
+  }
+
+  fn buffer_row(buffer: &ratatui::buffer::Buffer, row: u16) -> String {
+    (0..buffer.area.width)
+      .map(|col| buffer[(col, row)].symbol())
+      .collect::<String>()
   }
 }

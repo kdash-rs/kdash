@@ -1,5 +1,6 @@
 // from https://github.com/Rigellute/spotify-tui
 use std::fmt;
+use std::str::FromStr;
 
 use crossterm::event;
 
@@ -60,6 +61,7 @@ pub enum Key {
   Char(char),
   Ctrl(char),
   Alt(char),
+  Shift(char),
   Unknown,
 }
 
@@ -96,14 +98,101 @@ impl fmt::Display for Key {
     match *self {
       Key::Alt(' ') => write!(f, "<Alt+Space>"),
       Key::Ctrl(' ') => write!(f, "<Ctrl+Space>"),
+      Key::Shift(' ') => write!(f, "<Shift+Space>"),
       Key::Char(' ') => write!(f, "<Space>"),
       Key::Alt(c) => write!(f, "<Alt+{}>", c),
       Key::Ctrl(c) => write!(f, "<Ctrl+{}>", c),
+      Key::Shift(c) if c.is_ascii_alphabetic() => write!(f, "<{}>", c.to_ascii_uppercase()),
+      Key::Shift(c) => write!(f, "<Shift+{}>", c),
       Key::Char(c) => write!(f, "<{}>", c),
-      Key::Left | Key::Right | Key::Up | Key::Down => write!(f, "<{:?} Arrow Key>", self),
+      Key::Left => write!(f, "<←>"),
+      Key::Right => write!(f, "<→>"),
+      Key::Up => write!(f, "<↑>"),
+      Key::Down => write!(f, "<↓>"),
       _ => write!(f, "<{:?}>", self),
     }
   }
+}
+
+impl FromStr for Key {
+  type Err = String;
+
+  fn from_str(input: &str) -> Result<Self, Self::Err> {
+    let normalized = input.trim().trim_matches(['<', '>']);
+    if normalized.is_empty() {
+      return Err("key cannot be empty".into());
+    }
+
+    if normalized.chars().count() == 1 {
+      let c = normalized
+        .chars()
+        .next()
+        .expect("single-character string must have one char");
+      return if c.is_ascii_uppercase() {
+        Ok(Key::Shift(c.to_ascii_lowercase()))
+      } else {
+        Ok(Key::Char(c))
+      };
+    }
+
+    let lower = normalized.to_lowercase();
+    let key = match lower.as_str() {
+      "enter" | "return" => Key::Enter,
+      "tab" => Key::Tab,
+      "backspace" => Key::Backspace,
+      "esc" | "escape" => Key::Esc,
+      "left" | "leftarrow" | "left-arrow" => Key::Left,
+      "right" | "rightarrow" | "right-arrow" => Key::Right,
+      "up" | "uparrow" | "up-arrow" => Key::Up,
+      "down" | "downarrow" | "down-arrow" => Key::Down,
+      "insert" | "ins" => Key::Ins,
+      "delete" | "del" => Key::Delete,
+      "home" => Key::Home,
+      "end" => Key::End,
+      "pageup" | "page-up" => Key::PageUp,
+      "pagedown" | "page-down" => Key::PageDown,
+      "space" => Key::Char(' '),
+      _ => {
+        if let Some(rest) = lower.strip_prefix("ctrl+") {
+          return parse_modified_char(rest, Key::Ctrl);
+        }
+        if let Some(rest) = lower.strip_prefix("alt+") {
+          return parse_modified_char(rest, Key::Alt);
+        }
+        if let Some(rest) = lower.strip_prefix("shift+") {
+          return parse_modified_char(rest, Key::Shift);
+        }
+        if let Some(rest) = lower.strip_prefix('f') {
+          let value = rest
+            .parse::<u8>()
+            .map_err(|_| format!("unsupported key '{}'", input))?;
+          if value <= 12 {
+            return Ok(Key::from_f(value));
+          }
+        }
+        return Err(format!("unsupported key '{}'", input));
+      }
+    };
+
+    Ok(key)
+  }
+}
+
+fn parse_modified_char(input: &str, wrap: fn(char) -> Key) -> Result<Key, String> {
+  let value = if input == "space" { " " } else { input };
+  if value.chars().count() != 1 {
+    return Err(format!(
+      "modified key '{}' must target a single character",
+      input
+    ));
+  }
+
+  Ok(wrap(
+    value
+      .chars()
+      .next()
+      .expect("single-character string must have one char"),
+  ))
 }
 
 impl From<event::KeyEvent> for Key {
@@ -169,23 +258,27 @@ impl From<event::KeyEvent> for Key {
         code: event::KeyCode::Tab,
         ..
       } => Key::Tab,
+      event::KeyEvent {
+        code: event::KeyCode::Char(c),
+        modifiers,
+        ..
+      } => {
+        let normalized = if c.is_ascii_uppercase() {
+          c.to_ascii_lowercase()
+        } else {
+          c
+        };
 
-      // First check for char + modifier
-      event::KeyEvent {
-        code: event::KeyCode::Char(c),
-        modifiers: event::KeyModifiers::ALT,
-        ..
-      } => Key::Alt(c),
-      event::KeyEvent {
-        code: event::KeyCode::Char(c),
-        modifiers: event::KeyModifiers::CONTROL,
-        ..
-      } => Key::Ctrl(c),
-
-      event::KeyEvent {
-        code: event::KeyCode::Char(c),
-        ..
-      } => Key::Char(c),
+        if modifiers.contains(event::KeyModifiers::CONTROL) {
+          Key::Ctrl(normalized)
+        } else if modifiers.contains(event::KeyModifiers::ALT) {
+          Key::Alt(normalized)
+        } else if modifiers.contains(event::KeyModifiers::SHIFT) {
+          Key::Shift(normalized)
+        } else {
+          Key::Char(c)
+        }
+      }
 
       _ => Key::Unknown,
     }
@@ -198,9 +291,14 @@ mod tests {
 
   #[test]
   fn test_key_fmt() {
-    assert_eq!(format!("{}", Key::Left), "<Left Arrow Key>");
+    assert_eq!(format!("{}", Key::Left), "<←>");
+    assert_eq!(format!("{}", Key::Right), "<→>");
+    assert_eq!(format!("{}", Key::Up), "<↑>");
+    assert_eq!(format!("{}", Key::Down), "<↓>");
     assert_eq!(format!("{}", Key::Alt(' ')), "<Alt+Space>");
+    assert_eq!(format!("{}", Key::Shift(' ')), "<Shift+Space>");
     assert_eq!(format!("{}", Key::Alt('c')), "<Alt+c>");
+    assert_eq!(format!("{}", Key::Shift('d')), "<D>");
     assert_eq!(format!("{}", Key::Char('c')), "<c>");
     assert_eq!(format!("{}", Key::Enter), "<Enter>");
     assert_eq!(format!("{}", Key::F10), "<F10>");
@@ -221,6 +319,15 @@ mod tests {
     );
     assert_eq!(
       Key::from(event::KeyEvent {
+        code: event::KeyCode::Char('D'),
+        modifiers: event::KeyModifiers::SHIFT,
+        kind: event::KeyEventKind::Press,
+        state: event::KeyEventState::NONE,
+      }),
+      Key::Shift('d')
+    );
+    assert_eq!(
+      Key::from(event::KeyEvent {
         code: event::KeyCode::Char('c'),
         modifiers: event::KeyModifiers::ALT,
         kind: event::KeyEventKind::Press,
@@ -237,5 +344,23 @@ mod tests {
       }),
       Key::Ctrl('c')
     );
+  }
+
+  #[test]
+  fn test_key_from_str() {
+    assert_eq!("q".parse::<Key>(), Ok(Key::Char('q')));
+    assert_eq!("ctrl+q".parse::<Key>(), Ok(Key::Ctrl('q')));
+    assert_eq!("alt+x".parse::<Key>(), Ok(Key::Alt('x')));
+    assert_eq!("D".parse::<Key>(), Ok(Key::Shift('d')));
+    assert_eq!("shift+d".parse::<Key>(), Ok(Key::Shift('d')));
+    assert_eq!("space".parse::<Key>(), Ok(Key::Char(' ')));
+    assert_eq!("page-down".parse::<Key>(), Ok(Key::PageDown));
+    assert_eq!("F10".parse::<Key>(), Ok(Key::F10));
+    assert!("shift+tab".parse::<Key>().is_err());
+  }
+
+  #[test]
+  fn test_uppercase_and_shift_string_parse_equally() {
+    assert_eq!("D".parse::<Key>(), "shift+d".parse::<Key>());
   }
 }

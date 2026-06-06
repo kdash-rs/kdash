@@ -1,20 +1,83 @@
 # Changelog
 
-## [1.0.0] - 2026-04-03
+## [Unreleased]
 
-- **NEW:**: Troubleshoot tab with diagnostics and recommendations for common Kubernetes issues. Thanks to [@sed-i](https://github.com/sed-i) for the contribution! [#505](https://github.com/kdash-rs/kdash/pull/505)
-  - Navigate into Pods -> Containers -> Logs/Describe/YAML views for detailed information.
-- **NEW:**: UI improvements
-  - Navigate into child views like containers, logs, describe, yaml from the main resource tables.
-  - See aggregate logs from containers owned by a resource like pods, deployment, statefulset, replicaset, Jobs etc.
-- **NEW:**: Add inline filter/search to all resource tables and views.
-- **NEW:**: Add inline filter/search to More and Dynamic resource menus.
-- Better error handling and messages
-- Major refactor and architecture improvements
-- Log streaming fixes and improvements. Fix #6
-- Fix for the long standing bugs #89, #90, #484, #315, #8
-- Fixes many other bugs and improvements
-- Upgrade dependencies
+### Added
+
+- **NEW:** Resource management actions. KDash can now act on resources, not just observe them:
+  - Delete any resource (`Ctrl-d`)
+  - View previous (restarted) container logs (`p`)
+  - Rollout restart Deployments/StatefulSets/DaemonSets (`r`)
+  - Scale Deployments/StatefulSets/ReplicaSets/ReplicationControllers to a replica count
+  - Cordon/uncordon nodes and suspend/resume/trigger CronJobs
+- **NEW:** Action menu (`m`) lists every available action for the selected resource; the most-used actions also have dedicated hotkeys surfaced as hints.
+- Impactful actions are guarded by a confirmation prompt before any change is applied.
+
+## [1.1.2] - 2026-05-16
+
+### Added
+
+- New `hide_logo` and `hide_info_on_start` config options to hide the logo block and start with the info bar collapsed. Fix [#521](https://github.com/kdash-rs/kdash/issues/521)
+
+## [1.1.1] - 2026-04-24
+
+### Changed
+
+- Add overflow indicators to the resource tabs
+
+## [1.1.0] - 2026-04-24
+
+### Added
+
+- **NEW:** Configurable CLI Info entries, including disabling built-in probes, custom commands, optional regex-based version extraction, and control over whether missing binaries are hidden or shown as `Not found`. Fix #452
+- **NEW:** More columns are shown if viewport is wide enough for most resources including a new 'w' keybind to show all.
+- Dynamic resource menu counts now use cached results and show `?` while a resource kind has not been loaded yet
+
+### Changed
+
+- Resource tabs now auto-scroll to keep the selected tab visible, prefer showing neighboring tabs where possible, and hide zero-count badges for cleaner headers
+- CLI Info defaults now include `podman` and `containerd`, while `istioctl` is provided as a sample custom probe instead of a built-in entry
+- The More menu is now ordered by more commonly used resources first
+- The filter UI is more consistent across different views
+- Troubleshoot module is improved. Thanks to [@sed-i](https://github.com/sed-i) for the contribution! [#513](https://github.com/kdash-rs/kdash/pull/513)
+- UI draw efficiency improvements. Thanks to [@sed-i](https://github.com/sed-i) for the contribution! [#515](https://github.com/kdash-rs/kdash/pull/515)
+
+### Fixed
+
+- Batched redraw/event handling now coalesces queued ticks and clamps rendering windows to avoid empty tables and YAML slice panics on small or offset views
+- Troubleshoot findings now sort deterministically, and follow-up cleanups improved readability in Pod, PVC, and ReplicaSet checks
+
+## [1.0.0] - 2026-04-09
+
+### Added
+
+- **NEW:** Shell into container directly from the UI with `s` keybinding
+  - Restore the KDash UI cleanly after leaving an interactive container shell
+  - Fall back from `/bin/bash` to `/bin/sh` automatically when opening a pod shell
+- **NEW:** Troubleshoot tab with diagnostics and recommendations for common Kubernetes issues across Pods, PVCs, and ReplicaSets, plus direct drill-down into containers, logs, describe, and YAML views. Thanks to [@sed-i](https://github.com/sed-i) for the contribution! [#505](https://github.com/kdash-rs/kdash/pull/505)
+- **NEW:** Inline filter/search across resource tables and views, including Contexts, Help, Utilization, Troubleshoot, More, and Dynamic resource menus
+- **NEW:** Aggregate logs for workload resources, so you can view logs from all owned pods in one stream
+- **NEW:** Deeper navigation from resource tables into child views such as Pods, Containers, Logs, Describe, and YAML
+- **NEW:** Custom config support for keybinding overrides, theme overrides, and configurable initial log history via `log_tail_lines`
+- **NEW:** In-app action to dump recent errors to a file for debugging
+- Resource counts in resource tabs and menus
+- Events tab with namespaced Kubernetes events, counts, ages, and describe/YAML views. Thanks to [@sed-i](https://github.com/sed-i) for the contribution! [#504](https://github.com/kdash-rs/kdash/pull/504)
+
+### Changed
+
+- Default dark/light themes now use Catppuccin Macchiato and Catppuccin Latte
+- Enter-based navigation now drills into child resources where available and opens Describe on leaf resources
+- Dynamic resource discovery now tolerates non-`v1` preferred API group versions and reuses cached results
+- Kubeconfig changes are watched live so context and namespace state stay in sync without restarting
+
+### Fixed
+
+- Log streaming, scrolling, and history handling improvements, including bounded buffers and faster follow behavior. Fix #6
+- Reduced startup and UI lag with runtime, describe rendering, and resource-loading improvements
+- Better error handling and friendlier messages, including fixes for #484
+- Fixes for long-standing issues around namespace fallback and kubeconfig/context refresh (#89, #90, #315)
+- HTTPS proxy support, pending pod ready counts, dynamic resource navigation, and other reliability improvements
+- Dependency updates and test/CI stability fixes
 
 ## [0.6.2] - 2025-03-05
 

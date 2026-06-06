@@ -105,6 +105,13 @@ impl Events {
   pub fn next(&self) -> Result<Event<KeyEvent, MouseEvent>, mpsc::RecvError> {
     self.rx.recv()
   }
+
+  /// Attempts to read an event without blocking.
+  /// Returns `None` if no event is currently available or if the channel has
+  /// been disconnected.
+  pub fn try_next(&self) -> Option<Event<KeyEvent, MouseEvent>> {
+    self.rx.try_recv().ok()
+  }
 }
 
 /// Resolve the kubeconfig file paths that should be watched.
@@ -236,6 +243,14 @@ mod tests {
       Ok(Event::KubeConfigChange) => {} // possible if kubeconfig watcher fires
       Err(e) => panic!("Events::next() returned error: {:?}", e),
     }
+  }
+
+  #[test]
+  fn test_try_next_returns_none_when_empty() {
+    // try_next should return None when there are no pending events
+    let (tx, rx) = mpsc::channel();
+    let events = Events { rx, _tx: tx };
+    assert!(events.try_next().is_none());
   }
 
   #[test]

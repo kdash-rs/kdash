@@ -20,6 +20,20 @@ A simple terminal dashboard for Kubernetes built with Rust [![Follow @kdashrs](h
 
 ![UI](screenshots/ui.gif)
 
+## New since v0.6.2
+
+- **Resource management actions** let you act on what you're watching without leaving KDash: delete any resource (`Ctrl-d`), rollout restart workloads (`r`), view previous container logs (`p`), scale workloads, and cordon nodes or suspend/resume/trigger CronJobs from a new action menu (`m`). Impactful actions are guarded by a confirmation prompt.
+- **Troubleshoot tab** surfaces severity-ranked findings for Pods, PVCs, and ReplicaSets, then lets you jump straight into containers, logs, describe, and YAML.
+- **Events tab** shows Kubernetes events with namespace, involved kind, reason, count, message, and age, with the same describe/YAML workflows as other resources.
+- **Deeper drill-down navigation** lets you move from workloads to owned Pods, from Pods to Containers, and from Nodes to the Pods scheduled on them.
+- **Aggregate workload logs** combine logs from all pods owned by a workload into a single stream.
+- **Inline `/` filtering** now works across resource tables and views, including Contexts, Help, Utilization, Troubleshoot, More, and Dynamic resource menus.
+- **Smarter resource tab and menu counts** hide zero-count badges in the resource tabs, show cached counts for Dynamic menu entries, and use `?` when a Dynamic kind has not been fetched into cache yet.
+- **Configurable keybindings and themes** let you override shortcuts and colors, and `log_tail_lines` lets you set the initial history fetched before live log streaming starts.
+- **Better diagnostics and reliability** include recent-error dump to file, kubeconfig live reload, friendlier errors, and smoother log/render performance.
+- **Configurable CLI Info** lets you disable built-in probes, add custom commands with optional regex-based version extraction
+- **More columns** are shown if viewport is wide enough for most resources including a new 'w' keybind to show all.
+
 ## Sponsors
 
 Thanks to the sponsors of [@deepu105](https://github.com/sponsors/deepu105) who makes maintaining projects like KDash sustainable. Consider [sponsoring](https://github.com/sponsors/deepu105) if you like the work.
@@ -146,12 +160,84 @@ kdash
 
 Press `?` while running the app to see keybindings
 
+## Configuration
+
+KDash supports config-based keybinding and theme overrides, plus a configurable default for historical log lines fetched before live streaming starts.
+
+By default it reads config from:
+
+- `~/.config/kdash/config.yaml`
+
+You can also point it at a specific file with:
+
+```bash
+KDASH_CONFIG=/path/to/config.yaml kdash
+```
+
+Theme overrides support separate light and dark values:
+
+```yaml
+theme:
+  dark:
+    primary: "#89B4FA"
+    background: "#11111B"
+  light:
+    primary: "#D20F39"
+    background: "#FAF7F0"
+```
+
+Keybindings are overridden by binding name:
+
+```yaml
+keybindings:
+  filter: f
+  help: h
+  describe_resource: i
+  resource_yaml: v
+```
+
+Log streaming history can also be tuned:
+
+```yaml
+log_tail_lines: 250
+```
+
+The top status bar can also be customized:
+
+```yaml
+# Hide the KDash logo block in the top bar. Defaults to false.
+hide_logo: true
+# Start with the entire info bar collapsed (namespaces, context, CLI info, logo).
+# Toggle it back on at any time with the `toggle_info` keybinding (default `i`). Defaults to false.
+hide_info_on_start: true
+```
+
+CLI Info entries can be configured too. Built-in entries remain enabled by default, missing binaries are hidden by default, you can disable any built-in by label, and you can add custom probes with a label plus command:
+
+```yaml
+cli_info:
+  hide_missing_binaries: false
+  disable_defaults:
+    - docker
+  custom:
+    - label: istioctl
+      command: ["istioctl", "version"]
+      regex: '\b(v?[0-9]+\.[0-9]+\.[0-9]+)\b'
+```
+
+Set `hide_missing_binaries: false` if you want missing CLIs to stay visible as `Not found`.
+
+Built-in labels are: `kubectl client`, `kubectl server`, `docker`, `docker-compose`, `podman`, `containerd`, `helm`, and `kind`. For custom commands, `regex` is optional: if provided, the first capture group is shown; otherwise the first non-empty stdout line is shown.
+
+See the sample config in [assets/kdash.sample-config.yaml](assets/kdash.sample-config.yaml) for a complete example with both custom keybindings and custom light/dark theme overrides.
+
 ## FLAGS:
 
 - `-h, --help`: Prints help information
 - `-V, --version`: Prints version information
 - `-t, --tick-rate <tick-rate>`: Set the tick rate (milliseconds): the lower the number the higher the FPS.
 - `-p, --poll-rate <poll-rate>`: Set the network call polling rate (milliseconds, should be multiples of tick-rate): the lower the number the higher the network calls.
+- `--log-tail-lines <log-tail-lines>`: Set how many historical log lines to fetch before live streaming starts.
 - `-d, --debug[=<debug>]`: Enables debug mode and writes logs to `kdash-debug-<timestamp>.log` file in the current directory. Default behavior is to write INFO logs. Pass a log level to overwrite the default [possible values: info, debug, trace, warn, error]
 
 ## Limitations/Known issues
@@ -167,18 +253,31 @@ Press `?` while running the app to see keybindings
 - Node metrics
 - Resource watch (configurable polling interval with `-p` flag)
 - Custom resource definitions
+- Troubleshoot tab for Pods, PVCs, and ReplicaSets
 - Describe resources & copy the output
 - Get YAML for resources & copy the output
 - Stream container logs
+- Aggregate workload logs
+- Drill down from workloads/nodes to Pods and from Pods to Containers
+- Open a shell in the selected pod container from the Containers view. KDash temporarily suspends the UI while the interactive shell is active and restores it when you exit.
+- Resource management actions, each guarded by a confirmation prompt for impactful changes:
+  - Delete any resource (`Ctrl-d`)
+  - View previous (restarted) container logs (`p`)
+  - Rollout restart Deployments/StatefulSets/DaemonSets (`r`)
+  - Scale Deployments/StatefulSets/ReplicaSets/ReplicationControllers to a replica count (via the action menu)
+  - Cordon/uncordon nodes, suspend/resume/trigger CronJobs (via the action menu)
+- Action menu (`m`) lists every action available for the selected resource; the most-used ones also have dedicated hotkeys shown as hints
 - Context
   - Context info
   - Context watch
   - Change namespace
   - Context switch
 - Resources utilizations for nodes, pods and namespaces based on metrics server. Requires [metrics-server](https://kubernetes.io/docs/tasks/debug-application-cluster/resource-metrics-pipeline/#metrics-server) to be deployed on the cluster.
-- Dark/Light themes
+- Dark/Light themes (Catppuccin Macchiato/Latte by default)
 - Sensible keyboard shortcuts
-- Global glob filtering for resource names
+- Configurable keybindings, theme overrides, and log tail defaults
+- Inline filtering across resource views and menus
+- Dynamic menu entries show cached item counts when available and `?` when the count is not cached yet
 
 ## Screenshots
 
@@ -226,19 +325,13 @@ At least for now, there are no plans to add full CRUD for resources but in the f
 
 MIT
 
+## Terms of use
+
+- The Software shall be used for Good, not Evil.
+- This software shall not be used for any military purposes including intelligence agencies.
+
 ## Creator
 
 - [Deepu K Sasidharan](https://deepu.tech/)
 
 ## [Contributors](https://github.com/kdash-rs/kdash/graphs/contributors)
-
-## TODO
-
-- [ ] R4: Make all help text through the app same color for consistency.
-- [ ] R1: Filter in help page?
-- [ ] R3: Scroll tabs and title text when cant fit in viewport
-- [ ] R5: Open issues in docs/plans/2026-04-03-002-fix-open-issues-plan.md
-- [ ] R6: Merge https://github.com/kdash-rs/kdash/pull/504
-- [ ] R7: Add more tests where possible
-- [ ] R8: E2E tests?
-- [ ] R2: Resource counts in the tab titles are changing during drill-down: dont fix

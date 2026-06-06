@@ -2,23 +2,24 @@ use async_trait::async_trait;
 use chrono::Utc;
 use k8s_openapi::api::apps::v1::ReplicaSet;
 use ratatui::{
-  layout::{Constraint, Rect},
+  layout::Rect,
   widgets::{Cell, Row},
   Frame,
 };
 
 use super::{
-  models::{self, AppResource, KubeResource},
+  models::{self, AppResource, KubeResource, Named},
   utils::{self},
   ActiveBlock, App,
 };
 use crate::{
+  app::key_binding::DEFAULT_KEYBINDING,
   draw_resource_tab,
   network::Network,
   ui::utils::{
-    draw_describe_block, draw_resource_block, draw_yaml_block, get_describe_active,
-    get_resource_title, style_primary, title_with_dual_style, ResourceTableProps, COPY_HINT,
-    DESCRIBE_YAML_AND_LOGS_HINT,
+    action_hint, describe_yaml_and_logs_hint, draw_describe_block, draw_resource_block,
+    draw_yaml_block, get_describe_active, get_resource_title, help_bold_line, responsive_columns,
+    style_primary, title_with_dual_style, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
 
@@ -55,10 +56,13 @@ impl From<ReplicaSet> for KubeReplicaSet {
   }
 }
 
-impl KubeResource<ReplicaSet> for KubeReplicaSet {
+impl Named for KubeReplicaSet {
   fn get_name(&self) -> &String {
     &self.name
   }
+}
+
+impl KubeResource<ReplicaSet> for KubeReplicaSet {
   fn get_k8s_obj(&self) -> &ReplicaSet {
     &self.k8s_obj
   }
@@ -103,6 +107,15 @@ impl AppResource for ReplicaSetResource {
   }
 }
 
+const RS_COLUMNS: [ColumnDef; 6] = [
+  ColumnDef::all("Namespace", 25, 25, 25),
+  ColumnDef::all("Name", 35, 35, 35),
+  ColumnDef::all("Desired", 10, 10, 10),
+  ColumnDef::all("Current", 10, 10, 10),
+  ColumnDef::all("Ready", 10, 10, 10),
+  ColumnDef::all("Age", 10, 10, 10),
+];
+
 fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let is_loading = app.is_loading();
   let title = get_resource_title(
@@ -112,22 +125,24 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     app.data.replica_sets.items.len(),
   );
 
+  let (headers, widths) = responsive_columns(&RS_COLUMNS, ViewTier::Compact);
+
   draw_resource_block(
     f,
     area,
     ResourceTableProps {
       title,
-      inline_help: format!("| Pods <enter> {}", DESCRIBE_YAML_AND_LOGS_HINT),
+      inline_help: help_bold_line(
+        format!(
+          "{} · {}",
+          action_hint("pods", DEFAULT_KEYBINDING.submit.key),
+          describe_yaml_and_logs_hint()
+        ),
+        app.light_theme,
+      ),
       resource: &mut app.data.replica_sets,
-      table_headers: vec!["Namespace", "Name", "Desired", "Current", "Ready", "Age"],
-      column_widths: vec![
-        Constraint::Percentage(25),
-        Constraint::Percentage(35),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-      ],
+      table_headers: headers,
+      column_widths: widths,
     },
     |c| {
       Row::new(vec![

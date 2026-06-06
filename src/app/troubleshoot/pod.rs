@@ -5,52 +5,14 @@ use k8s_openapi::api::core::v1::PodCondition;
 
 use crate::app::{models::KubeResource, pods::KubePod};
 
-use super::{DisplayFinding, Finding, IntoDisplayFinding, ResourceKind};
-
-// ---------------------------------------------------------------------------
-// PodFinding — resource-specific finding data for pods
-// ---------------------------------------------------------------------------
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct PodFinding {
-  pub id: String,
-  pub reason: String,
-  pub namespace: String,
-  pub pod_name: String,
-  pub message: String,
-  pub age: String,
-}
-
-// ---------------------------------------------------------------------------
-// Finding<PodFinding> → DisplayFinding conversion
-// ---------------------------------------------------------------------------
-
-impl IntoDisplayFinding for Finding<PodFinding> {
-  fn into_display_finding(self) -> DisplayFinding {
-    let severity = self.severity_tag();
-    let inner = self.into_inner();
-    DisplayFinding {
-      severity,
-      reason: inner.reason,
-      resource_kind: ResourceKind::Pod,
-      namespace: Some(inner.namespace.clone()),
-      resource_name: inner.pod_name.clone(),
-      message: inner.message,
-      age: inner.age,
-      describe_kind: "pod".into(),
-      describe_name: inner.pod_name,
-      describe_namespace: Some(inner.namespace),
-      k8s_obj: (),
-    }
-  }
-}
+use super::{DisplayFinding, ResourceKind, Severity};
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 /// Pod phase or "Unknown".
-fn pod_phase(pod: &KubePod) -> &str {
+fn phase(pod: &KubePod) -> &str {
   pod
     .get_k8s_obj()
     .status
@@ -61,41 +23,36 @@ fn pod_phase(pod: &KubePod) -> &str {
 
 /// Newest condition by `last_transition_time`.
 fn latest_condition(pod: &KubePod) -> Option<&PodCondition> {
-  let mut conditions: Vec<&PodCondition> = pod
+  pod
     .get_k8s_obj()
     .status
     .as_ref()
-    .and_then(|s| s.conditions.as_ref())
-    .map(|c| c.iter().collect())
-    .unwrap_or_default();
-
-  conditions.sort_by(|a, b| b.last_transition_time.cmp(&a.last_transition_time));
-
-  conditions.into_iter().next()
+    .and_then(|s| s.conditions.as_deref())
+    .and_then(|c| c.iter().max_by_key(|cond| &cond.last_transition_time))
 }
 
-/// Latest condition reason or "N/A".
-fn pod_status_reason(pod: &KubePod) -> String {
-  latest_condition(pod)
-    .and_then(|c| c.reason.as_deref())
-    .unwrap_or("N/A")
-    .into()
+/// Extract (reason, message) from the newest condition, defaulting to "N/A".
+fn condition_summary(pod: &KubePod) -> (String, String) {
+  match latest_condition(pod) {
+    Some(c) => (
+      c.reason.clone().unwrap_or_else(|| "N/A".into()),
+      c.message.clone().unwrap_or_else(|| "N/A".into()),
+    ),
+    None => ("N/A".into(), "N/A".into()),
+  }
 }
 
-/// Latest condition message or "N/A".
-fn pod_status_message(pod: &KubePod) -> String {
-  latest_condition(pod)
-    .and_then(|c| c.message.as_deref())
-    .unwrap_or("N/A")
-    .into()
+fn finding(pod: &KubePod, severity: Severity, reason: String, message: String) -> DisplayFinding {
+  DisplayFinding {
+    severity,
+    reason,
+    resource_kind: ResourceKind::Pod,
+    namespace: Some(pod.namespace.clone()),
+    resource_name: pod.name.clone(),
+    message,
+    age: pod.age.clone(),
+  }
 }
-
-// ---------------------------------------------------------------------------
-// Check type alias
-// ---------------------------------------------------------------------------
-
-/// Check a pod; optionally returns a finding.
-pub type PodCheck = fn(&KubePod) -> Option<Finding<PodFinding>>;
 
 // ---------------------------------------------------------------------------
 // Individual pod checks
@@ -103,52 +60,27 @@ pub type PodCheck = fn(&KubePod) -> Option<Finding<PodFinding>>;
 
 /// Flag Failed/Unknown/Pending phases.
 /// Ref: <https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase>
-fn check_pod_phase(pod: &KubePod) -> Option<Finding<PodFinding>> {
-  let phase = pod_phase(pod);
+fn check_phase(pod: &KubePod) -> Option<DisplayFinding> {
+  let current_phase = phase(pod);
 
-  let (id, finding_ctor): (&str, fn(PodFinding) -> Finding<PodFinding>) = match phase {
-    "Failed" => ("pod.phase.failed", Finding::Error),
-    "Unknown" => ("pod.phase.unknown", Finding::Warn),
-    "Pending" => ("pod.phase.pending", Finding::Info),
+  let severity = match current_phase {
+    "Failed" => Severity::Error,
+    "Unknown" => Severity::Warn,
+    "Pending" => Severity::Info,
     _ => return None,
   };
 
-  Some(finding_ctor(PodFinding {
-    id: id.into(),
-    reason: pod_status_reason(pod),
-    namespace: pod.namespace.clone(),
-    pod_name: pod.name.clone(),
-    message: pod_status_message(pod),
-    age: pod.age.clone(),
-  }))
+  let (reason, message) = condition_summary(pod);
+  Some(finding(pod, severity, reason, message))
 }
 
 // ---------------------------------------------------------------------------
-// Registry of all pod checks
+// Evaluation entry point
 // ---------------------------------------------------------------------------
 
-/// Returns all registered pod checks. Add new checks here.
-fn all_pod_checks() -> Vec<PodCheck> {
-  vec![check_pod_phase]
-}
-
-// ---------------------------------------------------------------------------
-// Pod evaluation entry point
-// ---------------------------------------------------------------------------
-
-/// Run every registered pod check against every pod and return the flattened
-/// display findings.
-pub fn evaluate_pod_findings(pods: &[KubePod]) -> Vec<DisplayFinding> {
-  let checks = all_pod_checks();
-
-  pods
-    .iter()
-    .flat_map(|pod| {
-      checks
-        .iter()
-        .filter_map(move |check| check(pod).map(|f| f.into_display_finding()))
-    })
-    .collect()
+/// Run all pod checks and collect findings.
+pub fn evaluate(items: &[KubePod]) -> Vec<DisplayFinding> {
+  items.iter().filter_map(check_phase).collect()
 }
 
 #[cfg(test)]
@@ -185,10 +117,10 @@ mod tests {
   #[test]
   fn test_pod_phase_fallback_and_value() {
     let pod_unknown = build_pod(None, vec![]);
-    assert_eq!(pod_phase(&pod_unknown), "Unknown");
+    assert_eq!(phase(&pod_unknown), "Unknown");
 
     let pod_running = build_pod(Some("Running"), vec![]);
-    assert_eq!(pod_phase(&pod_running), "Running");
+    assert_eq!(phase(&pod_running), "Running");
   }
 
   #[test]

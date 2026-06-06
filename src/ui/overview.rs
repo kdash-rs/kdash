@@ -8,12 +8,16 @@ use ratatui::{
 use super::{
   resource_tabs::draw_resource_tabs_block,
   utils::{
-    get_gauge_symbol, horizontal_chunks, layout_block_default, loading, style_default,
-    style_failure, style_logo, style_primary, vertical_chunks, vertical_chunks_with_margin,
+    action_hint, default_part, get_gauge_symbol, help_part, horizontal_chunks,
+    layout_block_default, layout_block_default_line, loading, mixed_bold_line, style_failure,
+    style_logo, style_primary, style_text, vertical_chunks, vertical_chunks_with_margin,
   },
 };
 use crate::{
-  app::{metrics::KubeNodeMetrics, models::AppResource, ns::NamespaceResource, ActiveBlock, App},
+  app::{
+    key_binding::DEFAULT_KEYBINDING, metrics::KubeNodeMetrics, models::AppResource,
+    ns::NamespaceResource, ActiveBlock, App,
+  },
   banner::BANNER,
 };
 
@@ -28,28 +32,40 @@ pub fn draw_overview(f: &mut Frame<'_>, app: &mut App, area: Rect) {
 }
 
 fn draw_status_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
-  let chunks = horizontal_chunks(
-    vec![
-      Constraint::Length(45),
-      Constraint::Min(10),
-      Constraint::Length(30),
-      Constraint::Length(15),
-    ],
-    area,
-  );
+  let hide_logo = app.config.hide_logo;
+  let mut constraints = vec![
+    Constraint::Length(45),
+    Constraint::Min(10),
+    Constraint::Length(30),
+  ];
+  if !hide_logo {
+    constraints.push(Constraint::Length(15));
+  }
+  let chunks = horizontal_chunks(constraints, area);
 
   NamespaceResource::render(ActiveBlock::Namespaces, f, app, chunks[0]);
   draw_context_info_block(f, app, chunks[1]);
   draw_cli_version_block(f, app, chunks[2]);
-  draw_logo_block(f, app, chunks[3]);
+  if !hide_logo {
+    draw_logo_block(f, app, chunks[3]);
+  }
 }
 
 fn draw_logo_block(f: &mut Frame<'_>, app: &App, area: Rect) {
   // Banner text with correct styling
   let text = Text::from(BANNER);
   let text = text.patch_style(style_logo(app.light_theme));
+  let block = Block::default()
+    .borders(Borders::ALL)
+    .title(mixed_bold_line(
+      [help_part(format!(
+        " {} ",
+        action_hint("theme", DEFAULT_KEYBINDING.toggle_theme.key)
+      ))],
+      app.light_theme,
+    ));
   // Contains the banner
-  let paragraph = Paragraph::new(text).block(Block::default().borders(Borders::ALL));
+  let paragraph = Paragraph::new(text).block(block);
   f.render_widget(paragraph, area);
 }
 
@@ -91,7 +107,16 @@ fn draw_context_info_block(f: &mut Frame<'_>, app: &App, area: Rect) {
     1,
   );
 
-  let block = layout_block_default(" Context Info | toggle <i> ");
+  let block = layout_block_default_line(mixed_bold_line(
+    [
+      default_part(" Context Info "),
+      help_part(format!(
+        "{} ",
+        action_hint("toggle", DEFAULT_KEYBINDING.toggle_info.key)
+      )),
+    ],
+    app.light_theme,
+  ));
 
   f.render_widget(block, area);
 
@@ -100,30 +125,30 @@ fn draw_context_info_block(f: &mut Frame<'_>, app: &App, area: Rect) {
       if let Some(user) = &active_context.user {
         vec![
           Line::from(vec![
-            Span::styled("Context: ", style_default(app.light_theme)),
+            Span::styled("Context: ", style_text(app.light_theme)),
             Span::styled(&active_context.name, style_primary(app.light_theme)),
           ]),
           Line::from(vec![
-            Span::styled("Cluster: ", style_default(app.light_theme)),
+            Span::styled("Cluster: ", style_text(app.light_theme)),
             Span::styled(&active_context.cluster, style_primary(app.light_theme)),
           ]),
           Line::from(vec![
-            Span::styled("User: ", style_default(app.light_theme)),
+            Span::styled("User: ", style_text(app.light_theme)),
             Span::styled(user, style_primary(app.light_theme)),
           ]),
         ]
       } else {
         vec![
           Line::from(vec![
-            Span::styled("Context: ", style_default(app.light_theme)),
+            Span::styled("Context: ", style_text(app.light_theme)),
             Span::styled(&active_context.name, style_primary(app.light_theme)),
           ]),
           Line::from(vec![
-            Span::styled("Cluster: ", style_default(app.light_theme)),
+            Span::styled("Cluster: ", style_text(app.light_theme)),
             Span::styled(&active_context.cluster, style_primary(app.light_theme)),
           ]),
           Line::from(vec![
-            Span::styled("User: ", style_default(app.light_theme)),
+            Span::styled("User: ", style_text(app.light_theme)),
             Span::styled("<none>", style_primary(app.light_theme)),
           ]),
         ]
