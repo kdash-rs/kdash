@@ -2074,6 +2074,17 @@ mod tests {
     handle_key_events(Key::from(enter), enter, app).await;
   }
 
+  /// Drive a whole key sequence through one loop. `handle_key_events` produces a
+  /// large async future, and a separate `.await` per key inflates the caller's
+  /// future enough to overflow Windows' 1 MB test stack; a single await point
+  /// inside this loop keeps it small.
+  async fn send_keys(app: &mut App, codes: &[KeyCode]) {
+    for &code in codes {
+      let evt = KeyEvent::from(code);
+      handle_key_events(Key::from(evt), evt, app).await;
+    }
+  }
+
   #[tokio::test]
   async fn test_menu_cordon_on_schedulable_node_confirms_cordon() {
     let mut app = App::default();
@@ -2330,15 +2341,23 @@ mod tests {
       .deployments
       .set_items(vec![deployment_with_replicas("web", "team-a", Some(2))]);
 
-    open_menu_and_select(&mut app, 4).await;
-
-    // Replace the prefilled "2" with "5", then submit.
-    let backspace = KeyEvent::from(KeyCode::Backspace);
-    handle_key_events(Key::from(backspace), backspace, &mut app).await;
-    let five = KeyEvent::from(KeyCode::Char('5'));
-    handle_key_events(Key::from(five), five, &mut app).await;
-    let enter = KeyEvent::from(KeyCode::Enter);
-    handle_key_events(Key::from(enter), enter, &mut app).await;
+    // Menu: Describe, YAML, Logs, Restart, Scale, Delete → Scale at index 4.
+    // Open the input modal, replace the prefilled "2" with "5", then submit.
+    send_keys(
+      &mut app,
+      &[
+        KeyCode::Char('m'),
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Enter,
+        KeyCode::Backspace,
+        KeyCode::Char('5'),
+        KeyCode::Enter,
+      ],
+    )
+    .await;
 
     // Input modal closed, confirm modal opened with the scale patch.
     assert!(app.input_modal.is_none());
@@ -2368,13 +2387,22 @@ mod tests {
       .deployments
       .set_items(vec![deployment_with_replicas("web", "team-a", Some(2))]);
 
-    open_menu_and_select(&mut app, 4).await;
-
-    // Type a non-numeric value and submit.
-    let x = KeyEvent::from(KeyCode::Char('x'));
-    handle_key_events(Key::from(x), x, &mut app).await;
-    let enter = KeyEvent::from(KeyCode::Enter);
-    handle_key_events(Key::from(enter), enter, &mut app).await;
+    // Open the scale input modal (Scale at index 4), type a non-numeric value
+    // and submit.
+    send_keys(
+      &mut app,
+      &[
+        KeyCode::Char('m'),
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Enter,
+        KeyCode::Char('x'),
+        KeyCode::Enter,
+      ],
+    )
+    .await;
 
     // Stays open with an inline error; no confirm modal, no dispatch.
     let input = app
@@ -2395,11 +2423,20 @@ mod tests {
       .deployments
       .set_items(vec![deployment_with_replicas("web", "team-a", Some(2))]);
 
-    open_menu_and_select(&mut app, 4).await;
-    assert!(app.input_modal.is_some());
-
-    let esc = KeyEvent::from(KeyCode::Esc);
-    handle_key_events(Key::from(esc), esc, &mut app).await;
+    // Open the scale input modal (Scale at index 4), then cancel with Esc.
+    send_keys(
+      &mut app,
+      &[
+        KeyCode::Char('m'),
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Enter,
+        KeyCode::Esc,
+      ],
+    )
+    .await;
 
     assert!(app.input_modal.is_none());
     assert!(app.modal.is_none());
