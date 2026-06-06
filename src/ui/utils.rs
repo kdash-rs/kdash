@@ -379,9 +379,10 @@ pub fn action_hint(action: &str, key: Key) -> String {
 
 pub fn describe_and_yaml_hint() -> String {
   format!(
-    "{} · {} ",
+    "{} · {} · {} ",
     action_hint("describe", DEFAULT_KEYBINDING.describe_resource.key),
-    action_hint("yaml", DEFAULT_KEYBINDING.resource_yaml.key)
+    action_hint("yaml", DEFAULT_KEYBINDING.resource_yaml.key),
+    action_hint("menu", DEFAULT_KEYBINDING.open_action_menu.key)
   )
 }
 

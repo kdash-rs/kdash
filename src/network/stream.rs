@@ -24,6 +24,7 @@ const MAX_AGGREGATE_PODS: usize = 20;
 pub enum IoStreamEvent {
   RefreshClient,
   GetPodLogs(bool),
+  GetPreviousLogs,
   GetAggregateLogs { namespace: String, selector: String },
   GetPodAllContainerLogs,
 }
@@ -63,6 +64,9 @@ impl<'a> NetworkStream<'a> {
       }
       IoStreamEvent::GetPodLogs(tail) => {
         self.stream_container_logs(tail).await;
+      }
+      IoStreamEvent::GetPreviousLogs => {
+        self.fetch_previous_logs().await;
       }
       IoStreamEvent::GetAggregateLogs {
         namespace,
@@ -264,6 +268,70 @@ impl<'a> NetworkStream<'a> {
 
     let mut app = self.app.lock().await;
     app.is_streaming = false;
+  }
+
+  /// Fetch the previous (terminated) container instance's logs in one shot.
+  /// Unlike live logs this does not follow — a crashed/restarted container's
+  /// last instance is static. Absence of a prior instance is surfaced in the
+  /// log view rather than as a hard error.
+  pub async fn fetch_previous_logs(&self) {
+    let (namespace, pod_name, cont_name, tail_lines) = {
+      let app = self.app.lock().await;
+      let ns = app
+        .data
+        .pods
+        .get_selected_item_copy()
+        .map(|p| p.namespace)
+        .unwrap_or_else(|| std::env::var("NAMESPACE").unwrap_or_else(|_| "default".into()));
+      let pod = app
+        .data
+        .pods
+        .get_selected_item_copy()
+        .map(|p| p.name)
+        .unwrap_or_default();
+      let cont = app.data.selected.container.clone().unwrap_or_default();
+      let tail_lines = app.initial_log_tail_lines();
+      (ns, pod, cont, tail_lines)
+    };
+
+    if pod_name.is_empty() || cont_name.is_empty() {
+      return;
+    }
+
+    let api: Api<Pod> = Api::namespaced(self.client.clone(), &namespace);
+    let lp = LogParams {
+      container: Some(cont_name.clone()),
+      previous: true,
+      follow: false,
+      tail_lines: Some(tail_lines),
+      ..Default::default()
+    };
+
+    match api.logs(&pod_name, &lp).await {
+      Ok(logs) => {
+        let lines: Vec<String> = logs.lines().map(|line| line.to_string()).collect();
+        let mut app = self.app.lock().await;
+        if lines.is_empty() {
+          app.data.logs.add_records(vec![format!(
+            "[kdash] No previous logs for container {} (it has not restarted)",
+            cont_name
+          )]);
+        } else {
+          app.data.logs.add_records(lines);
+        }
+      }
+      Err(e) => {
+        warn!(
+          "Failed to fetch previous logs for {}/{}: {}",
+          pod_name, cont_name, e
+        );
+        let mut app = self.app.lock().await;
+        app.data.logs.add_records(vec![format!(
+          "[kdash] No previous logs available for {} (the container has no prior terminated instance)",
+          cont_name
+        )]);
+      }
+    }
   }
 
   /// Stream logs from all containers of the selected pod concurrently.

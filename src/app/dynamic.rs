@@ -162,6 +162,69 @@ pub fn dynamic_cache_key(kind: &KubeDynamicKind, namespace: Option<&str>) -> Str
   }
 }
 
+/// Maps a UI [`ActiveBlock`] to the `(ApiResource, Scope)` needed to build a
+/// dynamic `Api` for write operations (delete / patch). Returns `None` for
+/// blocks that are not directly mutable resources (menus, logs, sub-views, the
+/// namespace selector, etc.). For dynamic resources the caller must supply the
+/// currently selected [`KubeDynamicKind`].
+pub fn api_resource_for_block(
+  block: ActiveBlock,
+  dynamic_kind: Option<&KubeDynamicKind>,
+) -> Option<(ApiResource, Scope)> {
+  use k8s_openapi::api::{
+    apps::v1::{DaemonSet, Deployment, ReplicaSet, StatefulSet},
+    batch::v1::{CronJob, Job},
+    core::v1::{
+      ConfigMap, Event, Node, PersistentVolume, PersistentVolumeClaim, Pod, ReplicationController,
+      Secret, Service, ServiceAccount,
+    },
+    networking::v1::{Ingress, NetworkPolicy},
+    rbac::v1::{ClusterRole, ClusterRoleBinding, Role, RoleBinding},
+    storage::v1::StorageClass,
+  };
+
+  let result = match block {
+    ActiveBlock::Pods => (ApiResource::erase::<Pod>(&()), Scope::Namespaced),
+    ActiveBlock::Services => (ApiResource::erase::<Service>(&()), Scope::Namespaced),
+    ActiveBlock::ConfigMaps => (ApiResource::erase::<ConfigMap>(&()), Scope::Namespaced),
+    ActiveBlock::Secrets => (ApiResource::erase::<Secret>(&()), Scope::Namespaced),
+    ActiveBlock::StatefulSets => (ApiResource::erase::<StatefulSet>(&()), Scope::Namespaced),
+    ActiveBlock::ReplicaSets => (ApiResource::erase::<ReplicaSet>(&()), Scope::Namespaced),
+    ActiveBlock::Deployments => (ApiResource::erase::<Deployment>(&()), Scope::Namespaced),
+    ActiveBlock::Jobs => (ApiResource::erase::<Job>(&()), Scope::Namespaced),
+    ActiveBlock::DaemonSets => (ApiResource::erase::<DaemonSet>(&()), Scope::Namespaced),
+    ActiveBlock::CronJobs => (ApiResource::erase::<CronJob>(&()), Scope::Namespaced),
+    ActiveBlock::ReplicationControllers => (
+      ApiResource::erase::<ReplicationController>(&()),
+      Scope::Namespaced,
+    ),
+    ActiveBlock::Roles => (ApiResource::erase::<Role>(&()), Scope::Namespaced),
+    ActiveBlock::RoleBindings => (ApiResource::erase::<RoleBinding>(&()), Scope::Namespaced),
+    ActiveBlock::Ingresses => (ApiResource::erase::<Ingress>(&()), Scope::Namespaced),
+    ActiveBlock::PersistentVolumeClaims => (
+      ApiResource::erase::<PersistentVolumeClaim>(&()),
+      Scope::Namespaced,
+    ),
+    ActiveBlock::NetworkPolicies => (ApiResource::erase::<NetworkPolicy>(&()), Scope::Namespaced),
+    ActiveBlock::ServiceAccounts => (ApiResource::erase::<ServiceAccount>(&()), Scope::Namespaced),
+    ActiveBlock::Events => (ApiResource::erase::<Event>(&()), Scope::Namespaced),
+    ActiveBlock::Nodes => (ApiResource::erase::<Node>(&()), Scope::Cluster),
+    ActiveBlock::PersistentVolumes => (ApiResource::erase::<PersistentVolume>(&()), Scope::Cluster),
+    ActiveBlock::StorageClasses => (ApiResource::erase::<StorageClass>(&()), Scope::Cluster),
+    ActiveBlock::ClusterRoles => (ApiResource::erase::<ClusterRole>(&()), Scope::Cluster),
+    ActiveBlock::ClusterRoleBindings => (
+      ApiResource::erase::<ClusterRoleBinding>(&()),
+      Scope::Cluster,
+    ),
+    ActiveBlock::DynamicResource => {
+      let kind = dynamic_kind?;
+      (kind.api_resource.clone(), kind.scope.clone())
+    }
+    _ => return None,
+  };
+  Some(result)
+}
+
 #[async_trait]
 impl AppResource for DynamicResource {
   fn render(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
@@ -368,5 +431,47 @@ mod tests {
     let _ = cache.get_cloned("a");
 
     assert_eq!(cache.order(), vec!["b", "c", "a"]);
+  }
+
+  #[test]
+  fn test_api_resource_for_block_maps_namespaced_kind() {
+    let (ar, scope) = api_resource_for_block(ActiveBlock::Pods, None).expect("pods are deletable");
+    assert_eq!(ar.kind, "Pod");
+    assert!(matches!(scope, Scope::Namespaced));
+  }
+
+  #[test]
+  fn test_api_resource_for_block_maps_cluster_kind() {
+    let (ar, scope) =
+      api_resource_for_block(ActiveBlock::Nodes, None).expect("nodes are deletable");
+    assert_eq!(ar.kind, "Node");
+    assert!(matches!(scope, Scope::Cluster));
+  }
+
+  #[test]
+  fn test_api_resource_for_block_uses_selected_dynamic_kind() {
+    assert!(api_resource_for_block(ActiveBlock::DynamicResource, None).is_none());
+
+    let kind = KubeDynamicKind::new(
+      ApiResource {
+        group: "example.com".into(),
+        version: "v1".into(),
+        api_version: "example.com/v1".into(),
+        kind: "Widget".into(),
+        plural: "widgets".into(),
+      },
+      Scope::Namespaced,
+    );
+    let (ar, scope) = api_resource_for_block(ActiveBlock::DynamicResource, Some(&kind))
+      .expect("dynamic kind given");
+    assert_eq!(ar.kind, "Widget");
+    assert!(matches!(scope, Scope::Namespaced));
+  }
+
+  #[test]
+  fn test_api_resource_for_block_none_for_non_resource_blocks() {
+    assert!(api_resource_for_block(ActiveBlock::Logs, None).is_none());
+    assert!(api_resource_for_block(ActiveBlock::Namespaces, None).is_none());
+    assert!(api_resource_for_block(ActiveBlock::Containers, None).is_none());
   }
 }

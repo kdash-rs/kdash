@@ -16,7 +16,7 @@ use k8s_openapi::{
   NamespaceResourceScope,
 };
 use kube::{
-  api::ListParams,
+  api::{DeleteParams, ListParams, Patch, PatchParams, PostParams},
   config::{KubeConfigOptions, Kubeconfig},
   core::{DynamicObject, GroupVersion},
   discovery::{pinned_group, verbs, Scope},
@@ -32,7 +32,7 @@ use crate::app::{
   cronjobs::CronJobResource,
   daemonsets::DaemonSetResource,
   deployments::DeploymentResource,
-  dynamic::{DynamicResource, KubeDynamicKind},
+  dynamic::{api_resource_for_block, DynamicResource, KubeDynamicKind},
   events::EventResource,
   ingress::IngressResource,
   jobs::JobResource,
@@ -88,8 +88,84 @@ pub enum IoEvent {
   DiscoverDynamicRes,
   GetDynamicRes,
   GetNetworkPolicies,
-  GetPodsBySelector { namespace: String, selector: String },
-  GetPodsByNode { node_name: String },
+  GetPodsBySelector {
+    namespace: String,
+    selector: String,
+  },
+  GetPodsByNode {
+    node_name: String,
+  },
+  DeleteResource {
+    block: ActiveBlock,
+    name: String,
+    namespace: Option<String>,
+  },
+  PatchResource {
+    block: ActiveBlock,
+    name: String,
+    namespace: Option<String>,
+    patch: ResourcePatch,
+  },
+  TriggerCronJob {
+    name: String,
+    namespace: String,
+  },
+}
+
+/// A merge-patch a resource action applies. Kept as a small enum (rather than
+/// raw JSON) so `IoEvent` stays `Eq` and each patch is built fresh on the
+/// network thread.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ResourcePatch {
+  /// `kubectl rollout restart` — stamps the pod template's restart annotation.
+  RolloutRestart,
+  /// Cordon (`true`) or uncordon (`false`) a node via `spec.unschedulable`.
+  SetUnschedulable(bool),
+  /// Suspend (`true`) or resume (`false`) a cronjob via `spec.suspend`.
+  SetSuspend(bool),
+  /// Scale a workload to a replica count via `spec.replicas`.
+  SetReplicas(u32),
+}
+
+impl ResourcePatch {
+  /// Build the JSON merge patch body. Time-sensitive values are generated here
+  /// so the patch reflects the moment it is applied.
+  fn to_merge_patch(&self) -> serde_json::Value {
+    match self {
+      ResourcePatch::RolloutRestart => serde_json::json!({
+        "spec": {
+          "template": {
+            "metadata": {
+              "annotations": {
+                "kubectl.kubernetes.io/restartedAt": chrono::Utc::now().to_rfc3339()
+              }
+            }
+          }
+        }
+      }),
+      ResourcePatch::SetUnschedulable(unschedulable) => serde_json::json!({
+        "spec": { "unschedulable": unschedulable }
+      }),
+      ResourcePatch::SetSuspend(suspend) => serde_json::json!({
+        "spec": { "suspend": suspend }
+      }),
+      ResourcePatch::SetReplicas(replicas) => serde_json::json!({
+        "spec": { "replicas": replicas }
+      }),
+    }
+  }
+
+  /// Status message shown on success.
+  fn status_message(&self, name: &str) -> String {
+    match self {
+      ResourcePatch::RolloutRestart => format!("Restarting {}", name),
+      ResourcePatch::SetUnschedulable(true) => format!("Cordoning {}", name),
+      ResourcePatch::SetUnschedulable(false) => format!("Uncordoning {}", name),
+      ResourcePatch::SetSuspend(true) => format!("Suspending {}", name),
+      ResourcePatch::SetSuspend(false) => format!("Resuming {}", name),
+      ResourcePatch::SetReplicas(replicas) => format!("Scaling {} to {}", name, replicas),
+    }
+  }
 }
 
 async fn refresh_kube_config(context: &Option<String>) -> Result<kube::Client> {
@@ -474,6 +550,28 @@ impl<'a> Network<'a> {
       IoEvent::GetPodsByNode { node_name } => {
         self.get_pods_by_node(&node_name).await;
       }
+      IoEvent::DeleteResource {
+        block,
+        name,
+        namespace,
+      } => {
+        self
+          .delete_resource(block, &name, namespace.as_deref())
+          .await;
+      }
+      IoEvent::PatchResource {
+        block,
+        name,
+        namespace,
+        patch,
+      } => {
+        self
+          .patch_resource(block, &name, namespace.as_deref(), patch)
+          .await;
+      }
+      IoEvent::TriggerCronJob { name, namespace } => {
+        self.trigger_cronjob(&name, &namespace).await;
+      }
     };
 
     let mut app = self.app.lock().await;
@@ -654,6 +752,160 @@ impl<'a> Network<'a> {
         .map(crate::app::dynamic::KubeDynamicResource::from)
         .collect(),
     )
+  }
+
+  /// Delete the named resource for the given block via the dynamic `Api`, then
+  /// refresh the affected view. Works for any block that maps to a mutable
+  /// resource (see [`api_resource_for_block`]).
+  pub async fn delete_resource(&self, block: ActiveBlock, name: &str, namespace: Option<&str>) {
+    let dynamic_kind = {
+      let app = self.app.lock().await;
+      app.data.selected.dynamic_kind.clone()
+    };
+
+    let Some((api_resource, scope)) = api_resource_for_block(block, dynamic_kind.as_ref()) else {
+      self
+        .handle_error(anyhow!("Delete is not supported for this resource."))
+        .await;
+      return;
+    };
+
+    let api: Api<DynamicObject> = match scope {
+      Scope::Cluster => Api::all_with(self.client.clone(), &api_resource),
+      Scope::Namespaced => match namespace {
+        Some(ns) => Api::namespaced_with(self.client.clone(), ns, &api_resource),
+        None => Api::all_with(self.client.clone(), &api_resource),
+      },
+    };
+
+    match api.delete(name, &DeleteParams::default()).await {
+      Ok(_) => {
+        let mut app = self.app.lock().await;
+        app.set_status_message(format!("Deleting {}", name));
+        app.dispatch_by_active_block(block).await;
+      }
+      Err(e) => {
+        self
+          .handle_error(anyhow!("Failed to delete {}. {}", name, e))
+          .await;
+      }
+    }
+  }
+
+  /// Apply a merge patch to the named resource for the given block via the
+  /// dynamic `Api`, then refresh the affected view.
+  pub async fn patch_resource(
+    &self,
+    block: ActiveBlock,
+    name: &str,
+    namespace: Option<&str>,
+    patch: ResourcePatch,
+  ) {
+    let dynamic_kind = {
+      let app = self.app.lock().await;
+      app.data.selected.dynamic_kind.clone()
+    };
+
+    let Some((api_resource, scope)) = api_resource_for_block(block, dynamic_kind.as_ref()) else {
+      self
+        .handle_error(anyhow!("This action is not supported for this resource."))
+        .await;
+      return;
+    };
+
+    let api: Api<DynamicObject> = match scope {
+      Scope::Cluster => Api::all_with(self.client.clone(), &api_resource),
+      Scope::Namespaced => match namespace {
+        Some(ns) => Api::namespaced_with(self.client.clone(), ns, &api_resource),
+        None => Api::all_with(self.client.clone(), &api_resource),
+      },
+    };
+
+    let body = patch.to_merge_patch();
+    match api
+      .patch(name, &PatchParams::default(), &Patch::Merge(body))
+      .await
+    {
+      Ok(_) => {
+        let mut app = self.app.lock().await;
+        app.set_status_message(patch.status_message(name));
+        app.dispatch_by_active_block(block).await;
+      }
+      Err(e) => {
+        self
+          .handle_error(anyhow!("Failed to update {}. {}", name, e))
+          .await;
+      }
+    }
+  }
+
+  /// Trigger an immediate run of a cronjob by creating a Job from its
+  /// `jobTemplate`, mirroring `kubectl create job --from=cronjob/<name>`.
+  pub async fn trigger_cronjob(&self, name: &str, namespace: &str) {
+    use k8s_openapi::api::batch::v1::{CronJob, Job};
+    use k8s_openapi::apimachinery::pkg::apis::meta::v1::OwnerReference;
+
+    let cj_api: Api<CronJob> = Api::namespaced(self.client.clone(), namespace);
+    let cronjob = match cj_api.get(name).await {
+      Ok(cronjob) => cronjob,
+      Err(e) => {
+        self
+          .handle_error(anyhow!("Failed to read cronjob {}. {}", name, e))
+          .await;
+        return;
+      }
+    };
+
+    let Some(template) = cronjob.spec.map(|spec| spec.job_template) else {
+      self
+        .handle_error(anyhow!("CronJob {} has no job template.", name))
+        .await;
+      return;
+    };
+
+    let mut job = Job {
+      metadata: template.metadata.unwrap_or_default(),
+      spec: template.spec,
+      ..Default::default()
+    };
+    // Let the API server assign a unique name, like kubectl's manual trigger.
+    job.metadata.name = None;
+    job.metadata.generate_name = Some(format!("{}-manual-", name));
+    job.metadata.namespace = Some(namespace.to_owned());
+    job
+      .metadata
+      .annotations
+      .get_or_insert_with(Default::default)
+      .insert(
+        "cronjob.kubernetes.io/instantiate".to_owned(),
+        "manual".to_owned(),
+      );
+    job.metadata.owner_references = Some(vec![OwnerReference {
+      api_version: "batch/v1".to_owned(),
+      kind: "CronJob".to_owned(),
+      name: name.to_owned(),
+      uid: cronjob.metadata.uid.clone().unwrap_or_default(),
+      controller: Some(true),
+      block_owner_deletion: Some(true),
+    }]);
+
+    let job_api: Api<Job> = Api::namespaced(self.client.clone(), namespace);
+    match job_api.create(&PostParams::default(), &job).await {
+      Ok(created) => {
+        let mut app = self.app.lock().await;
+        app.set_status_message(format!(
+          "Triggered cronjob {} (created job {})",
+          name,
+          created.metadata.name.as_deref().unwrap_or("?")
+        ));
+        app.dispatch_by_active_block(ActiveBlock::CronJobs).await;
+      }
+      Err(e) => {
+        self
+          .handle_error(anyhow!("Failed to trigger cronjob {}. {}", name, e))
+          .await;
+      }
+    }
   }
 
   /// Discover and cache custom resources on the cluster
@@ -1051,6 +1303,75 @@ users:
     assert!(error.contains("ignored blank kubeconfig"));
 
     fs::remove_dir_all(dir).expect("temp test dir should be removed");
+  }
+
+  #[test]
+  fn test_rollout_restart_patch_sets_template_annotation() {
+    let patch = ResourcePatch::RolloutRestart.to_merge_patch();
+    let annotation =
+      &patch["spec"]["template"]["metadata"]["annotations"]["kubectl.kubernetes.io/restartedAt"];
+    assert!(annotation.is_string());
+    assert!(!annotation.as_str().unwrap().is_empty());
+  }
+
+  #[test]
+  fn test_rollout_restart_status_message_names_resource() {
+    assert_eq!(
+      ResourcePatch::RolloutRestart.status_message("web"),
+      "Restarting web"
+    );
+  }
+
+  #[test]
+  fn test_set_unschedulable_patch_and_messages() {
+    assert_eq!(
+      ResourcePatch::SetUnschedulable(true).to_merge_patch(),
+      serde_json::json!({"spec": {"unschedulable": true}})
+    );
+    assert_eq!(
+      ResourcePatch::SetUnschedulable(false).to_merge_patch(),
+      serde_json::json!({"spec": {"unschedulable": false}})
+    );
+    assert_eq!(
+      ResourcePatch::SetUnschedulable(true).status_message("n1"),
+      "Cordoning n1"
+    );
+    assert_eq!(
+      ResourcePatch::SetUnschedulable(false).status_message("n1"),
+      "Uncordoning n1"
+    );
+  }
+
+  #[test]
+  fn test_set_suspend_patch_and_messages() {
+    assert_eq!(
+      ResourcePatch::SetSuspend(true).to_merge_patch(),
+      serde_json::json!({"spec": {"suspend": true}})
+    );
+    assert_eq!(
+      ResourcePatch::SetSuspend(true).status_message("cj"),
+      "Suspending cj"
+    );
+    assert_eq!(
+      ResourcePatch::SetSuspend(false).status_message("cj"),
+      "Resuming cj"
+    );
+  }
+
+  #[test]
+  fn test_set_replicas_patch_and_message() {
+    assert_eq!(
+      ResourcePatch::SetReplicas(3).to_merge_patch(),
+      serde_json::json!({"spec": {"replicas": 3}})
+    );
+    assert_eq!(
+      ResourcePatch::SetReplicas(0).to_merge_patch(),
+      serde_json::json!({"spec": {"replicas": 0}})
+    );
+    assert_eq!(
+      ResourcePatch::SetReplicas(5).status_message("web"),
+      "Scaling web to 5"
+    );
   }
 
   #[test]
