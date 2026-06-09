@@ -226,6 +226,9 @@ pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
       _ if key == DEFAULT_KEYBINDING.cycle_main_views.key => {
         app.cycle_main_routes();
       }
+      _ if key == DEFAULT_KEYBINDING.cycle_main_views_prev.key => {
+        app.cycle_main_routes_prev();
+      }
       _ if key == DEFAULT_KEYBINDING.open_action_menu.key => {
         let block = app.get_current_route().active_block;
         app.open_action_menu(block);

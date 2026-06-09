@@ -1029,6 +1029,12 @@ impl App {
     self.push_navigation_route(route);
   }
 
+  pub fn cycle_main_routes_prev(&mut self) {
+    self.main_tabs.previous();
+    let route = self.main_tabs.get_active_route().clone();
+    self.push_navigation_route(route);
+  }
+
   pub fn route_home(&mut self) {
     let route = self.main_tabs.set_index(0).route.clone();
     self.push_navigation_route(route);

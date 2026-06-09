@@ -10,6 +10,8 @@ pub enum Key {
   /// Both Enter (or Return) and numpad Enter
   Enter,
   Tab,
+  /// Shift+Tab (back-tab)
+  BackTab,
   Backspace,
   Esc,
   /// Left arrow
@@ -100,6 +102,7 @@ impl fmt::Display for Key {
       Key::Ctrl(' ') => write!(f, "<Ctrl+Space>"),
       Key::Shift(' ') => write!(f, "<Shift+Space>"),
       Key::Char(' ') => write!(f, "<Space>"),
+      Key::BackTab => write!(f, "<Shift+Tab>"),
       Key::Alt(c) => write!(f, "<Alt+{}>", c),
       Key::Ctrl(c) => write!(f, "<Ctrl+{}>", c),
       Key::Shift(c) if c.is_ascii_alphabetic() => write!(f, "<{}>", c.to_ascii_uppercase()),
@@ -139,6 +142,7 @@ impl FromStr for Key {
     let key = match lower.as_str() {
       "enter" | "return" => Key::Enter,
       "tab" => Key::Tab,
+      "backtab" | "back-tab" | "shift+tab" => Key::BackTab,
       "backspace" => Key::Backspace,
       "esc" | "escape" => Key::Esc,
       "left" | "leftarrow" | "left-arrow" => Key::Left,
@@ -259,6 +263,10 @@ impl From<event::KeyEvent> for Key {
         ..
       } => Key::Tab,
       event::KeyEvent {
+        code: event::KeyCode::BackTab,
+        ..
+      } => Key::BackTab,
+      event::KeyEvent {
         code: event::KeyCode::Char(c),
         modifiers,
         ..
@@ -356,7 +364,9 @@ mod tests {
     assert_eq!("space".parse::<Key>(), Ok(Key::Char(' ')));
     assert_eq!("page-down".parse::<Key>(), Ok(Key::PageDown));
     assert_eq!("F10".parse::<Key>(), Ok(Key::F10));
-    assert!("shift+tab".parse::<Key>().is_err());
+    assert_eq!("tab".parse::<Key>(), Ok(Key::Tab));
+    assert_eq!("shift+tab".parse::<Key>(), Ok(Key::BackTab));
+    assert_eq!("backtab".parse::<Key>(), Ok(Key::BackTab));
   }
 
   #[test]

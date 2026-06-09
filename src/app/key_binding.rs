@@ -60,6 +60,7 @@ generate_keybindings! {
   toggle_theme,
   cycle_theme_prev,
   cycle_main_views,
+  cycle_main_views_prev,
   jump_to_current_context,
   jump_to_all_context,
   jump_to_utilization,
@@ -200,6 +201,12 @@ const DEFAULT_KEYBINDINGS: KeyBindings = KeyBindings {
     key: Key::Tab,
     alt: None,
     desc: "Cycle through main views",
+    context: HContext::General,
+  },
+  cycle_main_views_prev: KeyBinding {
+    key: Key::BackTab,
+    alt: None,
+    desc: "Cycle through main views (previous)",
     context: HContext::General,
   },
   copy_to_clipboard: KeyBinding {
@@ -521,7 +528,7 @@ mod tests {
     let config = KdashConfig {
       keybindings: Some(KeybindingOverrides {
         values: BTreeMap::from([
-          ("quit".into(), "shift+tab".into()),
+          ("quit".into(), "boguskey".into()),
           ("made_up".into(), "x".into()),
         ]),
       }),
