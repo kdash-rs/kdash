@@ -19,7 +19,7 @@ use self::{
   utils::{
     action_hint, centered_rect, default_part, help_part, horizontal_chunks_with_margin, key_hints,
     mixed_bold_line, mixed_line, split_hint_suffix, style_failure, style_header,
-    style_main_background, style_primary, style_secondary, style_success, vertical_chunks,
+    style_main_background, style_secondary, style_success, style_text, vertical_chunks,
   },
 };
 use crate::app::{
@@ -31,7 +31,7 @@ use crate::event::Key;
 pub static HIGHLIGHT: &str = "=> ";
 
 pub fn draw(f: &mut Frame<'_>, app: &mut App) {
-  let block = Block::default().style(style_main_background(app.light_theme));
+  let block = Block::default().style(style_main_background(app.palette));
   f.render_widget(block, f.area());
 
   let chunks = if !app.api_error.is_empty() || !app.status_message.is_empty() {
@@ -83,7 +83,7 @@ pub fn draw(f: &mut Frame<'_>, app: &mut App) {
       } else {
         let outer_block = Block::default()
           .borders(Borders::ALL)
-          .style(style_secondary(app.light_theme));
+          .style(style_secondary(app.palette));
         let inner = outer_block.inner(last_chunk);
         f.render_widget(outer_block, last_chunk);
         TroubleshootResource::render(active_block, f, app, inner);
@@ -107,7 +107,7 @@ pub fn draw(f: &mut Frame<'_>, app: &mut App) {
 }
 
 fn draw_modal(f: &mut Frame<'_>, app: &App) {
-  let light = app.light_theme;
+  let palette = app.palette;
   let Some(modal) = app.modal.as_ref() else {
     return;
   };
@@ -129,7 +129,7 @@ fn draw_modal(f: &mut Frame<'_>, app: &App) {
       Key::Char('n'),
       DEFAULT_KEYBINDING.esc.key,
     ))],
-    light,
+    palette,
   ));
 
   let height = (lines.len() as u16).saturating_add(2);
@@ -138,21 +138,21 @@ fn draw_modal(f: &mut Frame<'_>, app: &App) {
   let block = Block::default()
     .title(mixed_bold_line(
       [default_part(format!(" {} ", modal.title))],
-      light,
+      palette,
     ))
     .borders(Borders::ALL)
-    .style(style_failure(light));
+    .style(style_failure(palette));
 
   let paragraph = Paragraph::new(lines)
     .block(block)
-    .style(style_primary(light));
+    .style(style_text(palette));
 
   f.render_widget(Clear, area);
   f.render_widget(paragraph, area);
 }
 
 fn draw_input_modal(f: &mut Frame<'_>, app: &App) {
-  let light = app.light_theme;
+  let palette = app.palette;
   let Some(input) = app.input_modal.as_ref() else {
     return;
   };
@@ -168,10 +168,10 @@ fn draw_input_modal(f: &mut Frame<'_>, app: &App) {
     .collect();
   lines.push(mixed_line(
     [default_part(format!("> {}_", input.buffer))],
-    light,
+    palette,
   ));
   if let Some(err) = &input.error {
-    lines.push(Line::styled(err.clone(), style_failure(light)));
+    lines.push(Line::styled(err.clone(), style_failure(palette)));
   }
   lines.push(Line::from(""));
   lines.push(mixed_line(
@@ -179,7 +179,7 @@ fn draw_input_modal(f: &mut Frame<'_>, app: &App) {
       "submit {} · cancel {} ",
       DEFAULT_KEYBINDING.submit.key, DEFAULT_KEYBINDING.esc.key,
     ))],
-    light,
+    palette,
   ));
 
   let height = (lines.len() as u16).saturating_add(2);
@@ -188,21 +188,21 @@ fn draw_input_modal(f: &mut Frame<'_>, app: &App) {
   let block = Block::default()
     .title(mixed_bold_line(
       [default_part(format!(" {} ", input.title))],
-      light,
+      palette,
     ))
     .borders(Borders::ALL)
-    .style(style_secondary(light));
+    .style(style_secondary(palette));
 
   let paragraph = Paragraph::new(lines)
     .block(block)
-    .style(style_primary(light));
+    .style(style_text(palette));
 
   f.render_widget(Clear, area);
   f.render_widget(paragraph, area);
 }
 
 fn draw_action_menu(f: &mut Frame<'_>, app: &mut App) {
-  let light = app.light_theme;
+  let palette = app.palette;
   let block = app.get_current_route().active_block;
   let Some(menu) = app.action_menu.as_mut() else {
     return;
@@ -221,7 +221,7 @@ fn draw_action_menu(f: &mut Frame<'_>, app: &mut App) {
           default_part(format!("{}  ", action.label())),
           help_part(key_hint),
         ],
-        light,
+        palette,
       ))
     })
     .collect();
@@ -236,15 +236,15 @@ fn draw_action_menu(f: &mut Frame<'_>, app: &mut App) {
         default_part(" Actions "),
         help_part(format!("· close {} ", DEFAULT_KEYBINDING.esc.key)),
       ],
-      light,
+      palette,
     ))
     .borders(Borders::ALL)
-    .style(style_secondary(light));
+    .style(style_secondary(palette));
 
   let list = List::new(items)
     .block(block)
-    .style(style_primary(light))
-    .highlight_style(style_secondary(light).add_modifier(Modifier::BOLD))
+    .style(style_text(palette))
+    .highlight_style(style_secondary(palette).add_modifier(Modifier::BOLD))
     .highlight_symbol(HIGHLIGHT);
 
   f.render_widget(Clear, area);
@@ -253,7 +253,7 @@ fn draw_action_menu(f: &mut Frame<'_>, app: &mut App) {
 
 fn draw_app_title(f: &mut Frame<'_>, app: &App, area: Rect) {
   let title = Paragraph::new(app.title)
-    .style(style_header(app.light_theme).add_modifier(Modifier::BOLD))
+    .style(style_header(app.palette).add_modifier(Modifier::BOLD))
     .block(Block::default())
     .alignment(Alignment::Left);
   f.render_widget(title, area);
@@ -265,7 +265,7 @@ fn draw_app_title(f: &mut Frame<'_>, app: &App, area: Rect) {
   );
 
   let meta = Paragraph::new(text)
-    .style(style_header(app.light_theme))
+    .style(style_header(app.palette))
     .block(Block::default())
     .alignment(Alignment::Right);
   f.render_widget(meta, area);
@@ -296,17 +296,17 @@ fn draw_app_header(f: &mut Frame<'_>, app: &App, area: Rect) {
       if i == app.main_tabs.index {
         Line::from(label.to_string())
       } else {
-        let mut parts = vec![default_part(label.to_string())];
+        let mut parts = vec![help_part(label.to_string())];
         if let Some(hint) = hint {
           parts.push(help_part(format!(" {}", hint)));
         }
-        mixed_line(parts, app.light_theme)
+        mixed_line(parts, app.palette)
       }
     })
     .collect();
   let tabs = Tabs::new(titles)
     .block(Block::default().borders(Borders::ALL))
-    .highlight_style(style_secondary(app.light_theme))
+    .highlight_style(style_secondary(app.palette))
     .select(app.main_tabs.index);
 
   f.render_widget(tabs, area);
@@ -323,7 +323,7 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
         DEFAULT_KEYBINDING.submit.key,
         action_hint("filter", DEFAULT_KEYBINDING.filter.key),
       ))],
-      app.light_theme,
+      app.palette,
     )],
     RouteId::Home => vec![mixed_line(
       [help_part(format!(
@@ -338,7 +338,7 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
         DEFAULT_KEYBINDING.submit.key,
         action_hint("filter", DEFAULT_KEYBINDING.filter.key),
       ))],
-      app.light_theme,
+      app.palette,
     )],
     RouteId::Utilization => vec![mixed_line(
       [help_part(format!(
@@ -348,7 +348,7 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
         action_hint("filter", DEFAULT_KEYBINDING.filter.key),
         action_hint("cycle grouping", DEFAULT_KEYBINDING.cycle_group_by.key),
       ))],
-      app.light_theme,
+      app.palette,
     )],
     RouteId::Troubleshoot => vec![mixed_line(
       [help_part(format!(
@@ -357,7 +357,7 @@ fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
         key_hints(&[DEFAULT_KEYBINDING.up.key, DEFAULT_KEYBINDING.down.key]),
         action_hint("filter", DEFAULT_KEYBINDING.filter.key),
       ))],
-      app.light_theme,
+      app.palette,
     )],
     RouteId::HelpMenu => vec![],
   };
@@ -374,16 +374,16 @@ fn draw_app_error(f: &mut Frame<'_>, app: &App, size: Rect) {
         default_part(" Error "),
         help_part(format!("· close {} ", DEFAULT_KEYBINDING.esc.key)),
       ],
-      app.light_theme,
+      app.palette,
     ))
-    .style(style_failure(app.light_theme))
+    .style(style_failure(app.palette))
     .borders(Borders::ALL);
 
   let text = Text::from(app.api_error.clone());
-  let text = text.patch_style(style_failure(app.light_theme));
+  let text = text.patch_style(style_failure(app.palette));
 
   let paragraph = Paragraph::new(text)
-    .style(style_primary(app.light_theme))
+    .style(style_text(app.palette))
     .block(block)
     .wrap(Wrap { trim: true });
   f.render_widget(paragraph, size);
@@ -396,16 +396,16 @@ fn draw_app_status(f: &mut Frame<'_>, app: &App, size: Rect) {
         default_part(" Info "),
         help_part(format!("· close {} ", DEFAULT_KEYBINDING.esc.key)),
       ],
-      app.light_theme,
+      app.palette,
     ))
-    .style(style_success(app.light_theme))
+    .style(style_success(app.palette))
     .borders(Borders::ALL);
 
   let text = Text::from(app.status_message.text().to_owned());
-  let text = text.patch_style(style_success(app.light_theme));
+  let text = text.patch_style(style_success(app.palette));
 
   let paragraph = Paragraph::new(text)
-    .style(style_primary(app.light_theme))
+    .style(style_text(app.palette))
     .block(block)
     .wrap(Wrap { trim: true });
   f.render_widget(paragraph, size);
@@ -431,7 +431,7 @@ mod tests {
       deployments::KubeDeployment, jobs::KubeJob, metrics::KubeNodeMetrics, nodes::KubeNode,
       ns::KubeNs, pods::KubePod, replicasets::KubeReplicaSet, svcs::KubeSvc, Cli,
     },
-    ui::utils::{MACCHIATO_BLUE, MACCHIATO_RED, MACCHIATO_TEXT, MACCHIATO_YELLOW},
+    ui::theme::{palette_for, ThemeName},
   };
 
   const OVERVIEW_FIXTURE: &str = include_str!("../../test_data/ui-overview-test.txt");
@@ -457,16 +457,17 @@ mod tests {
 
     assert_eq!(lines, expected_lines);
 
-    assert_eq!(buffer[(1, 13)].fg, MACCHIATO_YELLOW);
+    let p = palette_for(ThemeName::Macchiato);
+    assert_eq!(buffer[(1, 13)].fg, p.secondary);
     assert!(buffer[(1, 13)].modifier.contains(Modifier::BOLD));
 
-    assert_eq!(buffer[(1, 17)].fg, MACCHIATO_YELLOW);
+    assert_eq!(buffer[(1, 17)].fg, p.secondary);
     assert!(buffer[(1, 17)].modifier.contains(Modifier::BOLD));
-    assert_eq!(buffer[(22, 17)].fg, MACCHIATO_BLUE);
+    assert_eq!(buffer[(22, 17)].fg, p.muted);
     assert!(buffer[(22, 17)].modifier.contains(Modifier::BOLD));
-    assert_eq!(buffer[(1, 18)].fg, MACCHIATO_TEXT);
+    assert_eq!(buffer[(1, 18)].fg, p.label);
 
-    assert_eq!(buffer[(1, 19)].fg, MACCHIATO_RED);
+    assert_eq!(buffer[(1, 19)].fg, p.error);
     assert!(buffer[(1, 19)].modifier.contains(Modifier::REVERSED));
   }
 

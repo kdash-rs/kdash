@@ -7,7 +7,7 @@ use ratatui::{
 use super::{
   utils::{
     default_part, filter_cursor_position, filter_status_parts, help_part, layout_block_active_line,
-    mixed_bold_line, style_highlight, style_primary, style_secondary, text_matches_filter,
+    mixed_bold_line, style_highlight, style_label, style_text, text_matches_filter,
     vertical_chunks,
   },
   HIGHLIGHT,
@@ -54,7 +54,7 @@ pub fn draw_help(f: &mut Frame<'_>, app: &mut App, area: Rect) {
         filtered_indices.push(idx);
       }
 
-      Some(Row::new(format_row(item)).style(style_primary(app.light_theme)))
+      Some(Row::new(format_row(item)).style(style_text(app.palette)))
     })
     .collect();
 
@@ -71,12 +71,12 @@ pub fn draw_help(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let help_menu = Table::new(rows, [Constraint::Percentage(100)])
     .header(
       Row::new(header)
-        .style(style_secondary(app.light_theme))
+        .style(style_label(app.palette))
         .bottom_margin(0),
     )
     .block(layout_block_active_line(
-      mixed_bold_line(title_parts, app.light_theme),
-      app.light_theme,
+      mixed_bold_line(title_parts, app.palette),
+      app.palette,
     ))
     .row_highlight_style(style_highlight())
     .highlight_symbol(HIGHLIGHT);
@@ -100,12 +100,13 @@ mod tests {
   use ratatui::{backend::TestBackend, style::Modifier, Terminal};
 
   use super::*;
-  use crate::ui::utils::{MACCHIATO_BLUE, MACCHIATO_MAUVE, MACCHIATO_TEXT, MACCHIATO_YELLOW};
+  use crate::ui::theme::{palette_for, ThemeName};
 
   #[test]
   fn test_draw_help() {
     let backend = TestBackend::new(100, 7);
     let mut terminal = Terminal::new(backend).unwrap();
+    let p = palette_for(ThemeName::Macchiato);
 
     terminal
       .draw(|f| {
@@ -137,17 +138,21 @@ mod tests {
       ]
     );
 
-    assert_eq!(buffer[(0, 0)].fg, MACCHIATO_YELLOW);
-    assert_eq!(buffer[(1, 0)].fg, MACCHIATO_TEXT);
+    // Border corners use the focused/highlight tone.
+    assert_eq!(buffer[(0, 0)].fg, p.highlight);
+    // Title text (default part) → fg, bold.
+    assert_eq!(buffer[(1, 0)].fg, p.fg);
     assert!(buffer[(1, 0)].modifier.contains(Modifier::BOLD));
-    assert_eq!(buffer[(12, 0)].fg, MACCHIATO_BLUE);
+    // Hints → muted, bold.
+    assert_eq!(buffer[(12, 0)].fg, p.muted);
     assert!(buffer[(12, 0)].modifier.contains(Modifier::BOLD));
-    assert_eq!(buffer[(23, 0)].fg, MACCHIATO_BLUE);
+    assert_eq!(buffer[(23, 0)].fg, p.muted);
     assert!(buffer[(23, 0)].modifier.contains(Modifier::BOLD));
-    assert_eq!(buffer[(1, 2)].fg, MACCHIATO_MAUVE);
+    // Selected data row → text + reversed.
+    assert_eq!(buffer[(1, 2)].fg, p.fg);
     assert!(buffer[(1, 2)].modifier.contains(Modifier::REVERSED));
-    assert_eq!(buffer[(1, 3)].fg, MACCHIATO_MAUVE);
-    assert_eq!(buffer[(99, 6)].fg, MACCHIATO_YELLOW);
+    assert_eq!(buffer[(1, 3)].fg, p.fg);
+    assert_eq!(buffer[(99, 6)].fg, p.highlight);
   }
 
   #[test]

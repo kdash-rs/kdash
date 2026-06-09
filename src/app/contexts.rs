@@ -15,7 +15,7 @@ use crate::{
   ui::{
     utils::{
       default_part, filter_cursor_position, filter_status_parts, layout_block_active_line, loading,
-      mixed_bold_line, style_highlight, style_primary, style_secondary, table_header_style,
+      mixed_bold_line, style_highlight, style_secondary, style_text, table_header_style,
       text_matches_filter,
     },
     HIGHLIGHT,
@@ -84,10 +84,7 @@ impl AppResource for ContextResource {
       app.data.contexts.filter_active,
     ));
     title_parts.push(default_part(" ".to_string()));
-    let block = layout_block_active_line(
-      mixed_bold_line(title_parts, app.light_theme),
-      app.light_theme,
-    );
+    let block = layout_block_active_line(mixed_bold_line(title_parts, app.palette), app.palette);
     if !app.data.contexts.items.is_empty() {
       let filter = app.data.contexts.filter.to_lowercase();
       let has_filter = !filter.is_empty();
@@ -104,9 +101,9 @@ impl AppResource for ContextResource {
           }
 
           let style = if c.is_active {
-            style_secondary(app.light_theme)
+            style_secondary(app.palette)
           } else {
-            style_primary(app.light_theme)
+            style_text(app.palette)
           };
           if has_filter {
             filtered_indices.push(idx);
@@ -143,7 +140,7 @@ impl AppResource for ContextResource {
       )
       .header(table_header_style(
         vec!["Context", "Cluster", "User"],
-        app.light_theme,
+        app.palette,
       ))
       .block(block)
       .row_highlight_style(style_highlight())
@@ -151,7 +148,7 @@ impl AppResource for ContextResource {
 
       f.render_stateful_widget(table, area, &mut app.data.contexts.state);
     } else {
-      loading(f, block, area, app.is_loading(), app.light_theme);
+      loading(f, block, area, app.is_loading(), app.palette);
     }
 
     if app.data.contexts.filter_active {

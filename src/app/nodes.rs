@@ -26,7 +26,7 @@ use crate::{
   ui::utils::{
     action_hint, copy_and_escape_title_line, describe_and_yaml_hint, draw_describe_block,
     draw_resource_block, draw_yaml_block, get_cluster_wide_resource_title, get_describe_active,
-    help_bold_line, responsive_columns, style_failure, style_primary, title_with_dual_style,
+    help_bold_line, responsive_columns, style_failure, style_success, title_with_dual_style,
     wide_hint, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
@@ -202,8 +202,8 @@ impl AppResource for NodeResource {
             app.data.nodes.items.len(),
             get_describe_active(block),
           ),
-          copy_and_escape_title_line(NODES_TITLE, app.light_theme),
-          app.light_theme,
+          copy_and_escape_title_line(NODES_TITLE, app.palette),
+          app.palette,
         ),
       ),
       ActiveBlock::Yaml => draw_yaml_block(
@@ -216,8 +216,8 @@ impl AppResource for NodeResource {
             app.data.nodes.items.len(),
             get_describe_active(block),
           ),
-          copy_and_escape_title_line(NODES_TITLE, app.light_theme),
-          app.light_theme,
+          copy_and_escape_title_line(NODES_TITLE, app.palette),
+          app.palette,
         ),
       ),
       ActiveBlock::Pods => crate::app::pods::draw_block_as_sub(f, app, area),
@@ -319,7 +319,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
           describe_and_yaml_hint(),
           wide_hint()
         ),
-        app.light_theme,
+        app.palette,
       ),
       resource: &mut app.data.nodes,
       table_headers: headers,
@@ -327,9 +327,9 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     },
     |c| {
       let style = if c.status != "Ready" {
-        style_failure(app.light_theme)
+        style_failure(app.palette)
       } else {
-        style_primary(app.light_theme)
+        style_success(app.palette)
       };
       let mut cells = vec![
         Cell::from(c.name.to_owned()),
@@ -351,7 +351,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       cells.push(Cell::from(c.age.to_owned()));
       Row::new(cells).style(style)
     },
-    app.light_theme,
+    app.palette,
     is_loading,
   );
 }

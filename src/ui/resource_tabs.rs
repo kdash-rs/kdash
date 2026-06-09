@@ -39,6 +39,7 @@ use crate::app::{
   svcs::SvcResource,
   ActiveBlock, App,
 };
+use crate::ui::theme::Palette;
 
 const TAB_PADDING_WIDTH: usize = 2;
 const TAB_DIVIDER_WIDTH: usize = 1;
@@ -53,9 +54,9 @@ pub fn draw_resource_tabs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let chunks =
     vertical_chunks_with_margin(vec![Constraint::Length(3), Constraint::Min(0)], area, 1);
 
-  let mut block = layout_block_default(" Resources ");
+  let mut block = layout_block_default(" Resources ", app.palette);
   if app.get_current_route().active_block != ActiveBlock::Namespaces {
-    block = block.style(style_secondary(app.light_theme))
+    block = block.style(style_secondary(app.palette))
   }
 
   let titles = resource_tab_titles(app);
@@ -69,7 +70,7 @@ pub fn draw_resource_tabs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let selected_index = app.context_tabs.index.saturating_sub(visible_range.start);
   let tabs = Tabs::new(visible_titles)
     .block(block)
-    .highlight_style(style_secondary(app.light_theme))
+    .highlight_style(style_secondary(app.palette))
     .select(selected_index);
 
   f.render_widget(tabs, area);
@@ -78,7 +79,7 @@ pub fn draw_resource_tabs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     area,
     visible_range.start > 0,
     visible_range.end < titles.len(),
-    app.light_theme,
+    app.palette,
   );
   let separator_area = Rect {
     x: area.x + 1,
@@ -87,8 +88,7 @@ pub fn draw_resource_tabs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     height: 1,
   };
   f.render_widget(
-    Paragraph::new("─".repeat(separator_area.width as usize))
-      .style(style_secondary(app.light_theme)),
+    Paragraph::new("─".repeat(separator_area.width as usize)).style(style_secondary(app.palette)),
     separator_area,
   );
   let content_chunk = chunks[1];
@@ -123,11 +123,11 @@ fn resource_tab_titles(app: &App) -> Vec<Line<'static>> {
         Line::from(label)
       } else if let Some(hint) = hint {
         mixed_line(
-          [default_part(label), help_part(format!(" {}", hint))],
-          app.light_theme,
+          [help_part(label), help_part(format!(" {}", hint))],
+          app.palette,
         )
       } else {
-        Line::from(format_tab_label(&t.title, &count))
+        mixed_line([help_part(format_tab_label(&t.title, &count))], app.palette)
       }
     })
     .collect()
@@ -226,13 +226,13 @@ fn render_tab_overflow_indicators(
   area: Rect,
   has_left_overflow: bool,
   has_right_overflow: bool,
-  light_theme: bool,
+  palette: Palette,
 ) {
   let indicator_y = area.y.saturating_add(1);
 
   if has_left_overflow {
     f.render_widget(
-      Paragraph::new("‹").style(style_secondary(light_theme)),
+      Paragraph::new("‹").style(style_secondary(palette)),
       Rect {
         x: area.x.saturating_add(1),
         y: indicator_y,
@@ -244,7 +244,7 @@ fn render_tab_overflow_indicators(
 
   if has_right_overflow {
     f.render_widget(
-      Paragraph::new("›").style(style_secondary(light_theme)),
+      Paragraph::new("›").style(style_secondary(palette)),
       Rect {
         x: area.x + area.width.saturating_sub(2),
         y: indicator_y,
@@ -402,7 +402,7 @@ fn draw_more(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
             }
           })
       },
-      app.light_theme,
+      app.palette,
       area,
     ),
     ActiveBlock::DynamicView => draw_menu(
@@ -433,7 +433,7 @@ fn draw_more(block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
               })
           })
       },
-      app.light_theme,
+      app.palette,
       area,
     ),
     ActiveBlock::CronJobs => CronJobResource::render(block, f, app, area),
@@ -494,7 +494,7 @@ fn draw_menu(
   filter: &str,
   filter_active: bool,
   count_for_item: impl Fn(&(String, ActiveBlock)) -> MenuItemCount,
-  light_theme: bool,
+  palette: Palette,
   area: Rect,
 ) {
   use crate::handlers::filter_menu_items;
@@ -520,7 +520,7 @@ fn draw_menu(
         default_part(" Select Resource ".to_string()),
         default_part(format!("[{}] ", filter)),
       ],
-      light_theme,
+      palette,
     )
   } else if filter_active {
     mixed_bold_line(
@@ -528,7 +528,7 @@ fn draw_menu(
         default_part(" Select Resource ".to_string()),
         help_part("[type to filter] ".to_string()),
       ],
-      light_theme,
+      palette,
     )
   } else {
     mixed_bold_line(
@@ -536,7 +536,7 @@ fn draw_menu(
         default_part(" Select Resource ".to_string()),
         help_part(format!("{} to filter ", DEFAULT_KEYBINDING.filter.key)),
       ],
-      light_theme,
+      palette,
     )
   };
 
@@ -550,7 +550,7 @@ fn draw_menu(
 
   f.render_stateful_widget(
     List::new(items)
-      .block(layout_block_default_line(title))
+      .block(layout_block_default_line(title, palette))
       .highlight_style(style_highlight())
       .highlight_symbol(HIGHLIGHT),
     area,
@@ -578,7 +578,7 @@ mod tests {
     app::dynamic::{dynamic_cache_key, KubeDynamicKind, KubeDynamicResource},
     app::models::StatefulList,
     app::pods::KubePod,
-    ui::utils::{MACCHIATO_RED, MACCHIATO_TEXT, MACCHIATO_YELLOW},
+    ui::theme::{palette_for, ThemeName},
   };
   use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
   use kube::{
@@ -630,16 +630,24 @@ mod tests {
       ]
     );
 
-    assert_eq!(buffer[(0, 0)].fg, MACCHIATO_YELLOW);
-    assert_eq!(buffer[(1, 0)].fg, MACCHIATO_YELLOW);
+    let p = palette_for(ThemeName::Macchiato);
+    // Panel border → accent.
+    assert_eq!(buffer[(0, 0)].fg, p.accent);
+    // " Resources " title → secondary, bold.
+    assert_eq!(buffer[(1, 0)].fg, p.secondary);
     assert!(buffer[(1, 0)].modifier.contains(Modifier::BOLD));
-    assert_eq!(buffer[(17, 1)].fg, MACCHIATO_TEXT);
-    assert_eq!(buffer[(1, 4)].fg, MACCHIATO_YELLOW);
+    // Inactive tab label text → muted.
+    assert_eq!(buffer[(17, 1)].fg, p.muted);
+    // Resource table title → secondary, bold.
+    assert_eq!(buffer[(1, 4)].fg, p.secondary);
     assert!(buffer[(1, 4)].modifier.contains(Modifier::BOLD));
-    assert_eq!(buffer[(1, 5)].fg, MACCHIATO_TEXT);
-    assert_eq!(buffer[(1, 6)].fg, MACCHIATO_RED);
+    // Column header → label (blue).
+    assert_eq!(buffer[(1, 5)].fg, p.label);
+    // Failed pod row (selected) → error + reversed.
+    assert_eq!(buffer[(1, 6)].fg, p.error);
     assert!(buffer[(1, 6)].modifier.contains(Modifier::REVERSED));
-    assert_eq!(buffer[(99, 9)].fg, MACCHIATO_YELLOW);
+    // Bottom border → accent.
+    assert_eq!(buffer[(99, 9)].fg, p.accent);
   }
 
   #[test]
@@ -728,7 +736,10 @@ mod tests {
     assert!(app.context_tabs.scroll_start > 0);
 
     let highlighted_col = row.find("DaemonSets").unwrap() as u16 + 1;
-    assert_eq!(buffer[(highlighted_col, 1)].fg, MACCHIATO_YELLOW);
+    assert_eq!(
+      buffer[(highlighted_col, 1)].fg,
+      palette_for(ThemeName::Macchiato).secondary
+    );
   }
 
   #[test]
@@ -879,7 +890,7 @@ mod tests {
           "sec",
           true,
           |_| MenuItemCount::Hidden,
-          false,
+          palette_for(ThemeName::Macchiato),
           f.area(),
         );
       })
@@ -955,7 +966,7 @@ mod tests {
               })
               .map_or(MenuItemCount::Unknown, MenuItemCount::Value)
           },
-          false,
+          palette_for(ThemeName::Macchiato),
           f.area(),
         );
       })
@@ -988,7 +999,7 @@ mod tests {
               MenuItemCount::Hidden
             }
           },
-          false,
+          palette_for(ThemeName::Macchiato),
           f.area(),
         );
       })
@@ -1018,7 +1029,7 @@ mod tests {
           filter,
           filter_active,
           &count_for_item,
-          false,
+          palette_for(ThemeName::Macchiato),
           f.area(),
         );
       })

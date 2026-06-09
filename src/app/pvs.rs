@@ -18,7 +18,7 @@ use crate::{
   ui::utils::{
     describe_yaml_and_esc_hint, draw_describe_block, draw_resource_block, draw_yaml_block,
     get_describe_active, get_resource_title, help_bold_line, responsive_columns, style_caution,
-    style_primary, title_with_dual_style, ColumnDef, ResourceTableProps, ViewTier,
+    style_failure, style_success, title_with_dual_style, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
 
@@ -162,16 +162,18 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     area,
     ResourceTableProps {
       title,
-      inline_help: help_bold_line(describe_yaml_and_esc_hint(), app.light_theme),
+      inline_help: help_bold_line(describe_yaml_and_esc_hint(), app.palette),
       resource: &mut app.data.persistent_volumes,
       table_headers: headers,
       column_widths: widths,
     },
     |c| {
       let style = if c.status == "Pending" {
-        style_caution(app.light_theme)
+        style_caution(app.palette)
+      } else if c.status == "Failed" {
+        style_failure(app.palette)
       } else {
-        style_primary(app.light_theme)
+        style_success(app.palette)
       };
       Row::new(vec![
         Cell::from(c.name.to_owned()),
@@ -186,7 +188,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       ])
       .style(style)
     },
-    app.light_theme,
+    app.palette,
     is_loading,
   );
 }

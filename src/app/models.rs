@@ -299,8 +299,8 @@ pub struct ScrollableTxt {
   /// Cached syntax-highlighted lines, reused across render frames.
   /// Invalidated when content or theme changes.
   pub highlighted_lines: Vec<RatatuiLine<'static>>,
-  /// The theme used to produce `highlighted_lines` (true = light).
-  pub highlight_light_theme: bool,
+  /// The theme used to produce `highlighted_lines` (true = dark theme).
+  pub highlight_is_dark: bool,
 }
 
 impl PartialEq for ScrollableTxt {
@@ -318,7 +318,7 @@ impl ScrollableTxt {
       offset: 0,
       txt_cache: String::new(),
       highlighted_lines: Vec::new(),
-      highlight_light_theme: false,
+      highlight_is_dark: false,
     }
   }
 
@@ -330,7 +330,7 @@ impl ScrollableTxt {
       items,
       offset: 0,
       highlighted_lines: Vec::new(),
-      highlight_light_theme: false,
+      highlight_is_dark: false,
     }
   }
 

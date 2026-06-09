@@ -28,7 +28,7 @@ use crate::{
   ui::utils::{
     action_hint, default_part, filter_cursor_position, filter_status_parts, help_part,
     layout_block_active_span, loading, mixed_bold_line, style_caution, style_highlight,
-    style_primary, style_success, table_header_style, text_matches_filter, title_with_dual_style,
+    style_success, style_text, table_header_style, text_matches_filter, title_with_dual_style,
   },
 };
 
@@ -120,11 +120,11 @@ impl AppResource for UtilizationResource {
           parts.push(default_part(group_by_value.clone()));
           parts.push(default_part(" ".to_string()));
         }
-        mixed_bold_line(parts, app.light_theme)
+        mixed_bold_line(parts, app.palette)
       },
-      app.light_theme,
+      app.palette,
     );
-    let block = layout_block_active_span(title, app.light_theme);
+    let block = layout_block_active_span(title, app.palette);
 
     if !app.data.metrics.items.is_empty() {
       let data = &app.data.metrics.items;
@@ -147,11 +147,11 @@ impl AppResource for UtilizationResource {
         );
         if let Some(qtys) = oqtys {
           let style = if qtys.requested > qtys.limit || qtys.utilization > qtys.limit {
-            style_caution(app.light_theme)
+            style_caution(app.palette)
           } else if is_empty(&qtys.requested) || is_empty(&qtys.limit) {
-            style_primary(app.light_theme)
+            style_text(app.palette)
           } else {
-            style_success(app.light_theme)
+            style_success(app.palette)
           };
 
           let row = Row::new(vec![
@@ -200,14 +200,14 @@ impl AppResource for UtilizationResource {
           "Allocatable",
           "Free",
         ],
-        app.light_theme,
+        app.palette,
       ))
       .block(block)
       .row_highlight_style(style_highlight());
 
       f.render_stateful_widget(table, area, &mut app.data.metrics.state);
     } else {
-      loading(f, block, area, app.is_loading(), app.light_theme);
+      loading(f, block, area, app.is_loading(), app.palette);
     }
 
     if app.data.metrics.filter_active {

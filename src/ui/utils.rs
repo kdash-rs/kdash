@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::BTreeMap, io::Cursor, rc::Rc, sync::OnceLock};
+use std::{borrow::Cow, io::Cursor, rc::Rc, sync::OnceLock};
 
 use glob_match::glob_match;
 use ratatui::{
@@ -17,7 +17,7 @@ use crate::app::{
   ActiveBlock, App,
 };
 use crate::event::Key;
-use crate::ui::theme::override_color;
+use crate::ui::theme::Palette;
 // Viewport width thresholds for responsive column display
 pub const COMPACT_WIDTH_THRESHOLD: u16 = 120;
 pub const WIDE_WIDTH_THRESHOLD: u16 = 180;
@@ -106,24 +106,6 @@ pub enum LinePart<'a> {
   Help(Cow<'a, str>),
 }
 
-// Catppuccin Macchiato (dark)
-pub const MACCHIATO_BASE: Color = Color::Rgb(36, 39, 58);
-pub const MACCHIATO_BLUE: Color = Color::Rgb(138, 173, 244);
-pub const MACCHIATO_GREEN: Color = Color::Rgb(166, 218, 149);
-pub const MACCHIATO_RED: Color = Color::Rgb(237, 135, 150);
-pub const MACCHIATO_YELLOW: Color = Color::Rgb(238, 212, 159);
-pub const MACCHIATO_PEACH: Color = Color::Rgb(245, 169, 127);
-pub const MACCHIATO_TEXT: Color = Color::Rgb(202, 211, 245);
-pub const MACCHIATO_MAUVE: Color = Color::Rgb(198, 160, 246);
-// Catppuccin Latte (light)
-pub const LATTE_MAUVE: Color = Color::Rgb(136, 57, 239);
-pub const LATTE_TEXT: Color = Color::Rgb(76, 79, 105);
-pub const LATTE_BLUE: Color = Color::Rgb(30, 102, 245);
-pub const LATTE_MAROON: Color = Color::Rgb(230, 69, 83);
-pub const LATTE_GREEN: Color = Color::Rgb(64, 160, 43);
-pub const LATTE_RED: Color = Color::Rgb(210, 15, 57);
-pub const LATTE_PEACH: Color = Color::Rgb(254, 100, 11);
-pub const LATTE_BASE: Color = Color::Rgb(239, 241, 245);
 const CATPPUCCIN_MACCHIATO_THEME: &[u8] =
   include_bytes!("../../assets/themes/CatppuccinMacchiato.tmTheme");
 const CATPPUCCIN_LATTE_THEME: &[u8] = include_bytes!("../../assets/themes/CatppuccinLatte.tmTheme");
@@ -206,63 +188,9 @@ fn load_embedded_theme(theme_bytes: &[u8]) -> syntect::highlighting::Theme {
     .expect("embedded theme should load")
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum Styles {
-  Text,
-  Failure,
-  Warning,
-  Success,
-  Primary,
-  Secondary,
-  Help,
-  Background,
-}
-
-pub fn theme_styles(light: bool) -> BTreeMap<Styles, Style> {
-  let mut styles = if light {
-    BTreeMap::from([
-      (Styles::Text, Style::default().fg(LATTE_TEXT)),
-      (Styles::Failure, Style::default().fg(LATTE_RED)),
-      (Styles::Warning, Style::default().fg(LATTE_PEACH)),
-      (Styles::Success, Style::default().fg(LATTE_GREEN)),
-      (Styles::Primary, Style::default().fg(LATTE_MAUVE)),
-      (Styles::Secondary, Style::default().fg(LATTE_MAROON)),
-      (Styles::Help, Style::default().fg(LATTE_BLUE)),
-      (
-        Styles::Background,
-        Style::default().bg(LATTE_BASE).fg(LATTE_TEXT),
-      ),
-    ])
-  } else {
-    BTreeMap::from([
-      (Styles::Text, Style::default().fg(MACCHIATO_TEXT)),
-      (Styles::Failure, Style::default().fg(MACCHIATO_RED)),
-      (Styles::Warning, Style::default().fg(MACCHIATO_PEACH)),
-      (Styles::Success, Style::default().fg(MACCHIATO_GREEN)),
-      (Styles::Primary, Style::default().fg(MACCHIATO_MAUVE)),
-      (Styles::Secondary, Style::default().fg(MACCHIATO_YELLOW)),
-      (Styles::Help, Style::default().fg(MACCHIATO_BLUE)),
-      (
-        Styles::Background,
-        Style::default().bg(MACCHIATO_BASE).fg(MACCHIATO_TEXT),
-      ),
-    ])
-  };
-
-  apply_theme_override(&mut styles, Styles::Text, "text", false, light);
-  apply_theme_override(&mut styles, Styles::Failure, "failure", false, light);
-  apply_theme_override(&mut styles, Styles::Warning, "warning", false, light);
-  apply_theme_override(&mut styles, Styles::Success, "success", false, light);
-  apply_theme_override(&mut styles, Styles::Primary, "primary", false, light);
-  apply_theme_override(&mut styles, Styles::Secondary, "secondary", false, light);
-  apply_theme_override(&mut styles, Styles::Help, "help", false, light);
-  apply_theme_override(&mut styles, Styles::Background, "background", true, light);
-
-  styles
-}
-
-pub fn title_style(txt: &str) -> Span<'_> {
-  Span::styled(txt, style_bold())
+/// Title span: panel titles render in the `secondary` slot, bold.
+pub fn title_style(txt: &str, palette: Palette) -> Span<'_> {
+  Span::styled(txt, style_secondary(palette).add_modifier(Modifier::BOLD))
 }
 
 pub fn default_part<'a, S: Into<Cow<'a, str>>>(text: S) -> LinePart<'a> {
@@ -273,55 +201,57 @@ pub fn help_part<'a, S: Into<Cow<'a, str>>>(text: S) -> LinePart<'a> {
   LinePart::Help(text.into())
 }
 
-pub fn style_header(light: bool) -> Style {
-  style_primary(light).add_modifier(Modifier::REVERSED)
+pub fn style_header(palette: Palette) -> Style {
+  style_primary(palette).add_modifier(Modifier::REVERSED)
 }
 
-pub fn style_bold() -> Style {
-  Style::default().add_modifier(Modifier::BOLD)
+pub fn style_text(palette: Palette) -> Style {
+  Style::default().fg(palette.fg)
+}
+pub fn style_logo(palette: Palette) -> Style {
+  style_primary(palette)
+}
+pub fn style_failure(palette: Palette) -> Style {
+  Style::default().fg(palette.error)
+}
+pub fn style_warning(palette: Palette) -> Style {
+  Style::default().fg(palette.warning)
+}
+pub fn style_caution(palette: Palette) -> Style {
+  style_warning(palette)
+}
+pub fn style_success(palette: Palette) -> Style {
+  Style::default().fg(palette.success)
+}
+/// Primary action / panel-border colour.
+pub fn style_primary(palette: Palette) -> Style {
+  Style::default().fg(palette.accent)
+}
+/// Help / hint / divider text.
+pub fn style_help(palette: Palette) -> Style {
+  Style::default().fg(palette.muted)
+}
+/// Panel titles.
+pub fn style_secondary(palette: Palette) -> Style {
+  Style::default().fg(palette.secondary)
+}
+/// Field labels and table column headers.
+pub fn style_label(palette: Palette) -> Style {
+  Style::default().fg(palette.label)
 }
 
-pub fn style_text(light: bool) -> Style {
-  *theme_styles(light).get(&Styles::Text).unwrap()
-}
-pub fn style_logo(light: bool) -> Style {
-  style_primary(light)
-}
-pub fn style_failure(light: bool) -> Style {
-  *theme_styles(light).get(&Styles::Failure).unwrap()
-}
-pub fn style_warning(light: bool) -> Style {
-  *theme_styles(light).get(&Styles::Warning).unwrap()
-}
-pub fn style_caution(light: bool) -> Style {
-  style_warning(light)
-}
-pub fn style_success(light: bool) -> Style {
-  *theme_styles(light).get(&Styles::Success).unwrap()
-}
-pub fn style_primary(light: bool) -> Style {
-  *theme_styles(light).get(&Styles::Primary).unwrap()
-}
-pub fn style_help(light: bool) -> Style {
-  *theme_styles(light).get(&Styles::Help).unwrap()
-}
-
-pub fn style_secondary(light: bool) -> Style {
-  *theme_styles(light).get(&Styles::Secondary).unwrap()
-}
-
-pub fn style_main_background(light: bool) -> Style {
-  *theme_styles(light).get(&Styles::Background).unwrap()
+pub fn style_main_background(palette: Palette) -> Style {
+  Style::default().bg(palette.bg).fg(palette.fg)
 }
 
 pub fn style_highlight() -> Style {
   Style::default().add_modifier(Modifier::REVERSED)
 }
 
-fn line_part_style(part: &LinePart<'_>, light: bool, bold: bool) -> Style {
+fn line_part_style(part: &LinePart<'_>, palette: Palette, bold: bool) -> Style {
   let style = match part {
-    LinePart::Default(_) => style_text(light),
-    LinePart::Help(_) => style_help(light),
+    LinePart::Default(_) => style_text(palette),
+    LinePart::Help(_) => style_help(palette),
   };
   if bold {
     style.add_modifier(Modifier::BOLD)
@@ -330,39 +260,22 @@ fn line_part_style(part: &LinePart<'_>, light: bool, bold: bool) -> Style {
   }
 }
 
-fn apply_theme_override(
-  styles: &mut BTreeMap<Styles, Style>,
-  slot: Styles,
-  config_key: &str,
-  background: bool,
-  light: bool,
-) {
-  if let Some(color) = override_color(config_key, light) {
-    let style = styles.entry(slot).or_default();
-    *style = if background {
-      style.bg(color)
-    } else {
-      style.fg(color)
-    };
-  }
-}
-
-pub fn mixed_line<'a, I>(parts: I, light: bool) -> Line<'a>
+pub fn mixed_line<'a, I>(parts: I, palette: Palette) -> Line<'a>
 where
   I: IntoIterator<Item = LinePart<'a>>,
 {
-  styled_line(parts, light, false)
+  styled_line(parts, palette, false)
 }
 
-pub fn mixed_bold_line<'a, I>(parts: I, light: bool) -> Line<'a>
+pub fn mixed_bold_line<'a, I>(parts: I, palette: Palette) -> Line<'a>
 where
   I: IntoIterator<Item = LinePart<'a>>,
 {
-  styled_line(parts, light, true)
+  styled_line(parts, palette, true)
 }
 
-pub fn help_bold_line<'a, S: Into<Cow<'a, str>>>(text: S, light: bool) -> Line<'a> {
-  mixed_bold_line([help_part(text)], light)
+pub fn help_bold_line<'a, S: Into<Cow<'a, str>>>(text: S, palette: Palette) -> Line<'a> {
+  mixed_bold_line([help_part(text)], palette)
 }
 
 pub fn key_hints(keys: &[Key]) -> String {
@@ -431,7 +344,7 @@ pub fn filter_cursor_position(area: Rect, prefix_width: usize, filter: &str) -> 
   }
 }
 
-fn styled_line<'a, I>(parts: I, light: bool, bold: bool) -> Line<'a>
+fn styled_line<'a, I>(parts: I, palette: Palette, bold: bool) -> Line<'a>
 where
   I: IntoIterator<Item = LinePart<'a>>,
 {
@@ -439,7 +352,7 @@ where
     parts
       .into_iter()
       .map(|part| {
-        let style = line_part_style(&part, light, bold);
+        let style = line_part_style(&part, palette, bold);
         match part {
           LinePart::Default(text) | LinePart::Help(text) => Span::styled(text, style),
         }
@@ -456,8 +369,8 @@ pub fn get_gauge_symbol(enhanced_graphics: bool) -> &'static str {
   }
 }
 
-pub fn table_header_style(cells: Vec<&str>, light: bool) -> Row<'_> {
-  Row::new(cells).style(style_text(light)).bottom_margin(0)
+pub fn table_header_style(cells: Vec<&str>, palette: Palette) -> Row<'_> {
+  Row::new(cells).style(style_label(palette)).bottom_margin(0)
 }
 
 pub fn horizontal_chunks(constraints: Vec<Constraint>, size: Rect) -> Rc<[Rect]> {
@@ -506,31 +419,51 @@ pub fn vertical_chunks_with_margin(
     .split(size)
 }
 
-pub fn layout_block(title: Span<'_>) -> Block<'_> {
-  Block::default().borders(Borders::ALL).title(title)
+/// Border colour for an unfocused panel — the `accent`/primary tone.
+fn border_style(palette: Palette) -> Style {
+  Style::default().fg(palette.focus_border(false))
 }
 
-pub fn layout_block_default(title: &str) -> Block<'_> {
-  layout_block(title_style(title))
+/// Border colour for the focused/active panel — the `highlight` tone (falls
+/// back to accent for themes without a highlight, e.g. mono).
+fn active_border_style(palette: Palette) -> Style {
+  Style::default().fg(palette.focus_border(true))
 }
 
-pub fn layout_block_default_line(title: Line<'_>) -> Block<'_> {
-  Block::default().borders(Borders::ALL).title(title)
-}
-
-pub fn layout_block_active_line(title: Line<'_>, light: bool) -> Block<'_> {
+pub fn layout_block(title: Span<'_>, palette: Palette) -> Block<'_> {
   Block::default()
     .borders(Borders::ALL)
+    .border_style(border_style(palette))
     .title(title)
-    .style(style_secondary(light))
 }
 
-pub fn layout_block_active_span(title: Line<'_>, light: bool) -> Block<'_> {
-  layout_block_active_line(title, light)
+pub fn layout_block_default<'a>(title: &'a str, palette: Palette) -> Block<'a> {
+  layout_block(title_style(title, palette), palette)
 }
 
-pub fn layout_block_top_border(title: Line<'_>) -> Block<'_> {
-  Block::default().borders(Borders::TOP).title(title)
+pub fn layout_block_default_line(title: Line<'_>, palette: Palette) -> Block<'_> {
+  Block::default()
+    .borders(Borders::ALL)
+    .border_style(border_style(palette))
+    .title(title)
+}
+
+pub fn layout_block_active_line(title: Line<'_>, palette: Palette) -> Block<'_> {
+  Block::default()
+    .borders(Borders::ALL)
+    .border_style(active_border_style(palette))
+    .title(title)
+}
+
+pub fn layout_block_active_span(title: Line<'_>, palette: Palette) -> Block<'_> {
+  layout_block_active_line(title, palette)
+}
+
+pub fn layout_block_top_border(title: Line<'_>, palette: Palette) -> Block<'_> {
+  Block::default()
+    .borders(Borders::TOP)
+    .border_style(border_style(palette))
+    .title(title)
 }
 
 enum FilterDisplayState<'a> {
@@ -591,16 +524,19 @@ pub fn owned_filter_status_parts(filter: &str, active: bool) -> Vec<LinePart<'st
     .collect()
 }
 
-pub fn title_with_dual_style<'a>(part_1: String, part_2: Line<'a>, light: bool) -> Line<'a> {
+pub fn title_with_dual_style<'a>(part_1: String, part_2: Line<'a>, palette: Palette) -> Line<'a> {
   let mut spans = vec![Span::styled(
     part_1,
-    style_secondary(light).add_modifier(Modifier::BOLD),
+    style_secondary(palette).add_modifier(Modifier::BOLD),
   )];
   spans.extend(part_2.spans);
   Line::from(spans)
 }
 
-pub fn copy_and_escape_title_line<'a, S: Into<Cow<'a, str>>>(_target: S, light: bool) -> Line<'a> {
+pub fn copy_and_escape_title_line<'a, S: Into<Cow<'a, str>>>(
+  _target: S,
+  palette: Palette,
+) -> Line<'a> {
   mixed_bold_line(
     [
       help_part(format!(
@@ -609,14 +545,14 @@ pub fn copy_and_escape_title_line<'a, S: Into<Cow<'a, str>>>(_target: S, light: 
       )),
       help_part(format!("back {} ", DEFAULT_KEYBINDING.esc.key)),
     ],
-    light,
+    palette,
   )
 }
 
 pub fn copy_scroll_and_escape_title_line<'a, S: Into<Cow<'a, str>>>(
   _target: S,
   auto_scroll: bool,
-  light: bool,
+  palette: Palette,
 ) -> Line<'a> {
   let auto_scroll_action = if auto_scroll {
     "pause scroll"
@@ -632,7 +568,7 @@ pub fn copy_scroll_and_escape_title_line<'a, S: Into<Cow<'a, str>>>(
       )),
       help_part(format!("back {} ", DEFAULT_KEYBINDING.esc.key)),
     ],
-    light,
+    palette,
   )
 }
 
@@ -681,15 +617,21 @@ pub fn centered_rect(width: u16, height: u16, r: Rect) -> Rect {
     .split(popup_layout[1])[1]
 }
 
-pub fn loading(f: &mut Frame<'_>, block: Block<'_>, area: Rect, is_loading: bool, light: bool) {
+pub fn loading(
+  f: &mut Frame<'_>,
+  block: Block<'_>,
+  area: Rect,
+  is_loading: bool,
+  palette: Palette,
+) {
   if is_loading {
     let text = "\n\n Loading ...\n\n".to_owned();
     let text = Text::from(text);
-    let text = text.patch_style(style_secondary(light));
+    let text = text.patch_style(style_secondary(palette));
 
     // Contains the text
     let paragraph = Paragraph::new(text)
-      .style(style_secondary(light))
+      .style(style_secondary(palette))
       .block(block);
     f.render_widget(paragraph, area);
   } else {
@@ -708,8 +650,8 @@ macro_rules! draw_resource_tab {
         $area,
         title_with_dual_style(
           get_resource_title($app, $title, get_describe_active($block), $res.items.len()),
-          $crate::ui::utils::copy_and_escape_title_line($title, $app.light_theme),
-          $app.light_theme,
+          $crate::ui::utils::copy_and_escape_title_line($title, $app.palette),
+          $app.palette,
         ),
       ),
       ActiveBlock::Yaml => draw_yaml_block(
@@ -718,8 +660,8 @@ macro_rules! draw_resource_tab {
         $area,
         title_with_dual_style(
           get_resource_title($app, $title, get_describe_active($block), $res.items.len()),
-          $crate::ui::utils::copy_and_escape_title_line($title, $app.light_theme),
-          $app.light_theme,
+          $crate::ui::utils::copy_and_escape_title_line($title, $app.palette),
+          $app.palette,
         ),
       ),
       ActiveBlock::Pods => $crate::app::pods::draw_block_as_sub($f, $app, $area),
@@ -750,14 +692,14 @@ fn ensure_highlight_cache(app: &mut App) -> bool {
     return false;
   }
   if app.data.describe_out.highlighted_lines.is_empty()
-    || app.data.describe_out.highlight_light_theme != app.light_theme
+    || app.data.describe_out.highlight_is_dark != app.is_dark()
   {
     let ss = get_syntax_set();
     let syntax = get_yaml_syntax_reference();
-    let theme = if app.light_theme {
-      &get_yaml_themes().light
-    } else {
+    let theme = if app.is_dark() {
       &get_yaml_themes().dark
+    } else {
+      &get_yaml_themes().light
     };
     let mut h = syntect::easy::HighlightLines::new(syntax, theme);
     let txt = app.data.describe_out.get_txt();
@@ -774,7 +716,7 @@ fn ensure_highlight_cache(app: &mut App) -> bool {
       })
       .collect();
     app.data.describe_out.highlighted_lines = lines;
-    app.data.describe_out.highlight_light_theme = app.light_theme;
+    app.data.describe_out.highlight_is_dark = app.is_dark();
   }
   true
 }
@@ -794,11 +736,12 @@ fn highlight_window(offset: usize, total: usize, view_h: usize) -> (usize, usize
 
 /// common for all resources
 pub fn draw_yaml_block(f: &mut Frame<'_>, app: &mut App, area: Rect, title: Line<'_>) {
-  let block = layout_block_top_border(title);
+  let palette = app.palette;
+  let block = layout_block_top_border(title, palette);
   if ensure_highlight_cache(app) {
     let total = app.data.describe_out.highlighted_lines.len();
     if total == 0 {
-      loading(f, block, area, app.is_loading(), app.light_theme);
+      loading(f, block, area, app.is_loading(), palette);
       return;
     }
     let offset = app.data.describe_out.offset;
@@ -813,7 +756,7 @@ pub fn draw_yaml_block(f: &mut Frame<'_>, app: &mut App, area: Rect, title: Line
       .scroll((adjusted_offset, 0));
     f.render_widget(paragraph, area);
   } else {
-    loading(f, block, area, app.is_loading(), app.light_theme);
+    loading(f, block, area, app.is_loading(), palette);
   }
 }
 
@@ -822,7 +765,7 @@ fn draw_resource_table<'a, T: Named, F>(
   area: Rect,
   table_props: ResourceTableProps<'a, T>,
   row_cell_mapper: F,
-  light_theme: bool,
+  palette: Palette,
   is_loading: bool,
   block: Block<'a>,
 ) where
@@ -876,14 +819,14 @@ fn draw_resource_table<'a, T: Named, F>(
       .collect();
 
     let table = Table::new(rows, &table_props.column_widths)
-      .header(table_header_style(table_props.table_headers, light_theme))
+      .header(table_header_style(table_props.table_headers, palette))
       .block(block)
       .row_highlight_style(style_highlight())
       .highlight_symbol(HIGHLIGHT);
 
     f.render_stateful_widget(table, area, &mut table_props.resource.state);
   } else {
-    loading(f, block, area, is_loading, light_theme);
+    loading(f, block, area, is_loading, palette);
   }
 }
 
@@ -893,7 +836,7 @@ fn build_resource_help_line(
   inline_help: Line<'_>,
   filter: &str,
   filter_active: bool,
-  light_theme: bool,
+  palette: Palette,
 ) -> Line<'static> {
   let inline_help_text = inline_help
     .spans
@@ -919,7 +862,7 @@ fn build_resource_help_line(
       help_parts.push(help_part(inline_help_text));
     }
   }
-  mixed_bold_line(help_parts, light_theme)
+  mixed_bold_line(help_parts, palette)
 }
 
 /// Draw a kubernetes resource overview tab
@@ -928,7 +871,7 @@ pub fn draw_resource_block<'a, T: Named, F>(
   area: Rect,
   table_props: ResourceTableProps<'a, T>,
   row_cell_mapper: F,
-  light_theme: bool,
+  palette: Palette,
   is_loading: bool,
 ) where
   F: Fn(&T) -> Row<'a>,
@@ -946,10 +889,10 @@ pub fn draw_resource_block<'a, T: Named, F>(
     let title_width = title.chars().count();
     let title = title_with_dual_style(
       title,
-      mixed_bold_line(owned_filter_status_parts(&filter, true), light_theme),
-      light_theme,
+      mixed_bold_line(owned_filter_status_parts(&filter, true), palette),
+      palette,
     );
-    let block = layout_block_top_border(title);
+    let block = layout_block_top_border(title, palette);
     draw_resource_table(
       f,
       area,
@@ -961,7 +904,7 @@ pub fn draw_resource_block<'a, T: Named, F>(
         column_widths,
       },
       row_cell_mapper,
-      light_theme,
+      palette,
       is_loading,
       block,
     );
@@ -969,9 +912,9 @@ pub fn draw_resource_block<'a, T: Named, F>(
     return;
   }
 
-  let help_line = build_resource_help_line(inline_help, &filter, filter_active, light_theme);
-  let title = title_with_dual_style(title, help_line, light_theme);
-  let block = layout_block_top_border(title);
+  let help_line = build_resource_help_line(inline_help, &filter, filter_active, palette);
+  let title = title_with_dual_style(title, help_line, palette);
+  let block = layout_block_top_border(title, palette);
   draw_resource_table(
     f,
     area,
@@ -983,7 +926,7 @@ pub fn draw_resource_block<'a, T: Named, F>(
       column_widths,
     },
     row_cell_mapper,
-    light_theme,
+    palette,
     is_loading,
     block,
   );
@@ -994,7 +937,7 @@ pub fn draw_route_resource_block<'a, T: Named, F>(
   area: Rect,
   table_props: ResourceTableProps<'a, T>,
   row_cell_mapper: F,
-  light_theme: bool,
+  palette: Palette,
   is_loading: bool,
 ) where
   F: Fn(&T) -> Row<'a>,
@@ -1012,10 +955,10 @@ pub fn draw_route_resource_block<'a, T: Named, F>(
     let title_width = title.chars().count();
     let title = title_with_dual_style(
       title,
-      mixed_bold_line(owned_filter_status_parts(&filter, true), light_theme),
-      light_theme,
+      mixed_bold_line(owned_filter_status_parts(&filter, true), palette),
+      palette,
     );
-    let block = layout_block_active_span(title, light_theme);
+    let block = layout_block_active_span(title, palette);
     draw_resource_table(
       f,
       area,
@@ -1027,7 +970,7 @@ pub fn draw_route_resource_block<'a, T: Named, F>(
         column_widths,
       },
       row_cell_mapper,
-      light_theme,
+      palette,
       is_loading,
       block,
     );
@@ -1035,8 +978,8 @@ pub fn draw_route_resource_block<'a, T: Named, F>(
     return;
   }
 
-  let title = title_with_dual_style(title, inline_help, light_theme);
-  let block = layout_block_active_span(title, light_theme);
+  let title = title_with_dual_style(title, inline_help, palette);
+  let block = layout_block_active_span(title, palette);
   draw_resource_table(
     f,
     area,
@@ -1048,7 +991,7 @@ pub fn draw_route_resource_block<'a, T: Named, F>(
       column_widths,
     },
     row_cell_mapper,
-    light_theme,
+    palette,
     is_loading,
     block,
   );
@@ -1128,12 +1071,13 @@ mod tests {
   };
 
   use super::*;
-  use crate::ui::utils::{MACCHIATO_BLUE, MACCHIATO_MAUVE, MACCHIATO_TEXT, MACCHIATO_YELLOW};
+  use crate::ui::theme::{palette_for, ThemeName};
 
   #[test]
   fn test_draw_resource_block() {
     let backend = TestBackend::new(100, 6);
     let mut terminal = Terminal::new(backend).unwrap();
+    let p = palette_for(ThemeName::Macchiato);
 
     struct RenderTest {
       pub name: String,
@@ -1176,7 +1120,7 @@ mod tests {
           size,
           ResourceTableProps {
             title: "Test".into(),
-            inline_help: help_bold_line("-> yaml <y>", false),
+            inline_help: help_bold_line("-> yaml <y>", p),
             resource: &mut resource,
             table_headers: vec!["Namespace", "Name", "Data", "Age"],
             column_widths: vec![
@@ -1193,9 +1137,9 @@ mod tests {
               Cell::from(c.data.to_string()),
               Cell::from(c.age.to_owned()),
             ])
-            .style(style_primary(false))
+            .style(style_primary(p))
           },
-          false,
+          p,
           false,
         );
       })
@@ -1210,39 +1154,43 @@ mod tests {
         "                                                                                                    ",
       ]);
     // set row styles
-    // First row heading style
+    // First row: title text (secondary), hints (muted), then accent top border
     for col in 0..=99 {
       match col {
         0..=3 => {
           expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
-              .fg(MACCHIATO_YELLOW)
+              .fg(p.secondary)
               .add_modifier(Modifier::BOLD),
           );
         }
         4..=27 => {
-          expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
-            Style::default()
-              .fg(MACCHIATO_BLUE)
-              .add_modifier(Modifier::BOLD),
-          );
+          expected
+            .cell_mut(Position::new(col, 0))
+            .unwrap()
+            .set_style(Style::default().fg(p.muted).add_modifier(Modifier::BOLD));
         }
-        _ => {}
+        _ => {
+          expected
+            .cell_mut(Position::new(col, 0))
+            .unwrap()
+            .set_style(Style::default().fg(p.accent));
+        }
       }
     }
 
-    // Second row table header style
+    // Second row table header style (labels → blue)
     for col in 0..=99 {
       expected
         .cell_mut(Position::new(col, 1))
         .unwrap()
-        .set_style(Style::default().fg(MACCHIATO_TEXT));
+        .set_style(Style::default().fg(p.label));
     }
     // first table data row style
     for col in 0..=99 {
       expected.cell_mut(Position::new(col, 2)).unwrap().set_style(
         Style::default()
-          .fg(MACCHIATO_MAUVE)
+          .fg(p.accent)
           .add_modifier(Modifier::REVERSED),
       );
     }
@@ -1252,7 +1200,7 @@ mod tests {
         expected
           .cell_mut(Position::new(col, row))
           .unwrap()
-          .set_style(Style::default().fg(MACCHIATO_MAUVE));
+          .set_style(Style::default().fg(p.accent));
       }
     }
 
@@ -1263,6 +1211,7 @@ mod tests {
   fn test_draw_resource_block_filter() {
     let backend = TestBackend::new(100, 6);
     let mut terminal = Terminal::new(backend).unwrap();
+    let p = palette_for(ThemeName::Macchiato);
 
     struct RenderTest {
       pub name: String,
@@ -1306,7 +1255,7 @@ mod tests {
           size,
           ResourceTableProps {
             title: "Test".into(),
-            inline_help: help_bold_line("-> yaml <y>", false),
+            inline_help: help_bold_line("-> yaml <y>", p),
             resource: &mut resource,
             table_headers: vec!["Namespace", "Name", "Data", "Age"],
             column_widths: vec![
@@ -1323,9 +1272,9 @@ mod tests {
               Cell::from(c.data.to_string()),
               Cell::from(c.age.to_owned()),
             ])
-            .style(style_primary(false))
+            .style(style_primary(p))
           },
-          false,
+          p,
           false,
         );
       })
@@ -1340,46 +1289,49 @@ mod tests {
         "                                                                                                    ",
       ]);
     // set row styles
-    // First row heading style
+    // First row: title (secondary), filter value (fg), hints (muted), border (accent)
     for col in 0..=99 {
       match col {
         0..=3 => {
           expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
-              .fg(MACCHIATO_YELLOW)
+              .fg(p.secondary)
               .add_modifier(Modifier::BOLD),
           );
         }
         4..=14 => {
-          expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
-            Style::default()
-              .fg(MACCHIATO_TEXT)
-              .add_modifier(Modifier::BOLD),
-          );
+          expected
+            .cell_mut(Position::new(col, 0))
+            .unwrap()
+            .set_style(Style::default().fg(p.fg).add_modifier(Modifier::BOLD));
         }
         15..=40 => {
-          expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
-            Style::default()
-              .fg(MACCHIATO_BLUE)
-              .add_modifier(Modifier::BOLD),
-          );
+          expected
+            .cell_mut(Position::new(col, 0))
+            .unwrap()
+            .set_style(Style::default().fg(p.muted).add_modifier(Modifier::BOLD));
         }
-        _ => {}
+        _ => {
+          expected
+            .cell_mut(Position::new(col, 0))
+            .unwrap()
+            .set_style(Style::default().fg(p.accent));
+        }
       }
     }
 
-    // Second row table header style
+    // Second row table header style (labels → blue)
     for col in 0..=99 {
       expected
         .cell_mut(Position::new(col, 1))
         .unwrap()
-        .set_style(Style::default().fg(MACCHIATO_TEXT));
+        .set_style(Style::default().fg(p.label));
     }
     // first table data row style
     for col in 0..=99 {
       expected.cell_mut(Position::new(col, 2)).unwrap().set_style(
         Style::default()
-          .fg(MACCHIATO_MAUVE)
+          .fg(p.accent)
           .add_modifier(Modifier::REVERSED),
       );
     }
@@ -1389,7 +1341,7 @@ mod tests {
         expected
           .cell_mut(Position::new(col, row))
           .unwrap()
-          .set_style(Style::default().fg(MACCHIATO_MAUVE));
+          .set_style(Style::default().fg(p.accent));
       }
     }
 
@@ -1400,6 +1352,7 @@ mod tests {
   fn test_draw_resource_block_filter_glob() {
     let backend = TestBackend::new(100, 6);
     let mut terminal = Terminal::new(backend).unwrap();
+    let p = palette_for(ThemeName::Macchiato);
 
     struct RenderTest {
       pub name: String,
@@ -1443,7 +1396,7 @@ mod tests {
           size,
           ResourceTableProps {
             title: "Test".into(),
-            inline_help: help_bold_line("-> yaml <y>", false),
+            inline_help: help_bold_line("-> yaml <y>", p),
             resource: &mut resource,
             table_headers: vec!["Namespace", "Name", "Data", "Age"],
             column_widths: vec![
@@ -1460,9 +1413,9 @@ mod tests {
               Cell::from(c.data.to_string()),
               Cell::from(c.age.to_owned()),
             ])
-            .style(style_primary(false))
+            .style(style_primary(p))
           },
-          false,
+          p,
           false,
         );
       })
@@ -1477,46 +1430,49 @@ mod tests {
         "                                                                                                    ",
       ]);
     // set row styles
-    // First row heading style
+    // First row: title (secondary), filter value (fg), hints (muted), border (accent)
     for col in 0..=99 {
       match col {
         0..=3 => {
           expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
             Style::default()
-              .fg(MACCHIATO_YELLOW)
+              .fg(p.secondary)
               .add_modifier(Modifier::BOLD),
           );
         }
         4..=21 => {
-          expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
-            Style::default()
-              .fg(MACCHIATO_TEXT)
-              .add_modifier(Modifier::BOLD),
-          );
+          expected
+            .cell_mut(Position::new(col, 0))
+            .unwrap()
+            .set_style(Style::default().fg(p.fg).add_modifier(Modifier::BOLD));
         }
         22..=47 => {
-          expected.cell_mut(Position::new(col, 0)).unwrap().set_style(
-            Style::default()
-              .fg(MACCHIATO_BLUE)
-              .add_modifier(Modifier::BOLD),
-          );
+          expected
+            .cell_mut(Position::new(col, 0))
+            .unwrap()
+            .set_style(Style::default().fg(p.muted).add_modifier(Modifier::BOLD));
         }
-        _ => {}
+        _ => {
+          expected
+            .cell_mut(Position::new(col, 0))
+            .unwrap()
+            .set_style(Style::default().fg(p.accent));
+        }
       }
     }
 
-    // Second row table header style
+    // Second row table header style (labels → blue)
     for col in 0..=99 {
       expected
         .cell_mut(Position::new(col, 1))
         .unwrap()
-        .set_style(Style::default().fg(MACCHIATO_TEXT));
+        .set_style(Style::default().fg(p.label));
     }
     // first table data row style
     for col in 0..=99 {
       expected.cell_mut(Position::new(col, 2)).unwrap().set_style(
         Style::default()
-          .fg(MACCHIATO_MAUVE)
+          .fg(p.accent)
           .add_modifier(Modifier::REVERSED),
       );
     }
@@ -1526,7 +1482,7 @@ mod tests {
         expected
           .cell_mut(Position::new(col, row))
           .unwrap()
-          .set_style(Style::default().fg(MACCHIATO_MAUVE));
+          .set_style(Style::default().fg(p.accent));
       }
     }
 
@@ -1546,6 +1502,7 @@ mod tests {
   fn test_draw_resource_block_filter_hides_other_hints_when_active() {
     let backend = TestBackend::new(100, 4);
     let mut terminal = Terminal::new(backend).unwrap();
+    let p = palette_for(ThemeName::Macchiato);
 
     struct RenderTest {
       pub name: String,
@@ -1571,13 +1528,13 @@ mod tests {
           size,
           ResourceTableProps {
             title: "Test".into(),
-            inline_help: help_bold_line("describe <d> · back <Esc>", false),
+            inline_help: help_bold_line("describe <d> · back <Esc>", p),
             resource: &mut resource,
             table_headers: vec!["Name"],
             column_widths: vec![Constraint::Percentage(100)],
           },
-          |c| Row::new(vec![Cell::from(c.name.to_owned())]).style(style_primary(false)),
-          false,
+          |c| Row::new(vec![Cell::from(c.name.to_owned())]).style(style_primary(p)),
+          p,
           false,
         );
       })
@@ -1611,9 +1568,10 @@ mod tests {
 
   #[test]
   fn test_build_resource_help_line() {
+    let p = palette_for(ThemeName::Macchiato);
     // Case 1: Empty inline_help, empty filter, filter_active=false
     // -> line text should contain the inactive "filter <key>" action hint
-    let line = build_resource_help_line(Line::default(), "", false, false);
+    let line = build_resource_help_line(Line::default(), "", false, p);
     let text: String = line.spans.iter().map(|s| s.content.as_ref()).collect();
     let expected_filter_hint = action_hint("filter", DEFAULT_KEYBINDING.filter.key);
     assert!(
@@ -1623,7 +1581,7 @@ mod tests {
 
     // Case 2: Non-empty inline_help, empty filter, filter_active=false
     // -> line text should contain the inline help hint after " · "
-    let line2 = build_resource_help_line(help_bold_line("-> yaml <y>", false), "", false, false);
+    let line2 = build_resource_help_line(help_bold_line("-> yaml <y>", p), "", false, p);
     let text2: String = line2.spans.iter().map(|s| s.content.as_ref()).collect();
     assert!(
       text2.contains("-> yaml <y>"),
@@ -1637,10 +1595,10 @@ mod tests {
       action_hint("containers", DEFAULT_KEYBINDING.submit.key)
     );
     let line3 = build_resource_help_line(
-      help_bold_line(containers_prefix_str.as_str(), false),
+      help_bold_line(containers_prefix_str.as_str(), p),
       "",
       false,
-      false,
+      p,
     );
     let text3: String = line3.spans.iter().map(|s| s.content.as_ref()).collect();
     let containers_hint = action_hint("containers", DEFAULT_KEYBINDING.submit.key);
@@ -1651,7 +1609,7 @@ mod tests {
 
     // Case 4: Empty inline_help, filter="foo", filter_active=false
     // -> line text should contain "[foo]"
-    let line4 = build_resource_help_line(Line::default(), "foo", false, false);
+    let line4 = build_resource_help_line(Line::default(), "foo", false, p);
     let text4: String = line4.spans.iter().map(|s| s.content.as_ref()).collect();
     assert!(
       text4.contains("[foo]"),

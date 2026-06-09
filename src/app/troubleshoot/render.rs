@@ -13,7 +13,7 @@ use crate::app::App;
 use crate::ui::utils::{
   action_hint, describe_and_yaml_hint, draw_route_resource_block, filter_cursor_position,
   filter_status_parts, help_part, mixed_bold_line, responsive_columns, style_caution,
-  style_failure, style_primary, ColumnDef, ResourceTableProps, ViewTier,
+  style_failure, style_text, ColumnDef, ResourceTableProps, ViewTier,
 };
 
 const FINDING_COLUMNS: [ColumnDef; 6] = [
@@ -26,7 +26,7 @@ const FINDING_COLUMNS: [ColumnDef; 6] = [
 ];
 
 pub fn render_troubleshoot(f: &mut Frame<'_>, app: &mut App, area: Rect) {
-  let light_theme = app.light_theme;
+  let palette = app.palette;
   let is_loading = app.is_loading();
   let title = format!(
     " Troubleshoot (ns: {}) [{}] ",
@@ -62,16 +62,16 @@ pub fn render_troubleshoot(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     area,
     ResourceTableProps {
       title,
-      inline_help: mixed_bold_line(inline_help, app.light_theme),
+      inline_help: mixed_bold_line(inline_help, app.palette),
       resource: findings,
       table_headers: headers,
       column_widths: widths,
     },
     |c| {
       let style = match c.severity {
-        Severity::Error => style_failure(light_theme),
-        Severity::Warn => style_caution(light_theme),
-        Severity::Info => style_primary(light_theme),
+        Severity::Error => style_failure(palette),
+        Severity::Warn => style_caution(palette),
+        Severity::Info => style_text(palette),
       };
 
       Row::new(vec![
@@ -84,7 +84,7 @@ pub fn render_troubleshoot(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       ])
       .style(style)
     },
-    light_theme,
+    palette,
     is_loading,
   );
 

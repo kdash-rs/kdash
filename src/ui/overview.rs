@@ -1,5 +1,6 @@
 use ratatui::{
   layout::{Constraint, Rect},
+  style::Style,
   text::{Line, Span, Text},
   widgets::{Block, Borders, Cell, LineGauge, Paragraph, Row, Table},
   Frame,
@@ -8,9 +9,10 @@ use ratatui::{
 use super::{
   resource_tabs::draw_resource_tabs_block,
   utils::{
-    action_hint, default_part, get_gauge_symbol, help_part, horizontal_chunks,
-    layout_block_default, layout_block_default_line, loading, mixed_bold_line, style_failure,
-    style_logo, style_primary, style_text, vertical_chunks, vertical_chunks_with_margin,
+    action_hint, get_gauge_symbol, help_part, horizontal_chunks, layout_block_default,
+    layout_block_default_line, loading, mixed_bold_line, style_caution, style_failure, style_label,
+    style_logo, style_primary, style_success, style_text, title_with_dual_style, vertical_chunks,
+    vertical_chunks_with_margin,
   },
 };
 use crate::{
@@ -19,6 +21,7 @@ use crate::{
     ns::NamespaceResource, ActiveBlock, App,
   },
   banner::BANNER,
+  ui::theme::Palette,
 };
 
 pub fn draw_overview(f: &mut Frame<'_>, app: &mut App, area: Rect) {
@@ -52,17 +55,19 @@ fn draw_status_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
 }
 
 fn draw_logo_block(f: &mut Frame<'_>, app: &App, area: Rect) {
+  let palette = app.palette;
   // Banner text with correct styling
   let text = Text::from(BANNER);
-  let text = text.patch_style(style_logo(app.light_theme));
+  let text = text.patch_style(style_logo(palette));
   let block = Block::default()
     .borders(Borders::ALL)
+    .border_style(style_primary(palette))
     .title(mixed_bold_line(
       [help_part(format!(
         " {} ",
         action_hint("theme", DEFAULT_KEYBINDING.toggle_theme.key)
       ))],
-      app.light_theme,
+      palette,
     ));
   // Contains the banner
   let paragraph = Paragraph::new(text).block(block);
@@ -70,19 +75,18 @@ fn draw_logo_block(f: &mut Frame<'_>, app: &App, area: Rect) {
 }
 
 fn draw_cli_version_block(f: &mut Frame<'_>, app: &App, area: Rect) {
-  let block = layout_block_default(" CLI Info ");
+  let block = layout_block_default(" CLI Info ", app.palette);
   if !app.data.clis.is_empty() {
     let rows = app.data.clis.iter().map(|s| {
-      let style = if s.status {
-        style_primary(app.light_theme)
+      let version_style = if s.status {
+        style_text(app.palette)
       } else {
-        style_failure(app.light_theme)
+        style_failure(app.palette)
       };
       Row::new(vec![
-        Cell::from(s.name.to_owned()),
-        Cell::from(s.version.to_owned()),
+        Cell::from(s.name.to_owned()).style(style_label(app.palette)),
+        Cell::from(s.version.to_owned()).style(version_style),
       ])
-      .style(style)
     });
 
     let table = Table::new(
@@ -92,7 +96,7 @@ fn draw_cli_version_block(f: &mut Frame<'_>, app: &App, area: Rect) {
     .block(block);
     f.render_widget(table, area);
   } else {
-    loading(f, block, area, app.is_loading(), app.light_theme);
+    loading(f, block, area, app.is_loading(), app.palette);
   }
 }
 
@@ -107,16 +111,20 @@ fn draw_context_info_block(f: &mut Frame<'_>, app: &App, area: Rect) {
     1,
   );
 
-  let block = layout_block_default_line(mixed_bold_line(
-    [
-      default_part(" Context Info "),
-      help_part(format!(
-        "{} ",
-        action_hint("toggle", DEFAULT_KEYBINDING.toggle_info.key)
-      )),
-    ],
-    app.light_theme,
-  ));
+  let block = layout_block_default_line(
+    title_with_dual_style(
+      " Context Info ".to_string(),
+      mixed_bold_line(
+        [help_part(format!(
+          "{} ",
+          action_hint("toggle", DEFAULT_KEYBINDING.toggle_info.key)
+        ))],
+        app.palette,
+      ),
+      app.palette,
+    ),
+    app.palette,
+  );
 
   f.render_widget(block, area);
 
@@ -125,31 +133,31 @@ fn draw_context_info_block(f: &mut Frame<'_>, app: &App, area: Rect) {
       if let Some(user) = &active_context.user {
         vec![
           Line::from(vec![
-            Span::styled("Context: ", style_text(app.light_theme)),
-            Span::styled(&active_context.name, style_primary(app.light_theme)),
+            Span::styled("Context: ", style_label(app.palette)),
+            Span::styled(&active_context.name, style_text(app.palette)),
           ]),
           Line::from(vec![
-            Span::styled("Cluster: ", style_text(app.light_theme)),
-            Span::styled(&active_context.cluster, style_primary(app.light_theme)),
+            Span::styled("Cluster: ", style_label(app.palette)),
+            Span::styled(&active_context.cluster, style_text(app.palette)),
           ]),
           Line::from(vec![
-            Span::styled("User: ", style_text(app.light_theme)),
-            Span::styled(user, style_primary(app.light_theme)),
+            Span::styled("User: ", style_label(app.palette)),
+            Span::styled(user, style_text(app.palette)),
           ]),
         ]
       } else {
         vec![
           Line::from(vec![
-            Span::styled("Context: ", style_text(app.light_theme)),
-            Span::styled(&active_context.name, style_primary(app.light_theme)),
+            Span::styled("Context: ", style_label(app.palette)),
+            Span::styled(&active_context.name, style_text(app.palette)),
           ]),
           Line::from(vec![
-            Span::styled("Cluster: ", style_text(app.light_theme)),
-            Span::styled(&active_context.cluster, style_primary(app.light_theme)),
+            Span::styled("Cluster: ", style_label(app.palette)),
+            Span::styled(&active_context.cluster, style_text(app.palette)),
           ]),
           Line::from(vec![
-            Span::styled("User: ", style_text(app.light_theme)),
-            Span::styled("<none>", style_primary(app.light_theme)),
+            Span::styled("User: ", style_label(app.palette)),
+            Span::styled("<none>", style_text(app.palette)),
           ]),
         ]
       }
@@ -157,7 +165,7 @@ fn draw_context_info_block(f: &mut Frame<'_>, app: &App, area: Rect) {
     None => {
       vec![Line::from(Span::styled(
         "Context information not found",
-        style_failure(app.light_theme),
+        style_failure(app.palette),
       ))]
     }
   };
@@ -169,8 +177,8 @@ fn draw_context_info_block(f: &mut Frame<'_>, app: &App, area: Rect) {
   let limited_ratio = if ratio > 1f64 { 1f64 } else { ratio };
 
   let cpu_gauge = LineGauge::default()
-    .block(Block::default().title("CPU:"))
-    .filled_style(style_primary(app.light_theme))
+    .block(Block::default().title(Span::styled("CPU:", style_label(app.palette))))
+    .filled_style(gauge_fill_style(ratio, app.palette))
     .filled_symbol(get_gauge_symbol(app.enhanced_graphics))
     .unfilled_symbol(get_gauge_symbol(app.enhanced_graphics))
     .ratio(limited_ratio)
@@ -181,13 +189,24 @@ fn draw_context_info_block(f: &mut Frame<'_>, app: &App, area: Rect) {
   let limited_ratio = if ratio > 1f64 { 1f64 } else { ratio };
 
   let mem_gauge = LineGauge::default()
-    .block(Block::default().title("Memory:"))
-    .filled_style(style_primary(app.light_theme))
+    .block(Block::default().title(Span::styled("Memory:", style_label(app.palette))))
+    .filled_style(gauge_fill_style(ratio, app.palette))
     .filled_symbol(get_gauge_symbol(app.enhanced_graphics))
     .unfilled_symbol(get_gauge_symbol(app.enhanced_graphics))
     .ratio(limited_ratio)
     .label(Line::from(format!("{:.0}%", ratio * 100.0)));
   f.render_widget(mem_gauge, chunks[2]);
+}
+
+/// Utilization gauge fill colour by load: green below 70%, amber 70–90%, red 90%+.
+fn gauge_fill_style(ratio: f64, palette: Palette) -> Style {
+  if ratio >= 0.9 {
+    style_failure(palette)
+  } else if ratio >= 0.7 {
+    style_caution(palette)
+  } else {
+    style_success(palette)
+  }
 }
 
 /// covert percent value from metrics to ratio that gauge can understand

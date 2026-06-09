@@ -14,7 +14,15 @@ use serde::Deserialize;
 #[serde(default)]
 pub struct KdashConfig {
   pub keybindings: Option<KeybindingOverrides>,
+  /// Legacy `theme: { dark, light }` colour-override map. Kept for backward
+  /// compatibility — the overrides tint the built-in Macchiato (dark) and
+  /// Latte (light) palettes.
   pub theme: Option<ThemeConfig>,
+  /// Name of the theme to start on (e.g. `gruvbox`, `solarized-dark`).
+  /// Defaults to Macchiato. See [`crate::ui::theme::ThemeName`].
+  pub default_theme: Option<String>,
+  /// Full user-defined palette that joins the `t` / `Alt+t` theme cycle.
+  pub custom_theme: Option<crate::ui::theme::CustomThemeConfig>,
   pub log_tail_lines: Option<u32>,
   pub cli_info: Option<CliInfoConfig>,
   pub hide_logo: bool,
@@ -307,6 +315,35 @@ mod tests {
         custom: vec![],
       })
     );
+  }
+
+  #[test]
+  fn test_shipped_sample_config_parses_cleanly() {
+    // Guards the documented sample config (and the new default_theme /
+    // custom_theme keys) against schema drift.
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/kdash.sample-config.yaml");
+    let loaded = load_config_from_path(&path);
+
+    assert!(
+      loaded.warning.is_none(),
+      "sample config should parse without warning: {:?}",
+      loaded.warning
+    );
+    assert_eq!(loaded.config.default_theme.as_deref(), Some("macchiato"));
+    assert!(loaded.config.custom_theme.is_some());
+    assert!(loaded.config.theme.is_some());
+  }
+
+  #[test]
+  fn test_default_theme_and_custom_theme_parse() {
+    let config: KdashConfig = serde_yaml::from_str(
+      "default_theme: gruvbox\ncustom_theme:\n  base: latte\n  accent: \"#FF00AA\"\n",
+    )
+    .expect("config should parse");
+
+    assert_eq!(config.default_theme.as_deref(), Some("gruvbox"));
+    let custom = config.custom_theme.expect("custom_theme present");
+    assert_eq!(custom.accent.as_deref(), Some("#FF00AA"));
   }
 
   #[test]

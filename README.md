@@ -174,7 +174,43 @@ You can also point it at a specific file with:
 KDASH_CONFIG=/path/to/config.yaml kdash
 ```
 
-Theme overrides support separate light and dark values:
+### Themes
+
+KDash ships five built-in themes — `macchiato` (default), `latte`, `gruvbox-dark`,
+`solarized-dark`, and `mono` — plus an optional user-defined `custom` theme. Cycle
+through them at runtime with `t` (next) and `Alt+t` (previous).
+
+Pick the theme KDash starts on:
+
+```yaml
+default_theme: gruvbox-dark # macchiato | latte | gruvbox-dark | solarized-dark | mono | custom
+```
+
+The semantic colour roles are: panel borders use `primary` (the focused panel's
+border uses a brighter `highlight` tone), panel titles use `secondary`, inactive tabs
+and help/hint text use `muted`, table column labels use `label`/blue, and body text
+uses `text`. Table rows are coloured by status: healthy/active (e.g. pod `Running`,
+node `Ready`, bound volumes) → `success`/green, transitional (`Completed`, `Pending`,
+`<pending>`) → `warning`/amber, failures (`CrashLoopBackOff`, `Error`, `NotReady`,
+`Lost`/`Failed`) → `failure`/red, and rows without a status → `text`.
+
+Define a full `custom` theme that joins the cycle. Every slot is optional and falls
+back to `base` (default `macchiato`):
+
+```yaml
+custom_theme:
+  base: macchiato
+  accent: "#89B4FA"   # panel borders / primary
+  secondary: "#F9E2AF" # panel titles
+  label: "#94E2D5"     # column labels
+  muted: "#9399B2"     # hints
+  highlight: "#F5C2E7" # focused panel border
+  bg: "#11111B"
+  fg: "#CDD6F4"
+```
+
+The legacy two-theme override format is still supported for backward compatibility —
+the `dark` section tints Macchiato and the `light` section tints Latte:
 
 ```yaml
 theme:
@@ -273,7 +309,7 @@ See the sample config in [assets/kdash.sample-config.yaml](assets/kdash.sample-c
   - Change namespace
   - Context switch
 - Resources utilizations for nodes, pods and namespaces based on metrics server. Requires [metrics-server](https://kubernetes.io/docs/tasks/debug-application-cluster/resource-metrics-pipeline/#metrics-server) to be deployed on the cluster.
-- Dark/Light themes (Catppuccin Macchiato/Latte by default)
+- Five built-in themes (Catppuccin Macchiato/Latte, Gruvbox Dark, Solarized Dark, Mono) plus an optional custom theme, cycled with `t`/`Alt+t`
 - Sensible keyboard shortcuts
 - Configurable keybindings, theme overrides, and log tail defaults
 - Inline filtering across resource views and menus

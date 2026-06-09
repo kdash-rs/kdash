@@ -19,9 +19,9 @@ use crate::{
   network::Network,
   ui::{
     utils::{
-      default_part, filter_by_resource_name, filter_cursor_position, filter_status_parts,
-      help_part, layout_block_default_line, loading, mixed_bold_line, style_highlight,
-      style_primary, style_secondary, table_header_style,
+      filter_by_resource_name, filter_cursor_position, filter_status_parts, help_part,
+      layout_block_default_line, loading, mixed_bold_line, style_highlight, style_secondary,
+      style_text, table_header_style, title_with_dual_style,
     },
     HIGHLIGHT,
   },
@@ -132,35 +132,38 @@ fn apply_namespace_list_fallback(app: &mut App, error: &Error) -> bool {
 impl AppResource for NamespaceResource {
   fn render(_block: ActiveBlock, f: &mut Frame<'_>, app: &mut App, area: Rect) {
     let title = if app.ns_filter_active {
-      let mut parts = vec![default_part(" Namespaces ".to_string())];
-      parts.extend(filter_status_parts(&app.ns_filter, true));
-      mixed_bold_line(parts, app.light_theme)
+      title_with_dual_style(
+        " Namespaces ".to_string(),
+        mixed_bold_line(filter_status_parts(&app.ns_filter, true), app.palette),
+        app.palette,
+      )
     } else {
-      mixed_bold_line(
-        [
-          default_part(" Namespaces ".to_string()),
-          help_part(format!(
+      title_with_dual_style(
+        " Namespaces ".to_string(),
+        mixed_bold_line(
+          [help_part(format!(
             "{} · all: {} · filter {} ",
             DEFAULT_KEYBINDING.jump_to_namespace.key,
             DEFAULT_KEYBINDING.select_all_namespace.key,
             DEFAULT_KEYBINDING.filter.key
-          )),
-        ],
-        app.light_theme,
+          ))],
+          app.palette,
+        ),
+        app.palette,
       )
     };
-    let mut block = layout_block_default_line(title);
+    let mut block = layout_block_default_line(title, app.palette);
 
     if app.get_current_route().active_block == ActiveBlock::Namespaces {
-      block = block.style(style_secondary(app.light_theme))
+      block = block.style(style_secondary(app.palette))
     }
 
     if !app.data.namespaces.items.is_empty() {
       let rows = app.data.namespaces.items.iter().filter_map(|s| {
         let style = if Some(s.name.clone()) == app.data.selected.ns {
-          style_secondary(app.light_theme)
+          style_secondary(app.palette)
         } else {
-          style_primary(app.light_theme)
+          style_text(app.palette)
         };
 
         let mapper = row_cell_mapper(s).style(style);
@@ -169,14 +172,14 @@ impl AppResource for NamespaceResource {
       });
 
       let table = Table::new(rows, [Constraint::Length(22), Constraint::Length(6)])
-        .header(table_header_style(vec!["Name", "Status"], app.light_theme))
+        .header(table_header_style(vec!["Name", "Status"], app.palette))
         .block(block)
         .row_highlight_style(style_highlight())
         .highlight_symbol(HIGHLIGHT);
 
       f.render_stateful_widget(table, area, &mut app.data.namespaces.state);
     } else {
-      loading(f, block, area, app.is_loading(), app.light_theme);
+      loading(f, block, area, app.is_loading(), app.palette);
     }
 
     if app.ns_filter_active {

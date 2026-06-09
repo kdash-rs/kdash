@@ -192,7 +192,10 @@ pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
         handle_block_scroll(app, ScrollEvent::End, false).await;
       }
       _ if key == DEFAULT_KEYBINDING.toggle_theme.key => {
-        app.light_theme = !app.light_theme;
+        app.cycle_theme();
+      }
+      _ if key == DEFAULT_KEYBINDING.cycle_theme_prev.key => {
+        app.cycle_theme_prev();
       }
       _ if key == DEFAULT_KEYBINDING.toggle_wide_columns.key => {
         app.wide_columns = !app.wide_columns;

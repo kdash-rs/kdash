@@ -58,6 +58,7 @@ generate_keybindings! {
   filter,
   refresh,
   toggle_theme,
+  cycle_theme_prev,
   cycle_main_views,
   jump_to_current_context,
   jump_to_all_context,
@@ -162,7 +163,13 @@ const DEFAULT_KEYBINDINGS: KeyBindings = KeyBindings {
   toggle_theme: KeyBinding {
     key: Key::Char('t'),
     alt: None,
-    desc: "Toggle theme",
+    desc: "Cycle theme (next)",
+    context: HContext::General,
+  },
+  cycle_theme_prev: KeyBinding {
+    key: Key::Alt('t'),
+    alt: None,
+    desc: "Cycle theme (previous)",
     context: HContext::General,
   },
   jump_to_current_context: KeyBinding {

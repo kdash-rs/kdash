@@ -19,12 +19,13 @@ use super::{
 };
 use crate::{
   network::Network,
+  ui::theme::Palette,
   ui::utils::{
     action_hint, copy_and_escape_title_line, copy_scroll_and_escape_title_line,
     describe_yaml_and_logs_hint, draw_describe_block, draw_resource_block, draw_yaml_block,
     get_describe_active, get_resource_title, help_bold_line, help_part, layout_block_top_border,
-    loading, mixed_bold_line, responsive_columns, style_caution, style_failure, style_primary,
-    style_success, title_with_dual_style, wide_hint, ColumnDef, ResourceTableProps, ViewTier,
+    loading, mixed_bold_line, responsive_columns, style_caution, style_failure, style_success,
+    style_text, title_with_dual_style, wide_hint, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
 
@@ -209,8 +210,8 @@ impl AppResource for PodResource {
             get_describe_active(block),
             app.data.pods.items.len(),
           ),
-          copy_and_escape_title_line(PODS_TITLE, app.light_theme),
-          app.light_theme,
+          copy_and_escape_title_line(PODS_TITLE, app.palette),
+          app.palette,
         ),
       ),
       ActiveBlock::Yaml => draw_yaml_block(
@@ -224,8 +225,8 @@ impl AppResource for PodResource {
             get_describe_active(block),
             app.data.pods.items.len(),
           ),
-          copy_and_escape_title_line(PODS_TITLE, app.light_theme),
-          app.light_theme,
+          copy_and_escape_title_line(PODS_TITLE, app.palette),
+          app.palette,
         ),
       ),
       ActiveBlock::Logs => draw_logs_block(f, app, area),
@@ -290,14 +291,14 @@ pub(crate) fn draw_block_as_sub(f: &mut Frame<'_>, app: &mut App, area: Rect) {
           wide_hint(),
           DEFAULT_KEYBINDING.esc.key
         ),
-        app.light_theme,
+        app.palette,
       ),
       resource: &mut app.data.pods,
       table_headers: headers,
       column_widths: widths,
     },
     |c| {
-      let style = get_resource_row_style(c.status.as_str(), c.ready, app.light_theme);
+      let style = get_resource_row_style(c.status.as_str(), c.ready, app.palette);
       let mut cells = vec![
         Cell::from(c.namespace.to_owned()),
         Cell::from(c.name.to_owned()),
@@ -312,7 +313,7 @@ pub(crate) fn draw_block_as_sub(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       cells.push(Cell::from(c.age.to_owned()));
       Row::new(cells).style(style)
     },
-    app.light_theme,
+    app.palette,
     is_loading,
   );
 }
@@ -347,14 +348,14 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
           describe_yaml_and_logs_hint(),
           wide_hint()
         ),
-        app.light_theme,
+        app.palette,
       ),
       resource: &mut app.data.pods,
       table_headers: headers,
       column_widths: widths,
     },
     |c| {
-      let style = get_resource_row_style(c.status.as_str(), c.ready, app.light_theme);
+      let style = get_resource_row_style(c.status.as_str(), c.ready, app.palette);
       let mut cells = vec![
         Cell::from(c.namespace.to_owned()),
         Cell::from(c.name.to_owned()),
@@ -369,7 +370,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       cells.push(Cell::from(c.age.to_owned()));
       Row::new(cells).style(style)
     },
-    app.light_theme,
+    app.palette,
     is_loading,
   );
 }
@@ -408,14 +409,14 @@ pub(crate) fn draw_containers_block(f: &mut Frame<'_>, app: &mut App, area: Rect
           )),
           help_part(format!("back {} ", DEFAULT_KEYBINDING.esc.key)),
         ],
-        app.light_theme,
+        app.palette,
       ),
       resource: &mut app.data.containers,
       table_headers: headers,
       column_widths: widths,
     },
     |c| {
-      let style = get_resource_row_style(c.status.as_str(), (0, 0), app.light_theme);
+      let style = get_resource_row_style(c.status.as_str(), (0, 0), app.palette);
       Row::new(vec![
         Cell::from(c.name.to_owned()),
         Cell::from(c.image.to_owned()),
@@ -429,7 +430,7 @@ pub(crate) fn draw_containers_block(f: &mut Frame<'_>, app: &mut App, area: Rect
       ])
       .style(style)
     },
-    app.light_theme,
+    app.palette,
     is_loading,
   );
 }
@@ -471,7 +472,7 @@ pub(crate) fn draw_logs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
           ),
           DEFAULT_KEYBINDING.esc.key
         ),
-        app.light_theme,
+        app.palette,
       ),
     )
   } else {
@@ -484,46 +485,42 @@ pub(crate) fn draw_logs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     };
     (
       get_container_title(app, app.data.containers.items.len(), logs_label),
-      copy_scroll_and_escape_title_line("Containers", app.log_auto_scroll, app.light_theme),
+      copy_scroll_and_escape_title_line("Containers", app.log_auto_scroll, app.palette),
     )
   };
 
-  let title = title_with_dual_style(title, hint, app.light_theme);
+  let title = title_with_dual_style(title, hint, app.palette);
 
-  let block = layout_block_top_border(title);
+  let block = layout_block_top_border(title, app.palette);
 
   let selected_container = app.data.selected.container.clone();
   let container_name = selected_container.unwrap_or_default();
 
   if container_name == app.data.logs.id || is_aggregate {
-    app.data.logs.render_list(
-      f,
-      area,
-      block,
-      style_primary(app.light_theme),
-      app.log_auto_scroll,
-    );
+    app
+      .data
+      .logs
+      .render_list(f, area, block, style_text(app.palette), app.log_auto_scroll);
   } else {
-    loading(f, block, area, app.is_loading(), app.light_theme);
+    loading(f, block, area, app.is_loading(), app.palette);
   }
 }
 
-fn get_resource_row_style(status: &str, ready: (i32, i32), light: bool) -> Style {
+fn get_resource_row_style(status: &str, ready: (i32, i32), palette: Palette) -> Style {
   if status == "Running" && ready.0 == ready.1 {
-    style_primary(light)
-  } else if status == "Completed" {
-    style_success(light)
-  } else if [
-    "ContainerCreating",
-    "PodInitializing",
-    "Pending",
-    "Initialized",
-  ]
-  .contains(&status)
+    style_success(palette)
+  } else if status == "Completed"
+    || [
+      "ContainerCreating",
+      "PodInitializing",
+      "Pending",
+      "Initialized",
+    ]
+    .contains(&status)
   {
-    style_caution(light)
+    style_caution(palette)
   } else {
-    style_failure(light)
+    style_failure(palette)
   }
 }
 

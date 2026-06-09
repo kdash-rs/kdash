@@ -74,6 +74,7 @@ use super::{
   config::KdashConfig,
   network::{stream::IoStreamEvent, IoEvent},
 };
+use crate::ui::theme::{apply_legacy_overrides, palette_for, Palette, ThemeName};
 
 const MAX_NAV_STACK: usize = 128;
 const STATUS_MESSAGE_DURATION: Duration = Duration::from_secs(5);
@@ -291,7 +292,14 @@ pub struct App {
   pub size: Rect,
   pub api_error: String,
   pub status_message: StatusMessage,
-  pub light_theme: bool,
+  /// Active theme name, cycled with `t` / `Alt+t`.
+  pub theme: ThemeName,
+  /// User-defined palette from `custom_theme:`; joins the cycle when present.
+  pub custom_palette: Option<Palette>,
+  /// Resolved palette for `theme` (legacy overrides / custom applied). Read
+  /// directly as a `Copy` field from render hot-paths; rebuilt on theme change
+  /// via [`App::resolve_palette`].
+  pub palette: Palette,
   pub wide_columns: bool,
   pub refresh: bool,
   pub log_auto_scroll: bool,
@@ -545,7 +553,9 @@ impl Default for App {
       size: Rect::default(),
       api_error: String::new(),
       status_message: StatusMessage::default(),
-      light_theme: false,
+      theme: ThemeName::Macchiato,
+      custom_palette: None,
+      palette: palette_for(ThemeName::Macchiato),
       wide_columns: false,
       refresh: true,
       log_auto_scroll: true,
@@ -676,7 +686,16 @@ impl App {
     config: KdashConfig,
   ) -> Self {
     let show_info_bar = !config.hide_info_on_start;
-    App {
+    let custom_palette = config
+      .custom_theme
+      .as_ref()
+      .map(|custom| custom.resolve().0);
+    let theme = config
+      .default_theme
+      .as_deref()
+      .and_then(|name| name.parse::<ThemeName>().ok())
+      .unwrap_or(ThemeName::Macchiato);
+    let mut app = App {
       io_tx: Some(io_tx),
       io_stream_tx: Some(io_stream_tx),
       io_cmd_tx: Some(io_cmd_tx),
@@ -684,9 +703,71 @@ impl App {
       tick_until_poll,
       log_tail_lines,
       show_info_bar,
+      theme,
+      custom_palette,
       config,
       ..App::default()
+    };
+    app.resolve_palette();
+    app
+  }
+
+  /// Whether the active theme is a dark theme (drives syntax-highlight theme
+  /// selection and any light/dark-conditional rendering).
+  pub fn is_dark(&self) -> bool {
+    self.palette.is_dark
+  }
+
+  /// Rebuild [`Self::palette`] from `theme`, layering the legacy
+  /// `theme: { dark, light }` overrides onto Macchiato/Latte and substituting
+  /// the loaded `custom_palette` for `Custom`.
+  fn resolve_palette(&mut self) {
+    let mut palette = match self.theme {
+      ThemeName::Custom => self
+        .custom_palette
+        .unwrap_or_else(|| palette_for(ThemeName::Custom)),
+      other => palette_for(other),
+    };
+    if matches!(self.theme, ThemeName::Macchiato | ThemeName::Latte) {
+      apply_legacy_overrides(&mut palette);
     }
+    self.palette = palette;
+  }
+
+  /// Themes available in the cycle. `Custom` participates only when a custom
+  /// palette is actually loaded — otherwise it would render as the macchiato
+  /// fallback and feel like a no-op tick.
+  fn theme_cycle_order(&self) -> Vec<ThemeName> {
+    ThemeName::ALL
+      .into_iter()
+      .filter(|t| *t != ThemeName::Custom || self.custom_palette.is_some())
+      .collect()
+  }
+
+  /// Cycle to the next theme (bound to `t`).
+  pub fn cycle_theme(&mut self) {
+    let order = self.theme_cycle_order();
+    if order.is_empty() {
+      return;
+    }
+    let pos = order
+      .iter()
+      .position(|t| *t == self.theme)
+      .unwrap_or(order.len() - 1);
+    self.theme = order[(pos + 1) % order.len()];
+    self.resolve_palette();
+  }
+
+  /// Cycle to the previous theme (bound to `Alt+t`) — overshoot recovery for
+  /// the `t` hotkey.
+  pub fn cycle_theme_prev(&mut self) {
+    let order = self.theme_cycle_order();
+    if order.is_empty() {
+      return;
+    }
+    let pos = order.iter().position(|t| *t == self.theme).unwrap_or(0);
+    self.theme = order[(pos + order.len() - 1) % order.len()];
+    self.resolve_palette();
   }
 
   pub fn is_menu_active(&self) -> bool {
@@ -1834,6 +1915,78 @@ mod tests {
     );
 
     assert!(app.show_info_bar);
+  }
+
+  #[test]
+  fn test_cycle_theme_round_robin_skips_custom_without_palette() {
+    let mut app = App::default();
+    assert_eq!(app.theme, ThemeName::Macchiato);
+    let order = [
+      ThemeName::Latte,
+      ThemeName::GruvboxDark,
+      ThemeName::SolarizedDark,
+      ThemeName::Mono,
+      ThemeName::Macchiato, // wraps, Custom skipped (no palette loaded)
+    ];
+    for expected in order {
+      app.cycle_theme();
+      assert_eq!(app.theme, expected);
+      assert_eq!(app.palette.name, expected);
+    }
+  }
+
+  #[test]
+  fn test_cycle_theme_prev_walks_backwards() {
+    let mut app = App::default();
+    app.cycle_theme_prev();
+    assert_eq!(app.theme, ThemeName::Mono);
+    app.cycle_theme_prev();
+    assert_eq!(app.theme, ThemeName::SolarizedDark);
+  }
+
+  #[test]
+  fn test_cycle_theme_includes_custom_when_palette_loaded() {
+    let mut app = App {
+      theme: ThemeName::Mono,
+      custom_palette: Some(crate::ui::theme::CustomThemeConfig::default().resolve().0),
+      ..App::default()
+    };
+    app.cycle_theme();
+    assert_eq!(app.theme, ThemeName::Custom);
+    app.cycle_theme();
+    assert_eq!(app.theme, ThemeName::Macchiato);
+  }
+
+  #[test]
+  fn test_new_honors_default_theme_config() {
+    let (io_tx, _io_rx) = mpsc::channel::<IoEvent>(1);
+    let (io_stream_tx, _stream_rx) = mpsc::channel::<IoStreamEvent>(1);
+    let (io_cmd_tx, _cmd_rx) = mpsc::channel::<IoCmdEvent>(1);
+
+    let config = KdashConfig {
+      default_theme: Some("gruvbox".to_string()),
+      ..KdashConfig::default()
+    };
+    let app = App::new(io_tx, io_stream_tx, io_cmd_tx, false, 1, 100, config);
+
+    assert_eq!(app.theme, ThemeName::GruvboxDark);
+    assert_eq!(app.palette.name, ThemeName::GruvboxDark);
+    assert!(app.is_dark());
+  }
+
+  #[test]
+  fn test_new_unknown_default_theme_falls_back_to_macchiato() {
+    let (io_tx, _io_rx) = mpsc::channel::<IoEvent>(1);
+    let (io_stream_tx, _stream_rx) = mpsc::channel::<IoStreamEvent>(1);
+    let (io_cmd_tx, _cmd_rx) = mpsc::channel::<IoCmdEvent>(1);
+
+    let config = KdashConfig {
+      default_theme: Some("dracula".to_string()),
+      ..KdashConfig::default()
+    };
+    let app = App::new(io_tx, io_stream_tx, io_cmd_tx, false, 1, 100, config);
+
+    assert_eq!(app.theme, ThemeName::Macchiato);
   }
 
   #[test]

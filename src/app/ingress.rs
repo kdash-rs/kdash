@@ -18,7 +18,7 @@ use crate::{
   ui::utils::{
     describe_yaml_and_esc_hint, draw_describe_block, draw_resource_block, draw_yaml_block,
     get_describe_active, get_resource_title, help_bold_line, responsive_columns, style_caution,
-    style_primary, title_with_dual_style, wide_hint, ColumnDef, ResourceTableProps, ViewTier,
+    style_success, title_with_dual_style, wide_hint, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
 
@@ -230,7 +230,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: help_bold_line(
         format!("{} · {}", describe_yaml_and_esc_hint(), wide_hint()),
-        app.light_theme,
+        app.palette,
       ),
       resource: &mut app.data.ingress,
       table_headers: headers,
@@ -238,9 +238,9 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     },
     |c| {
       let style = if c.address == "<pending>" {
-        style_caution(app.light_theme)
+        style_caution(app.palette)
       } else {
-        style_primary(app.light_theme)
+        style_success(app.palette)
       };
       let mut cells = vec![
         Cell::from(c.namespace.to_owned()),
@@ -256,7 +256,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       cells.push(Cell::from(c.age.to_owned()));
       Row::new(cells).style(style)
     },
-    app.light_theme,
+    app.palette,
     is_loading,
   );
 }

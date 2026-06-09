@@ -18,7 +18,7 @@ use crate::{
   network::Network,
   ui::utils::{
     describe_yaml_and_esc_hint, draw_describe_block, draw_resource_block, draw_yaml_block,
-    get_describe_active, get_resource_title, help_bold_line, responsive_columns, style_primary,
+    get_describe_active, get_resource_title, help_bold_line, responsive_columns, style_text,
     title_with_dual_style, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
@@ -129,7 +129,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     area,
     ResourceTableProps {
       title,
-      inline_help: help_bold_line(describe_yaml_and_esc_hint(), app.light_theme),
+      inline_help: help_bold_line(describe_yaml_and_esc_hint(), app.palette),
       resource: &mut app.data.network_policies,
       table_headers: headers,
       column_widths: widths,
@@ -142,9 +142,9 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
         Cell::from(c.policy_types.to_owned()),
         Cell::from(c.age.to_owned()),
       ])
-      .style(style_primary(app.light_theme))
+      .style(style_text(app.palette))
     },
-    app.light_theme,
+    app.palette,
     is_loading,
   );
 }

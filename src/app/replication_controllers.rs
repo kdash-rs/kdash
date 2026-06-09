@@ -21,7 +21,7 @@ use crate::{
   ui::utils::{
     action_hint, describe_yaml_logs_and_esc_hint, draw_describe_block, draw_resource_block,
     draw_yaml_block, get_describe_active, get_resource_title, help_bold_line, responsive_columns,
-    style_primary, title_with_dual_style, ColumnDef, ResourceTableProps, ViewTier,
+    style_text, title_with_dual_style, ColumnDef, ResourceTableProps, ViewTier,
   },
 };
 
@@ -183,7 +183,7 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
           action_hint("pods", DEFAULT_KEYBINDING.submit.key),
           describe_yaml_logs_and_esc_hint()
         ),
-        app.light_theme,
+        app.palette,
       ),
       resource: &mut app.data.replication_controllers,
       table_headers: headers,
@@ -201,9 +201,9 @@ fn draw_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
         Cell::from(c.selector.to_owned()),
         Cell::from(c.age.to_owned()),
       ])
-      .style(style_primary(app.light_theme))
+      .style(style_text(app.palette))
     },
-    app.light_theme,
+    app.palette,
     is_loading,
   );
 }
