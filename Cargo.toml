@@ -33,6 +33,7 @@ openssl-probe = "0.2"
 crossterm = "0.29"
 ratatui = { version = "0.30", default-features = false, features = [
     'crossterm',
+    'layout-cache'
 ] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
