@@ -11,7 +11,7 @@ use ratatui::{
 use serde::Serialize;
 
 use super::{ActiveBlock, App, Route};
-use crate::network::Network;
+use crate::{handlers::ScrollEvent, network::Network};
 
 #[async_trait]
 pub trait AppResource {
@@ -54,17 +54,40 @@ pub trait KubeResource<T: Serialize>: Named {
 }
 
 pub trait Scrollable {
-  fn handle_scroll(&mut self, up: bool, page: bool) {
-    // support page up/down
-    let inc_or_dec = if page { 10 } else { 1 };
-    if up {
-      self.scroll_up(inc_or_dec);
+  // To be implemented by structs
+  fn scroll_to(&mut self, index: usize);
+  fn current_pos(&self) -> Option<usize>;
+  fn length(&self) -> usize;
+  /// Whether the scroll should wrap around when reaching the end (true) or clamp (false).
+  fn wraps(&self) -> bool;
+
+  fn handle_scroll(&mut self, event: ScrollEvent) {
+    self.scroll_to(if self.wraps() {
+      self.wrap(&event, self.current_pos())
     } else {
-      self.scroll_down(inc_or_dec);
+      let newpos = self.newpos(&event, self.current_pos());
+      if newpos < 0 {
+        0
+      } else {
+        (newpos as usize).min(self.length().saturating_sub(1))
+      }
+    });
+  }
+  /// calculates the raw new position after applying a scroll event
+  fn newpos(&self, event: &ScrollEvent, current_pos: Option<usize>) -> isize {
+    match event {
+      ScrollEvent::Absolute(newpos) => *newpos,
+      ScrollEvent::Relative(delta) => {
+        let curpos = current_pos.unwrap_or(0) as isize;
+        curpos + delta
+      }
     }
   }
-  fn scroll_down(&mut self, inc_or_dec: usize);
-  fn scroll_up(&mut self, inc_or_dec: usize);
+  /// calculates the new position after applying wrapping logic (modulo)
+  fn wrap(&self, event: &ScrollEvent, current_pos: Option<usize>) -> usize {
+    let len = self.length() as isize;
+    (self.newpos(event, current_pos) % len) as usize
+  }
 }
 
 pub struct StatefulList<T> {
@@ -89,33 +112,21 @@ impl<T> StatefulList<T> {
 }
 
 impl<T> Scrollable for StatefulList<T> {
-  // for lists we cycle back to the beginning when we reach the end
-  fn scroll_down(&mut self, increment: usize) {
-    let i = match self.state.selected() {
-      Some(i) => {
-        if i >= self.items.len().saturating_sub(increment) {
-          0
-        } else {
-          i + increment
-        }
-      }
-      None => 0,
-    };
-    self.state.select(Some(i));
+  fn current_pos(&self) -> Option<usize> {
+    self.state.selected()
   }
-  // for lists we cycle back to the end when we reach the beginning
-  fn scroll_up(&mut self, decrement: usize) {
-    let i = match self.state.selected() {
-      Some(i) => {
-        if i == 0 {
-          self.items.len().saturating_sub(decrement)
-        } else {
-          i.saturating_sub(decrement)
-        }
-      }
-      None => 0,
-    };
-    self.state.select(Some(i));
+
+  fn length(&self) -> usize {
+    self.items.len()
+  }
+
+  fn scroll_to(&mut self, index: usize) {
+    self.state.select(Some(index));
+  }
+
+  // for lists we cycle back to the beginning when we reach the end
+  fn wraps(&self) -> bool {
+    false
   }
 }
 
@@ -193,22 +204,21 @@ impl<T> FilterableTable for StatefulTable<T> {
 }
 
 impl<T> Scrollable for StatefulTable<T> {
-  fn scroll_down(&mut self, increment: usize) {
-    if let Some(i) = self.state.selected() {
-      if (i + increment) < self.items.len() {
-        self.state.select(Some(i + increment));
-      } else {
-        self.state.select(Some(self.items.len().saturating_sub(1)));
-      }
+  fn current_pos(&self) -> Option<usize> {
+    self.state.selected()
+  }
+  fn length(&self) -> usize {
+    if self.filter_active {
+      self.filtered_indices.len()
+    } else {
+      self.items.len()
     }
   }
-
-  fn scroll_up(&mut self, decrement: usize) {
-    if let Some(i) = self.state.selected() {
-      if i != 0 {
-        self.state.select(Some(i.saturating_sub(decrement)));
-      }
-    }
+  fn scroll_to(&mut self, index: usize) {
+    self.state.select(Some(index));
+  }
+  fn wraps(&self) -> bool {
+    false
   }
 }
 
@@ -324,20 +334,17 @@ impl ScrollableTxt {
 }
 
 impl Scrollable for ScrollableTxt {
-  fn scroll_down(&mut self, increment: usize) {
-    // Ratatui's Paragraph with Wrap counts scroll offset in *visual* rows
-    // (post-wrap), but we only know the number of source lines.  We cap at
-    // items.len() - 1 so at least the last source line remains visible,
-    // while still allowing enough scroll range for wrapped content.
-    let max_offset = self.items.len().saturating_sub(1);
-    if self.offset < max_offset {
-      self.offset = (self.offset + increment).min(max_offset);
-    }
+  fn current_pos(&self) -> Option<usize> {
+    self.offset.into()
   }
-  fn scroll_up(&mut self, decrement: usize) {
-    if self.offset > 0 {
-      self.offset = self.offset.saturating_sub(decrement);
-    }
+  fn length(&self) -> usize {
+    self.items.len()
+  }
+  fn scroll_to(&mut self, index: usize) {
+    self.offset = index.min(self.items.len().saturating_sub(1));
+  }
+  fn wraps(&self) -> bool {
+    false
   }
 }
 
@@ -483,26 +490,17 @@ impl LogsState {
 }
 
 impl Scrollable for LogsState {
-  fn scroll_down(&mut self, increment: usize) {
-    let i = self.state.selected().map_or(0, |i| {
-      if i >= self.wrapped_length.saturating_sub(increment) {
-        i
-      } else {
-        i + increment
-      }
-    });
-    self.state.select(Some(i));
+  fn current_pos(&self) -> Option<usize> {
+    self.state.selected()
   }
-
-  fn scroll_up(&mut self, decrement: usize) {
-    let i = self.state.selected().map_or(0, |i| {
-      if i != 0 {
-        i.saturating_sub(decrement)
-      } else {
-        0
-      }
-    });
-    self.state.select(Some(i));
+  fn length(&self) -> usize {
+    self.wrapped_length
+  }
+  fn scroll_to(&mut self, index: usize) {
+    self.state.select(Some(index));
+  }
+  fn wraps(&self) -> bool {
+    false
   }
 }
 
@@ -577,18 +575,18 @@ mod tests {
     // check scroll down
     sft.state.select(Some(0));
     assert_eq!(sft.state.selected(), Some(0));
-    sft.scroll_down(1);
+    sft.handle_scroll(ScrollEvent::down());
     assert_eq!(sft.state.selected(), Some(1));
     // check scroll overflow
-    sft.scroll_down(1);
+    sft.handle_scroll(ScrollEvent::down());
     assert_eq!(sft.state.selected(), Some(1));
-    sft.scroll_up(1);
+    sft.handle_scroll(ScrollEvent::up());
     assert_eq!(sft.state.selected(), Some(0));
     // check scroll overflow
-    sft.scroll_up(1);
+    sft.handle_scroll(ScrollEvent::up());
     assert_eq!(sft.state.selected(), Some(0));
     // check increment
-    sft.scroll_down(10);
+    sft.handle_scroll(ScrollEvent::Relative(10));
     assert_eq!(sft.state.selected(), Some(1));
 
     let sft2 = StatefulTable::with_items(vec![KubeNs::default(), KubeNs::default()]);
@@ -652,22 +650,22 @@ mod tests {
 
     assert_eq!(item.state.selected(), Some(0));
 
-    item.handle_scroll(false, false);
+    item.handle_scroll(ScrollEvent::down());
     assert_eq!(item.state.selected(), Some(1));
 
-    item.handle_scroll(false, false);
+    item.handle_scroll(ScrollEvent::down());
     assert_eq!(item.state.selected(), Some(2));
 
-    item.handle_scroll(false, false);
+    item.handle_scroll(ScrollEvent::down());
     assert_eq!(item.state.selected(), Some(2));
     // previous
-    item.handle_scroll(true, false);
+    item.handle_scroll(ScrollEvent::up());
     assert_eq!(item.state.selected(), Some(1));
     // page down
-    item.handle_scroll(false, true);
+    item.handle_scroll(ScrollEvent::Relative(10));
     assert_eq!(item.state.selected(), Some(2));
     // page up
-    item.handle_scroll(true, true);
+    item.handle_scroll(ScrollEvent::Relative(-10));
     assert_eq!(item.state.selected(), Some(0));
   }
 
@@ -717,30 +715,30 @@ mod tests {
     assert_eq!(stxt.get_txt(), "test\n multiline\n string");
 
     // 3 items → max offset = 2 (last line visible)
-    stxt.scroll_down(1);
+    stxt.handle_scroll(ScrollEvent::down());
     assert_eq!(stxt.offset, 1);
-    stxt.scroll_down(5);
+    stxt.handle_scroll(ScrollEvent::Relative(5));
     assert_eq!(stxt.offset, 2);
 
     // 10 lines → max offset = 9
     let mut stxt2 = ScrollableTxt::with_string("te\nst\nmul\ntil\ni\nne\nstr\ni\nn\ng".into());
     assert_eq!(stxt2.items.len(), 10);
-    stxt2.scroll_down(1);
+    stxt2.handle_scroll(ScrollEvent::down());
     assert_eq!(stxt2.offset, 1);
-    stxt2.scroll_down(1);
+    stxt2.handle_scroll(ScrollEvent::down());
     assert_eq!(stxt2.offset, 2);
-    stxt2.scroll_down(5);
+    stxt2.handle_scroll(ScrollEvent::Relative(5));
     assert_eq!(stxt2.offset, 7);
     for _ in 0..5 {
-      stxt2.scroll_down(1);
+      stxt2.handle_scroll(ScrollEvent::down());
     }
     // capped at len - 1 = 9
     assert_eq!(stxt2.offset, 9);
-    stxt2.scroll_up(1);
+    stxt2.handle_scroll(ScrollEvent::up());
     assert_eq!(stxt2.offset, 8);
-    stxt2.scroll_up(8);
+    stxt2.handle_scroll(ScrollEvent::Relative(-8));
     assert_eq!(stxt2.offset, 0);
-    stxt2.scroll_up(1);
+    stxt2.handle_scroll(ScrollEvent::up());
     // no overflow past (0)
     assert_eq!(stxt2.offset, 0);
   }
@@ -753,7 +751,7 @@ mod tests {
 
     assert_eq!(stxt.items.len(), 100);
     for _ in 0..110 {
-      stxt.scroll_down(1);
+      stxt.handle_scroll(ScrollEvent::down());
     }
     assert_eq!(stxt.offset, 99);
   }
@@ -763,7 +761,7 @@ mod tests {
     // 1 line → max offset = 0
     let mut stxt = ScrollableTxt::with_string("hello".into());
 
-    stxt.scroll_down(1);
+    stxt.handle_scroll(ScrollEvent::down());
     assert_eq!(stxt.offset, 0);
   }
 
@@ -774,7 +772,7 @@ mod tests {
     let mut stxt = ScrollableTxt::with_string(lines.join("\n"));
 
     for _ in 0..30 {
-      stxt.scroll_down(1);
+      stxt.handle_scroll(ScrollEvent::down());
     }
     assert_eq!(stxt.offset, 19);
   }
@@ -790,11 +788,11 @@ mod tests {
     // Scroll down past u16::MAX in large steps — should not wrap or panic
     let target = line_count.saturating_sub(1); // max reachable offset (len - 1)
     for _ in 0..(target / 1000) {
-      stxt.scroll_down(1000);
+      stxt.handle_scroll(ScrollEvent::Relative(1000));
     }
     // Finish off with single increments to reach the cap
     for _ in 0..1000 {
-      stxt.scroll_down(1);
+      stxt.handle_scroll(ScrollEvent::down());
     }
 
     // Offset must be beyond what u16 could hold and must not have wrapped
@@ -813,10 +811,10 @@ mod tests {
 
     // Scroll back up past u16::MAX boundary — should not wrap or panic
     for _ in 0..(stxt.offset / 1000) {
-      stxt.scroll_up(1000);
+      stxt.handle_scroll(ScrollEvent::Relative(-1000));
     }
     for _ in 0..1000 {
-      stxt.scroll_up(1);
+      stxt.handle_scroll(ScrollEvent::up());
     }
     assert_eq!(stxt.offset, 0);
   }
@@ -828,7 +826,7 @@ mod tests {
     let mut stxt = ScrollableTxt::with_string(lines.join("\n"));
 
     for _ in 0..20 {
-      stxt.scroll_down(1);
+      stxt.handle_scroll(ScrollEvent::down());
     }
     assert_eq!(stxt.offset, 9);
   }
@@ -918,8 +916,8 @@ mod tests {
 
     terminal.backend().assert_buffer(&expected4);
 
-    log.scroll_up(1); // to reset select state
-    log.scroll_down(11);
+    log.handle_scroll(ScrollEvent::up()); // to reset select state
+    log.handle_scroll(ScrollEvent::Relative(11));
 
     terminal
       .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), false))

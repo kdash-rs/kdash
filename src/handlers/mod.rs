@@ -108,13 +108,13 @@ macro_rules! handle_resource_action {
 /// Dispatches scroll for standard resource types.
 /// Wraps the entire match expression. Special-case arms go in the `extra` block.
 macro_rules! handle_resource_scroll {
-  ($match_expr:expr, $app:expr, $up:expr, $page:expr,
+  ($match_expr:expr, $app:expr, $event:expr, $is_mouse:expr,
     [ $(($block:path, $field:ident)),* $(,)? ],
     extra: { $($extra_arms:tt)* }
   ) => {
     match $match_expr {
       $(
-        $block => $app.data.$field.handle_scroll($up, $page),
+        $block => $app.data.$field.handle_scroll($event),
       )*
       $($extra_arms)*
     }
@@ -171,19 +171,19 @@ pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
         || key == DEFAULT_KEYBINDING.up.alt.unwrap()
         || key == Key::Up =>
       {
-        handle_block_scroll(app, true, false, false).await;
+        handle_block_scroll(app, ScrollEvent::up(), false).await;
       }
       _ if key == DEFAULT_KEYBINDING.down.key
         || key == DEFAULT_KEYBINDING.down.alt.unwrap()
         || key == Key::Down =>
       {
-        handle_block_scroll(app, false, false, false).await;
+        handle_block_scroll(app, ScrollEvent::down(), false).await;
       }
       _ if key == DEFAULT_KEYBINDING.pg_up.key => {
-        handle_block_scroll(app, true, false, true).await;
+        handle_block_scroll(app, ScrollEvent::Relative(-10), false).await;
       }
       _ if key == DEFAULT_KEYBINDING.pg_down.key => {
-        handle_block_scroll(app, false, false, true).await;
+        handle_block_scroll(app, ScrollEvent::Relative(10), false).await;
       }
       _ if key == DEFAULT_KEYBINDING.toggle_theme.key => {
         app.light_theme = !app.light_theme;
@@ -499,7 +499,7 @@ async fn handle_action_menu_key(key: Key, app: &mut App) {
       || key == Key::Up =>
     {
       if let Some(menu) = app.action_menu.as_mut() {
-        menu.handle_scroll(true, false);
+        menu.handle_scroll(ScrollEvent::up());
       }
     }
     _ if key == DEFAULT_KEYBINDING.down.key
@@ -507,7 +507,7 @@ async fn handle_action_menu_key(key: Key, app: &mut App) {
       || key == Key::Down =>
     {
       if let Some(menu) = app.action_menu.as_mut() {
-        menu.handle_scroll(false, false);
+        menu.handle_scroll(ScrollEvent::down());
       }
     }
     _ if key == DEFAULT_KEYBINDING.submit.key => {
@@ -613,8 +613,8 @@ async fn handle_cordon_toggle(app: &mut App) {
 pub async fn handle_mouse_events(mouse: MouseEvent, app: &mut App) {
   match mouse.kind {
     // mouse scrolling is inverted
-    MouseEventKind::ScrollDown => handle_block_scroll(app, true, true, false).await,
-    MouseEventKind::ScrollUp => handle_block_scroll(app, false, true, false).await,
+    MouseEventKind::ScrollDown => handle_block_scroll(app, ScrollEvent::down(), true).await,
+    MouseEventKind::ScrollUp => handle_block_scroll(app, ScrollEvent::up(), true).await,
     _ => {}
   }
 }
@@ -1414,8 +1414,25 @@ fn handle_block_action<T: Clone>(key: Key, item: &StatefulTable<T>) -> Option<T>
   }
 }
 
-async fn handle_block_scroll(app: &mut App, up: bool, is_mouse: bool, page: bool) {
-  handle_resource_scroll!(app.get_current_route().active_block, app, up, page,
+#[derive(Debug, PartialEq, Eq)]
+pub enum ScrollEvent {
+  /// Scroll to an absolute position (negative indices either wrap around or scroll to the top)
+  #[allow(dead_code)]
+  Absolute(isize),
+  Relative(isize),
+}
+
+impl ScrollEvent {
+  pub fn down() -> Self {
+    ScrollEvent::Relative(1)
+  }
+  pub fn up() -> Self {
+    ScrollEvent::Relative(-1)
+  }
+}
+
+async fn handle_block_scroll(app: &mut App, event: ScrollEvent, is_mouse: bool) {
+  handle_resource_scroll!(app.get_current_route().active_block, app, event, is_mouse,
     [
       (ActiveBlock::Namespaces, namespaces),
       (ActiveBlock::Pods, pods),
@@ -1445,29 +1462,29 @@ async fn handle_block_scroll(app: &mut App, up: bool, is_mouse: bool, page: bool
       (ActiveBlock::DynamicResource, dynamic_resources),
     ],
     extra: {
-      ActiveBlock::Contexts => app.data.contexts.handle_scroll(up, page),
-      ActiveBlock::Utilization => app.data.metrics.handle_scroll(up, page),
-      ActiveBlock::Troubleshoot => app.data.troubleshoot_findings.handle_scroll(up, page),
-      ActiveBlock::Help => app.help_docs.handle_scroll(up, page),
+      ActiveBlock::Contexts => app.data.contexts.handle_scroll(event),
+      ActiveBlock::Utilization => app.data.metrics.handle_scroll(event),
+      ActiveBlock::Troubleshoot => app.data.troubleshoot_findings.handle_scroll(event),
+      ActiveBlock::Help => app.help_docs.handle_scroll(event),
       ActiveBlock::More => {
         let filtered_len = filter_menu_items(&app.more_resources_menu.items, &app.menu_filter).len();
-        handle_menu_scroll(&mut app.more_resources_menu, up, page, filtered_len);
+        handle_menu_scroll(&mut app.more_resources_menu, event, filtered_len);
       }
       ActiveBlock::DynamicView => {
         let filtered_len = filter_menu_items(&app.dynamic_resources_menu.items, &app.menu_filter).len();
-        handle_menu_scroll(&mut app.dynamic_resources_menu, up, page, filtered_len);
+        handle_menu_scroll(&mut app.dynamic_resources_menu, event, filtered_len);
       }
       ActiveBlock::Logs => {
         if app.log_auto_scroll {
           app.data.logs.freeze_follow_position();
           app.log_auto_scroll = false;
         }
-        app.data.logs.handle_scroll(inverse_dir(up, is_mouse), page);
+        app.data.logs.handle_scroll(inverse_dir(event, is_mouse));
       }
       ActiveBlock::Describe | ActiveBlock::Yaml => app
         .data
         .describe_out
-        .handle_scroll(inverse_dir(up, is_mouse), page),
+        .handle_scroll(inverse_dir(event, is_mouse)),
     }
   )
 }
@@ -1475,31 +1492,20 @@ async fn handle_block_scroll(app: &mut App, up: bool, is_mouse: bool, page: bool
 /// Scroll within a menu, respecting filtered item count
 fn handle_menu_scroll(
   menu: &mut StatefulList<(String, ActiveBlock)>,
-  up: bool,
-  page: bool,
+  event: ScrollEvent,
   filtered_len: usize,
 ) {
   if filtered_len == 0 {
     return;
   }
-  let increment = if page { 5 } else { 1 };
-  let i = match menu.state.selected() {
-    Some(i) => {
-      if up {
-        if i == 0 {
-          filtered_len.saturating_sub(increment)
-        } else {
-          i.saturating_sub(increment)
-        }
-      } else if i >= filtered_len.saturating_sub(increment) {
-        0
-      } else {
-        i + increment
-      }
-    }
-    None => 0,
-  };
-  menu.state.select(Some(i));
+
+  // duplicated because we wrap at filtered_len, not total len
+  let newpos = match event {
+    ScrollEvent::Absolute(newpos) => newpos % (filtered_len as isize),
+    ScrollEvent::Relative(delta) => menu.current_pos().unwrap_or(0) as isize + delta,
+  }
+  .rem_euclid(filtered_len as isize);
+  menu.state.select(Some(newpos as usize));
 }
 
 fn copy_to_clipboard(content: String, app: &mut App) {
@@ -1560,11 +1566,10 @@ fn format_error_history(history: &std::collections::VecDeque<crate::app::ErrorRe
 }
 
 /// inverse direction for natural scrolling on mouse and keyboard
-fn inverse_dir(up: bool, is_mouse: bool) -> bool {
-  if is_mouse {
-    !up
-  } else {
-    up
+fn inverse_dir(event: ScrollEvent, is_mouse: bool) -> ScrollEvent {
+  match event {
+    ScrollEvent::Relative(delta) if is_mouse => ScrollEvent::Relative(-delta),
+    other => other,
   }
 }
 
@@ -1593,8 +1598,8 @@ mod tests {
 
   #[test]
   fn test_inverse_dir() {
-    assert!(inverse_dir(true, false));
-    assert!(!inverse_dir(true, true));
+    assert_eq!(inverse_dir(ScrollEvent::down(), false), ScrollEvent::down());
+    assert_eq!(inverse_dir(ScrollEvent::down(), true), ScrollEvent::up());
   }
 
   fn temp_test_dir(name: &str) -> std::path::PathBuf {
@@ -2837,9 +2842,9 @@ mod tests {
 
     // mouse scroll
     assert_eq!(app.data.pods.state.selected(), Some(0));
-    handle_block_scroll(&mut app, false, true, false).await;
+    handle_block_scroll(&mut app, ScrollEvent::down(), true).await;
     assert_eq!(app.data.pods.state.selected(), Some(1));
-    handle_block_scroll(&mut app, true, true, false).await;
+    handle_block_scroll(&mut app, ScrollEvent::up(), true).await;
     assert_eq!(app.data.pods.state.selected(), Some(0));
 
     // check logs keyboard scroll
@@ -2850,7 +2855,7 @@ mod tests {
     app.data.logs.add_record("record 2".to_string());
     app.data.logs.add_record("record 3".to_string());
 
-    handle_block_scroll(&mut app, true, false, false).await;
+    handle_block_scroll(&mut app, ScrollEvent::down(), false).await;
     assert_eq!(app.data.logs.state.selected(), Some(0));
   }
 
@@ -3114,15 +3119,15 @@ mod tests {
 
     // Scroll down within filtered_len=2
     menu.state.select(Some(0));
-    handle_menu_scroll(&mut menu, false, false, 2);
+    handle_menu_scroll(&mut menu, ScrollEvent::down(), 2);
     assert_eq!(menu.state.selected(), Some(1));
 
     // Scroll down wraps at filtered_len
-    handle_menu_scroll(&mut menu, false, false, 2);
+    handle_menu_scroll(&mut menu, ScrollEvent::down(), 2);
     assert_eq!(menu.state.selected(), Some(0));
 
     // Scroll up from 0 wraps to end of filtered
-    handle_menu_scroll(&mut menu, true, false, 2);
+    handle_menu_scroll(&mut menu, ScrollEvent::up(), 2);
     assert_eq!(menu.state.selected(), Some(1));
   }
 
@@ -3131,7 +3136,7 @@ mod tests {
     let mut menu = StatefulList::with_items(vec![("A".into(), ActiveBlock::CronJobs)]);
     menu.state.select(Some(0));
     // Should not panic with filtered_len=0
-    handle_menu_scroll(&mut menu, false, false, 0);
+    handle_menu_scroll(&mut menu, ScrollEvent::Relative(0), 0);
     assert_eq!(menu.state.selected(), Some(0));
   }
 
