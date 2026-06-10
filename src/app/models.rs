@@ -81,6 +81,7 @@ pub trait Scrollable {
         let curpos = current_pos.unwrap_or(0) as isize;
         curpos + delta
       }
+      ScrollEvent::End => self.length() as isize - 1,
     }
   }
   /// calculates the new position after applying wrapping logic (modulo)

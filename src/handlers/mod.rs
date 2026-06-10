@@ -185,6 +185,12 @@ pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
       _ if key == DEFAULT_KEYBINDING.pg_down.key => {
         handle_block_scroll(app, ScrollEvent::Relative(10), false).await;
       }
+      _ if key == DEFAULT_KEYBINDING.home.key => {
+        handle_block_scroll(app, ScrollEvent::Absolute(0), false).await;
+      }
+      _ if key == DEFAULT_KEYBINDING.end.key => {
+        handle_block_scroll(app, ScrollEvent::End, false).await;
+      }
       _ if key == DEFAULT_KEYBINDING.toggle_theme.key => {
         app.light_theme = !app.light_theme;
       }
@@ -1417,9 +1423,10 @@ fn handle_block_action<T: Clone>(key: Key, item: &StatefulTable<T>) -> Option<T>
 #[derive(Debug, PartialEq, Eq)]
 pub enum ScrollEvent {
   /// Scroll to an absolute position (negative indices either wrap around or scroll to the top)
-  #[allow(dead_code)]
   Absolute(isize),
   Relative(isize),
+  /// Scroll to the end position (which might not have a known absolute position)
+  End,
 }
 
 impl ScrollEvent {
@@ -1503,6 +1510,7 @@ fn handle_menu_scroll(
   let newpos = match event {
     ScrollEvent::Absolute(newpos) => newpos % (filtered_len as isize),
     ScrollEvent::Relative(delta) => menu.current_pos().unwrap_or(0) as isize + delta,
+    ScrollEvent::End => filtered_len as isize - 1,
   }
   .rem_euclid(filtered_len as isize);
   menu.state.select(Some(newpos as usize));
@@ -2846,6 +2854,8 @@ mod tests {
     assert_eq!(app.data.pods.state.selected(), Some(1));
     handle_block_scroll(&mut app, ScrollEvent::up(), true).await;
     assert_eq!(app.data.pods.state.selected(), Some(0));
+    handle_block_scroll(&mut app, ScrollEvent::End, false).await;
+    assert_eq!(app.data.pods.state.selected(), Some(1));
 
     // check logs keyboard scroll
     app.push_navigation_stack(RouteId::Home, ActiveBlock::Logs);
