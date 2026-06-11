@@ -7,8 +7,8 @@ use kubectl_view_allocations::{
 };
 use ratatui::{
   layout::{Constraint, Rect},
-  text::{Line, Span},
-  widgets::{Cell, LineGauge, Paragraph, Row, Table},
+  text::Span,
+  widgets::{Cell, Paragraph, Row, Table},
   Frame,
 };
 use serde::{Deserialize, Serialize};
@@ -19,10 +19,10 @@ use crate::app::{key_binding::DEFAULT_KEYBINDING, models::FilterableTable};
 use crate::{
   network::Network,
   ui::utils::{
-    action_hint, default_part, filter_cursor_position, filter_status_parts, gauge_fill_style,
-    get_gauge_symbol, help_part, horizontal_chunks, layout_block_active_span, layout_block_default,
-    loading, mixed_bold_line, style_caution, style_highlight, style_label, style_success,
-    style_text, table_header_style, text_matches_filter, title_with_dual_style, vertical_chunks,
+    action_hint, default_part, filter_cursor_position, filter_status_parts, gauge_line, help_part,
+    horizontal_chunks, layout_block_active_span, layout_block_default, loading, mixed_bold_line,
+    style_caution, style_highlight, style_label, style_success, style_text, table_header_style,
+    text_matches_filter, title_with_dual_style, vertical_chunks,
   },
 };
 
@@ -260,7 +260,13 @@ impl AppResource for UtilizationResource {
 
     let namespaces: Vec<String> = {
       let app = nw.app.lock().await;
-      app.data.selected.ns.clone().map(|ns| vec![ns]).unwrap_or_default()
+      app
+        .data
+        .selected
+        .ns
+        .clone()
+        .map(|ns| vec![ns])
+        .unwrap_or_default()
     };
     if let Err(e) =
       collect_from_pods(nw.client.clone(), &mut resources, &namespaces, &node_names).await
@@ -384,17 +390,16 @@ fn draw_utilization_summary(
 
 fn draw_summary_gauge(f: &mut Frame<'_>, app: &App, area: Rect, label: &str, pct: f64) {
   let pct = if pct.is_finite() { pct } else { 0f64 };
-  let ratio = (pct / 100f64).clamp(0f64, 1f64);
-  let gauge = LineGauge::default()
-    .filled_style(gauge_fill_style(ratio, app.palette))
-    .filled_symbol(get_gauge_symbol(app.enhanced_graphics))
-    .unfilled_symbol(get_gauge_symbol(app.enhanced_graphics))
-    .ratio(ratio)
-    .label(Line::from(vec![
-      Span::styled(format!("{label} "), style_label(app.palette)),
-      Span::styled(format!("{pct:>4.0}% "), style_text(app.palette)),
-    ]));
-  f.render_widget(gauge, area);
+  let gauge = gauge_line(
+    // pad labels (Util/Req/Lim) to equal width so the bars line up
+    format!("{label:<5}"),
+    pct,
+    format!("{pct:.0}%"),
+    area.width,
+    app.palette,
+    app.enhanced_graphics,
+  );
+  f.render_widget(Paragraph::new(gauge), area);
 }
 
 fn utilization_matches_filter(filter: &str, qualifiers: &[String]) -> bool {

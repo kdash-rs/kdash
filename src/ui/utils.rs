@@ -4,7 +4,6 @@ use glob_match::glob_match;
 use ratatui::{
   layout::{Constraint, Direction, Layout, Position, Rect},
   style::{Color, Modifier, Style},
-  symbols,
   text::{Line, Span, Text},
   widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Row, Table, Wrap},
   Frame,
@@ -357,23 +356,75 @@ where
   )
 }
 
-/// Utilization gauge fill colour by load: green below 70%, amber 70–90%, red 90%+.
+/// Gauge fill colour tier, matching LlamaStash: green below 60%, amber
+/// 60–85%, red 85%+.
 pub fn gauge_fill_style(ratio: f64, palette: Palette) -> Style {
-  if ratio >= 0.9 {
+  if ratio >= 0.85 {
     style_failure(palette)
-  } else if ratio >= 0.7 {
+  } else if ratio >= 0.6 {
     style_caution(palette)
   } else {
     style_success(palette)
   }
 }
 
-pub fn get_gauge_symbol(enhanced_graphics: bool) -> &'static str {
-  if enhanced_graphics {
-    symbols::line::THICK_HORIZONTAL
-  } else {
-    symbols::line::HORIZONTAL
+/// LlamaStash-style block bar `████░░░░` of `width` cells: `█` fill, `░`
+/// trough. The fill colour owns the whole span — the 25%-density trough
+/// glyph naturally reads as a dimmer shade. ASCII fallback when unicode
+/// symbols are disabled.
+fn gauge_bar_span(pct: f64, width: usize, fill: Style, enhanced_graphics: bool) -> Span<'static> {
+  if width == 0 {
+    return Span::raw("");
   }
+  let pct = if pct.is_finite() {
+    pct.clamp(0.0, 100.0)
+  } else {
+    0.0
+  };
+  let (fill_char, trough_char) = if enhanced_graphics {
+    ('█', '░')
+  } else {
+    ('#', '.')
+  };
+  let filled = (((pct / 100.0) * width as f64).round() as usize).min(width);
+  let mut bar = String::with_capacity(width * 3);
+  for _ in 0..filled {
+    bar.push(fill_char);
+  }
+  for _ in 0..width - filled {
+    bar.push(trough_char);
+  }
+  Span::styled(bar, fill)
+}
+
+/// One LlamaStash-style gauge line `LABEL ████░░░░ 42%`: label column, bar,
+/// then the value. The bar takes whatever width is left after the label and
+/// value (minimum 4 cells); values over 100% show as-is with a full bar.
+pub fn gauge_line<'a>(
+  label: String,
+  pct: f64,
+  value: String,
+  total_width: u16,
+  palette: Palette,
+  enhanced_graphics: bool,
+) -> Line<'a> {
+  let reserve = label.chars().count() + value.chars().count() + 1;
+  let bar_width = (total_width as usize).saturating_sub(reserve).max(4);
+  let ratio = if pct.is_finite() {
+    (pct / 100.0).clamp(0.0, 1.0)
+  } else {
+    0.0
+  };
+  Line::from(vec![
+    Span::styled(label, style_label(palette)),
+    gauge_bar_span(
+      pct,
+      bar_width,
+      gauge_fill_style(ratio, palette),
+      enhanced_graphics,
+    ),
+    Span::styled(format!(" {value}"), style_text(palette)),
+  ])
 }
 
 pub fn table_header_style(cells: Vec<&str>, palette: Palette) -> Row<'_> {
@@ -1099,6 +1150,36 @@ mod tests {
 
   use super::*;
   use crate::ui::theme::{palette_for, ThemeName};
+
+  #[test]
+  fn test_gauge_fill_style_tiers() {
+    let palette = palette_for(ThemeName::Macchiato);
+    assert_eq!(gauge_fill_style(0.0, palette), style_success(palette));
+    assert_eq!(gauge_fill_style(0.59, palette), style_success(palette));
+    assert_eq!(gauge_fill_style(0.6, palette), style_caution(palette));
+    assert_eq!(gauge_fill_style(0.84, palette), style_caution(palette));
+    assert_eq!(gauge_fill_style(0.85, palette), style_failure(palette));
+    assert_eq!(gauge_fill_style(1.0, palette), style_failure(palette));
+  }
+
+  #[test]
+  fn test_gauge_line_layout() {
+    let palette = palette_for(ThemeName::Macchiato);
+    // 20 cells total - "CPU  " (5) - " 50%" (4) = 11 bar cells, 6 filled
+    let line = gauge_line("CPU  ".into(), 50.0, "50%".into(), 20, palette, true);
+    let text: String = line.spans.iter().map(|s| s.content.as_ref()).collect();
+    assert_eq!(text, "CPU  ██████░░░░░ 50%");
+
+    // values over 100% keep their real number with a full bar
+    let line = gauge_line("Lim  ".into(), 250.0, "250%".into(), 20, palette, true);
+    let text: String = line.spans.iter().map(|s| s.content.as_ref()).collect();
+    assert_eq!(text, "Lim  ██████████ 250%");
+
+    // ascii fallback when enhanced graphics are off
+    let line = gauge_line("CPU  ".into(), 50.0, "50%".into(), 20, palette, false);
+    let text: String = line.spans.iter().map(|s| s.content.as_ref()).collect();
+    assert_eq!(text, "CPU  ######..... 50%");
+  }
 
   #[test]
   fn test_draw_resource_block() {

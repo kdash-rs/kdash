@@ -1,17 +1,16 @@
 use ratatui::{
   layout::{Constraint, Rect},
   text::{Line, Span, Text},
-  widgets::{Block, Borders, Cell, LineGauge, Paragraph, Row, Table},
+  widgets::{Block, Borders, Cell, Paragraph, Row, Table},
   Frame,
 };
 
 use super::{
   resource_tabs::draw_resource_tabs_block,
   utils::{
-    action_hint, gauge_fill_style, get_gauge_symbol, help_part, horizontal_chunks,
-    layout_block_default, layout_block_default_line, loading, mixed_bold_line, style_failure,
-    style_label, style_logo, style_primary, style_text, title_with_dual_style, vertical_chunks,
-    vertical_chunks_with_margin,
+    action_hint, gauge_line, help_part, horizontal_chunks, layout_block_default,
+    layout_block_default_line, loading, mixed_bold_line, style_failure, style_label, style_logo,
+    style_primary, style_text, title_with_dual_style, vertical_chunks, vertical_chunks_with_margin,
   },
 };
 use crate::{
@@ -164,29 +163,27 @@ fn draw_context_info_block(f: &mut Frame<'_>, app: &App, area: Rect) {
   let paragraph = Paragraph::new(text).block(Block::default());
   f.render_widget(paragraph, chunks[0]);
 
-  let ratio = get_nm_ratio(app.data.node_metrics.as_ref(), |nm| nm.cpu_percent);
-  let limited_ratio = if ratio > 1f64 { 1f64 } else { ratio };
+  let cpu_pct = get_nm_ratio(app.data.node_metrics.as_ref(), |nm| nm.cpu_percent) * 100.0;
+  let cpu_gauge = gauge_line(
+    "CPU    ".into(),
+    cpu_pct,
+    format!("{:.0}%", cpu_pct),
+    chunks[1].width,
+    app.palette,
+    app.enhanced_graphics,
+  );
+  f.render_widget(Paragraph::new(cpu_gauge), chunks[1]);
 
-  let cpu_gauge = LineGauge::default()
-    .block(Block::default().title(Span::styled("CPU:", style_label(app.palette))))
-    .filled_style(gauge_fill_style(ratio, app.palette))
-    .filled_symbol(get_gauge_symbol(app.enhanced_graphics))
-    .unfilled_symbol(get_gauge_symbol(app.enhanced_graphics))
-    .ratio(limited_ratio)
-    .label(Line::from(format!("{:.0}%", ratio * 100.0)));
-  f.render_widget(cpu_gauge, chunks[1]);
-
-  let ratio = get_nm_ratio(app.data.node_metrics.as_ref(), |nm| nm.mem_percent);
-  let limited_ratio = if ratio > 1f64 { 1f64 } else { ratio };
-
-  let mem_gauge = LineGauge::default()
-    .block(Block::default().title(Span::styled("Memory:", style_label(app.palette))))
-    .filled_style(gauge_fill_style(ratio, app.palette))
-    .filled_symbol(get_gauge_symbol(app.enhanced_graphics))
-    .unfilled_symbol(get_gauge_symbol(app.enhanced_graphics))
-    .ratio(limited_ratio)
-    .label(Line::from(format!("{:.0}%", ratio * 100.0)));
-  f.render_widget(mem_gauge, chunks[2]);
+  let mem_pct = get_nm_ratio(app.data.node_metrics.as_ref(), |nm| nm.mem_percent) * 100.0;
+  let mem_gauge = gauge_line(
+    "Memory ".into(),
+    mem_pct,
+    format!("{:.0}%", mem_pct),
+    chunks[2].width,
+    app.palette,
+    app.enhanced_graphics,
+  );
+  f.render_widget(Paragraph::new(mem_gauge), chunks[2]);
 }
 
 /// covert percent value from metrics to ratio that gauge can understand
