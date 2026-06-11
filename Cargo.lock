@@ -1407,9 +1407,9 @@ dependencies = [
 
 [[package]]
 name = "kubectl-view-allocations"
-version = "1.1.1"
+version = "3.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fc8a8aa2f66f02239e5396e8aaf1cca1aaa5b977fe52f2ad6c4a530a758f743"
+checksum = "d1e61a219488d43c95674cd7dd48a766fafb3b6e696fd5c54c609d6234ae5d72"
 dependencies = [
  "chrono",
  "clap",

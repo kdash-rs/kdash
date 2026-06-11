@@ -1,16 +1,8 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
-use k8s_openapi::api::core::v1::{Node, Pod};
-use kube::{
-  api::{ListParams, ObjectMeta},
-  Api,
-};
+use kube::api::ObjectMeta;
 use kubectl_view_allocations::{
-  extract_allocatable_from_nodes, extract_allocatable_from_pods,
-  extract_utilizations_from_pod_metrics, make_qualifiers,
-  metrics::{PodMetrics, Usage},
-  qty::Qty,
-  tree::provide_prefix,
+  collect_from_metrics, collect_from_nodes, collect_from_pods, make_qualifiers, qty::Qty,
   QtyByQualifier, Resource, UsedMode,
 };
 use ratatui::{
@@ -22,7 +14,7 @@ use ratatui::{
 use serde::{Deserialize, Serialize};
 use tokio::sync::MutexGuard;
 
-use super::{models::AppResource, utils, ActiveBlock, App};
+use super::{models::AppResource, tree::provide_prefix, utils, ActiveBlock, App};
 use crate::app::{key_binding::DEFAULT_KEYBINDING, models::FilterableTable};
 use crate::{
   network::Network,
@@ -33,6 +25,17 @@ use crate::{
     style_text, table_header_style, text_matches_filter, title_with_dual_style, vertical_chunks,
   },
 };
+
+/// One row of `make_qualifiers` output: qualifier path, summed quantities and
+/// the precomputed free quantity.
+pub type UtilizationQualifier = (Vec<String>, Option<QtyByQualifier>, Option<Qty>);
+
+// own copy since kubectl-view-allocations 3.x made its Usage type private
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Usage {
+  pub cpu: String,
+  pub memory: String,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeMetrics {
@@ -107,7 +110,9 @@ impl AppResource for UtilizationResource {
         .unwrap_or(&String::from("all")),
       app.data.metrics.count_label(),
     );
-    let group_by_value = format!(": {:?}", app.utilization_group_by);
+    // lowercase to keep the old `[resource, node, ...]` look now that the
+    // GroupBy variants are PascalCase
+    let group_by_value = format!(": {:?}", app.utilization_group_by).to_lowercase();
     let title = title_with_dual_style(
       left_title.clone(),
       {
@@ -154,7 +159,7 @@ impl AppResource for UtilizationResource {
       // Create the table
       let mut filtered_indices: Vec<usize> = Vec::new();
       let mut rows: Vec<Row<'_>> = vec![];
-      for (idx, ((k, oqtys), prefix)) in data.iter().zip(prefixes.iter()).enumerate() {
+      for (idx, ((k, oqtys, free), prefix)) in data.iter().zip(prefixes.iter()).enumerate() {
         if !utilization_matches_filter(&filter, k) {
           continue;
         }
@@ -178,7 +183,7 @@ impl AppResource for UtilizationResource {
             make_table_cell(&qtys.requested, &qtys.allocatable),
             make_table_cell(&qtys.limit, &qtys.allocatable),
             make_table_cell(&qtys.allocatable, &None),
-            make_table_cell(&qtys.calc_free(UsedMode::default()), &None),
+            make_table_cell(free, &None),
           ])
           .style(style);
           rows.push(row);
@@ -240,62 +245,46 @@ impl AppResource for UtilizationResource {
   async fn get_resource(nw: &Network<'_>) {
     let mut resources: Vec<Resource> = vec![];
 
-    // extract_allocatable_from_pods skips pods whose node is not listed, so
-    // collect every node name here — otherwise no requests/limits show up.
-    let mut node_names: Vec<String> = vec![];
-
-    let node_api: Api<Node> = Api::all(nw.client.clone());
-    match node_api.list(&ListParams::default()).await {
-      Ok(node_list) => {
-        node_names = node_list
-          .items
-          .iter()
-          .filter_map(|node| node.metadata.name.clone())
-          .collect();
-        if let Err(e) = extract_allocatable_from_nodes(node_list.items, &mut resources).await {
-          nw.handle_error(anyhow!("Failed to extract node allocation metrics. {}", e))
-            .await;
-        }
-      }
+    // collect_from_pods only counts pods scheduled on the given nodes, so
+    // collect_from_nodes' returned names must be passed through — otherwise
+    // no requests/limits show up.
+    let node_names = match collect_from_nodes(nw.client.clone(), &mut resources, &None, &None).await
+    {
+      Ok(names) => names,
       Err(e) => {
         nw.handle_error(anyhow!("Failed to extract node allocation metrics. {}", e))
-          .await
+          .await;
+        vec![]
       }
-    }
-
-    let pod_api: Api<Pod> = nw.get_namespaced_api().await;
-    match pod_api.list(&ListParams::default()).await {
-      Ok(pod_list) => {
-        if let Err(e) =
-          extract_allocatable_from_pods(pod_list.items, &mut resources, &node_names).await
-        {
-          nw.handle_error(anyhow!("Failed to extract pod allocation metrics. {}", e))
-            .await;
-        }
-      }
-      Err(e) => {
-        nw.handle_error(anyhow!("Failed to extract pod allocation metrics. {}", e))
-          .await
-      }
-    }
-
-    let api_pod_metrics: Api<PodMetrics> = Api::all(nw.client.clone());
-
-    match api_pod_metrics
-    .list(&ListParams::default())
-    .await
-    {
-      Ok(pod_metrics) => {
-        if let Err(e) = extract_utilizations_from_pod_metrics(pod_metrics, &mut resources).await {
-          nw.handle_error(anyhow!("Failed to extract pod utilization metrics. {}", e)).await;
-        }
-      }
-      Err(_e) => nw.handle_error(anyhow!("Failed to extract pod utilization metrics. Make sure you have a metrics-server deployed on your cluster.")).await,
     };
+
+    let namespaces: Vec<String> = {
+      let app = nw.app.lock().await;
+      app.data.selected.ns.clone().map(|ns| vec![ns]).unwrap_or_default()
+    };
+    if let Err(e) =
+      collect_from_pods(nw.client.clone(), &mut resources, &namespaces, &node_names).await
+    {
+      nw.handle_error(anyhow!("Failed to extract pod allocation metrics. {}", e))
+        .await;
+    }
+
+    if collect_from_metrics(nw.client.clone(), &mut resources)
+      .await
+      .is_err()
+    {
+      nw.handle_error(anyhow!("Failed to extract pod utilization metrics. Make sure you have a metrics-server deployed on your cluster.")).await;
+    }
 
     let mut app = nw.app.lock().await;
 
-    let data = make_qualifiers(&resources, &app.utilization_group_by, &[]);
+    let data = make_qualifiers(
+      &resources,
+      &app.utilization_group_by,
+      &[],
+      &[],
+      UsedMode::default(),
+    );
 
     app.data.metrics.set_items(data);
   }
@@ -314,7 +303,7 @@ const SUMMARY_MAX_ROWS: usize = 4;
 /// Cluster-wide percentages (vs allocatable) for each top-level resource kind
 /// (the first group-by level is always `resource`). cpu and memory come first,
 /// the rest keep data order, capped at [`SUMMARY_MAX_ROWS`].
-fn summary_rows(data: &[(Vec<String>, Option<QtyByQualifier>)]) -> Vec<UtilizationSummaryRow> {
+fn summary_rows(data: &[UtilizationQualifier]) -> Vec<UtilizationSummaryRow> {
   let pct = |oqty: &Option<Qty>, alloc: &Qty| -> f64 {
     oqty
       .as_ref()
@@ -324,8 +313,8 @@ fn summary_rows(data: &[(Vec<String>, Option<QtyByQualifier>)]) -> Vec<Utilizati
 
   let mut rows: Vec<UtilizationSummaryRow> = data
     .iter()
-    .filter(|(k, _)| k.len() == 1)
-    .filter_map(|(k, oqtys)| {
+    .filter(|(k, _, _)| k.len() == 1)
+    .filter_map(|(k, oqtys, _)| {
       let qtys = oqtys.as_ref()?;
       let alloc = qtys.allocatable.as_ref().filter(|qty| !qty.is_zero())?;
       Some(UtilizationSummaryRow {
@@ -494,28 +483,34 @@ mod tests {
       limit: &str,
       allocatable: Option<&str>,
     ) -> Option<QtyByQualifier> {
-      Some(QtyByQualifier {
-        utilization: Some(Qty::from_str(utilization).unwrap()),
-        requested: Some(Qty::from_str(requested).unwrap()),
-        limit: Some(Qty::from_str(limit).unwrap()),
-        allocatable: allocatable.map(|qty| Qty::from_str(qty).unwrap()),
-        ..QtyByQualifier::default()
-      })
+      // QtyByQualifier is #[non_exhaustive], so no struct literal
+      let mut qtys = QtyByQualifier::default();
+      qtys.utilization = Some(Qty::from_str(utilization).unwrap());
+      qtys.requested = Some(Qty::from_str(requested).unwrap());
+      qtys.limit = Some(Qty::from_str(limit).unwrap());
+      qtys.allocatable = allocatable.map(|qty| Qty::from_str(qty).unwrap());
+      Some(qtys)
     }
 
     let data = vec![
       (
         vec!["memory".to_string()],
         qtys("2Gi", "4Gi", "8Gi", Some("16Gi")),
+        None,
       ),
       // children are ignored, only top-level rows are summarised
       (
         vec!["memory".to_string(), "node-1".to_string()],
         qtys("2Gi", "4Gi", "8Gi", Some("16Gi")),
+        None,
       ),
-      (vec!["cpu".to_string()], qtys("500m", "1", "2", Some("4"))),
+      (
+        vec!["cpu".to_string()],
+        qtys("500m", "1", "2", Some("4")),
+        None,
+      ),
       // rows without allocatable are skipped
-      (vec!["pods".to_string()], qtys("0", "10", "10", None)),
+      (vec!["pods".to_string()], qtys("0", "10", "10", None), None),
     ];
 
     let rows = summary_rows(&data);

@@ -25,13 +25,14 @@ pub(crate) mod serviceaccounts;
 pub(crate) mod statefulsets;
 pub(crate) mod storageclass;
 pub(crate) mod svcs;
+pub(crate) mod tree;
 pub(crate) mod troubleshoot;
 pub(crate) mod utils;
 
 use anyhow::anyhow;
 use chrono::Local;
 use kube::config::Kubeconfig;
-use kubectl_view_allocations::{GroupBy, QtyByQualifier};
+use kubectl_view_allocations::GroupBy;
 use log::{error, info};
 use ratatui::layout::Rect;
 use std::collections::VecDeque;
@@ -217,7 +218,7 @@ pub struct Data {
   pub node_metrics: Vec<KubeNodeMetrics>,
   pub logs: LogsState,
   pub describe_out: ScrollableTxt,
-  pub metrics: StatefulTable<(Vec<String>, Option<QtyByQualifier>)>,
+  pub metrics: StatefulTable<metrics::UtilizationQualifier>,
   pub troubleshoot_findings: StatefulTable<troubleshoot::DisplayFinding>,
   pub namespaces: StatefulTable<KubeNs>,
   pub nodes: StatefulTable<KubeNode>,
@@ -577,10 +578,10 @@ impl Default for App {
 impl App {
   fn default_utilization_group_by() -> Vec<GroupBy> {
     vec![
-      GroupBy::resource,
-      GroupBy::node,
-      GroupBy::namespace,
-      GroupBy::pod,
+      GroupBy::Resource,
+      GroupBy::Node,
+      GroupBy::Namespace,
+      GroupBy::Pod,
     ]
   }
 

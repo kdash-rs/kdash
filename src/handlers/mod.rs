@@ -1184,10 +1184,10 @@ async fn handle_route_events(key: Key, app: &mut App) {
       } else if key == DEFAULT_KEYBINDING.cycle_group_by.key {
         if app.utilization_group_by.len() == 1 {
           app.utilization_group_by = vec![
-            GroupBy::resource,
-            GroupBy::node,
-            GroupBy::namespace,
-            GroupBy::pod,
+            GroupBy::Resource,
+            GroupBy::Node,
+            GroupBy::Namespace,
+            GroupBy::Pod,
           ];
         } else {
           // keep removing items until just one is left

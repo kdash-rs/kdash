@@ -606,19 +606,20 @@ mod tests {
     app.push_navigation_stack(RouteId::Utilization, ActiveBlock::Utilization);
 
     let qtys = |utilization: &str, requested: &str, limit: &str, allocatable: &str| {
-      Some(QtyByQualifier {
-        utilization: Some(Qty::from_str(utilization).unwrap()),
-        requested: Some(Qty::from_str(requested).unwrap()),
-        limit: Some(Qty::from_str(limit).unwrap()),
-        allocatable: Some(Qty::from_str(allocatable).unwrap()),
-        ..QtyByQualifier::default()
-      })
+      // QtyByQualifier is #[non_exhaustive], so no struct literal
+      let mut qtys = QtyByQualifier::default();
+      qtys.utilization = Some(Qty::from_str(utilization).unwrap());
+      qtys.requested = Some(Qty::from_str(requested).unwrap());
+      qtys.limit = Some(Qty::from_str(limit).unwrap());
+      qtys.allocatable = Some(Qty::from_str(allocatable).unwrap());
+      Some(qtys)
     };
     app.data.metrics.set_items(vec![
-      (vec!["cpu".to_string()], qtys("500m", "1", "2", "4")),
+      (vec!["cpu".to_string()], qtys("500m", "1", "2", "4"), None),
       (
         vec!["memory".to_string()],
         qtys("2Gi", "4Gi", "8Gi", "16Gi"),
+        None,
       ),
     ]);
 
