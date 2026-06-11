@@ -116,6 +116,17 @@ impl fmt::Display for HContext {
   }
 }
 
+impl HContext {
+  /// Section heading shown on the help page.
+  fn label(self) -> &'static str {
+    match self {
+      HContext::General => "General",
+      HContext::Overview => "Resource Views",
+      HContext::Utilization => "Utilization",
+    }
+  }
+}
+
 #[derive(Clone)]
 pub struct KeyBinding {
   pub key: Key,
@@ -452,22 +463,39 @@ pub fn initialize_keybindings(config: &KdashConfig) -> Vec<String> {
   warnings
 }
 
-pub fn get_help_docs() -> Vec<Vec<String>> {
-  let items = DEFAULT_KEYBINDING.as_iter();
-
-  items.iter().map(|it| help_row(it)).collect()
+/// A help-page section: a context-group title plus its `(keys, description)`
+/// rows. Drives the grouped, multi-column help page.
+pub struct HelpSection {
+  pub title: &'static str,
+  pub rows: Vec<(String, String)>,
 }
 
-fn help_row(item: &KeyBinding) -> Vec<String> {
-  vec![
-    if let Some(alt) = item.alt {
-      format!("{} | {}", item.key, alt)
-    } else {
-      item.key.to_string()
-    },
-    String::from(item.desc),
-    item.context.to_string(),
-  ]
+/// Build the help-page contents grouped by keybinding context, in display order.
+/// Empty groups are dropped.
+pub fn get_help_sections() -> Vec<HelpSection> {
+  let items = DEFAULT_KEYBINDING.as_iter();
+  [HContext::General, HContext::Overview, HContext::Utilization]
+    .into_iter()
+    .filter_map(|ctx| {
+      let rows: Vec<(String, String)> = items
+        .iter()
+        .filter(|b| b.context == ctx)
+        .map(|b| (key_label(b), b.desc.to_string()))
+        .collect();
+      (!rows.is_empty()).then_some(HelpSection {
+        title: ctx.label(),
+        rows,
+      })
+    })
+    .collect()
+}
+
+/// Compact glyph keys for a binding, e.g. `Ctrl+c,q` or `↑,k`.
+fn key_label(item: &KeyBinding) -> String {
+  match item.alt {
+    Some(alt) => format!("{},{}", item.key.symbol(), alt.symbol()),
+    None => item.key.symbol(),
+  }
 }
 
 #[cfg(test)]

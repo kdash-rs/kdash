@@ -1,8 +1,8 @@
-KDash - A simple Kubernetes dashboard                                                                                                                        v1.1.2 with ♥ in Rust  
+KDash v1.1.2 · ● k3d-mycluster · ◐ macchiato                                                    char:block · ↑/↓:scroll · ⏎:select · ?:help · ↹/⇧↹/→/←:tabs · t:theme · Ctrl+c:quit 
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ Active Context │ All Contexts <C> │ Utilization <U> │ Troubleshoot <T>    help <?> · <Tab>/<←>/<→> switch tabs · <char> select block · <↑>/<↓> scroll · <Enter> select · filter <│
+│ Active Context │ C:All Contexts │ U:Utilization │ T:Troubleshoot                                                                                                                 │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-┌ Namespaces <n> · all: <a> · filter </> ───┐┌ Context Info toggle <i> ───────────────────────────────────────────────────────────────┐┌ CLI Info ──────────────────┐┌ theme <t> ──┐
+┌ Namespaces n:select · a:all · /:filter ───┐┌ Context Info i:toggle ─────────────────────────────────────────────────────────────────┐┌ CLI Info ──────────────────┐┌─────────────┐
 │   Name                   Status           ││Context: k3d-mycluster                                                                  ││kubectl client v1.35.3      ││             │
 │=> default                Active           ││Cluster: k3d-mycluster                                                                  ││kubectl server v1.33.6+k3s1 ││██╗  ██╗     │
 │   kdash-demo             Active           ││User: admin@k3d-mycluster                                                               ││docker         v29.3.1      ││██║ ██╔╝     │
@@ -12,10 +12,10 @@ KDash - A simple Kubernetes dashboard                                           
 │   kube-public            Active           ││1% ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━││istioctl       Not found    ││╚═╝  ╚═╝     │
 └───────────────────────────────────────────┘└────────────────────────────────────────────────────────────────────────────────────────┘└────────────────────────────┘└─────────────┘
 ┌ Resources ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ Pods [20] │ Services [4] <2> │ Nodes [1] <3> │ ConfigMaps [15] <4> │ StatefulSets <5> │ ReplicaSets [6] <6> │ Deployments [6] <7> │ Jobs [2] <8> │ DaemonSets [1] <9>           ›│
+│ Pods [20] │ 2:Services [4] │ 3:Nodes [1] │ 4:ConfigMaps [15] │ 5:StatefulSets │ 6:ReplicaSets [6] │ 7:Deployments [6] │ 8:Jobs [2] │ 9:DaemonSets [1] │ 0:More │ -:Dynamic       │
 │──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
 │                                                                                                                                                                                  │
-│ Pods (ns: all) [20] containers <Enter> · filter </> · describe <d> · yaml <y> · menu <m> · logs <L>  · wide <w>──────────────────────────────────────────────────────────────────│
+│ Pods (ns: all) [20] ⏎:containers · /:filter · d:describe · y:yaml · m:menu · L:logs  · w:wide────────────────────────────────────────────────────────────────────────────────────│
 │   Namespace                           Name                                  Ready          Status            Restarts      Node                  IP                Age           │
 │=> default                             bad-image                             0/1            ImagePullBackOff  0                                                     4d21h         │
 │   default                             kdash-test-multi-6bccdcf865-hrr8t     2/2            Running           0                                                     4d4h          │

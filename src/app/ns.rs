@@ -19,7 +19,7 @@ use crate::{
   network::Network,
   ui::{
     utils::{
-      filter_by_resource_name, filter_cursor_position, filter_status_parts, help_part,
+      action_hint, filter_by_resource_name, filter_cursor_position, filter_status_parts, help_part,
       layout_block_default_line, loading, mixed_bold_line, style_highlight, style_secondary,
       style_text, table_header_style, title_with_dual_style,
     },
@@ -142,10 +142,10 @@ impl AppResource for NamespaceResource {
         " Namespaces ".to_string(),
         mixed_bold_line(
           [help_part(format!(
-            "{} · all: {} · filter {} ",
-            DEFAULT_KEYBINDING.jump_to_namespace.key,
-            DEFAULT_KEYBINDING.select_all_namespace.key,
-            DEFAULT_KEYBINDING.filter.key
+            "{} · {} · {} ",
+            action_hint("select", DEFAULT_KEYBINDING.jump_to_namespace.key),
+            action_hint("all", DEFAULT_KEYBINDING.select_all_namespace.key),
+            action_hint("filter", DEFAULT_KEYBINDING.filter.key)
           ))],
           app.palette,
         ),
@@ -154,8 +154,10 @@ impl AppResource for NamespaceResource {
     };
     let mut block = layout_block_default_line(title, app.palette);
 
+    // Focused pane gets a secondary (yellow) border; unfocused keeps the
+    // accent (mauve) border from layout_block_default_line.
     if app.get_current_route().active_block == ActiveBlock::Namespaces {
-      block = block.style(style_secondary(app.palette))
+      block = block.border_style(style_secondary(app.palette))
     }
 
     if !app.data.namespaces.items.is_empty() {
@@ -346,6 +348,6 @@ mod tests {
       .map(|col| terminal.backend().buffer()[(col, 0)].symbol())
       .collect::<String>();
 
-    assert!(first_line.contains("[prod] · clear <Esc>"));
+    assert!(first_line.contains("[prod] · Esc:clear"));
   }
 }

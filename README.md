@@ -189,10 +189,12 @@ default_theme: gruvbox-dark # macchiato | latte | gruvbox-dark | solarized-dark 
 The semantic colour roles are: panel borders use `primary` (the focused panel's
 border uses a brighter `highlight` tone), panel titles use `secondary`, inactive tabs
 and help/hint text use `muted`, table column labels use `label`/blue, and body text
-uses `text`. Table rows are coloured by status: healthy/active (e.g. pod `Running`,
-node `Ready`, bound volumes) → `success`/green, transitional (`Completed`, `Pending`,
-`<pending>`) → `warning`/amber, failures (`CrashLoopBackOff`, `Error`, `NotReady`,
-`Lost`/`Failed`) → `failure`/red, and rows without a status → `text`.
+uses `text`. The title bar paints text in `on_accent` over the `accent` bar. Table
+rows are coloured by status: healthy/active (e.g. pod `Running`, node `Ready`, bound
+volumes) → `success`/green, finished (`Completed`/`Succeeded`) → `muted`/dim,
+in-progress (`Pending`, `ContainerCreating`, `<pending>`) → `warning`/amber, failures
+(`CrashLoopBackOff`, `Error`, `NotReady`, `Lost`/`Failed`) → `failure`/red, and rows
+without a status → `text`.
 
 Define a full `custom` theme that joins the cycle. Every slot is optional and falls
 back to `base` (default `macchiato`):

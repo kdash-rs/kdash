@@ -131,6 +131,10 @@ pub struct Palette {
   pub error: Color,
   /// Focused/active panel border tone (gold/amber on catppuccin).
   pub highlight: Color,
+  /// Text colour for content drawn over the `accent` bar (the title row).
+  /// A dedicated slot because `bg` is `Reset` on Mono and would render as the
+  /// terminal default (light) over the white accent bar — i.e. invisible.
+  pub on_accent: Color,
 }
 
 impl Palette {
@@ -163,6 +167,7 @@ const MACCHIATO: Palette = Palette {
   warning: Color::Rgb(0xF5, 0xA9, 0x7F),
   error: Color::Rgb(0xED, 0x87, 0x96),
   highlight: Color::Rgb(0xEE, 0xD4, 0x9F),
+  on_accent: Color::Rgb(0x24, 0x27, 0x3A),
 };
 
 // Catppuccin Latte — https://catppuccin.com/palette
@@ -179,6 +184,7 @@ const LATTE: Palette = Palette {
   warning: Color::Rgb(0xFE, 0x64, 0x0B),
   error: Color::Rgb(0xD2, 0x0F, 0x39),
   highlight: Color::Rgb(0xDF, 0x8E, 0x1D),
+  on_accent: Color::Rgb(0xEF, 0xF1, 0xF5),
 };
 
 // Gruvbox Dark (hard) — https://github.com/morhetz/gruvbox
@@ -195,6 +201,7 @@ const GRUVBOX_DARK: Palette = Palette {
   warning: Color::Rgb(0xFA, 0xBD, 0x2F),
   error: Color::Rgb(0xFB, 0x49, 0x34),
   highlight: Color::Rgb(0xFA, 0xBD, 0x2F),
+  on_accent: Color::Rgb(0x1D, 0x20, 0x21),
 };
 
 // Solarized Dark — https://ethanschoonover.com/solarized
@@ -211,6 +218,7 @@ const SOLARIZED_DARK: Palette = Palette {
   warning: Color::Rgb(0xB5, 0x89, 0x00),
   error: Color::Rgb(0xDC, 0x32, 0x2F),
   highlight: Color::Rgb(0xB5, 0x89, 0x00),
+  on_accent: Color::Rgb(0x00, 0x2B, 0x36),
 };
 
 // Monochrome — relies on glyph cues plus bold/reverse modifiers since colour
@@ -229,6 +237,7 @@ const MONO: Palette = Palette {
   warning: Color::Gray,
   error: Color::White,
   highlight: Color::Reset,
+  on_accent: Color::Black,
 };
 
 /// Resolve a [`ThemeName`] to its concrete [`Palette`]. `Custom` resolves to
@@ -266,6 +275,9 @@ pub struct CustomThemeConfig {
   pub warning: Option<String>,
   pub error: Option<String>,
   pub highlight: Option<String>,
+  /// Text colour over the `accent` title bar. Defaults to the base theme's
+  /// value — set this if a custom `accent` leaves the title bar low-contrast.
+  pub on_accent: Option<String>,
 }
 
 impl CustomThemeConfig {
@@ -321,6 +333,12 @@ impl CustomThemeConfig {
       &mut palette.highlight,
       &mut warnings,
     );
+    apply(
+      &self.on_accent,
+      "on_accent",
+      &mut palette.on_accent,
+      &mut warnings,
+    );
 
     (palette, warnings)
   }
@@ -362,6 +380,7 @@ const THEME_KEYS: &[&str] = &[
   "help",
   "label",
   "highlight",
+  "on_accent",
   "background",
 ];
 
@@ -399,6 +418,7 @@ pub fn apply_legacy_overrides(palette: &mut Palette) {
       "help" => palette.muted = *color,
       "label" => palette.label = *color,
       "highlight" => palette.highlight = *color,
+      "on_accent" => palette.on_accent = *color,
       "background" => palette.bg = *color,
       _ => {}
     }

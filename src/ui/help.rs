@@ -1,122 +1,143 @@
 use ratatui::{
-  layout::{Constraint, Rect},
-  widgets::{Row, Table},
+  layout::{Constraint, Direction, Layout, Rect},
+  style::Modifier,
+  text::{Line, Span},
+  widgets::{Block, Borders, Padding, Paragraph, Wrap},
   Frame,
 };
 
-use super::{
-  utils::{
-    default_part, filter_cursor_position, filter_status_parts, help_part, layout_block_active_line,
-    mixed_bold_line, style_highlight, style_label, style_text, text_matches_filter,
-    vertical_chunks,
-  },
-  HIGHLIGHT,
+use super::utils::{
+  help_part, key_hints, mixed_bold_line, style_label, style_primary, style_secondary, style_text,
+  title_with_dual_style,
 };
-use crate::app::{key_binding::DEFAULT_KEYBINDING, models::FilterableTable, App};
+use crate::app::{
+  key_binding::{get_help_sections, HelpSection, DEFAULT_KEYBINDING},
+  App,
+};
+use crate::ui::theme::Palette;
 
+/// Full-page help: keybindings grouped by context into balanced columns,
+/// scrollable with up/down. Layout is derived entirely from the keymap.
 pub fn draw_help(f: &mut Frame<'_>, app: &mut App, area: Rect) {
-  let chunks = vertical_chunks(vec![Constraint::Percentage(100)], area);
+  let palette = app.palette;
+  let sections = get_help_sections();
 
-  // Create a one-column table to avoid flickering due to non-determinism when
-  // resolving constraints on widths of table columns.
-  let format_row =
-    |r: &Vec<String>| -> Vec<String> { vec![format!("{:50}{:40}{:20}", r[0], r[1], r[2])] };
+  let hint = mixed_bold_line(
+    [help_part(format!(
+      "{}:scroll · {}:back ",
+      key_hints(&[DEFAULT_KEYBINDING.up.key, DEFAULT_KEYBINDING.down.key]),
+      DEFAULT_KEYBINDING.esc.key.symbol(),
+    ))],
+    palette,
+  );
+  let block = Block::default()
+    .borders(Borders::ALL)
+    .border_style(style_secondary(palette))
+    .title(title_with_dual_style(" Help ".to_string(), hint, palette))
+    .padding(Padding::new(2, 2, 1, 1));
+  let inner = block.inner(area);
+  f.render_widget(block, area);
 
-  let header = ["Key", "Action", "Context"];
-  let header = format_row(&header.iter().map(|s| s.to_string()).collect());
-
-  let title = format!(" Help [{}] ", app.help_docs.count_label());
-  let mut title_parts = vec![default_part(&title)];
-  title_parts.extend(filter_status_parts(
-    &app.help_docs.filter,
-    app.help_docs.filter_active,
-  ));
-  if !app.help_docs.filter_active {
-    title_parts.push(help_part(format!(
-      " · back {} ",
-      DEFAULT_KEYBINDING.esc.key
-    )));
+  if inner.width == 0 || inner.height == 0 {
+    return;
   }
 
-  let filter = app.help_docs.filter.to_lowercase();
-  let has_filter = !filter.is_empty();
-  let mut filtered_indices = Vec::new();
-  let rows: Vec<_> = app
-    .help_docs
-    .items
+  let n_cols = if inner.width >= 110 {
+    3
+  } else if inner.width >= 70 {
+    2
+  } else {
+    1
+  };
+  let columns = balance_into_columns(&sections, n_cols);
+
+  // Clamp the scroll offset to the tallest column (estimated; wrapped
+  // descriptions may add a little, which the common full-height page absorbs).
+  let tallest = columns
     .iter()
-    .enumerate()
-    .filter_map(|(idx, item)| {
-      if !help_doc_matches_filter(&filter, item) {
-        return None;
-      }
-      if has_filter {
-        filtered_indices.push(idx);
-      }
+    .map(|col| col.iter().copied().map(section_height).sum::<usize>())
+    .max()
+    .unwrap_or(0) as u16;
+  app.help_scroll = app.help_scroll.min(tallest.saturating_sub(inner.height));
+  let scroll_y = app.help_scroll;
 
-      Some(Row::new(format_row(item)).style(style_text(app.palette)))
-    })
+  let constraints: Vec<Constraint> = (0..n_cols)
+    .map(|_| Constraint::Ratio(1, n_cols as u32))
     .collect();
+  let cols = Layout::default()
+    .direction(Direction::Horizontal)
+    .constraints(constraints)
+    .split(inner);
 
-  if has_filter {
-    let max = filtered_indices.len().saturating_sub(1);
-    if let Some(sel) = app.help_docs.state.selected() {
-      if sel > max {
-        app.help_docs.state.select(Some(max));
-      }
-    }
-  }
-  app.help_docs.filtered_indices = filtered_indices;
-
-  let help_menu = Table::new(rows, [Constraint::Percentage(100)])
-    .header(
-      Row::new(header)
-        .style(style_label(app.palette))
-        .bottom_margin(0),
-    )
-    .block(layout_block_active_line(
-      mixed_bold_line(title_parts, app.palette),
-      app.palette,
-    ))
-    .row_highlight_style(style_highlight())
-    .highlight_symbol(HIGHLIGHT);
-  f.render_stateful_widget(help_menu, chunks[0], &mut app.help_docs.state);
-
-  if app.help_docs.filter_active {
-    f.set_cursor_position(filter_cursor_position(
-      area,
-      title.chars().count() + 1,
-      &app.help_docs.filter,
-    ));
+  for (i, col_sections) in columns.iter().enumerate() {
+    f.render_widget(
+      Paragraph::new(render_column(col_sections, palette))
+        .wrap(Wrap { trim: false })
+        .scroll((scroll_y, 0)),
+      cols[i],
+    );
   }
 }
 
-fn help_doc_matches_filter(filter: &str, item: &[String]) -> bool {
-  item.iter().any(|value| text_matches_filter(filter, value))
+/// Rows a section occupies: title + one per binding + a trailing blank.
+fn section_height(section: &HelpSection) -> usize {
+  section.rows.len() + 2
+}
+
+/// Greedily pack sections into `n` columns, always extending the shortest one.
+fn balance_into_columns(sections: &[HelpSection], n: usize) -> Vec<Vec<&HelpSection>> {
+  let mut columns: Vec<Vec<&HelpSection>> = vec![Vec::new(); n];
+  let mut heights = vec![0usize; n];
+  for section in sections {
+    let target = heights
+      .iter()
+      .enumerate()
+      .min_by_key(|(_, &h)| h)
+      .map(|(i, _)| i)
+      .unwrap_or(0);
+    columns[target].push(section);
+    heights[target] += section_height(section);
+  }
+  columns
+}
+
+/// Render a column's sections to styled lines: accent-bold heading, then
+/// `keys` (blue) + description (text) per binding.
+fn render_column(sections: &[&HelpSection], palette: Palette) -> Vec<Line<'static>> {
+  let mut out: Vec<Line<'static>> = Vec::new();
+  for section in sections {
+    out.push(Line::from(Span::styled(
+      section.title.to_string(),
+      style_primary(palette).add_modifier(Modifier::BOLD),
+    )));
+    for (keys, desc) in &section.rows {
+      out.push(Line::from(vec![
+        Span::styled(format!("  {:<10} ", keys), style_label(palette)),
+        Span::styled(desc.clone(), style_text(palette)),
+      ]));
+    }
+    out.push(Line::default());
+  }
+  out
 }
 
 #[cfg(test)]
 mod tests {
-  use ratatui::{backend::TestBackend, style::Modifier, Terminal};
+  use ratatui::{backend::TestBackend, Terminal};
 
   use super::*;
   use crate::ui::theme::{palette_for, ThemeName};
 
-  #[test]
-  fn test_draw_help() {
-    let backend = TestBackend::new(100, 7);
+  fn render(width: u16, height: u16) -> (Vec<String>, ratatui::buffer::Buffer) {
+    let backend = TestBackend::new(width, height);
     let mut terminal = Terminal::new(backend).unwrap();
-    let p = palette_for(ThemeName::Macchiato);
-
     terminal
       .draw(|f| {
-        let size = f.area();
         let mut app = App::default();
-        draw_help(f, &mut app, size);
+        draw_help(f, &mut app, f.area());
       })
       .unwrap();
-
-    let buffer = terminal.backend().buffer();
+    let buffer = terminal.backend().buffer().clone();
     let lines: Vec<String> = (0..buffer.area.height)
       .map(|row| {
         (0..buffer.area.width)
@@ -124,59 +145,35 @@ mod tests {
           .collect::<String>()
       })
       .collect();
-
-    assert_eq!(
-      lines,
-      vec![
-        "┌ Help [48] filter </> · back <Esc> ───────────────────────────────────────────────────────────────┐",
-        "│   Key                                               Action                                  Conte│",
-        "│=> <Ctrl+c> | <q>                                    Quit                                    Gener│",
-        "│   <Esc>                                             Close child page/Go back                Gener│",
-        "│   <?>                                               Help page                               Gener│",
-        "│   <Enter>                                           Select table row                        Gener│",
-        "└──────────────────────────────────────────────────────────────────────────────────────────────────┘",
-      ]
-    );
-
-    // Border corners use the focused/highlight tone.
-    assert_eq!(buffer[(0, 0)].fg, p.highlight);
-    // Title text (default part) → fg, bold.
-    assert_eq!(buffer[(1, 0)].fg, p.fg);
-    assert!(buffer[(1, 0)].modifier.contains(Modifier::BOLD));
-    // Hints → muted, bold.
-    assert_eq!(buffer[(12, 0)].fg, p.muted);
-    assert!(buffer[(12, 0)].modifier.contains(Modifier::BOLD));
-    assert_eq!(buffer[(23, 0)].fg, p.muted);
-    assert!(buffer[(23, 0)].modifier.contains(Modifier::BOLD));
-    // Selected data row → text + reversed.
-    assert_eq!(buffer[(1, 2)].fg, p.fg);
-    assert!(buffer[(1, 2)].modifier.contains(Modifier::REVERSED));
-    assert_eq!(buffer[(1, 3)].fg, p.fg);
-    assert_eq!(buffer[(99, 6)].fg, p.highlight);
+    (lines, buffer)
   }
 
   #[test]
-  fn test_draw_help_hides_close_hint_while_filtering() {
-    let backend = TestBackend::new(100, 7);
-    let mut terminal = Terminal::new(backend).unwrap();
+  fn test_draw_help_renders_grouped_sections() {
+    let (lines, _) = render(160, 40);
+    let joined = lines.join("\n");
 
-    terminal
-      .draw(|f| {
-        let size = f.area();
-        let mut app = App::default();
-        app.help_docs.filter_active = true;
-        app.help_docs.filter = "pod".into();
-        app.help_docs.filtered_indices = vec![2];
-        draw_help(f, &mut app, size);
-      })
-      .unwrap();
+    // Panel title + the three context group headings.
+    assert!(joined.contains("Help"));
+    assert!(joined.contains("General"));
+    assert!(joined.contains("Resource Views"));
+    assert!(joined.contains("Utilization"));
 
-    let buffer = terminal.backend().buffer();
-    let first_line: String = (0..buffer.area.width)
-      .map(|col| buffer[(col, 0)].symbol())
-      .collect();
+    // A representative binding with its glyph keys and description.
+    assert!(joined.contains("Cycle through main views"));
+    assert!(joined.contains("Ctrl+c,q"));
+    // Scroll/back hint in the title.
+    assert!(joined.contains("Esc:back"));
+  }
 
-    assert!(first_line.contains("Help [1/48] [pod] · clear <Esc>"));
-    assert!(!first_line.contains("back <Esc>"));
+  #[test]
+  fn test_draw_help_colours() {
+    let (_, buffer) = render(160, 40);
+    let p = palette_for(ThemeName::Macchiato);
+
+    // Border + " Help " title → secondary.
+    assert_eq!(buffer[(0, 0)].fg, p.secondary);
+    assert_eq!(buffer[(2, 0)].fg, p.secondary);
+    assert!(buffer[(2, 0)].modifier.contains(Modifier::BOLD));
   }
 }

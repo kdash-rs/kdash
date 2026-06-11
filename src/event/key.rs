@@ -93,6 +93,38 @@ impl Key {
       _ => panic!("unknown function key: F{}", n),
     }
   }
+
+  /// Compact glyph form for `key:label` hints — no angle brackets.
+  /// Uses universal Unicode key glyphs (`↹`, `⇧↹`, `⏎`, `←→↑↓`) so the
+  /// rendered hints match across platforms (fixtures stay stable).
+  pub fn symbol(&self) -> String {
+    match self {
+      Key::Char(' ') => "Space".into(),
+      Key::Char(c) => c.to_string(),
+      Key::Ctrl(c) => format!("Ctrl+{}", c),
+      Key::Alt(c) => format!("Alt+{}", c),
+      Key::Shift(' ') => "Shift+Space".into(),
+      Key::Shift(c) => c.to_ascii_uppercase().to_string(),
+      Key::Enter => "⏎".into(),
+      Key::Tab => "↹".into(),
+      Key::BackTab => "⇧↹".into(),
+      Key::Esc => "Esc".into(),
+      Key::Backspace => "Backspace".into(),
+      Key::Left => "←".into(),
+      Key::Right => "→".into(),
+      Key::Up => "↑".into(),
+      Key::Down => "↓".into(),
+      Key::Ins => "Ins".into(),
+      Key::Delete => "Del".into(),
+      Key::Home => "Home".into(),
+      Key::End => "End".into(),
+      Key::PageUp => "PgUp".into(),
+      Key::PageDown => "PgDn".into(),
+      Key::Unknown => "?".into(),
+      // F0–F12 — Debug renders as `F3`, etc.
+      other => format!("{:?}", other),
+    }
+  }
 }
 
 impl fmt::Display for Key {

@@ -164,6 +164,7 @@ impl<T> StatefulTable<T> {
     }
   }
 
+  #[cfg(test)]
   pub fn with_items(items: Vec<T>) -> StatefulTable<T> {
     let mut table = StatefulTable::new();
     if !items.is_empty() {

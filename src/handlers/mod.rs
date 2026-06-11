@@ -193,9 +193,11 @@ pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
       }
       _ if key == DEFAULT_KEYBINDING.toggle_theme.key => {
         app.cycle_theme();
+        app.set_status_message(format!("Theme: {}", app.palette.name));
       }
       _ if key == DEFAULT_KEYBINDING.cycle_theme_prev.key => {
         app.cycle_theme_prev();
+        app.set_status_message(format!("Theme: {}", app.palette.name));
       }
       _ if key == DEFAULT_KEYBINDING.toggle_wide_columns.key => {
         app.wide_columns = !app.wide_columns;
@@ -208,6 +210,7 @@ pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
       }
       _ if key == DEFAULT_KEYBINDING.help.key => {
         if app.get_current_route().active_block != ActiveBlock::Help {
+          app.help_scroll = 0;
           app.push_navigation_stack(RouteId::HelpMenu, ActiveBlock::Help);
         }
       }
@@ -692,10 +695,14 @@ fn handle_escape(app: &mut App) {
         app.pop_navigation_stack();
       }
       _ => {
-        if let ActiveBlock::More = app.get_prev_route().active_block {
-          app.pop_navigation_stack();
-        }
-        if let ActiveBlock::DynamicView = app.get_prev_route().active_block {
+        // A resource opened from the More / Dynamic picker sits on top of that
+        // menu route, so Esc returns to the picker. Evaluate the prev route
+        // exactly once — re-reading it after a pop made stacked menus pop twice
+        // (e.g. landing on the Dynamic menu after picking from More).
+        if matches!(
+          app.get_prev_route().active_block,
+          ActiveBlock::More | ActiveBlock::DynamicView
+        ) {
           app.pop_navigation_stack();
         }
       }
@@ -1479,7 +1486,18 @@ async fn handle_block_scroll(app: &mut App, event: ScrollEvent, is_mouse: bool) 
       ActiveBlock::Contexts => app.data.contexts.handle_scroll(event),
       ActiveBlock::Utilization => app.data.metrics.handle_scroll(event),
       ActiveBlock::Troubleshoot => app.data.troubleshoot_findings.handle_scroll(event),
-      ActiveBlock::Help => app.help_docs.handle_scroll(event),
+      ActiveBlock::Help => {
+        // Grouped help is a scrolled paragraph; the offset is clamped to the
+        // content height at render time.
+        app.help_scroll = match event {
+          ScrollEvent::Absolute(n) => n.clamp(0, u16::MAX as isize) as u16,
+          ScrollEvent::Relative(delta) if delta < 0 => {
+            app.help_scroll.saturating_sub(delta.unsigned_abs() as u16)
+          }
+          ScrollEvent::Relative(delta) => app.help_scroll.saturating_add(delta as u16),
+          ScrollEvent::End => u16::MAX,
+        };
+      }
       ActiveBlock::More => {
         let filtered_len = filter_menu_items(&app.more_resources_menu.items, &app.menu_filter).len();
         handle_menu_scroll(&mut app.more_resources_menu, event, filtered_len);
@@ -2711,30 +2729,21 @@ mod tests {
   }
 
   #[tokio::test]
-  async fn test_help_filter_key_flow() {
+  async fn test_help_scroll_keys_adjust_offset() {
     let mut app = App::default();
     app.push_navigation_stack(RouteId::HelpMenu, ActiveBlock::Help);
-    assert!(!app.help_docs.filter_active);
-    assert!(app.help_docs.filter.is_empty());
+    assert_eq!(app.help_scroll, 0);
 
-    let key_evt = KeyEvent::from(KeyCode::Char('/'));
-    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
-    assert!(app.help_docs.filter_active);
+    // Down scrolls; clamped-to-zero saturating-sub on up.
+    let down = KeyEvent::from(KeyCode::Down);
+    handle_key_events(Key::from(down), down, &mut app).await;
+    assert_eq!(app.help_scroll, 1);
 
-    for c in ['h', 'e', 'l', 'p'] {
-      let key_evt = KeyEvent::from(KeyCode::Char(c));
-      handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
-    }
-    assert_eq!(app.help_docs.filter, "help");
-
-    let key_evt = KeyEvent::from(KeyCode::Esc);
-    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
-    assert!(app.help_docs.filter_active);
-    assert!(app.help_docs.filter.is_empty());
-
-    let key_evt = KeyEvent::from(KeyCode::Esc);
-    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
-    assert!(!app.help_docs.filter_active);
+    let up = KeyEvent::from(KeyCode::Up);
+    handle_key_events(Key::from(up), up, &mut app).await;
+    assert_eq!(app.help_scroll, 0);
+    handle_key_events(Key::from(up), up, &mut app).await;
+    assert_eq!(app.help_scroll, 0);
   }
 
   #[tokio::test]
@@ -3201,6 +3210,21 @@ mod tests {
       Some("deployment".into())
     );
     assert_eq!(app.get_current_route().active_block, ActiveBlock::Logs);
+  }
+
+  #[tokio::test]
+  async fn test_escape_from_more_selected_resource_returns_to_more_not_dynamic() {
+    let mut app = App::default();
+    // Both pickers visited (Dynamic, then More), then a resource picked from More.
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::DynamicView);
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::More);
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Secrets);
+
+    let key_evt = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(key_evt), key_evt, &mut app).await;
+
+    // Returns to the picker actually used (More), not the stacked Dynamic menu.
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::More);
   }
 
   #[tokio::test]

@@ -273,7 +273,6 @@ pub struct App {
   log_cancel_tx: watch::Sender<bool>,
   loading_counter: u32,
   background_cache_pending: bool,
-  pub title: &'static str,
   pub should_quit: bool,
   pub main_tabs: TabsState,
   pub context_tabs: TabsState,
@@ -308,7 +307,8 @@ pub struct App {
   pub log_previous: bool,
   pub log_tail_lines: u32,
   pub utilization_group_by: Vec<GroupBy>,
-  pub help_docs: StatefulTable<Vec<String>>,
+  /// Vertical scroll offset for the grouped help page (clamped at render time).
+  pub help_scroll: u16,
   pub error_history: VecDeque<ErrorRecord>,
   pending_shell_exec: Option<PendingShellExec>,
   /// Transient confirmation overlay guarding an impactful action.
@@ -384,7 +384,6 @@ impl Default for App {
       io_stream_tx: None,
       io_cmd_tx: None,
       log_cancel_tx,
-      title: " KDash - A simple Kubernetes dashboard ",
       should_quit: false,
       main_tabs: TabsState::new(vec![
         TabRoute {
@@ -562,7 +561,7 @@ impl Default for App {
       log_previous: false,
       log_tail_lines: DEFAULT_LOG_TAIL_LINES,
       utilization_group_by: Self::default_utilization_group_by(),
-      help_docs: StatefulTable::with_items(key_binding::get_help_docs()),
+      help_scroll: 0,
       background_cache_pending: false,
       error_history: VecDeque::with_capacity(MAX_ERROR_HISTORY),
       pending_shell_exec: None,
@@ -602,7 +601,6 @@ impl App {
 
   pub fn resource_table(&self, block: ActiveBlock) -> Option<&dyn FilterableTable> {
     match block {
-      ActiveBlock::Help => Some(&self.help_docs),
       ActiveBlock::Contexts => Some(&self.data.contexts),
       ActiveBlock::Utilization => Some(&self.data.metrics),
       ActiveBlock::Troubleshoot => Some(&self.data.troubleshoot_findings),
@@ -636,7 +634,6 @@ impl App {
 
   pub fn resource_table_mut(&mut self, block: ActiveBlock) -> Option<&mut dyn FilterableTable> {
     match block {
-      ActiveBlock::Help => Some(&mut self.help_docs),
       ActiveBlock::Contexts => Some(&mut self.data.contexts),
       ActiveBlock::Utilization => Some(&mut self.data.metrics),
       ActiveBlock::Troubleshoot => Some(&mut self.data.troubleshoot_findings),

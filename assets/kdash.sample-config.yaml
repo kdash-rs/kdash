@@ -71,13 +71,17 @@ default_theme: macchiato
 # ANSI colours, `reset`/`default`, or 6-digit hex (`#RRGGBB`).
 custom_theme:
   base: macchiato
-  accent: "#89B4FA"     # panel borders / primary
-  secondary: "#F9E2AF"  # panel titles
-  label: "#94E2D5"      # table column labels / blue
-  muted: "#9399B2"      # help / hint text
-  highlight: "#F5C2E7"  # focused panel border
+  accent: "#89B4FA" # panel borders / primary
+  secondary: "#F9E2AF" # panel titles
+  label: "#94E2D5" # table column labels / blue
+  muted: "#9399B2" # help / hint text
+  highlight: "#F5C2E7" # focused panel border
+  on_accent: "#11111B" # title-bar text over the accent bar
   bg: "#11111B"
   fg: "#CDD6F4"
+  success: "#A6E3A1"
+  warning: "#FAB387"
+  error: "#F38BA8"
 
 # Legacy override map (still supported): the `dark` section tints the built-in
 # Catppuccin Macchiato palette, the `light` section tints Catppuccin Latte.

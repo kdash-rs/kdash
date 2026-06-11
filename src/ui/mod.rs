@@ -7,9 +7,9 @@ pub mod utils;
 
 use ratatui::{
   layout::{Alignment, Constraint, Rect},
-  style::Modifier,
-  text::{Line, Text},
-  widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Tabs, Wrap},
+  style::{Color, Modifier, Style},
+  text::{Line, Span},
+  widgets::{Block, Borders, Clear, ListItem, Paragraph, Tabs},
   Frame,
 };
 
@@ -17,9 +17,9 @@ use self::{
   help::draw_help,
   overview::draw_overview,
   utils::{
-    action_hint, centered_rect, default_part, help_part, horizontal_chunks_with_margin, key_hints,
-    mixed_bold_line, mixed_line, split_hint_suffix, style_failure, style_header,
-    style_main_background, style_secondary, style_success, style_text, vertical_chunks,
+    action_hint, centered_rect, default_part, draw_popup_menu, help_part, hint_key_glyph,
+    key_hints, mixed_bold_line, mixed_line, split_hint_suffix, style_failure,
+    style_main_background, style_secondary, style_text, title_with_dual_style, vertical_chunks,
   },
 };
 use crate::app::{
@@ -34,32 +34,16 @@ pub fn draw(f: &mut Frame<'_>, app: &mut App) {
   let block = Block::default().style(style_main_background(app.palette));
   f.render_widget(block, f.area());
 
-  let chunks = if !app.api_error.is_empty() || !app.status_message.is_empty() {
-    let chunks = vertical_chunks(
-      vec![
-        Constraint::Length(1), // title
-        Constraint::Length(3), // header tabs
-        Constraint::Length(3), // banner
-        Constraint::Min(0),    // main tabs
-      ],
-      f.area(),
-    );
-    if !app.api_error.is_empty() {
-      draw_app_error(f, app, chunks[2]);
-    } else {
-      draw_app_status(f, app, chunks[2]);
-    }
-    chunks
-  } else {
-    vertical_chunks(
-      vec![
-        Constraint::Length(1), // title
-        Constraint::Length(3), // header tabs
-        Constraint::Min(0),    // main tabs
-      ],
-      f.area(),
-    )
-  };
+  // Errors and status both surface as floating toasts (drawn last), so the
+  // layout no longer reshuffles for them.
+  let chunks = vertical_chunks(
+    vec![
+      Constraint::Length(1), // title
+      Constraint::Length(3), // header tabs
+      Constraint::Min(0),    // main tabs
+    ],
+    f.area(),
+  );
 
   draw_app_title(f, app, chunks[0]);
   // draw header tabs amd text
@@ -104,6 +88,10 @@ pub fn draw(f: &mut Frame<'_>, app: &mut App) {
   if app.modal.is_some() {
     draw_modal(f, app);
   }
+
+  // Toasts float over everything, bottom-centred: the persistent error toast
+  // (dismissed with Esc) on the bottom row, the transient status toast above it.
+  draw_toasts(f, app);
 }
 
 fn draw_modal(f: &mut Frame<'_>, app: &App) {
@@ -123,11 +111,11 @@ fn draw_modal(f: &mut Frame<'_>, app: &App) {
   lines.push(Line::from(""));
   lines.push(mixed_line(
     [help_part(format!(
-      "confirm {}/{} · cancel {}/{} ",
-      Key::Char('y'),
-      DEFAULT_KEYBINDING.submit.key,
-      Key::Char('n'),
-      DEFAULT_KEYBINDING.esc.key,
+      "{}/{}:confirm · {}/{}:cancel ",
+      Key::Char('y').symbol(),
+      DEFAULT_KEYBINDING.submit.key.symbol(),
+      Key::Char('n').symbol(),
+      DEFAULT_KEYBINDING.esc.key.symbol(),
     ))],
     palette,
   ));
@@ -176,8 +164,9 @@ fn draw_input_modal(f: &mut Frame<'_>, app: &App) {
   lines.push(Line::from(""));
   lines.push(mixed_line(
     [help_part(format!(
-      "submit {} · cancel {} ",
-      DEFAULT_KEYBINDING.submit.key, DEFAULT_KEYBINDING.esc.key,
+      "{}:submit · {}:cancel ",
+      DEFAULT_KEYBINDING.submit.key.symbol(),
+      DEFAULT_KEYBINDING.esc.key.symbol(),
     ))],
     palette,
   ));
@@ -214,7 +203,7 @@ fn draw_action_menu(f: &mut Frame<'_>, app: &mut App) {
     .map(|action| {
       let key_hint = action
         .hotkey(block)
-        .map(|key| key.to_string())
+        .map(|key| key.symbol())
         .unwrap_or_default();
       ListItem::new(mixed_line(
         [
@@ -226,49 +215,109 @@ fn draw_action_menu(f: &mut Frame<'_>, app: &mut App) {
     })
     .collect();
 
-  let width = 40;
-  let height = (items.len() as u16).saturating_add(2);
-  let area = centered_rect(width, height, f.area());
-
-  let block = Block::default()
-    .title(mixed_bold_line(
-      [
-        default_part(" Actions "),
-        help_part(format!("· close {} ", DEFAULT_KEYBINDING.esc.key)),
-      ],
+  let area = centered_rect(40, (items.len() as u16).saturating_add(2), f.area());
+  let title = title_with_dual_style(
+    " Actions ".to_string(),
+    mixed_bold_line(
+      [help_part(format!(
+        "· {}:close ",
+        DEFAULT_KEYBINDING.esc.key.symbol()
+      ))],
       palette,
-    ))
-    .borders(Borders::ALL)
-    .style(style_secondary(palette));
-
-  let list = List::new(items)
-    .block(block)
-    .style(style_text(palette))
-    .highlight_style(style_secondary(palette).add_modifier(Modifier::BOLD))
-    .highlight_symbol(HIGHLIGHT);
-
-  f.render_widget(Clear, area);
-  f.render_stateful_widget(list, area, &mut menu.state);
+    ),
+    palette,
+  );
+  draw_popup_menu(f, area, title, items, &mut menu.state, palette);
 }
 
 fn draw_app_title(f: &mut Frame<'_>, app: &App, area: Rect) {
-  let title = Paragraph::new(app.title)
-    .style(style_header(app.palette).add_modifier(Modifier::BOLD))
-    .block(Block::default())
-    .alignment(Alignment::Left);
-  f.render_widget(title, area);
+  let p = app.palette;
+  // Mauve (accent) title bar; text sits in the base colour for contrast.
+  f.render_widget(Block::default().style(Style::default().bg(p.accent)), area);
+  let fg = Style::default().fg(p.on_accent);
+  let sep = || Span::styled(" · ", fg);
 
-  let text = format!(
-    "v{} with ♥ in Rust {} ",
-    env!("CARGO_PKG_VERSION"),
-    nw_loading_indicator(app.is_loading())
+  // Left: identity — brand · version · connection · theme.
+  let mut left = vec![
+    Span::styled("KDash", fg.add_modifier(Modifier::BOLD)),
+    Span::styled(format!(" v{}", env!("CARGO_PKG_VERSION")), fg),
+    sep(),
+  ];
+  match &app.data.active_context {
+    Some(ctx) => {
+      // Green connected dot, unless the theme has no distinct success colour
+      // (Mono) — then fall back to the contrasting on-accent colour.
+      let conn = if p.success == p.accent {
+        fg
+      } else {
+        Style::default().fg(p.success)
+      };
+      left.push(Span::styled("● ", conn));
+      left.push(Span::styled(ctx.name.clone(), fg));
+    }
+    None => left.push(Span::styled("○ disconnected", fg)),
+  }
+  left.push(sep());
+  left.push(Span::styled(format!("◐ {}", p.name), fg));
+  let spinner = nw_loading_indicator(app.is_loading());
+  if !spinner.is_empty() {
+    left.push(Span::styled(format!("  {}", spinner), fg));
+  }
+  f.render_widget(
+    Paragraph::new(Line::from(left)).alignment(Alignment::Left),
+    area,
   );
 
-  let meta = Paragraph::new(text)
-    .style(style_header(app.palette))
-    .block(Block::default())
-    .alignment(Alignment::Right);
-  f.render_widget(meta, area);
+  // Right: every hint — the active route's contextual hints plus the
+  // always-on global strip.
+  f.render_widget(
+    Paragraph::new(title_hint_line(app)).alignment(Alignment::Right),
+    area,
+  );
+}
+
+/// All keybinding hints for the title row: route-contextual hints first,
+/// then the always-on global strip (help, tab cycling, theme, quit).
+fn title_hint_line(app: &App) -> Line<'static> {
+  let kb = &DEFAULT_KEYBINDING;
+  let scroll = format!("{}:scroll", key_hints(&[kb.up.key, kb.down.key]));
+  // `filter` / `group` are intentionally omitted — they're already surfaced in
+  // each view's own panel title, so repeating them here would be redundant.
+  let route = match app.get_current_route().id {
+    RouteId::Contexts => format!("{} · {}", scroll, action_hint("select", kb.submit.key)),
+    RouteId::Home => format!(
+      "char:block · {} · {}",
+      scroll,
+      action_hint("select", kb.submit.key),
+    ),
+    RouteId::Utilization | RouteId::Troubleshoot => scroll.clone(),
+    RouteId::HelpMenu => String::new(),
+  };
+  let tabs = format!(
+    "{}/{}/{}/{}:tabs",
+    kb.cycle_main_views.key.symbol(),
+    kb.cycle_main_views_prev.key.symbol(),
+    kb.right.key.symbol(),
+    kb.left.key.symbol(),
+  );
+  let global = format!(
+    "{} · {} · {} · {}",
+    action_hint("help", kb.help.key),
+    tabs,
+    action_hint("theme", kb.toggle_theme.key),
+    action_hint("quit", kb.quit.key),
+  );
+  let text = if route.is_empty() {
+    format!("{} ", global)
+  } else {
+    format!("{} · {} ", route, global)
+  };
+  Line::from(Span::styled(
+    text,
+    Style::default()
+      .fg(app.palette.on_accent)
+      .add_modifier(Modifier::BOLD),
+  ))
 }
 
 // loading animation frames
@@ -283,9 +332,6 @@ fn nw_loading_indicator<'a>(loading: bool) -> &'a str {
 }
 
 fn draw_app_header(f: &mut Frame<'_>, app: &App, area: Rect) {
-  let chunks =
-    horizontal_chunks_with_margin(vec![Constraint::Length(75), Constraint::Min(0)], area, 1);
-
   let titles: Vec<Line<'_>> = app
     .main_tabs
     .items
@@ -295,12 +341,13 @@ fn draw_app_header(f: &mut Frame<'_>, app: &App, area: Rect) {
       let (label, hint) = split_hint_suffix(&t.title);
       if i == app.main_tabs.index {
         Line::from(label.to_string())
+      } else if let Some(hint) = hint {
+        mixed_line(
+          [help_part(format!("{}:{}", hint_key_glyph(hint), label))],
+          app.palette,
+        )
       } else {
-        let mut parts = vec![help_part(label.to_string())];
-        if let Some(hint) = hint {
-          parts.push(help_part(format!(" {}", hint)));
-        }
-        mixed_line(parts, app.palette)
+        mixed_line([help_part(label.to_string())], app.palette)
       }
     })
     .collect();
@@ -310,105 +357,57 @@ fn draw_app_header(f: &mut Frame<'_>, app: &App, area: Rect) {
     .select(app.main_tabs.index);
 
   f.render_widget(tabs, area);
-  draw_header_text(f, app, chunks[1]);
 }
 
-fn draw_header_text(f: &mut Frame<'_>, app: &App, area: Rect) {
-  let text = match app.get_current_route().id {
-    RouteId::Contexts => vec![mixed_line(
-      [help_part(format!(
-        "{} · {} scroll · {} select · {} ",
-        action_hint("help", DEFAULT_KEYBINDING.help.key),
-        key_hints(&[DEFAULT_KEYBINDING.up.key, DEFAULT_KEYBINDING.down.key]),
-        DEFAULT_KEYBINDING.submit.key,
-        action_hint("filter", DEFAULT_KEYBINDING.filter.key),
-      ))],
-      app.palette,
-    )],
-    RouteId::Home => vec![mixed_line(
-      [help_part(format!(
-        "{} · {} switch tabs · <char> select block · {} scroll · {} select · {} ",
-        action_hint("help", DEFAULT_KEYBINDING.help.key),
-        key_hints(&[
-          DEFAULT_KEYBINDING.cycle_main_views.key,
-          DEFAULT_KEYBINDING.left.key,
-          DEFAULT_KEYBINDING.right.key
-        ]),
-        key_hints(&[DEFAULT_KEYBINDING.up.key, DEFAULT_KEYBINDING.down.key]),
-        DEFAULT_KEYBINDING.submit.key,
-        action_hint("filter", DEFAULT_KEYBINDING.filter.key),
-      ))],
-      app.palette,
-    )],
-    RouteId::Utilization => vec![mixed_line(
-      [help_part(format!(
-        "{} · {} scroll · {} · {} ",
-        action_hint("help", DEFAULT_KEYBINDING.help.key),
-        key_hints(&[DEFAULT_KEYBINDING.up.key, DEFAULT_KEYBINDING.down.key]),
-        action_hint("filter", DEFAULT_KEYBINDING.filter.key),
-        action_hint("cycle grouping", DEFAULT_KEYBINDING.cycle_group_by.key),
-      ))],
-      app.palette,
-    )],
-    RouteId::Troubleshoot => vec![mixed_line(
-      [help_part(format!(
-        "{} · {} scroll · {} ",
-        action_hint("help", DEFAULT_KEYBINDING.help.key),
-        key_hints(&[DEFAULT_KEYBINDING.up.key, DEFAULT_KEYBINDING.down.key]),
-        action_hint("filter", DEFAULT_KEYBINDING.filter.key),
-      ))],
-      app.palette,
-    )],
-    RouteId::HelpMenu => vec![],
+/// Render one bottom-centred toast bar. `rows_from_bottom` lets stacked toasts
+/// sit on consecutive rows (`2` is the bottom row). Truncates rather than wraps
+/// so a toast never grows past a single line.
+fn draw_toast_bar(f: &mut Frame<'_>, body: &str, bg: Color, fg: Color, rows_from_bottom: u16) {
+  let area = f.area();
+  let max_inner = area.width.saturating_sub(4) as usize;
+  if body.is_empty() || max_inner < 8 {
+    return;
+  }
+  let body: String = if body.chars().count() > max_inner {
+    let mut truncated: String = body.chars().take(max_inner.saturating_sub(1)).collect();
+    truncated.push('…');
+    truncated
+  } else {
+    body.to_string()
   };
-  let paragraph = Paragraph::new(text)
-    .block(Block::default())
-    .alignment(Alignment::Right);
-  f.render_widget(paragraph, area);
+  let text = format!(" {} ", body);
+  let w = text.chars().count() as u16;
+  let rect = Rect::new(
+    area.x + area.width.saturating_sub(w) / 2,
+    area.y + area.height.saturating_sub(rows_from_bottom),
+    w,
+    1,
+  );
+  f.render_widget(Clear, rect);
+  f.render_widget(
+    Paragraph::new(text).style(Style::default().bg(bg).fg(fg).add_modifier(Modifier::BOLD)),
+    rect,
+  );
 }
 
-fn draw_app_error(f: &mut Frame<'_>, app: &App, size: Rect) {
-  let block = Block::default()
-    .title(mixed_bold_line(
-      [
-        default_part(" Error "),
-        help_part(format!("· close {} ", DEFAULT_KEYBINDING.esc.key)),
-      ],
-      app.palette,
-    ))
-    .style(style_failure(app.palette))
-    .borders(Borders::ALL);
-
-  let text = Text::from(app.api_error.clone());
-  let text = text.patch_style(style_failure(app.palette));
-
-  let paragraph = Paragraph::new(text)
-    .style(style_text(app.palette))
-    .block(block)
-    .wrap(Wrap { trim: true });
-  f.render_widget(paragraph, size);
-}
-
-fn draw_app_status(f: &mut Frame<'_>, app: &App, size: Rect) {
-  let block = Block::default()
-    .title(mixed_bold_line(
-      [
-        default_part(" Info "),
-        help_part(format!("· close {} ", DEFAULT_KEYBINDING.esc.key)),
-      ],
-      app.palette,
-    ))
-    .style(style_success(app.palette))
-    .borders(Borders::ALL);
-
-  let text = Text::from(app.status_message.text().to_owned());
-  let text = text.patch_style(style_success(app.palette));
-
-  let paragraph = Paragraph::new(text)
-    .style(style_text(app.palette))
-    .block(block)
-    .wrap(Wrap { trim: true });
-  f.render_widget(paragraph, size);
+/// LlamaStash-style toasts, bottom-centred. The error toast is persistent
+/// (dismissed with Esc) and sits on the bottom row; the transient status toast
+/// (auto-expired by `StatusMessage`'s TTL) stacks just above it.
+fn draw_toasts(f: &mut Frame<'_>, app: &App) {
+  let p = app.palette;
+  let mut row = 2;
+  if !app.api_error.is_empty() {
+    let body = format!(
+      "{} · {}:dismiss",
+      app.api_error,
+      DEFAULT_KEYBINDING.esc.key.symbol()
+    );
+    draw_toast_bar(f, &body, p.error, p.on_accent, row);
+    row += 1;
+  }
+  if !app.status_message.is_empty() {
+    draw_toast_bar(f, app.status_message.text(), p.accent, p.on_accent, row);
+  }
 }
 
 #[cfg(test)]
@@ -482,27 +481,27 @@ mod tests {
   }
 
   #[test]
-  fn test_draw_renders_status_banner() {
+  fn test_draw_renders_status_toast() {
     let mut app = App::default();
     app.set_status_message("Saved recent errors to /tmp/kdash-errors.log");
 
     let lines = render_lines(&mut app, 120, 20);
     let joined = lines.join("\n");
 
-    assert!(joined.contains("Info"));
     assert!(joined.contains("Saved recent errors to /tmp/kdash-errors.log"));
   }
 
   #[test]
-  fn test_draw_renders_error_banner() {
+  fn test_draw_renders_error_toast_with_dismiss_hint() {
     let mut app = App::default();
     app.api_error = "Kubernetes API unavailable".into();
 
     let lines = render_lines(&mut app, 120, 20);
     let joined = lines.join("\n");
 
-    assert!(joined.contains("Error"));
     assert!(joined.contains("Kubernetes API unavailable"));
+    // Persistent error toast advertises its Esc dismissal.
+    assert!(joined.contains("Esc:dismiss"));
   }
 
   #[test]
@@ -581,8 +580,8 @@ mod tests {
     let joined = lines.join("\n");
 
     assert!(joined.contains("scroll"));
-    assert!(joined.contains("filter </>"));
-    assert!(joined.contains("help <?>"));
+    assert!(joined.contains("/:filter"));
+    assert!(joined.contains("?:help"));
   }
 
   #[test]
@@ -593,8 +592,8 @@ mod tests {
     let lines = render_lines(&mut app, 140, 20);
     let joined = lines.join("\n");
 
-    assert!(joined.contains("cycle grouping <g>"));
-    assert!(joined.contains("filter </>"));
+    assert!(joined.contains("g:group"));
+    assert!(joined.contains("/:filter"));
   }
 
   #[test]
@@ -606,8 +605,8 @@ mod tests {
     let joined = lines.join("\n");
 
     assert!(joined.contains("Troubleshoot"));
-    assert!(joined.contains("filter </>"));
-    assert!(joined.contains("help <?>"));
+    assert!(joined.contains("/:filter"));
+    assert!(joined.contains("?:help"));
   }
 
   #[test]
@@ -634,13 +633,12 @@ mod tests {
 
     assert!(lines[4].starts_with('┌'));
     assert!(lines.last().is_some_and(|line| line.ends_with('┘')));
-    assert!(joined.contains("shell <s>"));
-    assert!(joined.contains("logs <Enter>"));
+    assert!(joined.contains("s:shell"));
+    assert!(joined.contains("⏎:logs"));
   }
 
   fn seeded_overview_app() -> App {
     let mut app = App::default();
-    app.title = "KDash - A simple Kubernetes dashboard";
     app.enhanced_graphics = true;
 
     app.data.namespaces.set_items(vec![

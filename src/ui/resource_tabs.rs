@@ -1,17 +1,14 @@
 use ratatui::{
   layout::{Constraint, Rect},
   text::Line,
-  widgets::{List, ListItem, ListState, Paragraph, Tabs},
+  widgets::{ListItem, ListState, Paragraph, Tabs},
   Frame,
 };
 
-use super::{
-  utils::{
-    centered_rect, default_part, filter_cursor_position, help_part, layout_block_default,
-    layout_block_default_line, mixed_bold_line, mixed_line, split_hint_suffix, style_highlight,
-    style_secondary, vertical_chunks_with_margin,
-  },
-  HIGHLIGHT,
+use super::utils::{
+  centered_rect, default_part, draw_popup_menu, filter_cursor_position, help_part, hint_key_glyph,
+  layout_block_default, mixed_bold_line, mixed_line, split_hint_suffix, style_secondary,
+  title_with_dual_style, vertical_chunks_with_margin,
 };
 use crate::app::{
   configmaps::ConfigMapResource,
@@ -55,8 +52,10 @@ pub fn draw_resource_tabs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     vertical_chunks_with_margin(vec![Constraint::Length(3), Constraint::Min(0)], area, 1);
 
   let mut block = layout_block_default(" Resources ", app.palette);
+  // Focused pane gets a secondary (yellow) border; when the Namespaces pane
+  // is focused this keeps the accent (mauve) border.
   if app.get_current_route().active_block != ActiveBlock::Namespaces {
-    block = block.style(style_secondary(app.palette))
+    block = block.border_style(style_secondary(app.palette))
   }
 
   let titles = resource_tab_titles(app);
@@ -123,7 +122,7 @@ fn resource_tab_titles(app: &App) -> Vec<Line<'static>> {
         Line::from(label)
       } else if let Some(hint) = hint {
         mixed_line(
-          [help_part(label), help_part(format!(" {}", hint))],
+          [help_part(format!("{}:{}", hint_key_glyph(hint), label))],
           app.palette,
         )
       } else {
@@ -514,31 +513,20 @@ fn draw_menu(
     })
     .collect();
 
-  let title = if filter_active && !filter.is_empty() {
-    mixed_bold_line(
-      [
-        default_part(" Select Resource ".to_string()),
-        default_part(format!("[{}] ", filter)),
-      ],
-      palette,
-    )
+  let hint = if filter_active && !filter.is_empty() {
+    mixed_bold_line([default_part(format!("[{}] ", filter))], palette)
   } else if filter_active {
-    mixed_bold_line(
-      [
-        default_part(" Select Resource ".to_string()),
-        help_part("[type to filter] ".to_string()),
-      ],
-      palette,
-    )
+    mixed_bold_line([help_part("[type to filter] ".to_string())], palette)
   } else {
     mixed_bold_line(
-      [
-        default_part(" Select Resource ".to_string()),
-        help_part(format!("{} to filter ", DEFAULT_KEYBINDING.filter.key)),
-      ],
+      [help_part(format!(
+        "{}:filter ",
+        DEFAULT_KEYBINDING.filter.key.symbol()
+      ))],
       palette,
     )
   };
+  let title = title_with_dual_style(" Select Resource ".to_string(), hint, palette);
 
   // Use a local ListState so selection operates within filtered bounds
   let selected = more_resources_menu
@@ -548,14 +536,7 @@ fn draw_menu(
   let mut local_state = ListState::default();
   local_state.select(selected);
 
-  f.render_stateful_widget(
-    List::new(items)
-      .block(layout_block_default_line(title, palette))
-      .highlight_style(style_highlight())
-      .highlight_symbol(HIGHLIGHT),
-    area,
-    &mut local_state,
-  );
+  draw_popup_menu(f, area, title, items, &mut local_state, palette);
 
   if filter_active {
     f.set_cursor_position(filter_cursor_position(
@@ -618,10 +599,10 @@ mod tests {
       lines,
       vec![
         "┌ Resources ───────────────────────────────────────────────────────────────────────────────────────┐",
-        "│ Pods [1] │ Services <2> │ Nodes <3> │ ConfigMaps <4> │ StatefulSets <5> │ ReplicaSets <6>       ›│",
+        "│ Pods [1] │ 2:Services │ 3:Nodes │ 4:ConfigMaps │ 5:StatefulSets │ 6:ReplicaSets │ 7:Deployments ›│",
         "│──────────────────────────────────────────────────────────────────────────────────────────────────│",
         "│                                                                                                  │",
-        "│ Pods (ns: all) [1] containers <Enter> · filter </> · describe <d> · yaml <y> · menu <m> · logs <L│",
+        "│ Pods (ns: all) [1] ⏎:containers · /:filter · d:describe · y:yaml · m:menu · L:logs  · w:wide─────│",
         "│   Namespace                Name                         Ready      Status    Restarts   Age      │",
         "│=> pod namespace test       pod name test                0/2        Failed    0          6h52m    │",
         "│                                                                                                  │",
@@ -631,8 +612,8 @@ mod tests {
     );
 
     let p = palette_for(ThemeName::Macchiato);
-    // Panel border → accent.
-    assert_eq!(buffer[(0, 0)].fg, p.accent);
+    // Resources pane is focused (active block is Pods) → secondary border.
+    assert_eq!(buffer[(0, 0)].fg, p.secondary);
     // " Resources " title → secondary, bold.
     assert_eq!(buffer[(1, 0)].fg, p.secondary);
     assert!(buffer[(1, 0)].modifier.contains(Modifier::BOLD));
@@ -646,8 +627,8 @@ mod tests {
     // Failed pod row (selected) → error + reversed.
     assert_eq!(buffer[(1, 6)].fg, p.error);
     assert!(buffer[(1, 6)].modifier.contains(Modifier::REVERSED));
-    // Bottom border → accent.
-    assert_eq!(buffer[(99, 9)].fg, p.accent);
+    // Bottom border → secondary (focused pane).
+    assert_eq!(buffer[(99, 9)].fg, p.secondary);
   }
 
   #[test]
@@ -682,12 +663,12 @@ mod tests {
 
     let joined = lines.join("\n");
     assert!(joined.contains("[pod]"));
-    assert!(joined.contains("clear <Esc>"));
-    assert!(!joined.contains("containers <Enter>"));
-    assert!(!joined.contains("describe <d>"));
-    assert!(!joined.contains("yaml <y>"));
-    assert!(!joined.contains("logs <L>"));
-    assert!(!joined.contains("filter </> ─"));
+    assert!(joined.contains("Esc:clear"));
+    assert!(!joined.contains("⏎:containers"));
+    assert!(!joined.contains("d:describe"));
+    assert!(!joined.contains("y:yaml"));
+    assert!(!joined.contains("L:logs"));
+    assert!(!joined.contains("/:filter ─"));
   }
 
   #[test]
@@ -867,8 +848,7 @@ mod tests {
     let joined = lines.join("\n");
 
     assert!(joined.contains("Select Resource"));
-    assert!(joined.contains("to filter"));
-    assert!(joined.contains("</>"));
+    assert!(joined.contains("/:filter"));
   }
 
   #[test]

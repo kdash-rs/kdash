@@ -6,7 +6,7 @@ use ratatui::{
   style::{Color, Modifier, Style},
   symbols,
   text::{Line, Span, Text},
-  widgets::{Block, Borders, Paragraph, Row, Table, Wrap},
+  widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Row, Table, Wrap},
   Frame,
 };
 
@@ -201,10 +201,6 @@ pub fn help_part<'a, S: Into<Cow<'a, str>>>(text: S) -> LinePart<'a> {
   LinePart::Help(text.into())
 }
 
-pub fn style_header(palette: Palette) -> Style {
-  style_primary(palette).add_modifier(Modifier::REVERSED)
-}
-
 pub fn style_text(palette: Palette) -> Style {
   Style::default().fg(palette.fg)
 }
@@ -279,15 +275,12 @@ pub fn help_bold_line<'a, S: Into<Cow<'a, str>>>(text: S, palette: Palette) -> L
 }
 
 pub fn key_hints(keys: &[Key]) -> String {
-  keys
-    .iter()
-    .map(ToString::to_string)
-    .collect::<Vec<_>>()
-    .join("/")
+  keys.iter().map(Key::symbol).collect::<Vec<_>>().join("/")
 }
 
+/// A hint chip in LlamaStash's `key:label` form (e.g. `d:describe`).
 pub fn action_hint(action: &str, key: Key) -> String {
-  format!("{} {}", action, key)
+  format!("{}:{}", key.symbol(), action)
 }
 
 pub fn describe_and_yaml_hint() -> String {
@@ -309,31 +302,34 @@ pub fn describe_yaml_and_logs_hint() -> String {
 
 pub fn describe_yaml_logs_and_esc_hint() -> String {
   format!(
-    "{} · back {} ",
+    "{} · {}:back ",
     describe_yaml_and_logs_hint().trim_end(),
-    DEFAULT_KEYBINDING.esc.key
+    DEFAULT_KEYBINDING.esc.key.symbol()
   )
 }
 
 pub fn describe_yaml_and_esc_hint() -> String {
   format!(
-    "{} · back {} ",
+    "{} · {}:back ",
     describe_and_yaml_hint().trim_end(),
-    DEFAULT_KEYBINDING.esc.key
+    DEFAULT_KEYBINDING.esc.key.symbol()
   )
 }
 
 pub fn describe_yaml_decode_and_esc_hint() -> String {
   format!(
-    "{} · {} · back {} ",
+    "{} · {} · {}:back ",
     describe_and_yaml_hint().trim_end(),
     action_hint("decode", DEFAULT_KEYBINDING.decode_secret.key),
-    DEFAULT_KEYBINDING.esc.key
+    DEFAULT_KEYBINDING.esc.key.symbol()
   )
 }
 
 pub fn wide_hint() -> String {
-  format!("wide {}", DEFAULT_KEYBINDING.toggle_wide_columns.key)
+  format!(
+    "{}:wide",
+    DEFAULT_KEYBINDING.toggle_wide_columns.key.symbol()
+  )
 }
 
 pub fn filter_cursor_position(area: Rect, prefix_width: usize, filter: &str) -> Position {
@@ -379,20 +375,6 @@ pub fn horizontal_chunks(constraints: Vec<Constraint>, size: Rect) -> Rc<[Rect]>
       &constraints,
     ))
     .direction(Direction::Horizontal)
-    .split(size)
-}
-
-pub fn horizontal_chunks_with_margin(
-  constraints: Vec<Constraint>,
-  size: Rect,
-  margin: u16,
-) -> Rc<[Rect]> {
-  Layout::default()
-    .constraints(<Vec<Constraint> as AsRef<[Constraint]>>::as_ref(
-      &constraints,
-    ))
-    .direction(Direction::Horizontal)
-    .margin(margin)
     .split(size)
 }
 
@@ -466,6 +448,34 @@ pub fn layout_block_top_border(title: Line<'_>, palette: Palette) -> Block<'_> {
     .title(title)
 }
 
+/// Shared centred popup menu (the `m` action menu and the more/dynamic resource
+/// pickers). Consistent styling: secondary/yellow title + border, body text in
+/// `fg`, bold secondary highlight on the selection. The caller supplies the
+/// pre-centred `area`, the title line (label + its own hint), and the items.
+pub fn draw_popup_menu(
+  f: &mut Frame<'_>,
+  area: Rect,
+  title: Line<'_>,
+  items: Vec<ListItem<'_>>,
+  state: &mut ListState,
+  palette: Palette,
+) {
+  let block = Block::default()
+    .borders(Borders::ALL)
+    .border_style(style_secondary(palette))
+    .title(title);
+  f.render_widget(Clear, area);
+  f.render_stateful_widget(
+    List::new(items)
+      .block(block)
+      .style(style_text(palette))
+      .highlight_style(style_secondary(palette).add_modifier(Modifier::BOLD))
+      .highlight_symbol(HIGHLIGHT),
+    area,
+    state,
+  );
+}
+
 enum FilterDisplayState<'a> {
   Inactive,
   EditingEmpty,
@@ -485,8 +495,8 @@ fn filter_display_state(filter: &str, active: bool) -> FilterDisplayState<'_> {
 fn filter_display_parts(filter: &str, active: bool) -> Vec<LinePart<'_>> {
   let state = filter_display_state(filter, active);
   let inactive_text = action_hint("filter", DEFAULT_KEYBINDING.filter.key);
-  let clear_suffix = format!(" · clear {} ", DEFAULT_KEYBINDING.esc.key);
-  let edit_suffix = format!(" · edit {} ", DEFAULT_KEYBINDING.filter.key);
+  let clear_suffix = format!(" · {}:clear ", DEFAULT_KEYBINDING.esc.key.symbol());
+  let edit_suffix = format!(" · {}:edit ", DEFAULT_KEYBINDING.filter.key.symbol());
 
   match state {
     FilterDisplayState::Inactive => vec![help_part(inactive_text)],
@@ -543,7 +553,7 @@ pub fn copy_and_escape_title_line<'a, S: Into<Cow<'a, str>>>(
         "{} · ",
         action_hint("copy", DEFAULT_KEYBINDING.copy_to_clipboard.key)
       )),
-      help_part(format!("back {} ", DEFAULT_KEYBINDING.esc.key)),
+      help_part(format!("{}:back ", DEFAULT_KEYBINDING.esc.key.symbol())),
     ],
     palette,
   )
@@ -566,7 +576,7 @@ pub fn copy_scroll_and_escape_title_line<'a, S: Into<Cow<'a, str>>>(
         action_hint("copy", DEFAULT_KEYBINDING.copy_to_clipboard.key),
         action_hint(auto_scroll_action, DEFAULT_KEYBINDING.log_auto_scroll.key)
       )),
-      help_part(format!("back {} ", DEFAULT_KEYBINDING.esc.key)),
+      help_part(format!("{}:back ", DEFAULT_KEYBINDING.esc.key.symbol())),
     ],
     palette,
   )
@@ -578,6 +588,12 @@ pub fn split_hint_suffix(text: &str) -> (&str, Option<&str>) {
   } else {
     (text, None)
   }
+}
+
+/// Strip the `<>` that `Key`'s Display adds, leaving the bare glyph for
+/// `key:label` hints. Tab jump-keys are all single chars, so exact here.
+pub fn hint_key_glyph(hint: &str) -> &str {
+  hint.trim_start_matches('<').trim_end_matches('>')
 }
 
 /// helper function to create a centered rect using up
@@ -1146,7 +1162,7 @@ mod tests {
       .unwrap();
 
     let mut expected = Buffer::with_lines(vec![
-        "Testfilter </> · -> yaml <y>────────────────────────────────────────────────────────────────────────",
+        "Test/:filter · -> yaml <y>──────────────────────────────────────────────────────────────────────────",
         "   Namespace                     Name                                 Data           Age            ",
         "=> Test ns                       Test 1                               5              65h3m          ",
         "   Test ns                       Test long name that should be trunca 3              65h3m          ",
@@ -1164,7 +1180,7 @@ mod tests {
               .add_modifier(Modifier::BOLD),
           );
         }
-        4..=27 => {
+        4..=25 => {
           expected
             .cell_mut(Position::new(col, 0))
             .unwrap()
@@ -1281,7 +1297,7 @@ mod tests {
       .unwrap();
 
     let mut expected = Buffer::with_lines(vec![
-        "Test[truncated] · edit </>  · -> yaml <y>───────────────────────────────────────────────────────────",
+        "Test[truncated] · /:edit  · -> yaml <y>─────────────────────────────────────────────────────────────",
         "   Namespace                     Name                                 Data           Age            ",
         "=> Test ns                       Test long name that should be trunca 3              65h3m          ",
         "   Test ns long value check that test_long_name_that_should_be_trunca 6              65h3m          ",
@@ -1305,7 +1321,7 @@ mod tests {
             .unwrap()
             .set_style(Style::default().fg(p.fg).add_modifier(Modifier::BOLD));
         }
-        15..=40 => {
+        15..=38 => {
           expected
             .cell_mut(Position::new(col, 0))
             .unwrap()
@@ -1422,7 +1438,7 @@ mod tests {
       .unwrap();
 
     let mut expected = Buffer::with_lines(vec![
-        "Test[*long*truncated*] · edit </>  · -> yaml <y>────────────────────────────────────────────────────",
+        "Test[*long*truncated*] · /:edit  · -> yaml <y>──────────────────────────────────────────────────────",
         "   Namespace                     Name                                 Data           Age            ",
         "=> Test ns                       Test long name that should be trunca 3              65h3m          ",
         "   Test ns long value check that test_long_name_that_should_be_trunca 6              65h3m          ",
@@ -1446,7 +1462,7 @@ mod tests {
             .unwrap()
             .set_style(Style::default().fg(p.fg).add_modifier(Modifier::BOLD));
         }
-        22..=47 => {
+        22..=45 => {
           expected
             .cell_mut(Position::new(col, 0))
             .unwrap()
@@ -1528,7 +1544,7 @@ mod tests {
           size,
           ResourceTableProps {
             title: "Test".into(),
-            inline_help: help_bold_line("describe <d> · back <Esc>", p),
+            inline_help: help_bold_line("d:describe · Esc:back", p),
             resource: &mut resource,
             table_headers: vec!["Name"],
             column_widths: vec![Constraint::Percentage(100)],
@@ -1544,9 +1560,9 @@ mod tests {
       .map(|col| terminal.backend().buffer()[(col, 0)].symbol())
       .collect::<String>();
     assert!(first_line.contains("[pod]"));
-    assert!(first_line.contains("clear <Esc>"));
-    assert!(!first_line.contains("describe <d>"));
-    assert!(!first_line.contains("back <Esc>"));
+    assert!(first_line.contains("Esc:clear"));
+    assert!(!first_line.contains("d:describe"));
+    assert!(!first_line.contains("Esc:back"));
   }
 
   #[test]

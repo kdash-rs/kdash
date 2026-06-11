@@ -61,14 +61,7 @@ fn draw_logo_block(f: &mut Frame<'_>, app: &App, area: Rect) {
   let text = text.patch_style(style_logo(palette));
   let block = Block::default()
     .borders(Borders::ALL)
-    .border_style(style_primary(palette))
-    .title(mixed_bold_line(
-      [help_part(format!(
-        " {} ",
-        action_hint("theme", DEFAULT_KEYBINDING.toggle_theme.key)
-      ))],
-      palette,
-    ));
+    .border_style(style_primary(palette));
   // Contains the banner
   let paragraph = Paragraph::new(text).block(block);
   f.render_widget(paragraph, area);

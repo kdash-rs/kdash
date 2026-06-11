@@ -24,8 +24,9 @@ use crate::{
     action_hint, copy_and_escape_title_line, copy_scroll_and_escape_title_line,
     describe_yaml_and_logs_hint, draw_describe_block, draw_resource_block, draw_yaml_block,
     get_describe_active, get_resource_title, help_bold_line, help_part, layout_block_top_border,
-    loading, mixed_bold_line, responsive_columns, style_caution, style_failure, style_success,
-    style_text, title_with_dual_style, wide_hint, ColumnDef, ResourceTableProps, ViewTier,
+    loading, mixed_bold_line, responsive_columns, style_caution, style_failure, style_help,
+    style_success, style_text, title_with_dual_style, wide_hint, ColumnDef, ResourceTableProps,
+    ViewTier,
   },
 };
 
@@ -285,11 +286,11 @@ pub(crate) fn draw_block_as_sub(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       title,
       inline_help: help_bold_line(
         format!(
-          "{} · {} · {} · back {} ",
+          "{} · {} · {} · {}:back ",
           action_hint("containers", DEFAULT_KEYBINDING.submit.key),
           describe_yaml_and_logs_hint().trim_end(),
           wide_hint(),
-          DEFAULT_KEYBINDING.esc.key
+          DEFAULT_KEYBINDING.esc.key.symbol()
         ),
         app.palette,
       ),
@@ -407,7 +408,7 @@ pub(crate) fn draw_containers_block(f: &mut Frame<'_>, app: &mut App, area: Rect
             action_hint("prev logs", DEFAULT_KEYBINDING.previous_logs.key),
             action_hint("menu", DEFAULT_KEYBINDING.open_action_menu.key),
           )),
-          help_part(format!("back {} ", DEFAULT_KEYBINDING.esc.key)),
+          help_part(format!("{}:back ", DEFAULT_KEYBINDING.esc.key.symbol())),
         ],
         app.palette,
       ),
@@ -460,7 +461,7 @@ pub(crate) fn draw_logs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
       format!(" {} -> Logs ({}) ", resource, agg_name),
       help_bold_line(
         format!(
-          "{} · {} · back {} ",
+          "{} · {} · {}:back ",
           action_hint("copy", DEFAULT_KEYBINDING.copy_to_clipboard.key),
           action_hint(
             if app.log_auto_scroll {
@@ -470,7 +471,7 @@ pub(crate) fn draw_logs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
             },
             DEFAULT_KEYBINDING.log_auto_scroll.key
           ),
-          DEFAULT_KEYBINDING.esc.key
+          DEFAULT_KEYBINDING.esc.key.symbol()
         ),
         app.palette,
       ),
@@ -509,14 +510,17 @@ pub(crate) fn draw_logs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
 fn get_resource_row_style(status: &str, ready: (i32, i32), palette: Palette) -> Style {
   if status == "Running" && ready.0 == ready.1 {
     style_success(palette)
-  } else if status == "Completed"
-    || [
-      "ContainerCreating",
-      "PodInitializing",
-      "Pending",
-      "Initialized",
-    ]
-    .contains(&status)
+  } else if status == "Completed" || status == "Succeeded" {
+    // Done & inactive — de-emphasize so it reads apart from active (green)
+    // and in-progress (amber) rows.
+    style_help(palette)
+  } else if [
+    "ContainerCreating",
+    "PodInitializing",
+    "Pending",
+    "Initialized",
+  ]
+  .contains(&status)
   {
     style_caution(palette)
   } else {
