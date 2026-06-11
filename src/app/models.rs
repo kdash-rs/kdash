@@ -87,6 +87,9 @@ pub trait Scrollable {
   /// calculates the new position after applying wrapping logic (modulo)
   fn wrap(&self, event: &ScrollEvent, current_pos: Option<usize>) -> usize {
     let len = self.length() as isize;
+    if len == 0 {
+      return 0;
+    }
     // rem_euclid returns a non-negative result for negative inputs, e.g. -1 rem_euclid 5 = 4,
     // so it correctly wraps around to the end when scrolling up from the top
     (self.newpos(event, current_pos).rem_euclid(len)) as usize
