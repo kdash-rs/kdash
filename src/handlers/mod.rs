@@ -618,7 +618,8 @@ async fn handle_cordon_toggle(app: &mut App) {
 
 pub async fn handle_mouse_events(mouse: MouseEvent, app: &mut App) {
   match mouse.kind {
-    // mouse scrolling is inverted
+    // mouse scrolling is inverted by passing is_mouse=true downstream code
+    // which calls [inverse_dir] where intended for mouse input
     MouseEventKind::ScrollDown => handle_block_scroll(app, ScrollEvent::down(), true).await,
     MouseEventKind::ScrollUp => handle_block_scroll(app, ScrollEvent::up(), true).await,
     _ => {}
@@ -1508,7 +1509,7 @@ fn handle_menu_scroll(
 
   // duplicated because we wrap at filtered_len, not total len
   let newpos = match event {
-    ScrollEvent::Absolute(newpos) => newpos % (filtered_len as isize),
+    ScrollEvent::Absolute(newpos) => newpos,
     ScrollEvent::Relative(delta) => menu.current_pos().unwrap_or(0) as isize + delta,
     ScrollEvent::End => filtered_len as isize - 1,
   }
