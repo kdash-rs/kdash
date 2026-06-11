@@ -239,7 +239,7 @@ fn draw_app_title(f: &mut Frame<'_>, app: &App, area: Rect) {
 
   // Left: identity — brand · version · connection · theme.
   let mut left = vec![
-    Span::styled("KDash", fg.add_modifier(Modifier::BOLD)),
+    Span::styled(" KDash", fg.add_modifier(Modifier::BOLD)),
     Span::styled(format!(" v{}", env!("CARGO_PKG_VERSION")), fg),
     sep(),
   ];
@@ -305,7 +305,7 @@ fn title_hint_line(app: &App) -> Line<'static> {
     action_hint("help", kb.help.key),
     tabs,
     action_hint("theme", kb.toggle_theme.key),
-    action_hint("quit", kb.quit.key),
+    action_hint("quit", kb.quit.alt.unwrap_or(kb.quit.key)),
   );
   let text = if route.is_empty() {
     format!("{} ", global)
