@@ -1,0 +1,37 @@
+# Load generator for the Utilization view. On a k3d/dev cluster the node
+# advertises the full host as allocatable, so ordinary test pods round to 0%.
+# This deployment requests a visible slice of the node and actually burns
+# ~2 CPU cores and ~2Gi RAM so Utilization, Requested and Limit all move.
+#
+# Apply:   kubectl apply -f test_data/load-test.yaml
+# Remove:  kubectl delete -f test_data/load-test.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: load-test
+  namespace: kdash-test
+  labels:
+    app: load-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: load-test
+  template:
+    metadata:
+      labels:
+        app: load-test
+    spec:
+      containers:
+      - name: stress
+        image: polinux/stress
+        command: ["stress"]
+        # 2 busy CPU workers + 2 vm workers holding ~1Gi each
+        args: ["--cpu", "2", "--vm", "2", "--vm-bytes", "1G", "--vm-hang", "1"]
+        resources:
+          requests:
+            cpu: "6"
+            memory: 16Gi
+          limits:
+            cpu: "12"
+            memory: 32Gi

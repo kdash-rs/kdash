@@ -597,6 +597,46 @@ mod tests {
   }
 
   #[test]
+  fn test_draw_utilization_route_renders_summary_pane_above_table() {
+    use std::str::FromStr;
+
+    use kubectl_view_allocations::{qty::Qty, QtyByQualifier};
+
+    let mut app = App::default();
+    app.push_navigation_stack(RouteId::Utilization, ActiveBlock::Utilization);
+
+    let qtys = |utilization: &str, requested: &str, limit: &str, allocatable: &str| {
+      Some(QtyByQualifier {
+        utilization: Some(Qty::from_str(utilization).unwrap()),
+        requested: Some(Qty::from_str(requested).unwrap()),
+        limit: Some(Qty::from_str(limit).unwrap()),
+        allocatable: Some(Qty::from_str(allocatable).unwrap()),
+        ..QtyByQualifier::default()
+      })
+    };
+    app.data.metrics.set_items(vec![
+      (vec!["cpu".to_string()], qtys("500m", "1", "2", "4")),
+      (
+        vec!["memory".to_string()],
+        qtys("2Gi", "4Gi", "8Gi", "16Gi"),
+      ),
+    ]);
+
+    let lines = render_lines(&mut app, 140, 30);
+    let joined = lines.join("\n");
+
+    assert!(joined.contains("Cluster Summary (% of allocatable)"));
+    assert!(joined.contains("Util"));
+    assert!(joined.contains("Req"));
+    assert!(joined.contains("Lim"));
+    assert!(joined.contains("12%")); // cpu utilization 12.5% rounded
+    assert!(joined.contains("50%")); // cpu limit
+                                     // The table below the pane still renders its header and rows.
+    assert!(joined.contains("Allocatable"));
+    assert!(joined.contains("memory"));
+  }
+
+  #[test]
   fn test_draw_troubleshoot_route_renders_troubleshoot_header_hints() {
     let mut app = App::default();
     app.push_navigation_stack(RouteId::Troubleshoot, ActiveBlock::Troubleshoot);

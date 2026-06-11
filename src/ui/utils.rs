@@ -357,6 +357,17 @@ where
   )
 }
 
+/// Utilization gauge fill colour by load: green below 70%, amber 70–90%, red 90%+.
+pub fn gauge_fill_style(ratio: f64, palette: Palette) -> Style {
+  if ratio >= 0.9 {
+    style_failure(palette)
+  } else if ratio >= 0.7 {
+    style_caution(palette)
+  } else {
+    style_success(palette)
+  }
+}
+
 pub fn get_gauge_symbol(enhanced_graphics: bool) -> &'static str {
   if enhanced_graphics {
     symbols::line::THICK_HORIZONTAL

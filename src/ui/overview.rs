@@ -1,6 +1,5 @@
 use ratatui::{
   layout::{Constraint, Rect},
-  style::Style,
   text::{Line, Span, Text},
   widgets::{Block, Borders, Cell, LineGauge, Paragraph, Row, Table},
   Frame,
@@ -9,9 +8,9 @@ use ratatui::{
 use super::{
   resource_tabs::draw_resource_tabs_block,
   utils::{
-    action_hint, get_gauge_symbol, help_part, horizontal_chunks, layout_block_default,
-    layout_block_default_line, loading, mixed_bold_line, style_caution, style_failure, style_label,
-    style_logo, style_primary, style_success, style_text, title_with_dual_style, vertical_chunks,
+    action_hint, gauge_fill_style, get_gauge_symbol, help_part, horizontal_chunks,
+    layout_block_default, layout_block_default_line, loading, mixed_bold_line, style_failure,
+    style_label, style_logo, style_primary, style_text, title_with_dual_style, vertical_chunks,
     vertical_chunks_with_margin,
   },
 };
@@ -21,7 +20,6 @@ use crate::{
     ns::NamespaceResource, ActiveBlock, App,
   },
   banner::BANNER,
-  ui::theme::Palette,
 };
 
 pub fn draw_overview(f: &mut Frame<'_>, app: &mut App, area: Rect) {
@@ -189,17 +187,6 @@ fn draw_context_info_block(f: &mut Frame<'_>, app: &App, area: Rect) {
     .ratio(limited_ratio)
     .label(Line::from(format!("{:.0}%", ratio * 100.0)));
   f.render_widget(mem_gauge, chunks[2]);
-}
-
-/// Utilization gauge fill colour by load: green below 70%, amber 70–90%, red 90%+.
-fn gauge_fill_style(ratio: f64, palette: Palette) -> Style {
-  if ratio >= 0.9 {
-    style_failure(palette)
-  } else if ratio >= 0.7 {
-    style_caution(palette)
-  } else {
-    style_success(palette)
-  }
 }
 
 /// covert percent value from metrics to ratio that gauge can understand

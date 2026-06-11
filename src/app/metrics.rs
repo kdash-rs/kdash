@@ -11,11 +11,12 @@ use kubectl_view_allocations::{
   metrics::{PodMetrics, Usage},
   qty::Qty,
   tree::provide_prefix,
-  Resource, UsedMode,
+  QtyByQualifier, Resource, UsedMode,
 };
 use ratatui::{
   layout::{Constraint, Rect},
-  widgets::{Cell, Row, Table},
+  text::{Line, Span},
+  widgets::{Cell, LineGauge, Paragraph, Row, Table},
   Frame,
 };
 use serde::{Deserialize, Serialize};
@@ -26,9 +27,10 @@ use crate::app::{key_binding::DEFAULT_KEYBINDING, models::FilterableTable};
 use crate::{
   network::Network,
   ui::utils::{
-    action_hint, default_part, filter_cursor_position, filter_status_parts, help_part,
-    layout_block_active_span, loading, mixed_bold_line, style_caution, style_highlight,
-    style_success, style_text, table_header_style, text_matches_filter, title_with_dual_style,
+    action_hint, default_part, filter_cursor_position, filter_status_parts, gauge_fill_style,
+    get_gauge_symbol, help_part, horizontal_chunks, layout_block_active_span, layout_block_default,
+    loading, mixed_bold_line, style_caution, style_highlight, style_label, style_success,
+    style_text, table_header_style, text_matches_filter, title_with_dual_style, vertical_chunks,
   },
 };
 
@@ -126,6 +128,22 @@ impl AppResource for UtilizationResource {
     );
     let block = layout_block_active_span(title, app.palette);
 
+    // Carve out a summary pane above the table when there is data and room:
+    // one gauge row per top-level resource kind plus the borders, keeping at
+    // least a few lines for the table itself.
+    let summary = summary_rows(&app.data.metrics.items);
+    let summary_height = summary.len() as u16 + 2;
+    let table_area = if !summary.is_empty() && area.height >= summary_height + 8 {
+      let chunks = vertical_chunks(
+        vec![Constraint::Length(summary_height), Constraint::Min(0)],
+        area,
+      );
+      draw_utilization_summary(f, app, chunks[0], &summary);
+      chunks[1]
+    } else {
+      area
+    };
+
     if !app.data.metrics.items.is_empty() {
       let data = &app.data.metrics.items;
       let filter = app.data.metrics.filter.to_lowercase();
@@ -205,14 +223,14 @@ impl AppResource for UtilizationResource {
       .block(block)
       .row_highlight_style(style_highlight());
 
-      f.render_stateful_widget(table, area, &mut app.data.metrics.state);
+      f.render_stateful_widget(table, table_area, &mut app.data.metrics.state);
     } else {
-      loading(f, block, area, app.is_loading(), app.palette);
+      loading(f, block, table_area, app.is_loading(), app.palette);
     }
 
     if app.data.metrics.filter_active {
       f.set_cursor_position(filter_cursor_position(
-        area,
+        table_area,
         left_title.chars().count() + 1,
         &app.data.metrics.filter,
       ));
@@ -222,9 +240,18 @@ impl AppResource for UtilizationResource {
   async fn get_resource(nw: &Network<'_>) {
     let mut resources: Vec<Resource> = vec![];
 
+    // extract_allocatable_from_pods skips pods whose node is not listed, so
+    // collect every node name here — otherwise no requests/limits show up.
+    let mut node_names: Vec<String> = vec![];
+
     let node_api: Api<Node> = Api::all(nw.client.clone());
     match node_api.list(&ListParams::default()).await {
       Ok(node_list) => {
+        node_names = node_list
+          .items
+          .iter()
+          .filter_map(|node| node.metadata.name.clone())
+          .collect();
         if let Err(e) = extract_allocatable_from_nodes(node_list.items, &mut resources).await {
           nw.handle_error(anyhow!("Failed to extract node allocation metrics. {}", e))
             .await;
@@ -239,7 +266,9 @@ impl AppResource for UtilizationResource {
     let pod_api: Api<Pod> = nw.get_namespaced_api().await;
     match pod_api.list(&ListParams::default()).await {
       Ok(pod_list) => {
-        if let Err(e) = extract_allocatable_from_pods(pod_list.items, &mut resources, &[]).await {
+        if let Err(e) =
+          extract_allocatable_from_pods(pod_list.items, &mut resources, &node_names).await
+        {
           nw.handle_error(anyhow!("Failed to extract pod allocation metrics. {}", e))
             .await;
         }
@@ -270,6 +299,113 @@ impl AppResource for UtilizationResource {
 
     app.data.metrics.set_items(data);
   }
+}
+
+#[derive(Debug, PartialEq)]
+struct UtilizationSummaryRow {
+  name: String,
+  utilization: f64,
+  requested: f64,
+  limit: f64,
+}
+
+const SUMMARY_MAX_ROWS: usize = 4;
+
+/// Cluster-wide percentages (vs allocatable) for each top-level resource kind
+/// (the first group-by level is always `resource`). cpu and memory come first,
+/// the rest keep data order, capped at [`SUMMARY_MAX_ROWS`].
+fn summary_rows(data: &[(Vec<String>, Option<QtyByQualifier>)]) -> Vec<UtilizationSummaryRow> {
+  let pct = |oqty: &Option<Qty>, alloc: &Qty| -> f64 {
+    oqty
+      .as_ref()
+      .map(|qty| qty.calc_percentage(alloc))
+      .unwrap_or(0f64)
+  };
+
+  let mut rows: Vec<UtilizationSummaryRow> = data
+    .iter()
+    .filter(|(k, _)| k.len() == 1)
+    .filter_map(|(k, oqtys)| {
+      let qtys = oqtys.as_ref()?;
+      let alloc = qtys.allocatable.as_ref().filter(|qty| !qty.is_zero())?;
+      Some(UtilizationSummaryRow {
+        name: k[0].clone(),
+        utilization: pct(&qtys.utilization, alloc),
+        requested: pct(&qtys.requested, alloc),
+        limit: pct(&qtys.limit, alloc),
+      })
+    })
+    .collect();
+
+  rows.sort_by_key(|row| match row.name.as_str() {
+    "cpu" => 0,
+    "memory" => 1,
+    _ => 2,
+  });
+  rows.truncate(SUMMARY_MAX_ROWS);
+  rows
+}
+
+fn draw_utilization_summary(
+  f: &mut Frame<'_>,
+  app: &App,
+  area: Rect,
+  rows: &[UtilizationSummaryRow],
+) {
+  let block = layout_block_default(" Cluster Summary (% of allocatable) ", app.palette);
+  let inner = block.inner(area);
+  f.render_widget(block, area);
+
+  let chunks = vertical_chunks(vec![Constraint::Length(1); rows.len()], inner);
+  let name_width = rows
+    .iter()
+    .map(|row| row.name.chars().count())
+    .max()
+    .unwrap_or(0)
+    .min(24) as u16
+    + 2;
+
+  for (row, rect) in rows.iter().zip(chunks.iter()) {
+    let cols = horizontal_chunks(
+      vec![
+        Constraint::Length(name_width),
+        Constraint::Fill(1),
+        Constraint::Length(2),
+        Constraint::Fill(1),
+        Constraint::Length(2),
+        Constraint::Fill(1),
+        Constraint::Length(1),
+      ],
+      *rect,
+    );
+
+    f.render_widget(
+      Paragraph::new(Span::styled(row.name.clone(), style_label(app.palette))),
+      cols[0],
+    );
+    for (label, pct, col) in [
+      ("Util", row.utilization, cols[1]),
+      ("Req", row.requested, cols[3]),
+      ("Lim", row.limit, cols[5]),
+    ] {
+      draw_summary_gauge(f, app, col, label, pct);
+    }
+  }
+}
+
+fn draw_summary_gauge(f: &mut Frame<'_>, app: &App, area: Rect, label: &str, pct: f64) {
+  let pct = if pct.is_finite() { pct } else { 0f64 };
+  let ratio = (pct / 100f64).clamp(0f64, 1f64);
+  let gauge = LineGauge::default()
+    .filled_style(gauge_fill_style(ratio, app.palette))
+    .filled_symbol(get_gauge_symbol(app.enhanced_graphics))
+    .unfilled_symbol(get_gauge_symbol(app.enhanced_graphics))
+    .ratio(ratio)
+    .label(Line::from(vec![
+      Span::styled(format!("{label} "), style_label(app.palette)),
+      Span::styled(format!("{pct:>4.0}% "), style_text(app.palette)),
+    ]));
+  f.render_widget(gauge, area);
 }
 
 fn utilization_matches_filter(filter: &str, qualifiers: &[String]) -> bool {
@@ -346,6 +482,51 @@ mod tests {
         mem_percent: 0f64,
       }
     );
+  }
+
+  #[test]
+  fn test_summary_rows() {
+    use std::str::FromStr;
+
+    fn qtys(
+      utilization: &str,
+      requested: &str,
+      limit: &str,
+      allocatable: Option<&str>,
+    ) -> Option<QtyByQualifier> {
+      Some(QtyByQualifier {
+        utilization: Some(Qty::from_str(utilization).unwrap()),
+        requested: Some(Qty::from_str(requested).unwrap()),
+        limit: Some(Qty::from_str(limit).unwrap()),
+        allocatable: allocatable.map(|qty| Qty::from_str(qty).unwrap()),
+        ..QtyByQualifier::default()
+      })
+    }
+
+    let data = vec![
+      (
+        vec!["memory".to_string()],
+        qtys("2Gi", "4Gi", "8Gi", Some("16Gi")),
+      ),
+      // children are ignored, only top-level rows are summarised
+      (
+        vec!["memory".to_string(), "node-1".to_string()],
+        qtys("2Gi", "4Gi", "8Gi", Some("16Gi")),
+      ),
+      (vec!["cpu".to_string()], qtys("500m", "1", "2", Some("4"))),
+      // rows without allocatable are skipped
+      (vec!["pods".to_string()], qtys("0", "10", "10", None)),
+    ];
+
+    let rows = summary_rows(&data);
+
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[0].name, "cpu");
+    assert!((rows[0].utilization - 12.5).abs() < f64::EPSILON);
+    assert!((rows[0].requested - 25.0).abs() < f64::EPSILON);
+    assert!((rows[0].limit - 50.0).abs() < f64::EPSILON);
+    assert_eq!(rows[1].name, "memory");
+    assert!((rows[1].utilization - 12.5).abs() < f64::EPSILON);
   }
 
   #[test]
