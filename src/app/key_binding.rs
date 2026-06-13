@@ -67,6 +67,8 @@ generate_keybindings! {
   dump_error_log,
   pg_up,
   pg_down,
+  home,
+  end,
   up,
   down,
   left,
@@ -227,6 +229,18 @@ const DEFAULT_KEYBINDINGS: KeyBindings = KeyBindings {
     key: Key::PageDown,
     alt: None,
     desc: "Scroll page down",
+    context: HContext::General,
+  },
+  home: KeyBinding {
+    key: Key::Home,
+    alt: None,
+    desc: "Scroll to top",
+    context: HContext::General,
+  },
+  end: KeyBinding {
+    key: Key::End,
+    alt: None,
+    desc: "Scroll to bottom",
     context: HContext::General,
   },
   left: KeyBinding {
