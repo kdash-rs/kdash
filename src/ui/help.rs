@@ -11,12 +11,12 @@ use super::utils::{
   title_with_dual_style,
 };
 use crate::app::{
-  key_binding::{get_help_sections, HelpSection, DEFAULT_KEYBINDING},
+  key_binding::{get_help_sections, HContext, HelpSection, DEFAULT_KEYBINDING},
   App,
 };
 use crate::ui::theme::Palette;
 
-/// Full-page help: keybindings grouped by context into balanced columns,
+/// Full-page help: keybindings grouped by context into two columns,
 /// scrollable with up/down. Layout is derived entirely from the keymap.
 pub fn draw_help(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let palette = app.palette;
@@ -42,14 +42,8 @@ pub fn draw_help(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     return;
   }
 
-  let n_cols = if inner.width >= 110 {
-    3
-  } else if inner.width >= 70 {
-    2
-  } else {
-    1
-  };
-  let columns = balance_into_columns(&sections, n_cols);
+  let n_cols = if inner.width >= 70 { 2 } else { 1 };
+  let columns = columns_for(&sections, n_cols);
 
   // Clamp the scroll offset to the tallest column (estimated; wrapped
   // descriptions may add a little, which the common full-height page absorbs).
@@ -84,21 +78,24 @@ fn section_height(section: &HelpSection) -> usize {
   section.rows.len() + 2
 }
 
-/// Greedily pack sections into `n` columns, always extending the shortest one.
-fn balance_into_columns(sections: &[HelpSection], n: usize) -> Vec<Vec<&HelpSection>> {
-  let mut columns: Vec<Vec<&HelpSection>> = vec![Vec::new(); n];
-  let mut heights = vec![0usize; n];
-  for section in sections {
-    let target = heights
-      .iter()
-      .enumerate()
-      .min_by_key(|(_, &h)| h)
-      .map(|(i, _)| i)
-      .unwrap_or(0);
-    columns[target].push(section);
-    heights[target] += section_height(section);
+/// Split sections across columns. With two columns the Resource Views group
+/// (by far the largest) stands alone on the right, while General and
+/// Utilization stack together on the left in display order. A single column
+/// keeps everything in order.
+fn columns_for(sections: &[HelpSection], n_cols: usize) -> Vec<Vec<&HelpSection>> {
+  if n_cols <= 1 {
+    return vec![sections.iter().collect()];
   }
-  columns
+  let mut left = Vec::new();
+  let mut right = Vec::new();
+  for section in sections {
+    if section.context == HContext::Overview {
+      right.push(section);
+    } else {
+      left.push(section);
+    }
+  }
+  vec![left, right]
 }
 
 /// Render a column's sections to styled lines: accent-bold heading, then
@@ -164,6 +161,25 @@ mod tests {
     assert!(joined.contains("Ctrl+c,q"));
     // Scroll/back hint in the title.
     assert!(joined.contains("Esc:back"));
+  }
+
+  /// First column at which `title` starts, scanning rows top-to-bottom.
+  fn title_column(lines: &[String], title: &str) -> Option<usize> {
+    lines.iter().find_map(|line| line.find(title))
+  }
+
+  #[test]
+  fn test_help_two_columns_stack_utilization_under_general() {
+    let (lines, _) = render(160, 40);
+
+    let general_x = title_column(&lines, "General").expect("General heading");
+    let util_x = title_column(&lines, "Utilization").expect("Utilization heading");
+    let resources_x = title_column(&lines, "Resource Views").expect("Resource Views heading");
+
+    // General and Utilization share the left column; Resource Views is the
+    // sole occupant of the right column.
+    assert_eq!(general_x, util_x);
+    assert!(util_x < resources_x);
   }
 
   #[test]

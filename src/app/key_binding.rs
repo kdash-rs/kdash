@@ -474,6 +474,7 @@ pub fn initialize_keybindings(config: &KdashConfig) -> Vec<String> {
 /// rows. Drives the grouped, multi-column help page.
 pub struct HelpSection {
   pub title: &'static str,
+  pub context: HContext,
   pub rows: Vec<(String, String)>,
 }
 
@@ -491,6 +492,7 @@ pub fn get_help_sections() -> Vec<HelpSection> {
         .collect();
       (!rows.is_empty()).then_some(HelpSection {
         title: ctx.label(),
+        context: ctx,
         rows,
       })
     })
