@@ -5,11 +5,11 @@
 ┌ Namespaces n:select · a:all · /:filter ───┐┌ Context Info i:toggle ─────────────────────────────────────────────────────────────────┐┌ CLI Info ──────────────────┐┌─────────────┐
 │   Name                   Status           ││Context: k3d-mycluster                                                                  ││kubectl client v1.35.3      ││             │
 │=> default                Active           ││Cluster: k3d-mycluster                                                                  ││kubectl server v1.33.6+k3s1 ││██╗  ██╗     │
-│   kdash-demo             Active           ││User: admin@k3d-mycluster                                                               ││docker         v29.3.1      ││██║ ██╔╝     │
-│   kdash-log-test         Active           ││CPU    ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 0%││docker-compose v5.1.1       ││█████╔╝█████╗│
-│   kdash-rbac-test        Active           ││                                                                                        ││kind           v0.31.0      ││██╔═██╗╚════╝│
-│   kube-node-lease        Active           ││Memory █░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 1%││helm           Not found    ││██║  ██╗     │
-│   kube-public            Active           ││                                                                                        ││istioctl       Not found    ││╚═╝  ╚═╝     │
+│   kdash-demo             Active           ││User:    admin@k3d-mycluster                                                            ││docker         v29.3.1      ││██║ ██╔╝     │
+│   kdash-log-test         Active           ││CPU:     ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   0%││docker-compose v5.1.1       ││█████╔╝█████╗│
+│   kdash-rbac-test        Active           ││Memory:  █░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   1%││kind           v0.31.0      ││██╔═██╗╚════╝│
+│   kube-node-lease        Active           ││Nodes:   0/1 Ready                                                                      ││helm           Not found    ││██║  ██╗     │
+│   kube-public            Active           ││Pods:    14 running · 2 pending · 2 failed                                              ││istioctl       Not found    ││╚═╝  ╚═╝     │
 └───────────────────────────────────────────┘└────────────────────────────────────────────────────────────────────────────────────────┘└────────────────────────────┘└─────────────┘
 ┌ Resources ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │ Pods [20] │ 2:Services [4] │ 3:Nodes [1] │ 4:ConfigMaps [15] │ 5:StatefulSets │ 6:ReplicaSets [6] │ 7:Deployments [6] │ 8:Jobs [2] │ 9:DaemonSets [1] │ 0:More │ -:Dynamic       │

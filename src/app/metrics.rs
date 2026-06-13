@@ -394,7 +394,9 @@ fn draw_summary_gauge(f: &mut Frame<'_>, app: &App, area: Rect, label: &str, pct
     // pad labels (Util/Req/Lim) to equal width so the bars line up
     format!("{label:<5}"),
     pct,
-    format!("{pct:.0}%"),
+    // right-pad the percentage to 3 digits so the bar end and value stay put
+    // as the number grows from single to triple digits
+    format!("{pct:>3.0}%"),
     area.width,
     app.palette,
     app.enhanced_graphics,
