@@ -61,6 +61,7 @@ generate_keybindings! {
   cycle_theme_prev,
   cycle_main_views,
   cycle_main_views_prev,
+  reset_navigation,
   jump_to_current_context,
   jump_to_all_context,
   jump_to_utilization,
@@ -218,6 +219,12 @@ const DEFAULT_KEYBINDINGS: KeyBindings = KeyBindings {
     key: Key::BackTab,
     alt: None,
     desc: "Cycle through main views (previous)",
+    context: HContext::General,
+  },
+  reset_navigation: KeyBinding {
+    key: Key::Ctrl('h'),
+    alt: None,
+    desc: "Reset navigation to root view",
     context: HContext::General,
   },
   copy_to_clipboard: KeyBinding {

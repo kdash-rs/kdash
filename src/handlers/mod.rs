@@ -232,6 +232,9 @@ pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
       _ if key == DEFAULT_KEYBINDING.cycle_main_views_prev.key => {
         app.cycle_main_routes_prev();
       }
+      _ if key == DEFAULT_KEYBINDING.reset_navigation.key => {
+        app.reset_navigation();
+      }
       _ if key == DEFAULT_KEYBINDING.open_action_menu.key => {
         let block = app.get_current_route().active_block;
         app.open_action_menu(block);
@@ -881,7 +884,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         {
           app.deactivate_current_resource_filter();
           app.context_tabs.next();
-          app.push_navigation_route(app.context_tabs.get_active_route().clone());
+          app.set_route(app.context_tabs.get_active_route().clone());
         }
         _ if key == DEFAULT_KEYBINDING.left.key
           || key == DEFAULT_KEYBINDING.left.alt.unwrap()
@@ -889,7 +892,7 @@ async fn handle_route_events(key: Key, app: &mut App) {
         {
           app.deactivate_current_resource_filter();
           app.context_tabs.previous();
-          app.push_navigation_route(app.context_tabs.get_active_route().clone());
+          app.set_route(app.context_tabs.get_active_route().clone());
         }
         _ if key == DEFAULT_KEYBINDING.filter.key => {
           if app.get_current_route().active_block == ActiveBlock::Namespaces {
@@ -921,57 +924,57 @@ async fn handle_route_events(key: Key, app: &mut App) {
           app.data.selected.pod_selector_resource = None;
           app.deactivate_current_resource_filter();
           let route = app.context_tabs.set_index(0).route.clone();
-          app.push_navigation_route(route);
+          app.set_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_services.key => {
           app.deactivate_current_resource_filter();
           let route = app.context_tabs.set_index(1).route.clone();
-          app.push_navigation_route(route);
+          app.set_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_nodes.key => {
           app.deactivate_current_resource_filter();
           let route = app.context_tabs.set_index(2).route.clone();
-          app.push_navigation_route(route);
+          app.set_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_configmaps.key => {
           app.deactivate_current_resource_filter();
           let route = app.context_tabs.set_index(3).route.clone();
-          app.push_navigation_route(route);
+          app.set_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_statefulsets.key => {
           app.deactivate_current_resource_filter();
           let route = app.context_tabs.set_index(4).route.clone();
-          app.push_navigation_route(route);
+          app.set_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_replicasets.key => {
           app.deactivate_current_resource_filter();
           let route = app.context_tabs.set_index(5).route.clone();
-          app.push_navigation_route(route);
+          app.set_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_deployments.key => {
           app.deactivate_current_resource_filter();
           let route = app.context_tabs.set_index(6).route.clone();
-          app.push_navigation_route(route);
+          app.set_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_jobs.key => {
           app.deactivate_current_resource_filter();
           let route = app.context_tabs.set_index(7).route.clone();
-          app.push_navigation_route(route);
+          app.set_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_daemonsets.key => {
           app.deactivate_current_resource_filter();
           let route = app.context_tabs.set_index(8).route.clone();
-          app.push_navigation_route(route);
+          app.set_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_more_resources.key => {
           app.deactivate_current_resource_filter();
           let route = app.context_tabs.set_index(9).route.clone();
-          app.push_navigation_route(route);
+          app.set_route(route);
         }
         _ if key == DEFAULT_KEYBINDING.jump_to_dynamic_resources.key => {
           app.deactivate_current_resource_filter();
           let route = app.context_tabs.set_index(10).route.clone();
-          app.push_navigation_route(route);
+          app.set_route(route);
         }
         _ => {}
       };
@@ -3225,6 +3228,24 @@ mod tests {
 
     // Returns to the picker actually used (More), not the stacked Dynamic menu.
     assert_eq!(app.get_current_route().active_block, ActiveBlock::More);
+  }
+
+  #[tokio::test]
+  async fn test_reset_navigation_key_clears_stack_to_home() {
+    let mut app = App::default();
+    // Wander to another view and drill down a couple of levels.
+    app.route_utilization();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Yaml);
+
+    let reset_key = DEFAULT_KEYBINDING.reset_navigation.key;
+    let key_evt = KeyEvent::from(KeyCode::Char('h')); // representative; key dispatch uses `reset_key`
+    handle_key_events(reset_key, key_evt, &mut app).await;
+
+    assert_eq!(app.get_current_route().id, RouteId::Home);
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Pods);
+    // Back at the root: nothing left to pop.
+    assert_eq!(app.pop_navigation_stack(), None);
   }
 
   #[tokio::test]

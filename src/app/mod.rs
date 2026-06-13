@@ -992,6 +992,22 @@ impl App {
     self.is_routing = true;
   }
 
+  /// Switch to a top-level view (a main tab or resource tab), discarding any
+  /// drill-down history. Sibling views are never retraced with Esc, so the
+  /// stack collapses to just this route rather than accumulating every switch.
+  pub fn set_route(&mut self, route: Route) {
+    self.navigation_stack.clear();
+    self.navigation_stack.push(route);
+    self.is_routing = true;
+  }
+
+  /// Clear all navigation history and return to the root view (Home / Pods).
+  pub fn reset_navigation(&mut self) {
+    self.context_tabs.set_index(0);
+    let route = self.main_tabs.set_index(0).route.clone();
+    self.set_route(route);
+  }
+
   pub fn pop_navigation_stack(&mut self) -> Option<Route> {
     self.is_routing = true;
     if self.navigation_stack.len() == 1 {
@@ -1024,33 +1040,33 @@ impl App {
   pub fn cycle_main_routes(&mut self) {
     self.main_tabs.next();
     let route = self.main_tabs.get_active_route().clone();
-    self.push_navigation_route(route);
+    self.set_route(route);
   }
 
   pub fn cycle_main_routes_prev(&mut self) {
     self.main_tabs.previous();
     let route = self.main_tabs.get_active_route().clone();
-    self.push_navigation_route(route);
+    self.set_route(route);
   }
 
   pub fn route_home(&mut self) {
     let route = self.main_tabs.set_index(0).route.clone();
-    self.push_navigation_route(route);
+    self.set_route(route);
   }
 
   pub fn route_contexts(&mut self) {
     let route = self.main_tabs.set_index(1).route.clone();
-    self.push_navigation_route(route);
+    self.set_route(route);
   }
 
   pub fn route_utilization(&mut self) {
     let route = self.main_tabs.set_index(2).route.clone();
-    self.push_navigation_route(route);
+    self.set_route(route);
   }
 
   pub fn route_troubleshoot(&mut self) {
     let route = self.main_tabs.set_index(3).route.clone();
-    self.push_navigation_route(route);
+    self.set_route(route);
   }
 
   /// Navigate from a node to its pods via field selector.
@@ -1822,6 +1838,55 @@ mod tests {
     assert_eq!(app.main_tabs.index, 0);
     assert_eq!(app.get_current_route().id, RouteId::Home);
     assert_eq!(app.get_current_route().active_block, ActiveBlock::Pods);
+  }
+
+  #[test]
+  fn test_set_route_collapses_drilldown_history() {
+    let mut app = App::default();
+    // A drill-down path: Pods → Describe → Yaml.
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Yaml);
+    assert_eq!(app.navigation_stack.len(), 3);
+
+    // Switching to a top-level view collapses the whole stack to that view.
+    app.set_route(Route {
+      id: RouteId::Home,
+      active_block: ActiveBlock::Services,
+    });
+    assert_eq!(app.navigation_stack.len(), 1);
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Services);
+    assert!(app.is_routing);
+  }
+
+  #[test]
+  fn test_lateral_view_switches_do_not_accumulate_stack() {
+    let mut app = App::default();
+    // Each main-view switch replaces the top-level view rather than stacking.
+    app.route_contexts();
+    app.route_utilization();
+    app.route_troubleshoot();
+    app.route_home();
+    assert_eq!(app.navigation_stack.len(), 1);
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Pods);
+  }
+
+  #[test]
+  fn test_reset_navigation_returns_to_home_pods() {
+    let mut app = App::default();
+    // Wander off to another view and drill down.
+    app.route_utilization();
+    app.context_tabs.set_index(3);
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Describe);
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Yaml);
+
+    app.reset_navigation();
+
+    assert_eq!(app.navigation_stack.len(), 1);
+    assert_eq!(app.main_tabs.index, 0);
+    assert_eq!(app.context_tabs.index, 0);
+    assert_eq!(app.get_current_route().id, RouteId::Home);
+    assert_eq!(app.get_current_route().active_block, ActiveBlock::Pods);
+    assert!(app.is_routing);
   }
 
   #[test]

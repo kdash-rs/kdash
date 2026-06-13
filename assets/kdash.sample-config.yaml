@@ -30,6 +30,7 @@ keybindings:
   cycle_theme_prev: alt+t
   cycle_main_views: tab
   cycle_main_views_prev: shift+tab
+  reset_navigation: ctrl+h
   jump_to_current_context: A
   jump_to_all_context: C
   jump_to_utilization: U
