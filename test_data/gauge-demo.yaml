@@ -1,0 +1,81 @@
+# Test workloads that exercise the KDash gauges across the green/amber/red bands.
+#
+#   gauge-reserver  idle pod with large CPU/memory *requests* (amber) and
+#                   *limits* (red). Drives the Utilization view Requested/Limit
+#                   gauges WITHOUT burning real resources - requests/limits are
+#                   just scheduler bookkeeping, the container sleeps.
+#   gauge-stress    burns real CPU + memory so the Context Info node gauges and
+#                   the Utilization "actual" column show live (green) usage.
+#   gauge-pending   requests more CPU than the node has, so it never schedules
+#                   and stays Pending - tints the overview Pods line amber.
+#
+# Sized for a 32 CPU / ~125Gi node. Tune the numbers if yours differs.
+# Clean up with:  kubectl delete -f test_data/gauge-demo.yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gauge-reserver
+  namespace: kdash-test
+  labels: { app: gauge-reserver }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: gauge-reserver }
+  template:
+    metadata:
+      labels: { app: gauge-reserver }
+    spec:
+      containers:
+        - name: idle
+          image: busybox:1.36
+          command: ["sh", "-c", "while true; do sleep 3600; done"]
+          resources:
+            requests:
+              cpu: "20" # ~62% of 32 cores -> amber
+              memory: "80Gi" # ~64% of ~125Gi -> amber
+            limits:
+              cpu: "28" # ~87% -> red
+              memory: "110Gi" # ~88% -> red
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gauge-stress
+  namespace: kdash-test
+  labels: { app: gauge-stress }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: gauge-stress }
+  template:
+    metadata:
+      labels: { app: gauge-stress }
+    spec:
+      containers:
+        - name: stress
+          image: polinux/stress
+          command: ["stress"]
+          args: ["--cpu", "8", "--vm", "1", "--vm-bytes", "4G", "--vm-hang", "1"]
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "256Mi"
+            limits:
+              cpu: "8"
+              memory: "5Gi"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gauge-pending
+  namespace: kdash-test
+  labels: { app: gauge-pending }
+spec:
+  containers:
+    - name: idle
+      image: busybox:1.36
+      command: ["sh", "-c", "sleep 3600"]
+      resources:
+        requests:
+          cpu: "100" # exceeds the 32-core node -> never schedules -> Pending
