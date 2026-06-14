@@ -22,6 +22,7 @@ use banner::BANNER;
 use chrono::{self};
 use clap::{builder::PossibleValuesParser, Parser};
 use cmd::{
+  edit::{prepare_edit, run_edit, EditTarget},
   shell::{prepare_shell_exec, run_shell_exec, ShellExecTarget},
   CmdRunner, IoCmdEvent,
 };
@@ -302,7 +303,7 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
     // This is the blocking call — no reason to hold the mutex while waiting.
     let event = events.next()?;
 
-    let (pending_shell_exec, should_quit) = {
+    let (pending_terminal_action, should_quit) = {
       let mut app = app.lock().await;
 
       // Handle events BEFORE drawing so the frame always reflects
@@ -349,14 +350,14 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
       // Draw the UI layout AFTER processing events so the frame is up-to-date
       terminal.draw(|f| ui::draw(f, &mut app))?;
 
-      let pending_shell_exec = app.take_pending_shell_exec();
+      let pending_terminal_action = app.take_pending_terminal_action();
       let should_quit = app.should_quit;
-      (pending_shell_exec, should_quit)
+      (pending_terminal_action, should_quit)
     };
 
-    if let Some(request) = pending_shell_exec {
+    if let Some(action) = pending_terminal_action {
       drop(events);
-      execute_pending_shell_exec(app, &mut terminal, request).await?;
+      execute_pending_terminal_action(app, &mut terminal, action).await?;
       events = event::Events::new(cli.tick_rate);
     }
 
@@ -409,6 +410,21 @@ impl ShellTerminal for Terminal<CrosstermBackend<Stdout>> {
   }
 }
 
+/// Run a queued terminal action (shell-exec or `kubectl edit`): both suspend the
+/// TUI, run an interactive child inheriting stdio, then restore the TUI.
+async fn execute_pending_terminal_action(
+  app: &Arc<Mutex<App>>,
+  terminal: &mut Terminal<CrosstermBackend<Stdout>>,
+  action: app::PendingTerminalAction,
+) -> Result<()> {
+  match action {
+    app::PendingTerminalAction::Shell(request) => {
+      execute_pending_shell_exec(app, terminal, request).await
+    }
+    app::PendingTerminalAction::Edit(request) => execute_pending_edit(app, terminal, request).await,
+  }
+}
+
 async fn execute_pending_shell_exec(
   app: &Arc<Mutex<App>>,
   terminal: &mut Terminal<CrosstermBackend<Stdout>>,
@@ -424,6 +440,24 @@ async fn execute_pending_shell_exec(
     let shell = command.shell.clone();
     run_shell_exec(&command).map_err(|error| anyhow!(error.to_string()))?;
     Ok(shell)
+  })
+  .await
+}
+
+async fn execute_pending_edit(
+  app: &Arc<Mutex<App>>,
+  terminal: &mut Terminal<CrosstermBackend<Stdout>>,
+  request: app::PendingEdit,
+) -> Result<()> {
+  execute_pending_edit_with(app, terminal, request, |request| {
+    let target = EditTarget {
+      namespace: request.namespace,
+      kind: request.kind,
+      name: request.name,
+    };
+    let command = prepare_edit(&target).map_err(|error| anyhow!(error.to_string()))?;
+    run_edit(&command).map_err(|error| anyhow!(error.to_string()))?;
+    Ok(())
   })
   .await
 }
@@ -465,6 +499,50 @@ where
         "Unable to open shell for {}/{}: {}",
         request.pod,
         request.container,
+        error
+      ));
+      Ok(())
+    }
+  }
+}
+
+async fn execute_pending_edit_with<F, T>(
+  app: &Arc<Mutex<App>>,
+  terminal: &mut T,
+  request: app::PendingEdit,
+  run_edit: F,
+) -> Result<()>
+where
+  F: FnOnce(app::PendingEdit) -> Result<()>,
+  T: ShellTerminal,
+{
+  terminal.suspend()?;
+  let edit_result = run_edit(request.clone());
+  let restore_result = terminal.restore();
+
+  let mut app = app.lock().await;
+
+  if let Err(error) = restore_result {
+    app.handle_error(anyhow!("Unable to restore terminal after edit: {}", error));
+    return Err(error);
+  }
+
+  match edit_result {
+    Ok(()) => {
+      app.set_status_message(format!(
+        "Finished editing {} '{}'",
+        request.kind, request.name
+      ));
+      // The resource may have changed; re-poll the active view on the next tick
+      // (mirrors the post-write refresh used by the confirm-modal path).
+      app.tick_count = 0;
+      Ok(())
+    }
+    Err(error) => {
+      app.handle_error(anyhow!(
+        "Unable to edit {} '{}': {}",
+        request.kind,
+        request.name,
         error
       ));
       Ok(())

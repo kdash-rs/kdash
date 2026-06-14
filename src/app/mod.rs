@@ -95,6 +95,24 @@ pub struct PendingShellExec {
   pub container: String,
 }
 
+/// A resource to open in `$EDITOR` via `kubectl edit`. `namespace` is `None` for
+/// cluster-scoped kinds.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PendingEdit {
+  pub namespace: Option<String>,
+  pub kind: String,
+  pub name: String,
+}
+
+/// An action that suspends the TUI, runs an interactive child process inheriting
+/// the terminal, then restores the TUI. Shell-exec and `kubectl edit` share this
+/// suspend/restore machinery.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum PendingTerminalAction {
+  Shell(PendingShellExec),
+  Edit(PendingEdit),
+}
+
 #[derive(Clone, Debug)]
 pub struct StatusMessage {
   pub text: String,
@@ -311,7 +329,7 @@ pub struct App {
   /// Vertical scroll offset for the grouped help page (clamped at render time).
   pub help_scroll: u16,
   pub error_history: VecDeque<ErrorRecord>,
-  pending_shell_exec: Option<PendingShellExec>,
+  pending_terminal_action: Option<PendingTerminalAction>,
   /// Transient confirmation overlay guarding an impactful action.
   pub modal: Option<Modal>,
   /// Transient single-line input overlay for actions that need a value (scale).
@@ -565,7 +583,7 @@ impl Default for App {
       help_scroll: 0,
       background_cache_pending: false,
       error_history: VecDeque::with_capacity(MAX_ERROR_HISTORY),
-      pending_shell_exec: None,
+      pending_terminal_action: None,
       modal: None,
       input_modal: None,
       action_menu: None,
@@ -958,16 +976,31 @@ impl App {
   }
 
   pub fn queue_shell_exec(&mut self, request: PendingShellExec) {
-    self.pending_shell_exec = Some(request);
+    self.pending_terminal_action = Some(PendingTerminalAction::Shell(request));
   }
 
-  pub fn take_pending_shell_exec(&mut self) -> Option<PendingShellExec> {
-    self.pending_shell_exec.take()
+  pub fn queue_edit(&mut self, request: PendingEdit) {
+    self.pending_terminal_action = Some(PendingTerminalAction::Edit(request));
+  }
+
+  pub fn take_pending_terminal_action(&mut self) -> Option<PendingTerminalAction> {
+    self.pending_terminal_action.take()
   }
 
   #[cfg(test)]
   pub fn pending_shell_exec(&self) -> Option<&PendingShellExec> {
-    self.pending_shell_exec.as_ref()
+    match &self.pending_terminal_action {
+      Some(PendingTerminalAction::Shell(request)) => Some(request),
+      _ => None,
+    }
+  }
+
+  #[cfg(test)]
+  pub fn pending_edit(&self) -> Option<&PendingEdit> {
+    match &self.pending_terminal_action {
+      Some(PendingTerminalAction::Edit(request)) => Some(request),
+      _ => None,
+    }
   }
 
   pub fn clear_status_message(&mut self) {

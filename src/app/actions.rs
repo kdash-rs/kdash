@@ -14,6 +14,7 @@ use crate::network::{IoEvent, ResourcePatch};
 pub enum ResourceAction {
   Describe,
   Yaml,
+  Edit,
   Logs,
   Shell,
   PreviousLogs,
@@ -32,6 +33,7 @@ impl ResourceAction {
     match self {
       ResourceAction::Describe => "Describe",
       ResourceAction::Yaml => "YAML",
+      ResourceAction::Edit => "Edit",
       ResourceAction::Logs => "Logs",
       ResourceAction::Shell => "Shell",
       ResourceAction::PreviousLogs => "Previous logs",
@@ -55,6 +57,7 @@ impl ResourceAction {
     match self {
       ResourceAction::Describe => Some(DEFAULT_KEYBINDING.describe_resource.key),
       ResourceAction::Yaml => Some(DEFAULT_KEYBINDING.resource_yaml.key),
+      ResourceAction::Edit => Some(DEFAULT_KEYBINDING.edit_resource.key),
       // In the Containers view Enter opens the selected container's logs; for
       // pods and workloads logs come from the aggregate-logs key.
       ResourceAction::Logs => Some(match block {
@@ -84,21 +87,21 @@ pub fn actions_for(block: ActiveBlock) -> Vec<ResourceAction> {
   use ResourceAction::*;
   match block {
     ActiveBlock::Containers => vec![Logs, PreviousLogs, Shell],
-    ActiveBlock::Pods => vec![Describe, Yaml, Logs, PreviousLogs, Delete],
-    ActiveBlock::Secrets => vec![Describe, Yaml, DecodeSecret, Delete],
+    ActiveBlock::Pods => vec![Describe, Yaml, Edit, Logs, PreviousLogs, Delete],
+    ActiveBlock::Secrets => vec![Describe, Yaml, Edit, DecodeSecret, Delete],
     // Deployments and statefulsets are both rollout-restartable and scalable.
     ActiveBlock::Deployments | ActiveBlock::StatefulSets => {
-      vec![Describe, Yaml, Logs, Restart, Scale, Delete]
+      vec![Describe, Yaml, Edit, Logs, Restart, Scale, Delete]
     }
     // Daemonsets are restartable but not scalable (no replica count).
-    ActiveBlock::DaemonSets => vec![Describe, Yaml, Logs, Restart, Delete],
+    ActiveBlock::DaemonSets => vec![Describe, Yaml, Edit, Logs, Restart, Delete],
     // Replicasets and replicationcontrollers are scalable but not restartable.
     ActiveBlock::ReplicaSets | ActiveBlock::ReplicationControllers => {
-      vec![Describe, Yaml, Logs, Scale, Delete]
+      vec![Describe, Yaml, Edit, Logs, Scale, Delete]
     }
-    ActiveBlock::Jobs => vec![Describe, Yaml, Logs, Delete],
-    ActiveBlock::Nodes => vec![Describe, Yaml, Cordon, Delete],
-    ActiveBlock::CronJobs => vec![Describe, Yaml, Logs, Suspend, Trigger, Delete],
+    ActiveBlock::Jobs => vec![Describe, Yaml, Edit, Logs, Delete],
+    ActiveBlock::Nodes => vec![Describe, Yaml, Edit, Cordon, Delete],
+    ActiveBlock::CronJobs => vec![Describe, Yaml, Edit, Logs, Suspend, Trigger, Delete],
     // Troubleshoot findings support describe/yaml (handled by the troubleshoot
     // route), so the `m` hint shown on that pane is honest.
     ActiveBlock::Troubleshoot => vec![Describe, Yaml],
@@ -115,7 +118,7 @@ pub fn actions_for(block: ActiveBlock) -> Vec<ResourceAction> {
     | ActiveBlock::NetworkPolicies
     | ActiveBlock::ServiceAccounts
     | ActiveBlock::Events
-    | ActiveBlock::DynamicResource => vec![Describe, Yaml, Delete],
+    | ActiveBlock::DynamicResource => vec![Describe, Yaml, Edit, Delete],
     _ => vec![],
   }
 }
@@ -243,6 +246,7 @@ mod tests {
       vec![
         ResourceAction::Describe,
         ResourceAction::Yaml,
+        ResourceAction::Edit,
         ResourceAction::DecodeSecret,
         ResourceAction::Delete
       ]
@@ -280,6 +284,36 @@ mod tests {
   #[test]
   fn test_scale_is_menu_only() {
     assert_eq!(ResourceAction::Scale.hotkey(ActiveBlock::Deployments), None);
+  }
+
+  #[test]
+  fn test_actions_for_editable_blocks_offer_edit() {
+    for block in [
+      ActiveBlock::Pods,
+      ActiveBlock::Deployments,
+      ActiveBlock::Nodes,
+      ActiveBlock::ConfigMaps,
+      ActiveBlock::CronJobs,
+      ActiveBlock::Secrets,
+    ] {
+      assert!(
+        actions_for(block).contains(&ResourceAction::Edit),
+        "{:?} should offer Edit",
+        block
+      );
+    }
+    // Containers are not a standalone resource, and troubleshoot findings route
+    // elsewhere, so neither offers an in-place edit.
+    assert!(!actions_for(ActiveBlock::Containers).contains(&ResourceAction::Edit));
+    assert!(!actions_for(ActiveBlock::Troubleshoot).contains(&ResourceAction::Edit));
+  }
+
+  #[test]
+  fn test_edit_is_hotkey_backed() {
+    assert_eq!(
+      ResourceAction::Edit.hotkey(ActiveBlock::Pods),
+      Some(DEFAULT_KEYBINDING.edit_resource.key)
+    );
   }
 
   fn scale_input(buffer: &str) -> InputModal {

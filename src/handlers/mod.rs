@@ -16,7 +16,7 @@ use crate::{
     },
     secrets::KubeSecret,
     troubleshoot::ResourceKind,
-    ActiveBlock, App, PendingShellExec, Route, RouteId,
+    ActiveBlock, App, PendingEdit, PendingShellExec, Route, RouteId,
   },
   cmd::IoCmdEvent,
   event::Key,
@@ -911,6 +911,9 @@ async fn handle_route_events(key: Key, app: &mut App) {
         _ if key == DEFAULT_KEYBINDING.restart_resource.key => {
           handle_restart_resource(app).await;
         }
+        _ if key == DEFAULT_KEYBINDING.edit_resource.key => {
+          queue_selected_resource_edit(app);
+        }
         _ if key == DEFAULT_KEYBINDING.jump_to_namespace.key
           && app.get_current_route().active_block != ActiveBlock::Namespaces =>
         {
@@ -1368,6 +1371,22 @@ async fn handle_previous_logs_for_pod(app: &mut App, route_id: RouteId) {
   app.data.selected.pod = Some(pod.name.clone());
   app.data.selected.container = Some(container.name.clone());
   app.dispatch_previous_logs(container.name, route_id).await;
+}
+
+/// Queue the selected resource to open in `$EDITOR` via `kubectl edit`. Works on
+/// any resource block with a selection; cluster-scoped kinds carry no namespace.
+fn queue_selected_resource_edit(app: &mut App) {
+  let block = app.get_current_route().active_block;
+  let Some((name, namespace)) = selected_target(app, block) else {
+    app.handle_error(anyhow!("No resource selected to edit"));
+    return;
+  };
+  let kind = resource_kind_label(app, block);
+  app.queue_edit(PendingEdit {
+    namespace,
+    kind,
+    name,
+  });
 }
 
 fn queue_selected_container_shell_exec(app: &mut App) {
@@ -1979,6 +1998,7 @@ mod tests {
       vec![
         ResourceAction::Describe,
         ResourceAction::Yaml,
+        ResourceAction::Edit,
         ResourceAction::Logs,
         ResourceAction::PreviousLogs,
         ResourceAction::Delete
@@ -2133,8 +2153,8 @@ mod tests {
     app.push_navigation_stack(RouteId::Home, ActiveBlock::Nodes);
     app.data.nodes.set_items(vec![make_node("n1", false)]);
 
-    // Nodes menu: Describe, YAML, Cordon, Delete → Cordon at index 2.
-    open_menu_and_select(&mut app, 2).await;
+    // Nodes menu: Describe, YAML, Edit, Cordon, Delete → Cordon at index 3.
+    open_menu_and_select(&mut app, 3).await;
 
     let modal = app
       .modal
@@ -2159,7 +2179,7 @@ mod tests {
     app.push_navigation_stack(RouteId::Home, ActiveBlock::Nodes);
     app.data.nodes.set_items(vec![make_node("n1", true)]);
 
-    open_menu_and_select(&mut app, 2).await;
+    open_menu_and_select(&mut app, 3).await;
 
     let modal = app
       .modal
@@ -2263,10 +2283,10 @@ mod tests {
     app.data.pods.set_items(vec![pod]);
 
     // Open the action menu and move to the Delete entry
-    // (Describe, YAML, Logs, Previous logs, Delete → index 4).
+    // (Describe, YAML, Edit, Logs, Previous logs, Delete → index 5).
     let m = KeyEvent::from(KeyCode::Char('m'));
     handle_key_events(Key::from(m), m, &mut app).await;
-    for _ in 0..4 {
+    for _ in 0..5 {
       let down = KeyEvent::from(KeyCode::Down);
       handle_key_events(Key::from(down), down, &mut app).await;
     }
@@ -2285,6 +2305,72 @@ mod tests {
         name: "pod-1".into(),
         namespace: Some("team-a".into()),
       }
+    );
+  }
+
+  #[tokio::test]
+  async fn test_edit_key_queues_pending_edit_for_namespaced_resource() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Deployments);
+    app
+      .data
+      .deployments
+      .set_items(vec![deployment_with_replicas("web", "team-a", Some(2))]);
+
+    let e = KeyEvent::from(KeyCode::Char('e'));
+    handle_key_events(Key::from(e), e, &mut app).await;
+
+    assert_eq!(
+      app.pending_edit(),
+      Some(&PendingEdit {
+        namespace: Some("team-a".into()),
+        kind: "deployment".into(),
+        name: "web".into(),
+      })
+    );
+  }
+
+  #[tokio::test]
+  async fn test_edit_for_cluster_scoped_resource_has_no_namespace() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Nodes);
+    app.data.nodes.set_items(vec![make_node("n1", false)]);
+
+    let e = KeyEvent::from(KeyCode::Char('e'));
+    handle_key_events(Key::from(e), e, &mut app).await;
+
+    assert_eq!(
+      app.pending_edit(),
+      Some(&PendingEdit {
+        namespace: None,
+        kind: "node".into(),
+        name: "n1".into(),
+      })
+    );
+  }
+
+  #[tokio::test]
+  async fn test_action_menu_edit_queues_pending_edit() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Pods);
+    let mut pod = KubePod::default();
+    pod.name = "pod-1".into();
+    pod.namespace = "team-a".into();
+    app.data.pods.set_items(vec![pod]);
+
+    // Pods menu: Describe, YAML, Edit, … → Edit at index 2.
+    open_menu_and_select(&mut app, 2).await;
+
+    assert_eq!(
+      app.pending_edit(),
+      Some(&PendingEdit {
+        namespace: Some("team-a".into()),
+        kind: "pod".into(),
+        name: "pod-1".into(),
+      })
     );
   }
 
@@ -2350,8 +2436,8 @@ mod tests {
       .deployments
       .set_items(vec![deployment_with_replicas("web", "team-a", Some(2))]);
 
-    // Deployments menu: Describe, YAML, Logs, Restart, Scale, Delete → Scale at index 4.
-    open_menu_and_select(&mut app, 4).await;
+    // Deployments menu: Describe, YAML, Edit, Logs, Restart, Scale, Delete → Scale at index 5.
+    open_menu_and_select(&mut app, 5).await;
 
     let input = app
       .input_modal
@@ -2382,12 +2468,13 @@ mod tests {
       .deployments
       .set_items(vec![deployment_with_replicas("web", "team-a", Some(2))]);
 
-    // Menu: Describe, YAML, Logs, Restart, Scale, Delete → Scale at index 4.
+    // Menu: Describe, YAML, Edit, Logs, Restart, Scale, Delete → Scale at index 5.
     // Open the input modal, replace the prefilled "2" with "5", then submit.
     send_keys(
       &mut app,
       &[
         KeyCode::Char('m'),
+        KeyCode::Down,
         KeyCode::Down,
         KeyCode::Down,
         KeyCode::Down,
@@ -2428,12 +2515,13 @@ mod tests {
       .deployments
       .set_items(vec![deployment_with_replicas("web", "team-a", Some(2))]);
 
-    // Open the scale input modal (Scale at index 4), type a non-numeric value
+    // Open the scale input modal (Scale at index 5), type a non-numeric value
     // and submit.
     send_keys(
       &mut app,
       &[
         KeyCode::Char('m'),
+        KeyCode::Down,
         KeyCode::Down,
         KeyCode::Down,
         KeyCode::Down,
@@ -2464,11 +2552,12 @@ mod tests {
       .deployments
       .set_items(vec![deployment_with_replicas("web", "team-a", Some(2))]);
 
-    // Open the scale input modal (Scale at index 4), then cancel with Esc.
+    // Open the scale input modal (Scale at index 5), then cancel with Esc.
     send_keys(
       &mut app,
       &[
         KeyCode::Char('m'),
+        KeyCode::Down,
         KeyCode::Down,
         KeyCode::Down,
         KeyCode::Down,
@@ -2512,8 +2601,8 @@ mod tests {
     cronjob.suspend = false;
     app.data.cronjobs.set_items(vec![cronjob]);
 
-    // CronJobs menu: Describe, YAML, Logs, Suspend, Trigger, Delete → Suspend at index 3.
-    open_menu_and_select(&mut app, 3).await;
+    // CronJobs menu: Describe, YAML, Edit, Logs, Suspend, Trigger, Delete → Suspend at index 4.
+    open_menu_and_select(&mut app, 4).await;
 
     let modal = app
       .modal
@@ -2543,8 +2632,8 @@ mod tests {
     cronjob.namespace = "default".into();
     app.data.cronjobs.set_items(vec![cronjob]);
 
-    // CronJobs menu: Describe, YAML, Logs, Suspend, Trigger, Delete → Trigger at index 4.
-    open_menu_and_select(&mut app, 4).await;
+    // CronJobs menu: Describe, YAML, Edit, Logs, Suspend, Trigger, Delete → Trigger at index 5.
+    open_menu_and_select(&mut app, 5).await;
 
     let modal = app
       .modal
