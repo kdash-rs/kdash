@@ -9,3 +9,5 @@ rustc-ice-*
 docs/
 .codex
 .claude/
+__pycache__/
+*.pyc

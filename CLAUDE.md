@@ -42,6 +42,34 @@ cargo test <module>::tests
 make test-cov
 ```
 
+## Manual / UAT testing (TUI harness)
+
+`scripts/uat/harness.py` drives the live TUI for end-to-end / feature testing.
+It launches `kdash` in a PTY, renders the real ratatui screen with `pyte`, sends
+scripted keystrokes, and asserts on the on-screen text. Use it to verify a
+feature actually works in the running app, not just in unit tests.
+
+```bash
+# one-time: venv with the two deps
+python3 -m venv /tmp/kdash-uat-venv && /tmp/kdash-uat-venv/bin/pip install pyte pexpect
+
+cargo build
+/tmp/kdash-uat-venv/bin/python scripts/uat/harness.py <program> <outdir> [binary] [args...]
+# e.g.
+/tmp/kdash-uat-venv/bin/python scripts/uat/harness.py scripts/uat/example.prog /tmp/out
+```
+
+- Program = a step file (`key:`, `type:`, `expect:`, `refute:`, `snap:`, `wait:`,
+  `settle`, `spawn:`); full step + key-name reference in `scripts/uat/README.md`.
+- Exit code is non-zero if any `expect`/`refute` fails, so it slots into CI.
+- The harness replies to crossterm's cursor-position query (`ESC[6n`); without
+  that reply the app aborts with "cursor position could not be read".
+- **Write actions** (delete/scale/cordon/suspend/trigger) are best verified by
+  their cluster side-effect via `kubectl`, not just the rendered screen.
+- The scale input modal **prefills the current replica count** — clear it with
+  `backspace` before typing a new value.
+- `docs/` is gitignored; keep UAT plans/reports/screens there as local scratch.
+
 ## Architecture
 
 The app follows an async event-driven architecture with three main communication channels (tokio mpsc):

@@ -1,0 +1,8 @@
+comment: open help, confirm two-column grouped layout, then quit
+wait: 3
+type:?
+settle
+snap: help
+expect: General
+expect: Resource Views
+type:?
