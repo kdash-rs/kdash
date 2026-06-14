@@ -324,6 +324,13 @@ pub struct App {
   /// True while the log view shows previous (terminated) container logs, so the
   /// periodic poll does not overwrite it with a live stream.
   pub log_previous: bool,
+  /// Show RFC3339 timestamps in the log view. Toggling re-streams the logs.
+  pub log_timestamps: bool,
+  /// Wrap long log lines to the viewport width (vs. truncate). Render-side only.
+  pub log_wrap: bool,
+  /// The log stream that produced the current log view, kept so a timestamp
+  /// toggle can re-issue it with the new option.
+  active_log_stream: Option<IoStreamEvent>,
   pub log_tail_lines: u32,
   pub utilization_group_by: Vec<GroupBy>,
   /// Vertical scroll offset for the grouped help page (clamped at render time).
@@ -578,6 +585,9 @@ impl Default for App {
       refresh: true,
       log_auto_scroll: true,
       log_previous: false,
+      log_timestamps: false,
+      log_wrap: true,
+      active_log_stream: None,
       log_tail_lines: DEFAULT_LOG_TAIL_LINES,
       utilization_group_by: Self::default_utilization_group_by(),
       help_scroll: 0,
@@ -1136,6 +1146,7 @@ impl App {
     self.log_previous = false;
     self.data.logs = LogsState::new(format!("agg:{}", pod_name));
     self.push_navigation_stack(route_id, ActiveBlock::Logs);
+    self.active_log_stream = Some(IoStreamEvent::GetPodAllContainerLogs);
     self
       .dispatch_stream(IoStreamEvent::GetPodAllContainerLogs)
       .await;
@@ -1146,6 +1157,7 @@ impl App {
     self.log_previous = false;
     self.data.logs = LogsState::new(id);
     self.push_navigation_stack(route_id, ActiveBlock::Logs);
+    self.active_log_stream = Some(IoStreamEvent::GetPodLogs(true));
     self.dispatch_stream(IoStreamEvent::GetPodLogs(true)).await;
   }
 
@@ -1160,6 +1172,7 @@ impl App {
     // the periodic poll from replacing it with a live stream.
     self.data.logs = LogsState::new(id);
     self.push_navigation_stack(route_id, ActiveBlock::Logs);
+    self.active_log_stream = Some(IoStreamEvent::GetPreviousLogs);
     self.dispatch_stream(IoStreamEvent::GetPreviousLogs).await;
   }
 
@@ -1177,12 +1190,25 @@ impl App {
     self.data.selected.pod_selector_resource = Some(resource_name);
     self.data.logs = LogsState::new(format!("agg:{}", name));
     self.push_navigation_stack(route_id, ActiveBlock::Logs);
-    self
-      .dispatch_stream(IoStreamEvent::GetAggregateLogs {
-        namespace,
-        selector,
-      })
-      .await;
+    let event = IoStreamEvent::GetAggregateLogs {
+      namespace,
+      selector,
+    };
+    self.active_log_stream = Some(event.clone());
+    self.dispatch_stream(event).await;
+  }
+
+  /// Re-issue the stream that produced the current log view so it picks up the
+  /// latest log options (e.g. timestamps). Clears the buffer but keeps the id so
+  /// the render guard still matches; preserves the previous-logs flag.
+  pub async fn restream_logs(&mut self) {
+    let Some(event) = self.active_log_stream.clone() else {
+      return;
+    };
+    self.cancel_log_stream();
+    let id = self.data.logs.id.clone();
+    self.data.logs = LogsState::new(id);
+    self.dispatch_stream(event).await;
   }
 
   pub fn refresh(&mut self) {
@@ -2236,6 +2262,48 @@ mod tests {
       sync_io_stream_rx.recv().await.unwrap(),
       IoStreamEvent::GetPodLogs(true)
     );
+  }
+
+  #[tokio::test]
+  async fn test_restream_logs_reissues_active_stream_and_keeps_id() {
+    let (sync_io_stream_tx, mut sync_io_stream_rx) = mpsc::channel::<IoStreamEvent>(16);
+
+    let mut app = App {
+      io_stream_tx: Some(sync_io_stream_tx),
+      ..App::default()
+    };
+
+    app
+      .dispatch_container_logs("pod-a/container-1".into(), RouteId::Home)
+      .await;
+    // drain the initial stream request
+    assert_eq!(
+      sync_io_stream_rx.recv().await.unwrap(),
+      IoStreamEvent::GetPodLogs(true)
+    );
+
+    // Toggling timestamps re-issues the same stream so it picks up the option.
+    app.log_timestamps = true;
+    app.restream_logs().await;
+
+    assert_eq!(app.data.logs.id, "pod-a/container-1");
+    assert_eq!(
+      sync_io_stream_rx.recv().await.unwrap(),
+      IoStreamEvent::GetPodLogs(true)
+    );
+  }
+
+  #[tokio::test]
+  async fn test_restream_logs_without_active_stream_is_noop() {
+    let (sync_io_stream_tx, mut sync_io_stream_rx) = mpsc::channel::<IoStreamEvent>(16);
+
+    let mut app = App {
+      io_stream_tx: Some(sync_io_stream_tx),
+      ..App::default()
+    };
+
+    app.restream_logs().await;
+    assert!(sync_io_stream_rx.try_recv().is_err());
   }
 
   #[tokio::test]

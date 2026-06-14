@@ -191,6 +191,18 @@ pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
       _ if key == DEFAULT_KEYBINDING.end.key => {
         handle_block_scroll(app, ScrollEvent::End, false).await;
       }
+      // In the log view 't'/'w' toggle log options instead of theme/wide.
+      _ if key == DEFAULT_KEYBINDING.toggle_log_timestamps.key
+        && app.get_current_route().active_block == ActiveBlock::Logs =>
+      {
+        app.log_timestamps = !app.log_timestamps;
+        app.restream_logs().await;
+      }
+      _ if key == DEFAULT_KEYBINDING.toggle_log_wrap.key
+        && app.get_current_route().active_block == ActiveBlock::Logs =>
+      {
+        app.log_wrap = !app.log_wrap;
+      }
       _ if key == DEFAULT_KEYBINDING.toggle_theme.key => {
         app.cycle_theme();
         app.set_status_message(format!("Theme: {}", app.palette.name));
@@ -2371,6 +2383,39 @@ mod tests {
         kind: "pod".into(),
         name: "pod-1".into(),
       })
+    );
+  }
+
+  #[tokio::test]
+  async fn test_log_view_toggles_timestamps_and_wrap() {
+    let mut app = App::default();
+    app.route_home();
+    app.push_navigation_stack(RouteId::Home, ActiveBlock::Logs);
+
+    assert!(!app.log_timestamps);
+    assert!(app.log_wrap);
+
+    let t = KeyEvent::from(KeyCode::Char('t'));
+    handle_key_events(Key::from(t), t, &mut app).await;
+    assert!(app.log_timestamps, "'t' toggles timestamps in the log view");
+
+    let w = KeyEvent::from(KeyCode::Char('w'));
+    handle_key_events(Key::from(w), w, &mut app).await;
+    assert!(!app.log_wrap, "'w' toggles wrap in the log view");
+  }
+
+  #[tokio::test]
+  async fn test_t_outside_log_view_does_not_toggle_timestamps() {
+    let mut app = App::default();
+    app.route_home();
+    assert_ne!(app.get_current_route().active_block, ActiveBlock::Logs);
+
+    let before = app.log_timestamps;
+    let t = KeyEvent::from(KeyCode::Char('t'));
+    handle_key_events(Key::from(t), t, &mut app).await;
+    assert_eq!(
+      app.log_timestamps, before,
+      "'t' cycles theme (not log timestamps) outside the log view"
     );
   }
 

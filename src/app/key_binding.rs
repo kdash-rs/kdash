@@ -102,7 +102,9 @@ generate_keybindings! {
   jump_to_dynamic_resources,
   aggregate_logs,
   cycle_group_by,
-  toggle_wide_columns
+  toggle_wide_columns,
+  toggle_log_timestamps,
+  toggle_log_wrap
 }
 
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Debug)]
@@ -110,6 +112,7 @@ pub enum HContext {
   General,
   Overview,
   Utilization,
+  Logs,
 }
 
 impl fmt::Display for HContext {
@@ -125,6 +128,7 @@ impl HContext {
       HContext::General => "General",
       HContext::Overview => "Resource Views",
       HContext::Utilization => "Utilization",
+      HContext::Logs => "Logs",
     }
   }
 }
@@ -450,6 +454,18 @@ const DEFAULT_KEYBINDINGS: KeyBindings = KeyBindings {
     desc: "Toggle wide view (show all columns)",
     context: HContext::General,
   },
+  toggle_log_timestamps: KeyBinding {
+    key: Key::Char('t'),
+    alt: None,
+    desc: "Toggle log timestamps",
+    context: HContext::Logs,
+  },
+  toggle_log_wrap: KeyBinding {
+    key: Key::Char('w'),
+    alt: None,
+    desc: "Toggle log line wrap",
+    context: HContext::Logs,
+  },
 };
 
 static ACTIVE_KEYBINDINGS: OnceLock<KeyBindings> = OnceLock::new();
@@ -489,21 +505,26 @@ pub struct HelpSection {
 /// Empty groups are dropped.
 pub fn get_help_sections() -> Vec<HelpSection> {
   let items = DEFAULT_KEYBINDING.as_iter();
-  [HContext::General, HContext::Overview, HContext::Utilization]
-    .into_iter()
-    .filter_map(|ctx| {
-      let rows: Vec<(String, String)> = items
-        .iter()
-        .filter(|b| b.context == ctx)
-        .map(|b| (key_label(b), b.desc.to_string()))
-        .collect();
-      (!rows.is_empty()).then_some(HelpSection {
-        title: ctx.label(),
-        context: ctx,
-        rows,
-      })
+  [
+    HContext::General,
+    HContext::Overview,
+    HContext::Utilization,
+    HContext::Logs,
+  ]
+  .into_iter()
+  .filter_map(|ctx| {
+    let rows: Vec<(String, String)> = items
+      .iter()
+      .filter(|b| b.context == ctx)
+      .map(|b| (key_label(b), b.desc.to_string()))
+      .collect();
+    (!rows.is_empty()).then_some(HelpSection {
+      title: ctx.label(),
+      context: ctx,
+      rows,
     })
-    .collect()
+  })
+  .collect()
 }
 
 /// Compact glyph keys for a binding, e.g. `Ctrl+c,q` or `↑,k`.

@@ -399,11 +399,16 @@ impl LogsState {
     block: Block<'_>,
     style: Style,
     follow: bool,
+    wrap: bool,
   ) {
     let available_lines = logs_area.height as usize;
     self.viewport_height = available_lines;
     let wrap_width = logs_area.width.max(1);
-    let mut items = self.wrapped_items(wrap_width, style);
+    let mut items = if wrap {
+      self.wrapped_items(wrap_width, style)
+    } else {
+      self.unwrapped_items(style)
+    };
     self.wrapped_length = items.len();
 
     if follow {
@@ -461,6 +466,16 @@ impl LogsState {
       let offset = self.wrapped_length.saturating_sub(self.viewport_height);
       self.state.select(Some(offset));
     }
+  }
+
+  /// One ListItem per record, unwrapped. The List widget truncates lines wider
+  /// than the viewport, so long lines stay on a single row instead of reflowing.
+  fn unwrapped_items(&self, style: Style) -> Vec<ListItem<'static>> {
+    self
+      .records
+      .iter()
+      .map(|record| ListItem::new(Span::styled(record.0.clone(), style)))
+      .collect()
   }
 
   fn wrapped_items(&mut self, width: u16, style: Style) -> Vec<ListItem<'static>> {
@@ -856,7 +871,7 @@ mod tests {
     log.add_record("record 8".into());
 
     terminal
-      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), true))
+      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), true, true))
       .unwrap();
 
     let expected = Buffer::with_lines(vec![
@@ -872,7 +887,7 @@ mod tests {
     terminal.backend().assert_buffer(&expected);
 
     terminal
-      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), false))
+      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), false, true))
       .unwrap();
 
     let expected2 = Buffer::with_lines(vec![
@@ -892,7 +907,7 @@ mod tests {
     log.add_record("record 11".into());
     // enabling follow should scroll back to bottom
     terminal
-      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), true))
+      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), true, true))
       .unwrap();
 
     let expected3 = Buffer::with_lines(vec![
@@ -908,7 +923,7 @@ mod tests {
     terminal.backend().assert_buffer(&expected3);
 
     terminal
-      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), false))
+      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), false, true))
       .unwrap();
 
     let expected4 = Buffer::with_lines(vec![
@@ -927,7 +942,7 @@ mod tests {
     log.handle_scroll(ScrollEvent::Relative(11));
 
     terminal
-      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), false))
+      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), false, true))
       .unwrap();
 
     let mut expected5 = Buffer::with_lines(vec![
@@ -1034,7 +1049,7 @@ mod tests {
     log.add_record("gamma delta epsilon".into());
 
     terminal
-      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), true))
+      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), true, true))
       .unwrap();
 
     let expected_initial = Buffer::with_lines(vec![
@@ -1048,7 +1063,7 @@ mod tests {
     log.add_record("zeta eta theta".into());
 
     terminal
-      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), true))
+      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), true, true))
       .unwrap();
 
     let expected_after_append = Buffer::with_lines(vec![
@@ -1072,7 +1087,7 @@ mod tests {
     log.add_record("zeta eta theta".into());
 
     terminal
-      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), true))
+      .draw(|f| log.render_list(f, f.area(), Block::default(), Style::default(), true, true))
       .unwrap();
 
     log.freeze_follow_position();

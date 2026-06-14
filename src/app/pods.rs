@@ -498,10 +498,14 @@ pub(crate) fn draw_logs_block(f: &mut Frame<'_>, app: &mut App, area: Rect) {
   let container_name = selected_container.unwrap_or_default();
 
   if container_name == app.data.logs.id || is_aggregate {
-    app
-      .data
-      .logs
-      .render_list(f, area, block, style_text(app.palette), app.log_auto_scroll);
+    app.data.logs.render_list(
+      f,
+      area,
+      block,
+      style_text(app.palette),
+      app.log_auto_scroll,
+      app.log_wrap,
+    );
   } else {
     loading(f, block, area, app.is_loading(), app.palette);
   }

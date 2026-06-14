@@ -634,9 +634,11 @@ pub fn copy_scroll_and_escape_title_line<'a, S: Into<Cow<'a, str>>>(
   mixed_bold_line(
     [
       help_part(format!(
-        "{} · {} · ",
+        "{} · {} · {} · {} · ",
         action_hint("copy", DEFAULT_KEYBINDING.copy_to_clipboard.key),
-        action_hint(auto_scroll_action, DEFAULT_KEYBINDING.log_auto_scroll.key)
+        action_hint(auto_scroll_action, DEFAULT_KEYBINDING.log_auto_scroll.key),
+        action_hint("timestamps", DEFAULT_KEYBINDING.toggle_log_timestamps.key),
+        action_hint("wrap", DEFAULT_KEYBINDING.toggle_log_wrap.key)
       )),
       help_part(format!("{}:back ", DEFAULT_KEYBINDING.esc.key.symbol())),
     ],

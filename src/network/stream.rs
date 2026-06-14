@@ -20,7 +20,7 @@ const MAX_RECONNECT_ATTEMPTS: u32 = 10;
 const DEDUP_WINDOW: usize = 50;
 const MAX_AGGREGATE_PODS: usize = 20;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum IoStreamEvent {
   RefreshClient,
   GetPodLogs(bool),
@@ -90,7 +90,7 @@ impl<'a> NetworkStream<'a> {
   }
 
   pub async fn stream_container_logs(&self, tail: bool) {
-    let (namespace, pod_name, cont_name, tail_lines, cancel_rx) = {
+    let (namespace, pod_name, cont_name, tail_lines, timestamps, cancel_rx) = {
       let app = self.app.lock().await;
       let ns = app
         .data
@@ -106,8 +106,9 @@ impl<'a> NetworkStream<'a> {
         .unwrap_or_default();
       let cont = app.data.selected.container.clone().unwrap_or_default();
       let tail_lines = app.initial_log_tail_lines();
+      let timestamps = app.log_timestamps;
       let rx = app.new_log_cancel_rx();
-      (ns, pod, cont, tail_lines, rx)
+      (ns, pod, cont, tail_lines, timestamps, rx)
     };
 
     if pod_name.is_empty() || cont_name.is_empty() {
@@ -134,6 +135,7 @@ impl<'a> NetworkStream<'a> {
           None
         },
         since_seconds,
+        timestamps,
         ..Default::default()
       };
 
@@ -275,7 +277,7 @@ impl<'a> NetworkStream<'a> {
   /// last instance is static. Absence of a prior instance is surfaced in the
   /// log view rather than as a hard error.
   pub async fn fetch_previous_logs(&self) {
-    let (namespace, pod_name, cont_name, tail_lines) = {
+    let (namespace, pod_name, cont_name, tail_lines, timestamps) = {
       let app = self.app.lock().await;
       let ns = app
         .data
@@ -291,7 +293,7 @@ impl<'a> NetworkStream<'a> {
         .unwrap_or_default();
       let cont = app.data.selected.container.clone().unwrap_or_default();
       let tail_lines = app.initial_log_tail_lines();
-      (ns, pod, cont, tail_lines)
+      (ns, pod, cont, tail_lines, app.log_timestamps)
     };
 
     if pod_name.is_empty() || cont_name.is_empty() {
@@ -304,6 +306,7 @@ impl<'a> NetworkStream<'a> {
       previous: true,
       follow: false,
       tail_lines: Some(tail_lines),
+      timestamps,
       ..Default::default()
     };
 
@@ -336,7 +339,7 @@ impl<'a> NetworkStream<'a> {
 
   /// Stream logs from all containers of the selected pod concurrently.
   pub async fn stream_pod_all_container_logs(&self) {
-    let (namespace, pod_name, container_names, tail_lines, cancel_rx) = {
+    let (namespace, pod_name, container_names, tail_lines, timestamps, cancel_rx) = {
       let app = self.app.lock().await;
       let pod = app.data.pods.get_selected_item_copy();
       let ns = pod
@@ -350,7 +353,7 @@ impl<'a> NetworkStream<'a> {
         .unwrap_or_default();
       let tail_lines = app.initial_log_tail_lines();
       let rx = app.new_log_cancel_rx();
-      (ns, name, containers, tail_lines, rx)
+      (ns, name, containers, tail_lines, app.log_timestamps, rx)
     };
 
     if pod_name.is_empty() || container_names.is_empty() {
@@ -392,6 +395,7 @@ impl<'a> NetworkStream<'a> {
             short_name: cont_name,
           },
           tail_lines,
+          timestamps,
           tx,
           cancel_rx,
         )
@@ -462,9 +466,13 @@ impl<'a> NetworkStream<'a> {
   /// Stream logs from all pods matching a label selector concurrently.
   /// Lines are prefixed with the pod name for disambiguation.
   pub async fn stream_aggregate_logs(&self, namespace: &str, selector: &str) {
-    let (tail_lines, cancel_rx) = {
+    let (tail_lines, timestamps, cancel_rx) = {
       let app = self.app.lock().await;
-      (app.initial_log_tail_lines(), app.new_log_cancel_rx())
+      (
+        app.initial_log_tail_lines(),
+        app.log_timestamps,
+        app.new_log_cancel_rx(),
+      )
     };
 
     // Fetch pods matching the selector
@@ -539,6 +547,7 @@ impl<'a> NetworkStream<'a> {
             short_name: prefix,
           },
           tail_lines,
+          timestamps,
           tx,
           cancel_rx,
         )
@@ -671,6 +680,7 @@ async fn stream_single_pod_for_aggregate(
   client: Client,
   stream_target: AggregateStreamTarget,
   tail_lines: i64,
+  timestamps: bool,
   tx: tokio::sync::mpsc::Sender<String>,
   cancel_rx: tokio::sync::watch::Receiver<bool>,
 ) {
@@ -686,6 +696,7 @@ async fn stream_single_pod_for_aggregate(
     follow: true,
     previous: false,
     tail_lines: Some(tail_lines),
+    timestamps,
     ..Default::default()
   };
 
