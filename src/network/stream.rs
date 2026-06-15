@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::Arc, time::Duration};
+use std::{collections::HashSet, process::Stdio, sync::Arc, time::Duration};
 
 use anyhow::anyhow;
 use futures::AsyncBufReadExt;
@@ -8,11 +8,18 @@ use kube::{
   Api, Client,
 };
 use log::{debug, error, info, warn};
-use tokio::{sync::Mutex, time::Instant};
+use tokio::{
+  io::{AsyncBufReadExt as TokioAsyncBufReadExt, AsyncReadExt, BufReader},
+  process::{ChildStderr, ChildStdout, Command},
+  sync::Mutex,
+  time::Instant,
+};
 use tokio_stream::StreamExt;
 
 use super::refresh_kube_config;
+use crate::app::port_forward::PortForwardStatus;
 use crate::app::App;
+use crate::cmd::port_forward::{prepare_port_forward, PortForwardTarget};
 const BATCH_SIZE: usize = 50;
 const BATCH_FLUSH_MS: u64 = 100;
 const RECONNECT_OVERLAP_SECS: i64 = 5;
@@ -25,8 +32,21 @@ pub enum IoStreamEvent {
   RefreshClient,
   GetPodLogs(bool),
   GetPreviousLogs,
-  GetAggregateLogs { namespace: String, selector: String },
+  GetAggregateLogs {
+    namespace: String,
+    selector: String,
+  },
   GetPodAllContainerLogs,
+  StartPortForward {
+    kind: String,
+    namespace: String,
+    name: String,
+    local_port: u16,
+    remote_port: u16,
+  },
+  StopPortForward {
+    id: u64,
+  },
 }
 
 #[derive(Clone)]
@@ -76,6 +96,20 @@ impl<'a> NetworkStream<'a> {
       }
       IoStreamEvent::GetPodAllContainerLogs => {
         self.stream_pod_all_container_logs().await;
+      }
+      IoStreamEvent::StartPortForward {
+        kind,
+        namespace,
+        name,
+        local_port,
+        remote_port,
+      } => {
+        self
+          .start_port_forward(kind, namespace, name, local_port, remote_port)
+          .await;
+      }
+      IoStreamEvent::StopPortForward { id } => {
+        self.stop_port_forward(id).await;
       }
     };
 
@@ -624,6 +658,144 @@ impl<'a> NetworkStream<'a> {
       streaming_count, selector
     );
   }
+
+  /// Spawn a background `kubectl port-forward` child, track it in app state, and
+  /// watch its output for readiness/failure. The TUI stays up (unlike the
+  /// foreground shell-exec/edit actions).
+  pub async fn start_port_forward(
+    &self,
+    kind: String,
+    namespace: String,
+    name: String,
+    local_port: u16,
+    remote_port: u16,
+  ) {
+    let target = PortForwardTarget {
+      kind,
+      namespace,
+      name,
+      local_port,
+      remote_port,
+    };
+    let command = match prepare_port_forward(&target) {
+      Ok(command) => command,
+      Err(error) => {
+        self.handle_error(anyhow!(error.to_string())).await;
+        return;
+      }
+    };
+
+    let mut child = match Command::new(&command.program)
+      .args(&command.args)
+      .stdin(Stdio::null())
+      .stdout(Stdio::piped())
+      .stderr(Stdio::piped())
+      .kill_on_drop(true)
+      .spawn()
+    {
+      Ok(child) => child,
+      Err(error) => {
+        self
+          .handle_error(anyhow!(
+            "Unable to start kubectl port-forward (is kubectl installed?): {}",
+            error
+          ))
+          .await;
+        return;
+      }
+    };
+
+    let stdout = child.stdout.take();
+    let stderr = child.stderr.take();
+
+    let id = {
+      let mut app = self.app.lock().await;
+      app.add_port_forward(
+        target.kind,
+        target.namespace,
+        target.name,
+        local_port,
+        remote_port,
+        child,
+      )
+    };
+
+    if let (Some(stdout), Some(stderr)) = (stdout, stderr) {
+      let app = Arc::clone(self.app);
+      tokio::spawn(async move {
+        watch_port_forward(app, id, stdout, stderr).await;
+      });
+    }
+  }
+
+  /// Stop a tracked forward: remove it from app state and kill+reap the child on
+  /// the runtime that owns it.
+  pub async fn stop_port_forward(&self, id: u64) {
+    let child = {
+      let mut app = self.app.lock().await;
+      app.remove_port_forward(id)
+    };
+    if let Some(mut child) = child {
+      let _ = child.kill().await;
+    }
+    let mut app = self.app.lock().await;
+    app.set_status_message("Stopped port-forward");
+  }
+}
+
+/// Read a forward's kubectl output until it exits. The first
+/// "Forwarding from …" line on stdout marks it active; an early exit (or any
+/// exit) reads stderr for the reason and marks it failed. Updates are no-ops if
+/// the forward was already removed (e.g. user stop).
+async fn watch_port_forward(
+  app: Arc<Mutex<App>>,
+  id: u64,
+  stdout: ChildStdout,
+  stderr: ChildStderr,
+) {
+  let mut lines = BufReader::new(stdout).lines();
+  let mut active = false;
+
+  // Reads until EOF/error (kubectl exited or was killed). Other lines ("Handling
+  // connection for …") are drained so the pipe never fills and blocks kubectl.
+  while let Ok(Some(line)) = lines.next_line().await {
+    if !active && line.contains("Forwarding from") {
+      active = true;
+      let mut app = app.lock().await;
+      app.set_port_forward_status(id, PortForwardStatus::Active);
+    }
+  }
+
+  if active {
+    // Was forwarding and the process ended on its own (pod died, etc.).
+    let mut app = app.lock().await;
+    app.set_port_forward_status(id, PortForwardStatus::Failed("connection closed".into()));
+  } else {
+    let reason = read_port_forward_error(stderr).await;
+    let mut app = app.lock().await;
+    app.set_port_forward_status(id, PortForwardStatus::Failed(reason));
+  }
+}
+
+/// Read kubectl's stderr after an early exit and extract a short failure reason.
+async fn read_port_forward_error(stderr: ChildStderr) -> String {
+  let mut buf = String::new();
+  let _ = BufReader::new(stderr).read_to_string(&mut buf).await;
+  summarize_port_forward_error(&buf)
+}
+
+/// First non-empty stderr line, truncated to keep the toast/list line short.
+fn summarize_port_forward_error(stderr: &str) -> String {
+  let reason = stderr
+    .lines()
+    .map(str::trim)
+    .find(|line| !line.is_empty())
+    .unwrap_or("port-forward exited");
+  if reason.chars().count() > 80 {
+    reason.chars().take(77).collect::<String>() + "..."
+  } else {
+    reason.to_string()
+  }
 }
 
 /// Extract a short pod name suffix for log prefixes.
@@ -791,6 +963,41 @@ mod tests {
         selector: "app=nginx".into(),
       }
     );
+  }
+
+  #[test]
+  fn test_port_forward_stream_events_round_trip() {
+    let start = IoStreamEvent::StartPortForward {
+      kind: "pods".into(),
+      namespace: "default".into(),
+      name: "web".into(),
+      local_port: 8080,
+      remote_port: 80,
+    };
+    assert_eq!(start.clone(), start);
+    assert_eq!(
+      IoStreamEvent::StopPortForward { id: 3 },
+      IoStreamEvent::StopPortForward { id: 3 }
+    );
+  }
+
+  #[test]
+  fn test_summarize_port_forward_error_picks_first_line_and_truncates() {
+    assert_eq!(
+      summarize_port_forward_error(
+        "\n  Unable to listen on port 8080: bind: address already in use\nmore"
+      ),
+      "Unable to listen on port 8080: bind: address already in use"
+    );
+    assert_eq!(
+      summarize_port_forward_error("   \n  "),
+      "port-forward exited"
+    );
+
+    let long = "x".repeat(200);
+    let summary = summarize_port_forward_error(&long);
+    assert_eq!(summary.chars().count(), 80);
+    assert!(summary.ends_with("..."));
   }
 
   fn make_pod(name: &str, containers: &[&str]) -> Pod {

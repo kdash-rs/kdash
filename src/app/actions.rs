@@ -17,6 +17,7 @@ pub enum ResourceAction {
   Edit,
   Logs,
   Shell,
+  PortForward,
   PreviousLogs,
   Restart,
   Scale,
@@ -36,6 +37,7 @@ impl ResourceAction {
       ResourceAction::Edit => "Edit",
       ResourceAction::Logs => "Logs",
       ResourceAction::Shell => "Shell",
+      ResourceAction::PortForward => "Port-forward",
       ResourceAction::PreviousLogs => "Previous logs",
       ResourceAction::Restart => "Rollout restart",
       ResourceAction::Scale => "Scale",
@@ -65,6 +67,7 @@ impl ResourceAction {
         _ => DEFAULT_KEYBINDING.aggregate_logs.key,
       }),
       ResourceAction::Shell => Some(DEFAULT_KEYBINDING.shell_exec.key),
+      ResourceAction::PortForward => Some(DEFAULT_KEYBINDING.port_forward.key),
       ResourceAction::PreviousLogs => Some(DEFAULT_KEYBINDING.previous_logs.key),
       ResourceAction::Restart => Some(DEFAULT_KEYBINDING.restart_resource.key),
       ResourceAction::DecodeSecret => Some(DEFAULT_KEYBINDING.decode_secret.key),
@@ -87,7 +90,17 @@ pub fn actions_for(block: ActiveBlock) -> Vec<ResourceAction> {
   use ResourceAction::*;
   match block {
     ActiveBlock::Containers => vec![Logs, PreviousLogs, Shell],
-    ActiveBlock::Pods => vec![Describe, Yaml, Edit, Logs, PreviousLogs, Delete],
+    ActiveBlock::Pods => vec![
+      Describe,
+      Yaml,
+      Edit,
+      Logs,
+      PreviousLogs,
+      PortForward,
+      Delete,
+    ],
+    // Services are port-forwardable but not pod-bearing (no logs/shell).
+    ActiveBlock::Services => vec![Describe, Yaml, Edit, PortForward, Delete],
     ActiveBlock::Secrets => vec![Describe, Yaml, Edit, DecodeSecret, Delete],
     // Deployments and statefulsets are both rollout-restartable and scalable.
     ActiveBlock::Deployments | ActiveBlock::StatefulSets => {
@@ -105,8 +118,7 @@ pub fn actions_for(block: ActiveBlock) -> Vec<ResourceAction> {
     // Troubleshoot findings support describe/yaml (handled by the troubleshoot
     // route), so the `m` hint shown on that pane is honest.
     ActiveBlock::Troubleshoot => vec![Describe, Yaml],
-    ActiveBlock::Services
-    | ActiveBlock::ConfigMaps
+    ActiveBlock::ConfigMaps
     | ActiveBlock::StorageClasses
     | ActiveBlock::Roles
     | ActiveBlock::RoleBindings
@@ -172,13 +184,34 @@ pub enum InputAction {
     /// Human-readable kind label for the confirmation prompt.
     kind: String,
   },
+  /// Port-forward a pod/service; the buffer is `local:remote` (or a single port).
+  PortForward {
+    /// kubectl resource type (`pods` / `services`).
+    kind: String,
+    namespace: String,
+    name: String,
+  },
+}
+
+/// What a validated [`InputModal`] feeds into. Impactful actions chain into a
+/// confirmation [`Modal`]; non-destructive ones (port-forward) fire directly.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum InputSubmit {
+  Confirm(Modal),
+  StartPortForward {
+    kind: String,
+    namespace: String,
+    name: String,
+    local_port: u16,
+    remote_port: u16,
+  },
 }
 
 impl InputModal {
-  /// Validate the current buffer for the pending action. On success returns the
-  /// confirmation modal to chain into; on failure returns an inline error and
-  /// the input modal stays open.
-  pub fn validate(&self) -> Result<Modal, String> {
+  /// Validate the current buffer for the pending action. On success returns what
+  /// to do next ([`InputSubmit`]); on failure returns an inline error and the
+  /// input modal stays open.
+  pub fn validate(&self) -> Result<InputSubmit, String> {
     match &self.action {
       InputAction::Scale {
         block,
@@ -198,7 +231,7 @@ impl InputModal {
           ),
           None => format!("Scale {} '{}' to {} replica(s)?", kind, name, replicas),
         };
-        Ok(Modal::confirm(
+        Ok(InputSubmit::Confirm(Modal::confirm(
           "Confirm scale",
           prompt,
           IoEvent::PatchResource {
@@ -207,10 +240,43 @@ impl InputModal {
             namespace: namespace.clone(),
             patch: ResourcePatch::SetReplicas(replicas),
           },
-        ))
+        )))
+      }
+      InputAction::PortForward {
+        kind,
+        namespace,
+        name,
+      } => {
+        let (local_port, remote_port) = parse_port_mapping(&self.buffer)?;
+        Ok(InputSubmit::StartPortForward {
+          kind: kind.clone(),
+          namespace: namespace.clone(),
+          name: name.clone(),
+          local_port,
+          remote_port,
+        })
       }
     }
   }
+}
+
+/// Parse a `local:remote` port mapping, or a single `port` (local == remote).
+/// Ports must be non-zero `u16`s.
+fn parse_port_mapping(buffer: &str) -> Result<(u16, u16), String> {
+  let buffer = buffer.trim();
+  let err = || "Enter ports as local:remote (e.g. 8080:80) or a single port".to_owned();
+
+  let (local, remote) = match buffer.split_once(':') {
+    Some((local, remote)) => (local.trim(), remote.trim()),
+    None => (buffer, buffer),
+  };
+
+  let local: u16 = local.parse().map_err(|_| err())?;
+  let remote: u16 = remote.parse().map_err(|_| err())?;
+  if local == 0 || remote == 0 {
+    return Err("Ports must be between 1 and 65535".to_owned());
+  }
+  Ok((local, remote))
 }
 
 #[cfg(test)]
@@ -331,9 +397,16 @@ mod tests {
     }
   }
 
+  fn expect_confirm(submit: InputSubmit) -> Modal {
+    match submit {
+      InputSubmit::Confirm(modal) => modal,
+      other => panic!("expected a confirm modal, got {other:?}"),
+    }
+  }
+
   #[test]
   fn test_scale_input_valid_count_builds_confirm_modal() {
-    let modal = scale_input("3").validate().expect("3 is valid");
+    let modal = expect_confirm(scale_input("3").validate().expect("3 is valid"));
     assert!(modal.prompt.contains("to 3 replica(s)"));
     assert_eq!(
       modal.on_confirm,
@@ -348,7 +421,7 @@ mod tests {
 
   #[test]
   fn test_scale_input_zero_is_allowed() {
-    let modal = scale_input("0").validate().expect("0 is valid");
+    let modal = expect_confirm(scale_input("0").validate().expect("0 is valid"));
     assert_eq!(
       modal.on_confirm,
       IoEvent::PatchResource {
@@ -357,6 +430,80 @@ mod tests {
         namespace: Some("default".into()),
         patch: ResourcePatch::SetReplicas(0),
       }
+    );
+  }
+
+  fn port_forward_input(buffer: &str) -> InputModal {
+    InputModal {
+      title: "Port-forward".into(),
+      prompt: "Ports:".into(),
+      buffer: buffer.into(),
+      error: None,
+      action: InputAction::PortForward {
+        kind: "pods".into(),
+        namespace: "default".into(),
+        name: "web".into(),
+      },
+    }
+  }
+
+  #[test]
+  fn test_port_forward_input_parses_local_remote() {
+    let submit = port_forward_input("8080:80")
+      .validate()
+      .expect("valid mapping");
+    assert_eq!(
+      submit,
+      InputSubmit::StartPortForward {
+        kind: "pods".into(),
+        namespace: "default".into(),
+        name: "web".into(),
+        local_port: 8080,
+        remote_port: 80,
+      }
+    );
+  }
+
+  #[test]
+  fn test_port_forward_input_single_port_maps_both() {
+    let submit = port_forward_input(" 9000 ")
+      .validate()
+      .expect("valid single port");
+    assert_eq!(
+      submit,
+      InputSubmit::StartPortForward {
+        kind: "pods".into(),
+        namespace: "default".into(),
+        name: "web".into(),
+        local_port: 9000,
+        remote_port: 9000,
+      }
+    );
+  }
+
+  #[test]
+  fn test_port_forward_input_rejects_bad_and_zero_ports() {
+    assert!(port_forward_input("").validate().is_err());
+    assert!(port_forward_input("abc").validate().is_err());
+    assert!(port_forward_input("0:80").validate().is_err());
+    assert!(port_forward_input("8080:0").validate().is_err());
+    assert!(port_forward_input("99999:80").validate().is_err());
+  }
+
+  #[test]
+  fn test_actions_for_port_forwardable_blocks() {
+    assert!(actions_for(ActiveBlock::Pods).contains(&ResourceAction::PortForward));
+    assert!(actions_for(ActiveBlock::Services).contains(&ResourceAction::PortForward));
+    // Not offered for resources without a forwardable port.
+    assert!(!actions_for(ActiveBlock::ConfigMaps).contains(&ResourceAction::PortForward));
+    assert!(!actions_for(ActiveBlock::Nodes).contains(&ResourceAction::PortForward));
+  }
+
+  #[test]
+  fn test_port_forward_is_hotkey_backed() {
+    assert_eq!(
+      ResourceAction::PortForward.hotkey(ActiveBlock::Pods),
+      Some(DEFAULT_KEYBINDING.port_forward.key)
     );
   }
 

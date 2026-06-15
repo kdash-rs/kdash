@@ -1,4 +1,5 @@
 pub mod edit;
+pub mod port_forward;
 pub mod shell;
 
 use std::{collections::BTreeSet, io, sync::Arc};

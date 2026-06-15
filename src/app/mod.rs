@@ -15,6 +15,7 @@ pub(crate) mod network_policies;
 pub(crate) mod nodes;
 pub(crate) mod ns;
 pub(crate) mod pods;
+pub(crate) mod port_forward;
 pub(crate) mod pvcs;
 pub(crate) mod pvs;
 pub(crate) mod replicasets;
@@ -35,8 +36,10 @@ use kube::config::Kubeconfig;
 use kubectl_view_allocations::GroupBy;
 use log::{error, info};
 use ratatui::layout::Rect;
+use ratatui::widgets::ListState;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
+use tokio::process::Child;
 use tokio::sync::{mpsc::Sender, watch};
 
 use self::{
@@ -59,6 +62,7 @@ use self::{
   nodes::KubeNode,
   ns::KubeNs,
   pods::{KubeContainer, KubePod},
+  port_forward::{PortForward, PortForwardStatus},
   pvcs::KubePVC,
   pvs::KubePV,
   replicasets::KubeReplicaSet,
@@ -336,6 +340,14 @@ pub struct App {
   /// Vertical scroll offset for the grouped help page (clamped at render time).
   pub help_scroll: u16,
   pub error_history: VecDeque<ErrorRecord>,
+  /// Active `kubectl port-forward` children, listed and stopped via the
+  /// forwards overlay.
+  pub port_forwards: Vec<PortForward>,
+  next_port_forward_id: u64,
+  /// Whether the active-forwards overlay is open.
+  pub show_port_forwards: bool,
+  /// Selection state for the forwards overlay list.
+  pub port_forwards_state: ListState,
   pending_terminal_action: Option<PendingTerminalAction>,
   /// Transient confirmation overlay guarding an impactful action.
   pub modal: Option<Modal>,
@@ -593,6 +605,10 @@ impl Default for App {
       help_scroll: 0,
       background_cache_pending: false,
       error_history: VecDeque::with_capacity(MAX_ERROR_HISTORY),
+      port_forwards: Vec::new(),
+      next_port_forward_id: 0,
+      show_port_forwards: false,
+      port_forwards_state: ListState::default(),
       pending_terminal_action: None,
       modal: None,
       input_modal: None,
@@ -843,6 +859,7 @@ impl App {
 
   pub fn reset(&mut self) {
     self.cancel_log_stream();
+    self.kill_all_port_forwards();
     self.loading_counter = 0;
     self.tick_count = 0;
     self.api_error = String::new();
@@ -1010,6 +1027,137 @@ impl App {
     match &self.pending_terminal_action {
       Some(PendingTerminalAction::Edit(request)) => Some(request),
       _ => None,
+    }
+  }
+
+  /// Whether a forward already binds `local_port` locally (active or starting).
+  /// Failed forwards do not hold the port, so they do not count.
+  pub fn local_port_in_use(&self, local_port: u16) -> bool {
+    self
+      .port_forwards
+      .iter()
+      .any(|pf| pf.local_port == local_port && !matches!(pf.status, PortForwardStatus::Failed(_)))
+  }
+
+  /// Start a `kubectl port-forward` for the given target. Rejects a duplicate
+  /// local port up front; the network-stream task spawns the child and tracks it.
+  pub async fn start_port_forward(
+    &mut self,
+    kind: String,
+    namespace: String,
+    name: String,
+    local_port: u16,
+    remote_port: u16,
+  ) {
+    if self.local_port_in_use(local_port) {
+      self.handle_error(anyhow!("Local port {} is already forwarded", local_port));
+      return;
+    }
+    self.set_status_message(format!(
+      "Starting port-forward {}/{} {}:{}",
+      kind, name, local_port, remote_port
+    ));
+    self
+      .dispatch_stream(IoStreamEvent::StartPortForward {
+        kind,
+        namespace,
+        name,
+        local_port,
+        remote_port,
+      })
+      .await;
+  }
+
+  /// Record a freshly spawned forward and return its stable id. Called from the
+  /// network-stream task, which owns the child handle.
+  pub fn add_port_forward(
+    &mut self,
+    kind: String,
+    namespace: String,
+    name: String,
+    local_port: u16,
+    remote_port: u16,
+    child: Child,
+  ) -> u64 {
+    let id = self.next_port_forward_id;
+    self.next_port_forward_id += 1;
+    self.port_forwards.push(PortForward {
+      id,
+      kind,
+      namespace,
+      name,
+      local_port,
+      remote_port,
+      status: PortForwardStatus::Starting,
+      child: Some(child),
+    });
+    id
+  }
+
+  /// Update a tracked forward's status (no-op if it was already removed).
+  pub fn set_port_forward_status(&mut self, id: u64, status: PortForwardStatus) {
+    if let Some(pf) = self.port_forwards.iter_mut().find(|pf| pf.id == id) {
+      pf.status = status;
+    }
+  }
+
+  /// Remove a forward, returning its child so the caller can kill+reap it.
+  pub fn remove_port_forward(&mut self, id: u64) -> Option<Child> {
+    let index = self.port_forwards.iter().position(|pf| pf.id == id)?;
+    let mut pf = self.port_forwards.remove(index);
+    self.clamp_port_forwards_selection();
+    pf.child.take()
+  }
+
+  /// SIGKILL every tracked forward and clear the list. Used on quit; reaping is
+  /// left to the OS since the process is exiting.
+  pub fn kill_all_port_forwards(&mut self) {
+    for pf in &mut self.port_forwards {
+      if let Some(mut child) = pf.child.take() {
+        let _ = child.start_kill();
+      }
+    }
+    self.port_forwards.clear();
+    self.show_port_forwards = false;
+  }
+
+  /// Open the active-forwards overlay, or report when there is nothing to show.
+  pub fn open_port_forwards(&mut self) {
+    if self.port_forwards.is_empty() {
+      self.set_status_message(format!(
+        "No active port-forwards ({} on a pod/service to start one)",
+        DEFAULT_KEYBINDING.port_forward.key.symbol()
+      ));
+      return;
+    }
+    self.show_port_forwards = true;
+    if self.port_forwards_state.selected().is_none() {
+      self.port_forwards_state.select(Some(0));
+    }
+    self.clamp_port_forwards_selection();
+  }
+
+  pub fn close_port_forwards(&mut self) {
+    self.show_port_forwards = false;
+  }
+
+  /// The id of the forward currently highlighted in the overlay, if any.
+  pub fn selected_port_forward_id(&self) -> Option<u64> {
+    self
+      .port_forwards_state
+      .selected()
+      .and_then(|i| self.port_forwards.get(i))
+      .map(|pf| pf.id)
+  }
+
+  fn clamp_port_forwards_selection(&mut self) {
+    if self.port_forwards.is_empty() {
+      self.port_forwards_state.select(None);
+      self.show_port_forwards = false;
+    } else {
+      let max = self.port_forwards.len() - 1;
+      let sel = self.port_forwards_state.selected().unwrap_or(0).min(max);
+      self.port_forwards_state.select(Some(sel));
     }
   }
 
@@ -2434,5 +2582,83 @@ mod tests {
     app.set_contexts(contexts);
 
     assert!(app.data.active_context.is_none());
+  }
+
+  fn push_forward(app: &mut App, id: u64, local_port: u16, status: PortForwardStatus) {
+    app.port_forwards.push(PortForward {
+      id,
+      kind: "pods".into(),
+      namespace: "default".into(),
+      name: format!("web-{id}"),
+      local_port,
+      remote_port: 80,
+      status,
+      child: None,
+    });
+  }
+
+  #[test]
+  fn test_local_port_in_use_ignores_failed_forwards() {
+    let mut app = App::default();
+    push_forward(&mut app, 0, 8080, PortForwardStatus::Active);
+    push_forward(&mut app, 1, 9090, PortForwardStatus::Failed("boom".into()));
+
+    assert!(app.local_port_in_use(8080));
+    // A failed forward no longer holds its port.
+    assert!(!app.local_port_in_use(9090));
+    assert!(!app.local_port_in_use(7000));
+  }
+
+  #[test]
+  fn test_remove_port_forward_drops_entry_and_clamps_selection() {
+    let mut app = App::default();
+    push_forward(&mut app, 0, 8080, PortForwardStatus::Active);
+    push_forward(&mut app, 1, 9090, PortForwardStatus::Starting);
+    app.open_port_forwards();
+    app.port_forwards_state.select(Some(1));
+
+    // No child handle in tests, so nothing to kill; the entry is still removed.
+    assert!(app.remove_port_forward(1).is_none());
+    assert_eq!(app.port_forwards.len(), 1);
+    assert_eq!(app.selected_port_forward_id(), Some(0));
+
+    assert!(app.remove_port_forward(0).is_none());
+    assert!(app.port_forwards.is_empty());
+    // Overlay auto-closes once the list empties.
+    assert!(!app.show_port_forwards);
+  }
+
+  #[test]
+  fn test_set_port_forward_status_updates_matching_id_only() {
+    let mut app = App::default();
+    push_forward(&mut app, 0, 8080, PortForwardStatus::Starting);
+    app.set_port_forward_status(0, PortForwardStatus::Active);
+    app.set_port_forward_status(99, PortForwardStatus::Failed("ignored".into()));
+
+    assert!(matches!(
+      app.port_forwards[0].status,
+      PortForwardStatus::Active
+    ));
+  }
+
+  #[test]
+  fn test_open_port_forwards_empty_reports_and_stays_closed() {
+    let mut app = App::default();
+    app.open_port_forwards();
+    assert!(!app.show_port_forwards);
+    assert!(!app.status_message.is_empty());
+  }
+
+  #[test]
+  fn test_kill_all_port_forwards_clears_list() {
+    let mut app = App::default();
+    push_forward(&mut app, 0, 8080, PortForwardStatus::Active);
+    push_forward(&mut app, 1, 9090, PortForwardStatus::Active);
+    app.open_port_forwards();
+
+    app.kill_all_port_forwards();
+
+    assert!(app.port_forwards.is_empty());
+    assert!(!app.show_port_forwards);
   }
 }

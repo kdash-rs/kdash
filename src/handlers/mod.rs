@@ -9,7 +9,7 @@ use std::{
 
 use crate::{
   app::{
-    actions::{InputAction, InputModal, Modal, ResourceAction},
+    actions::{InputAction, InputModal, InputSubmit, Modal, ResourceAction},
     key_binding::DEFAULT_KEYBINDING,
     models::{
       HasPodSelector, KubeResource, Scrollable, ScrollableTxt, StatefulList, StatefulTable,
@@ -20,7 +20,7 @@ use crate::{
   },
   cmd::IoCmdEvent,
   event::Key,
-  network::{IoEvent, ResourcePatch},
+  network::{stream::IoStreamEvent, IoEvent, ResourcePatch},
 };
 
 /// Handles Enter/`o` key on a workload resource: describe/yaml, drill-down to pods, or aggregate logs.
@@ -130,11 +130,15 @@ pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
     return;
   }
   if app.input_modal.is_some() {
-    handle_input_modal_key(key, app);
+    handle_input_modal_key(key, app).await;
     return;
   }
   if app.action_menu.is_some() {
     handle_action_menu_key(key, app).await;
+    return;
+  }
+  if app.show_port_forwards {
+    handle_port_forwards_key(key, app).await;
     return;
   }
 
@@ -251,6 +255,9 @@ pub async fn handle_key_events(key: Key, key_event: KeyEvent, app: &mut App) {
         let block = app.get_current_route().active_block;
         app.open_action_menu(block);
       }
+      _ if key == DEFAULT_KEYBINDING.port_forwards_list.key => {
+        app.open_port_forwards();
+      }
       _ => handle_route_events(key, app).await,
     }
   }
@@ -272,13 +279,25 @@ async fn handle_modal_key(key: Key, app: &mut App) {
 /// Handle keys while a single-line input overlay is active. Printable chars edit
 /// the buffer, `Enter` validates (chaining into a confirm modal on success or
 /// showing an inline error on failure), `Esc` cancels.
-fn handle_input_modal_key(key: Key, app: &mut App) {
+async fn handle_input_modal_key(key: Key, app: &mut App) {
   if key == DEFAULT_KEYBINDING.submit.key {
     let result = app.input_modal.as_ref().map(|input| input.validate());
     match result {
-      Some(Ok(modal)) => {
+      Some(Ok(InputSubmit::Confirm(modal))) => {
         app.close_input_modal();
         app.open_modal(modal);
+      }
+      Some(Ok(InputSubmit::StartPortForward {
+        kind,
+        namespace,
+        name,
+        local_port,
+        remote_port,
+      })) => {
+        app.close_input_modal();
+        app
+          .start_port_forward(kind, namespace, name, local_port, remote_port)
+          .await;
       }
       Some(Err(err)) => {
         if let Some(input) = app.input_modal.as_mut() {
@@ -926,6 +945,9 @@ async fn handle_route_events(key: Key, app: &mut App) {
         _ if key == DEFAULT_KEYBINDING.edit_resource.key => {
           queue_selected_resource_edit(app);
         }
+        _ if key == DEFAULT_KEYBINDING.port_forward.key => {
+          open_port_forward_input(app);
+        }
         _ if key == DEFAULT_KEYBINDING.jump_to_namespace.key
           && app.get_current_route().active_block != ActiveBlock::Namespaces =>
         {
@@ -1401,6 +1423,86 @@ fn queue_selected_resource_edit(app: &mut App) {
   });
 }
 
+/// kubectl resource type for a port-forwardable block, if it can be forwarded.
+fn port_forward_kind(block: ActiveBlock) -> Option<&'static str> {
+  match block {
+    ActiveBlock::Pods => Some("pods"),
+    ActiveBlock::Services => Some("services"),
+    _ => None,
+  }
+}
+
+/// Open the `local:remote` input modal to start a port-forward for the selected
+/// pod or service. No-op for other blocks.
+fn open_port_forward_input(app: &mut App) {
+  let block = app.get_current_route().active_block;
+  let Some(kind) = port_forward_kind(block) else {
+    return;
+  };
+  let Some((name, namespace)) = selected_target(app, block) else {
+    app.handle_error(anyhow!("No resource selected to port-forward"));
+    return;
+  };
+  let Some(namespace) = namespace else {
+    return;
+  };
+  app.open_input_modal(InputModal {
+    title: "Port-forward".to_owned(),
+    prompt: format!("Ports for {} '{}' (local:remote or port):", kind, name),
+    buffer: String::new(),
+    error: None,
+    action: InputAction::PortForward {
+      kind: kind.to_owned(),
+      namespace,
+      name,
+    },
+  });
+}
+
+/// Handle keys while the active-forwards overlay is open: navigate, stop the
+/// selected forward (`d`/Enter), or close (`Esc`).
+async fn handle_port_forwards_key(key: Key, app: &mut App) {
+  match key {
+    _ if key == DEFAULT_KEYBINDING.esc.key => app.close_port_forwards(),
+    _ if key == DEFAULT_KEYBINDING.up.key
+      || key == DEFAULT_KEYBINDING.up.alt.unwrap()
+      || key == Key::Up =>
+    {
+      let len = app.port_forwards.len();
+      move_list_selection(&mut app.port_forwards_state, len, -1);
+    }
+    _ if key == DEFAULT_KEYBINDING.down.key
+      || key == DEFAULT_KEYBINDING.down.alt.unwrap()
+      || key == Key::Down =>
+    {
+      let len = app.port_forwards.len();
+      move_list_selection(&mut app.port_forwards_state, len, 1);
+    }
+    _ if key == DEFAULT_KEYBINDING.submit.key
+      || key == DEFAULT_KEYBINDING.delete_resource.key
+      || key == Key::Char('d') =>
+    {
+      if let Some(id) = app.selected_port_forward_id() {
+        app
+          .dispatch_stream(IoStreamEvent::StopPortForward { id })
+          .await;
+      }
+    }
+    _ => {}
+  }
+}
+
+/// Move a `ListState` selection by `delta`, clamped to `[0, len)`.
+fn move_list_selection(state: &mut ratatui::widgets::ListState, len: usize, delta: isize) {
+  if len == 0 {
+    state.select(None);
+    return;
+  }
+  let current = state.selected().unwrap_or(0) as isize;
+  let next = (current + delta).clamp(0, len as isize - 1) as usize;
+  state.select(Some(next));
+}
+
 fn queue_selected_container_shell_exec(app: &mut App) {
   let Some(pod) = app.data.pods.get_selected_item_copy() else {
     app.handle_error(anyhow!("No pod selected for shell exec"));
@@ -1642,16 +1744,17 @@ fn inverse_dir(event: ScrollEvent, is_mouse: bool) -> ScrollEvent {
 
 #[cfg(test)]
 mod tests {
+  use std::{
+    fs,
+    time::{SystemTime, UNIX_EPOCH},
+  };
+
   use crossterm::event::KeyCode;
   use k8s_openapi::ByteString;
   use kube::{
     api::ObjectMeta,
     core::{ApiResource, DynamicObject},
     discovery::Scope,
-  };
-  use std::{
-    fs,
-    time::{SystemTime, UNIX_EPOCH},
   };
   use tokio::sync::mpsc;
 
@@ -2013,6 +2116,7 @@ mod tests {
         ResourceAction::Edit,
         ResourceAction::Logs,
         ResourceAction::PreviousLogs,
+        ResourceAction::PortForward,
         ResourceAction::Delete
       ]
     );
@@ -2108,8 +2212,10 @@ mod tests {
   }
 
   fn make_node(name: &str, unschedulable: bool) -> crate::app::nodes::KubeNode {
-    use k8s_openapi::api::core::v1::{Node, NodeSpec, Pod};
-    use k8s_openapi::apimachinery::pkg::apis::meta::v1::{ListMeta, ObjectMeta};
+    use k8s_openapi::{
+      api::core::v1::{Node, NodeSpec, Pod},
+      apimachinery::pkg::apis::meta::v1::{ListMeta, ObjectMeta},
+    };
     use kube::{api::ObjectList, core::TypeMeta};
 
     let node = Node {
@@ -2134,6 +2240,12 @@ mod tests {
     let seed = tokio::sync::Mutex::new(App::default());
     let mut guard = seed.try_lock().expect("uncontended lock");
     crate::app::nodes::KubeNode::from_api_with_pods(&node, &pods, &mut guard)
+  }
+
+  /// A `Shift`+char key event (crossterm only sets `Key::Shift(..)` when the
+  /// SHIFT modifier is present, not for a bare uppercase `Char`).
+  fn shift_char(c: char) -> KeyEvent {
+    KeyEvent::new(KeyCode::Char(c), crossterm::event::KeyModifiers::SHIFT)
   }
 
   async fn open_menu_and_select(app: &mut App, steps: usize) {
@@ -2295,10 +2407,10 @@ mod tests {
     app.data.pods.set_items(vec![pod]);
 
     // Open the action menu and move to the Delete entry
-    // (Describe, YAML, Edit, Logs, Previous logs, Delete → index 5).
+    // (Describe, YAML, Edit, Logs, Previous logs, Port-forward, Delete → index 6).
     let m = KeyEvent::from(KeyCode::Char('m'));
     handle_key_events(Key::from(m), m, &mut app).await;
-    for _ in 0..5 {
+    for _ in 0..6 {
       let down = KeyEvent::from(KeyCode::Down);
       handle_key_events(Key::from(down), down, &mut app).await;
     }
@@ -2421,8 +2533,9 @@ mod tests {
 
   #[tokio::test]
   async fn test_restart_key_opens_confirm_for_deployment() {
-    use crate::app::deployments::KubeDeployment;
     use k8s_openapi::api::apps::v1::Deployment;
+
+    use crate::app::deployments::KubeDeployment;
 
     let mut app = App::default();
     app.route_home();
@@ -2455,8 +2568,9 @@ mod tests {
     ns: &str,
     replicas: Option<i32>,
   ) -> crate::app::deployments::KubeDeployment {
-    use crate::app::deployments::KubeDeployment;
     use k8s_openapi::api::apps::v1::{Deployment, DeploymentSpec};
+
+    use crate::app::deployments::KubeDeployment;
 
     let dep = Deployment {
       spec: replicas.map(|r| DeploymentSpec {
@@ -2618,6 +2732,110 @@ mod tests {
   }
 
   #[tokio::test]
+  async fn test_port_forward_key_opens_input_for_pod() {
+    let mut app = App::default();
+    app.route_home();
+    let mut pod = KubePod::default();
+    pod.name = "web".into();
+    pod.namespace = "team-a".into();
+    app.data.pods.set_items(vec![pod]);
+
+    let f = KeyEvent::from(KeyCode::Char('f'));
+    handle_key_events(Key::from(f), f, &mut app).await;
+
+    let input = app
+      .input_modal
+      .as_ref()
+      .expect("port-forward should open an input modal");
+    assert_eq!(
+      input.action,
+      InputAction::PortForward {
+        kind: "pods".into(),
+        namespace: "team-a".into(),
+        name: "web".into(),
+      }
+    );
+  }
+
+  #[tokio::test]
+  async fn test_port_forward_input_submit_closes_modal() {
+    let mut app = App::default();
+    app.route_home();
+    let mut pod = KubePod::default();
+    pod.name = "web".into();
+    pod.namespace = "team-a".into();
+    app.data.pods.set_items(vec![pod]);
+
+    // f → input modal, type "8080:80", submit. No io_stream channel in tests, so
+    // the dispatch is a no-op, but the modal should close cleanly.
+    send_keys(
+      &mut app,
+      &[
+        KeyCode::Char('f'),
+        KeyCode::Char('8'),
+        KeyCode::Char('0'),
+        KeyCode::Char('8'),
+        KeyCode::Char('0'),
+        KeyCode::Char(':'),
+        KeyCode::Char('8'),
+        KeyCode::Char('0'),
+        KeyCode::Enter,
+      ],
+    )
+    .await;
+
+    assert!(app.input_modal.is_none());
+    assert!(app.modal.is_none());
+  }
+
+  #[tokio::test]
+  async fn test_port_forwards_list_key_empty_is_noop() {
+    let mut app = App::default();
+    app.route_home();
+
+    let f = shift_char('F');
+    handle_key_events(Key::from(f), f, &mut app).await;
+
+    assert!(!app.show_port_forwards);
+    assert!(!app.status_message.is_empty());
+  }
+
+  #[tokio::test]
+  async fn test_port_forwards_overlay_navigates_and_swallows_keys() {
+    use crate::app::port_forward::{PortForward, PortForwardStatus};
+
+    let mut app = App::default();
+    app.route_home();
+    for (id, port) in [(0u64, 8080u16), (1, 9090)] {
+      app.port_forwards.push(PortForward {
+        id,
+        kind: "pods".into(),
+        namespace: "default".into(),
+        name: format!("web-{id}"),
+        local_port: port,
+        remote_port: 80,
+        status: PortForwardStatus::Active,
+        child: None,
+      });
+    }
+
+    let upper_f = shift_char('F');
+    handle_key_events(Key::from(upper_f), upper_f, &mut app).await;
+    assert!(app.show_port_forwards);
+    assert_eq!(app.selected_port_forward_id(), Some(0));
+
+    // Down moves the selection; a tab-switch key is swallowed while open.
+    let block_before = app.get_current_route().active_block;
+    send_keys(&mut app, &[KeyCode::Down, KeyCode::Char('2')]).await;
+    assert_eq!(app.selected_port_forward_id(), Some(1));
+    assert_eq!(app.get_current_route().active_block, block_before);
+
+    let esc = KeyEvent::from(KeyCode::Esc);
+    handle_key_events(Key::from(esc), esc, &mut app).await;
+    assert!(!app.show_port_forwards);
+  }
+
+  #[tokio::test]
   async fn test_restart_key_is_noop_on_non_workload_block() {
     let mut app = App::default();
     app.route_home();
@@ -2634,8 +2852,9 @@ mod tests {
 
   #[tokio::test]
   async fn test_menu_suspend_cronjob_confirms_suspend() {
-    use crate::app::cronjobs::KubeCronJob;
     use k8s_openapi::api::batch::v1::CronJob;
+
+    use crate::app::cronjobs::KubeCronJob;
 
     let mut app = App::default();
     app.route_home();
@@ -2666,8 +2885,9 @@ mod tests {
 
   #[tokio::test]
   async fn test_menu_trigger_cronjob_confirms_trigger() {
-    use crate::app::cronjobs::KubeCronJob;
     use k8s_openapi::api::batch::v1::CronJob;
+
+    use crate::app::cronjobs::KubeCronJob;
 
     let mut app = App::default();
     app.route_home();

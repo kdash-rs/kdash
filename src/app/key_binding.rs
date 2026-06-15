@@ -101,6 +101,8 @@ generate_keybindings! {
   jump_to_more_resources,
   jump_to_dynamic_resources,
   aggregate_logs,
+  port_forward,
+  port_forwards_list,
   cycle_group_by,
   toggle_wide_columns,
   toggle_log_timestamps,
@@ -442,6 +444,18 @@ const DEFAULT_KEYBINDINGS: KeyBindings = KeyBindings {
     desc: "Aggregate logs for resource",
     context: HContext::Overview,
   },
+  port_forward: KeyBinding {
+    key: Key::Char('f'),
+    alt: None,
+    desc: "Port-forward selected pod/service",
+    context: HContext::Overview,
+  },
+  port_forwards_list: KeyBinding {
+    key: Key::Shift('f'),
+    alt: None,
+    desc: "List/stop active port-forwards",
+    context: HContext::Overview,
+  },
   cycle_group_by: KeyBinding {
     key: Key::Char('g'),
     alt: None,
@@ -537,9 +551,10 @@ fn key_label(item: &KeyBinding) -> String {
 
 #[cfg(test)]
 mod tests {
+  use std::collections::BTreeMap;
+
   use super::{DEFAULT_KEYBINDINGS, *};
   use crate::config::{KdashConfig, KeybindingOverrides};
-  use std::collections::BTreeMap;
 
   #[test]
   fn test_as_iter() {

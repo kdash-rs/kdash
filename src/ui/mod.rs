@@ -19,12 +19,14 @@ use self::{
   utils::{
     action_hint, centered_rect, default_part, draw_popup_menu, help_part, hint_key_glyph,
     key_hints, mixed_bold_line, mixed_line, split_hint_suffix, style_failure,
-    style_main_background, style_secondary, style_text, title_with_dual_style, vertical_chunks,
+    style_main_background, style_secondary, style_success, style_text, style_warning,
+    title_with_dual_style, vertical_chunks,
   },
 };
 use crate::app::{
   contexts::ContextResource, key_binding::DEFAULT_KEYBINDING, metrics::UtilizationResource,
-  models::AppResource, troubleshoot::TroubleshootResource, ActiveBlock, App, RouteId,
+  models::AppResource, port_forward::PortForwardStatus, troubleshoot::TroubleshootResource,
+  ActiveBlock, App, RouteId,
 };
 use crate::event::Key;
 
@@ -81,6 +83,9 @@ pub fn draw(f: &mut Frame<'_>, app: &mut App) {
   // Transient overlays are drawn last so they sit above the current view.
   if app.action_menu.is_some() {
     draw_action_menu(f, app);
+  }
+  if app.show_port_forwards {
+    draw_port_forwards(f, app);
   }
   if app.input_modal.is_some() {
     draw_input_modal(f, app);
@@ -228,6 +233,53 @@ fn draw_action_menu(f: &mut Frame<'_>, app: &mut App) {
     palette,
   );
   draw_popup_menu(f, area, title, items, &mut menu.state, palette);
+}
+
+/// Active `kubectl port-forward` overlay: one row per forward with a
+/// status-coloured tag, navigable, stop with `d`/Enter.
+fn draw_port_forwards(f: &mut Frame<'_>, app: &mut App) {
+  let palette = app.palette;
+  if app.port_forwards.is_empty() {
+    return;
+  }
+
+  let items: Vec<ListItem<'_>> = app
+    .port_forwards
+    .iter()
+    .map(|pf| {
+      let status_style = match &pf.status {
+        PortForwardStatus::Active => style_success(palette),
+        PortForwardStatus::Starting => style_warning(palette),
+        PortForwardStatus::Failed(_) => style_failure(palette),
+      };
+      ListItem::new(Line::from(vec![
+        Span::styled(
+          format!(
+            "{}/{} ({})  {} → {}  ",
+            pf.kind, pf.name, pf.namespace, pf.local_port, pf.remote_port
+          ),
+          style_text(palette),
+        ),
+        Span::styled(format!("[{}]", pf.status.label()), status_style),
+      ]))
+    })
+    .collect();
+
+  let area = centered_rect(70, (items.len() as u16).saturating_add(2), f.area());
+  let title = title_with_dual_style(
+    " Port-forwards ".to_string(),
+    mixed_bold_line(
+      [help_part(format!(
+        "· {}/{}:stop · {}:close ",
+        Key::Char('d').symbol(),
+        DEFAULT_KEYBINDING.submit.key.symbol(),
+        DEFAULT_KEYBINDING.esc.key.symbol()
+      ))],
+      palette,
+    ),
+    palette,
+  );
+  draw_popup_menu(f, area, title, items, &mut app.port_forwards_state, palette);
 }
 
 fn draw_app_title(f: &mut Frame<'_>, app: &App, area: Rect) {
@@ -414,12 +466,14 @@ fn draw_toasts(f: &mut Frame<'_>, app: &App) {
 mod tests {
   use std::iter;
 
-  use k8s_openapi::api::{
-    apps::v1::{DaemonSet, Deployment, ReplicaSet},
-    batch::v1::Job,
-    core::v1::{ConfigMap, Node, Pod, Service},
+  use k8s_openapi::{
+    api::{
+      apps::v1::{DaemonSet, Deployment, ReplicaSet},
+      batch::v1::Job,
+      core::v1::{ConfigMap, Node, Pod, Service},
+    },
+    apimachinery::pkg::apis::meta::v1::ListMeta,
   };
-  use k8s_openapi::apimachinery::pkg::apis::meta::v1::ListMeta;
   use kube::{api::ObjectList, core::TypeMeta};
   use ratatui::{backend::TestBackend, style::Modifier, Terminal};
 

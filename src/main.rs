@@ -366,6 +366,12 @@ async fn start_ui(cli: Cli, app: &Arc<Mutex<App>>) -> Result<()> {
     }
   }
 
+  // Tear down any active port-forwards so kubectl children don't outlive the UI.
+  {
+    let mut app = app.lock().await;
+    app.kill_all_port_forwards();
+  }
+
   terminal.show_cursor()?;
   shutdown(terminal)?;
   Ok(())
