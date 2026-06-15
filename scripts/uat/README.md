@@ -44,6 +44,48 @@ cargo build
 
 Exit code is non-zero if any `expect`/`refute` failed, so it slots into CI.
 
+## Recording an asciinema cast
+
+Add `--cast <path>` anywhere in the args to also record the whole driven
+session as an [asciinema] v2 cast. It tees the raw PTY bytes the harness already
+reads, so the recording is exactly what the app painted, driven by your scripted
+keystrokes (deterministic, not a hand-recorded session).
+
+```bash
+/tmp/kdash-uat-venv/bin/python scripts/uat/harness.py \
+    scripts/uat/example.prog /tmp/out target/debug/kdash --cast /tmp/out/demo.cast -t 200
+
+asciinema play /tmp/out/demo.cast      # replay in the terminal
+agg /tmp/out/demo.cast /tmp/out/demo.gif   # render a GIF (e.g. for the README)
+```
+
+`--cast` works alongside `expect`/`refute`/`snap` — one run both asserts and
+records.
+
+### A tight, loopable README GIF
+
+By default the cast covers the whole session (incl. the slow load and the final
+quit). For a clean clip, drive a smaller terminal with `--cols/--rows` and
+bracket the interesting part with `startcast`/`stopcast` steps:
+
+- `startcast` drops everything captured so far and re-bases the clock to now. It
+  also nudges the window size to force a full repaint, because ratatui only
+  redraws changed cells — without that the clip would open on a blank grid.
+- `stopcast` finalizes the recording, so the quit at the end is excluded.
+
+`scripts/uat/demo.prog` is a ready-made tour (Pods, a few resource tabs, the
+help overlay, back to Pods so it loops). It produced `screenshots/demo.gif`:
+
+```bash
+/tmp/kdash-uat-venv/bin/python scripts/uat/harness.py \
+    scripts/uat/demo.prog /tmp/out target/debug/kdash \
+    --cast /tmp/out/kdash.cast --cols 128 --rows 34 -t 200
+
+agg --font-size 16 /tmp/out/kdash.cast screenshots/demo.gif
+```
+
+[asciinema]: https://asciinema.org/
+
 ## Program steps
 
 One step per line; blank lines and `#` comments are ignored.
@@ -60,6 +102,8 @@ One step per line; blank lines and `#` comments are ignored.
 | `refute:<substr>` | Assert the screen does not contain `substr` |
 | `iexpect:<substr>` | Case-insensitive `expect` |
 | `comment:<text>` | Print a comment line |
+| `startcast` | (Re)start the `--cast` clip here, dropping earlier frames |
+| `stopcast` | Finalize the `--cast` clip here, excluding later frames |
 
 ### Key names
 

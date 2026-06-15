@@ -1,0 +1,35 @@
+comment: KDash README demo — tour resource tabs + help; loopable clip
+comment: run with --cols 128 --rows 34 --cast for a tight GIF (see README)
+
+# let the dashboard connect and paint
+wait: 4
+# land on the Pods tab, then start the clip here (skips the slow initial load)
+type:1
+settle
+startcast
+# hold a beat so a full Pods repaint lands as the opening frame
+settle
+expect: Pods
+
+# tour a few resource views
+type:2
+wait: 1.3
+type:7
+wait: 1.3
+type:3
+wait: 1.4
+
+# back to Pods so the final frame matches the first (clean loop)
+type:1
+wait: 1.3
+
+# open the help overlay, then close it (Esc) back onto Pods
+type:?
+wait: 1.8
+expect: Resource Views
+key:esc
+wait: 1.2
+expect: Pods
+
+# end the clip before the quit so the GIF stays tight and loopable
+stopcast

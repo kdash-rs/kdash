@@ -12,9 +12,17 @@ Reads a "program" (one step per line) from a file argument. Steps:
   refute:<substr>     assert current screen does NOT contain substr -> PASS/FAIL line
   iexpect:<substr>    case-insensitive contains
   comment:<text>      print a comment line
+  startcast           (re)start the cast clip here, dropping earlier frames
+  stopcast            finalize the cast here, excluding later frames
 
 Exit code is non-zero if any expect/refute failed.
+
+Pass --cast <path> to also record the session as an asciinema v2 cast (replay
+with `asciinema play <path>`, turn into a GIF with `agg <path> out.gif`).
+Use --cols/--rows to drive a smaller terminal (handy for a tight README GIF);
+bracket the interesting part with startcast/stopcast to skip load and quit.
 """
+import json
 import os
 import sys
 import time
@@ -48,15 +56,66 @@ KEYS = {
 
 
 class Session:
-    def __init__(self, outdir, binary, base_args):
+    def __init__(self, outdir, binary, base_args, cast_path=None, cols=COLS, rows=ROWS):
         self.outdir = outdir
         self.binary = binary
         self.base_args = base_args
+        self.cols = cols
+        self.rows = rows
         self.child = None
-        self.screen = pyte.Screen(COLS, ROWS)
+        self.screen = pyte.Screen(self.cols, self.rows)
         self.stream = pyte.Stream(self.screen)
         self.failures = 0
         self.passes = 0
+        self.cast = None
+        self.cast_start = None
+        if cast_path:
+            self.cast = open(cast_path, "w")
+            self._write_cast_header()
+
+    def _write_cast_header(self):
+        header = {
+            "version": 2,
+            "width": self.cols,
+            "height": self.rows,
+            "timestamp": int(time.time()),
+            "env": {"TERM": "xterm-256color", "SHELL": os.environ.get("SHELL", "")},
+        }
+        self.cast.write(json.dumps(header) + "\n")
+        self.cast.flush()
+        self.cast_start = time.time()
+
+    def start_cast(self):
+        """Mark the start of the recorded clip: drop everything captured so far
+        (e.g. the slow initial load) and re-base timestamps to now.
+
+        ratatui only repaints changed cells, so a truncated clip would start from
+        a blank grid. Nudge the window size to force a full clear+redraw, then
+        re-base, so the clip opens with a complete frame."""
+        if not self.cast:
+            return
+        if self.child and self.child.isalive() and self.rows > 2:
+            self.child.setwinsize(self.rows - 1, self.cols)
+            self._pump(0.3)
+            self.child.setwinsize(self.rows, self.cols)
+        self.cast.seek(0)
+        self.cast.truncate()
+        self._write_cast_header()
+        self._pump(0.4)
+
+    def stop_cast(self):
+        """Finalize the recording here, so later bytes (e.g. the quit) are
+        excluded — keeps a GIF clip tight and loopable."""
+        if self.cast:
+            self.cast.close()
+            self.cast = None
+
+    def _cast_write(self, data):
+        if not self.cast:
+            return
+        elapsed = round(time.time() - self.cast_start, 6)
+        self.cast.write(json.dumps([elapsed, "o", data]) + "\n")
+        self.cast.flush()
 
     def spawn(self, extra=""):
         if self.child and self.child.isalive():
@@ -66,9 +125,10 @@ class Session:
         env = dict(os.environ)
         env["TERM"] = "xterm-256color"
         self.child = pexpect.spawn(
-            self.binary, args, dimensions=(ROWS, COLS), env=env, encoding="utf-8", timeout=5
+            self.binary, args, dimensions=(self.rows, self.cols), env=env,
+            encoding="utf-8", timeout=5
         )
-        self.screen = pyte.Screen(COLS, ROWS)
+        self.screen = pyte.Screen(self.cols, self.rows)
         self.stream = pyte.Stream(self.screen)
         self._pump(2.5)
 
@@ -79,6 +139,7 @@ class Session:
                 data = self.child.read_nonblocking(size=65536, timeout=0.2)
                 if data:
                     self.stream.feed(data)
+                    self._cast_write(data)
                     # Answer crossterm's cursor-position query (DSR: ESC[6n) so
                     # the TUI doesn't abort with "cursor position could not be read".
                     if "\x1b[6n" in data:
@@ -149,6 +210,10 @@ class Session:
                 self.expect(arg.strip(), ci=True)
             elif op == "comment":
                 print(f"# {arg.strip()}")
+            elif op == "startcast":
+                self.start_cast()
+            elif op == "stopcast":
+                self.stop_cast()
             else:
                 print(f"  ?? unknown op: {op}")
 
@@ -157,17 +222,33 @@ class Session:
             self.child.send(KEYS["ctrl-c"])
             self._pump(0.5)
             self.child.close(force=True)
+        self.stop_cast()
+
+
+def _take_opt(argv, name):
+    """Pop `--name <value>` from argv (anywhere), returning the value or None.
+    Keeps the positional [args...] passthrough (e.g. -t 200) intact."""
+    if name in argv:
+        i = argv.index(name)
+        value = argv[i + 1]
+        del argv[i : i + 2]
+        return value
+    return None
 
 
 def main():
-    prog_file = sys.argv[1]
-    outdir = sys.argv[2]
-    binary = sys.argv[3] if len(sys.argv) > 3 else "target/debug/kdash"
-    base_args = sys.argv[4:] if len(sys.argv) > 4 else ["-t", "200"]
+    argv = sys.argv[1:]
+    cast_path = _take_opt(argv, "--cast")
+    cols = int(_take_opt(argv, "--cols") or COLS)
+    rows = int(_take_opt(argv, "--rows") or ROWS)
+    prog_file = argv[0]
+    outdir = argv[1]
+    binary = argv[2] if len(argv) > 2 else "target/debug/kdash"
+    base_args = argv[3:] if len(argv) > 3 else ["-t", "200"]
     os.makedirs(outdir, exist_ok=True)
     with open(prog_file) as f:
         program = f.readlines()
-    s = Session(outdir, binary, base_args)
+    s = Session(outdir, binary, base_args, cast_path=cast_path, cols=cols, rows=rows)
     # first line may be a spawn; if not, spawn default
     if not any(l.strip().startswith("spawn") for l in program[:1]):
         s.spawn()
