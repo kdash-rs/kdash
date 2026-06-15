@@ -530,7 +530,10 @@ pub fn draw_popup_menu(
   f.render_stateful_widget(
     List::new(items)
       .block(block)
-      .style(style_text(palette))
+      // `Clear` wipes the area to the terminal default; repaint the theme
+      // background so the popup matches the active theme, not whatever sits
+      // behind the terminal.
+      .style(style_text(palette).bg(palette.bg))
       .highlight_style(style_secondary(palette).add_modifier(Modifier::BOLD))
       .highlight_symbol(HIGHLIGHT),
     area,

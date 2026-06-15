@@ -79,3 +79,33 @@ spec:
       resources:
         requests:
           cpu: "100" # exceeds the 32-core node -> never schedules -> Pending
+---
+# Services so the Services tab has content when the demo focuses the kdash-test
+# namespace. They select the gauge deployments above; the pods don't serve
+# traffic, but the Service objects list fine in KDash.
+apiVersion: v1
+kind: Service
+metadata:
+  name: gauge-reserver
+  namespace: kdash-test
+  labels: { app: gauge-reserver }
+spec:
+  selector: { app: gauge-reserver }
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gauge-stress
+  namespace: kdash-test
+  labels: { app: gauge-stress }
+spec:
+  type: ClusterIP
+  selector: { app: gauge-stress }
+  ports:
+    - name: metrics
+      port: 9090
+      targetPort: 9090

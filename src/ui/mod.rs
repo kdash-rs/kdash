@@ -134,11 +134,13 @@ fn draw_modal(f: &mut Frame<'_>, app: &App) {
       palette,
     ))
     .borders(Borders::ALL)
-    .style(style_failure(palette));
+    // `Clear` resets the area to the terminal default; the block style fills
+    // the whole popup, so set the theme background here too.
+    .style(style_failure(palette).bg(palette.bg));
 
   let paragraph = Paragraph::new(lines)
     .block(block)
-    .style(style_text(palette));
+    .style(style_text(palette).bg(palette.bg));
 
   f.render_widget(Clear, area);
   f.render_widget(paragraph, area);
@@ -185,11 +187,13 @@ fn draw_input_modal(f: &mut Frame<'_>, app: &App) {
       palette,
     ))
     .borders(Borders::ALL)
-    .style(style_secondary(palette));
+    // `Clear` resets the area to the terminal default; the block style fills
+    // the whole popup, so set the theme background here too.
+    .style(style_secondary(palette).bg(palette.bg));
 
   let paragraph = Paragraph::new(lines)
     .block(block)
-    .style(style_text(palette));
+    .style(style_text(palette).bg(palette.bg));
 
   f.render_widget(Clear, area);
   f.render_widget(paragraph, area);
@@ -623,6 +627,37 @@ mod tests {
     assert!(joined.contains("Actions"));
     assert!(joined.contains("Describe"));
     assert!(joined.contains("Delete"));
+  }
+
+  #[test]
+  fn test_popup_repaints_theme_background_after_clear() {
+    // `Clear` wipes the popup area to the terminal default (`Color::Reset`);
+    // the overlays must repaint the active theme's background so they don't
+    // show whatever sits behind the terminal. Use Latte (a distinct RGB bg)
+    // so a missing repaint reads as `Reset`, clearly != the theme bg.
+    let mut app = App::default();
+    app.route_home();
+    app.palette = palette_for(ThemeName::Latte);
+    app.open_action_menu(ActiveBlock::Pods);
+
+    let backend = TestBackend::new(120, 30);
+    let mut terminal = Terminal::new(backend).unwrap();
+    terminal.draw(|f| draw(f, &mut app)).unwrap();
+    let buffer = terminal.backend().buffer();
+
+    // A label that only exists inside the action-menu popup.
+    let lines = buffer_lines(buffer);
+    let row = lines
+      .iter()
+      .position(|l| l.contains("Delete"))
+      .expect("action menu popup should be visible");
+    let col = lines[row].find("Delete").unwrap();
+
+    assert_eq!(
+      buffer[(col as u16, row as u16)].bg,
+      app.palette.bg,
+      "popup interior should carry the theme background, not the terminal default"
+    );
   }
 
   #[test]
