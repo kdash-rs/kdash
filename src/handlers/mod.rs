@@ -2249,14 +2249,16 @@ mod tests {
   }
 
   async fn open_menu_and_select(app: &mut App, steps: usize) {
-    let m = KeyEvent::from(KeyCode::Char('m'));
-    handle_key_events(Key::from(m), m, app).await;
+    // Route the whole sequence through `send_keys` (one await point). A separate
+    // `.await` per key embeds a copy of the large `handle_key_events` future into
+    // this future and overflows Windows' 1 MB test stack — see `send_keys`.
+    let mut codes = Vec::with_capacity(steps + 2);
+    codes.push(KeyCode::Char('m'));
     for _ in 0..steps {
-      let down = KeyEvent::from(KeyCode::Down);
-      handle_key_events(Key::from(down), down, app).await;
+      codes.push(KeyCode::Down);
     }
-    let enter = KeyEvent::from(KeyCode::Enter);
-    handle_key_events(Key::from(enter), enter, app).await;
+    codes.push(KeyCode::Enter);
+    send_keys(app, &codes).await;
   }
 
   /// Drive a whole key sequence through one loop. `handle_key_events` produces a
