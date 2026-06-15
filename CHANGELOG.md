@@ -1,17 +1,34 @@
 # Changelog
 
-## [Unreleased]
+## [2.0.0] - 2026-06-15
+
+KDash 2.0 turns the dashboard from read-only into a tool you can act with. You can now manage resources, port-forward, and edit manifests without leaving the TUI, alongside a refreshed UI and faster rendering.
 
 ### Added
 
 - **NEW:** Resource management actions. KDash can now act on resources, not just observe them:
   - Delete any resource (`Ctrl-d`)
-  - View previous (restarted) container logs (`p`)
+  - Edit any resource in your `$EDITOR` (`e`); KDash suspends the UI while the editor is open and applies the result on save
+  - Scale Deployments/StatefulSets/ReplicaSets/ReplicationControllers to a replica count via an inline input
   - Rollout restart Deployments/StatefulSets/DaemonSets (`r`)
-  - Scale Deployments/StatefulSets/ReplicaSets/ReplicationControllers to a replica count
+  - View previous (restarted) container logs (`p`)
   - Cordon/uncordon nodes and suspend/resume/trigger CronJobs
+- **NEW:** Port-forward a Pod or Service with `f`, then list and stop active forwards with `Shift+F`. Forwards run as tracked background processes and are stopped when you quit KDash.
 - **NEW:** Action menu (`m`) lists every available action for the selected resource; the most-used actions also have dedicated hotkeys surfaced as hints.
+- **NEW:** More built-in themes and runtime theme cycling. Switch themes on the fly with `t` (next) and `Alt+t` (previous) across Macchiato, Latte, Gruvbox Dark, Solarized Dark, and Mono, plus an optional custom theme.
+- Log view options to toggle timestamps (`t`) and line wrap (`w`) while viewing container logs.
+- Cycle the main views in reverse with `Shift+Tab`, reset the view-switch history with `Ctrl+H`, and jump to the start/end of tables and text views with `Home`/`End`.
 - Impactful actions are guarded by a confirmation prompt before any change is applied.
+
+### Changed
+
+- Refreshed the UI across hints, headers, help, notifications, and gauges for a cleaner, more consistent look.
+- Help page now lays out keybindings in two balanced columns.
+- Utilization view adds a cluster summary pane.
+- Context info panel shows more detail, and the view-switch history is collapsed by default to reduce noise.
+- Scrolling is unified across views with smoother behavior. Thanks to [@tstenner](https://github.com/tstenner) for the contribution! [#530](https://github.com/kdash-rs/kdash/pull/530)
+- Enabled the ratatui layout cache for faster redraws. Thanks to [@tstenner](https://github.com/tstenner) for the contribution! [#531](https://github.com/kdash-rs/kdash/pull/531)
+- Updated kubectl-view-allocations to 3.0.1 and ratatui to 0.30.1, plus chrono, serde_json, log, clap, strum, and human-panic bumps.
 
 ## [1.1.2] - 2026-05-16
 

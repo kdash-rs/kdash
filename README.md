@@ -10,7 +10,7 @@
 [![Coverage](https://coveralls.io/repos/github/kdash-rs/kdash/badge.svg?branch=main)](https://coveralls.io/github/kdash-rs/kdash?branch=main)
 [![GitHub Downloads](https://img.shields.io/github/downloads/kdash-rs/kdash/total.svg?label=GitHub%20downloads)](https://github.com/kdash-rs/kdash/releases)
 ![Docker pulls](https://img.shields.io/docker/pulls/deepu105/kdash?label=Docker%20downloads)
-![Crate.io downloads](https://img.shields.io/crates/d/kdash?label=Crate%20downloads)
+![Crates.io downloads](https://img.shields.io/crates/d/kdash?label=Crates.io%20downloads)
 
 [![Follow Deepu K Sasidharan (deepu105)](https://img.shields.io/twitter/follow/deepu105?label=Follow%20Deepu%20K%20Sasidharan%20%28deepu105%29&style=social)](https://twitter.com/intent/follow?screen_name=deepu105)
 
@@ -20,19 +20,25 @@ A simple terminal dashboard for Kubernetes built with Rust [![Follow @kdashrs](h
 
 ![UI](screenshots/ui.gif)
 
-## New since v0.6.2
+## Contents
 
-- **Resource management actions** let you act on what you're watching without leaving KDash: delete any resource (`Ctrl-d`), rollout restart workloads (`r`), view previous container logs (`p`), scale workloads, and cordon nodes or suspend/resume/trigger CronJobs from a new action menu (`m`). Impactful actions are guarded by a confirmation prompt.
-- **Troubleshoot tab** surfaces severity-ranked findings for Pods, PVCs, and ReplicaSets, then lets you jump straight into containers, logs, describe, and YAML.
-- **Events tab** shows Kubernetes events with namespace, involved kind, reason, count, message, and age, with the same describe/YAML workflows as other resources.
-- **Deeper drill-down navigation** lets you move from workloads to owned Pods, from Pods to Containers, and from Nodes to the Pods scheduled on them.
-- **Aggregate workload logs** combine logs from all pods owned by a workload into a single stream.
-- **Inline `/` filtering** now works across resource tables and views, including Contexts, Help, Utilization, Troubleshoot, More, and Dynamic resource menus.
-- **Smarter resource tab and menu counts** hide zero-count badges in the resource tabs, show cached counts for Dynamic menu entries, and use `?` when a Dynamic kind has not been fetched into cache yet.
-- **Configurable keybindings and themes** let you override shortcuts and colors, and `log_tail_lines` lets you set the initial history fetched before live log streaming starts.
-- **Better diagnostics and reliability** include recent-error dump to file, kubeconfig live reload, friendlier errors, and smoother log/render performance.
-- **Configurable CLI Info** lets you disable built-in probes, add custom commands with optional regex-based version extraction
-- **More columns** are shown if viewport is wide enough for most resources including a new 'w' keybind to show all.
+- [What's new in 2.0](#whats-new-in-20)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Keybindings](#keybindings)
+- [Configuration](#configuration)
+- [Flags](#flags)
+- [Limitations / Known issues](#limitationsknown-issues)
+- [Features](#features)
+- [Screenshots](#screenshots)
+
+## What's new in 2.0
+
+- **Resource management actions** let you act on what you're watching without leaving KDash: delete any resource (`Ctrl-d`), edit any resource in your `$EDITOR` (`e`), rollout restart workloads (`r`), view previous container logs (`p`), scale workloads, and cordon nodes or suspend/resume/trigger CronJobs from a new action menu (`m`). Impactful actions are guarded by a confirmation prompt.
+- **Port-forward** a Pod or Service with `f`, then list and stop active forwards with `Shift+F`. Forwards run in the background and are stopped when you quit KDash.
+- **Log view options** toggle timestamps (`t`) and line wrap (`w`) while viewing container logs.
+- **More themes and runtime cycling** added Gruvbox Dark, Solarized Dark, and Mono alongside Catppuccin Macchiato and Latte, switchable on the fly with `t`/`Alt+t`, plus an optional custom theme.
+- **Refreshed UI** cleans up hints, headers, help, notifications, and gauges, lays the help page out in two columns, and adds a cluster summary pane to the utilization view.
 
 ## Sponsors
 
@@ -83,13 +89,13 @@ Since validation of the package takes forever, it may take a long while to becom
 choco install kdash
 
 # Version number may be required for newer releases, if available:
-choco install kdash --version=0.4.3
+choco install kdash --version=2.0.0
 ```
 
 To upgrade
 
 ```bash
-choco upgrade kdash --version=0.4.3
+choco upgrade kdash --version=2.0.0
 ```
 
 ### Cargo
@@ -152,13 +158,62 @@ You can also clone this repo and run `make docker` to build a docker image local
 
 > Note: If you are getting compilation error from openSSL. Make sure perl and perl-core are installed for your OS.
 
-## USAGE:
+## Usage
 
 ```bash
 kdash
 ```
 
-Press `?` while running the app to see keybindings
+Press `?` while running the app to see keybindings.
+
+## Keybindings
+
+KDash is keyboard-driven. Press `?` in the app for the full, always-current list (it also reflects any overrides from your config). The common keys:
+
+### Navigation
+
+| Key | Action |
+| --- | --- |
+| `?` | Help page |
+| `q` / `Ctrl-c` | Quit |
+| `Esc` | Go back / close the current page |
+| `↑` `↓` (or `k` `j`) | Move selection / scroll |
+| `←` `→` (or `h` `l`) | Switch resource tab |
+| `PgUp` `PgDn` / `Home` `End` | Scroll a page / jump to top or bottom |
+| `Tab` / `Shift+Tab` | Cycle main views forward / back |
+| `Ctrl-h` | Reset navigation to the root view |
+| `Enter` | Select row / drill into a resource |
+| `/` | Filter the current view |
+| `Ctrl-r` | Refresh data |
+| `1`-`0`, `-` | Jump straight to a resource tab |
+| `t` / `Alt+t` | Cycle theme forward / back |
+
+### Resource actions
+
+| Key | Action |
+| --- | --- |
+| `m` | Action menu for the selected resource |
+| `d` / `y` | Describe / view YAML |
+| `e` | Edit in `$EDITOR` |
+| `Ctrl-d` | Delete (with confirmation) |
+| `r` | Rollout restart a workload |
+| `p` | Previous (restarted) container logs |
+| `s` | Shell into the selected container |
+| `f` / `Shift+F` | Port-forward / list and stop forwards |
+| `Shift+L` | Aggregate logs across a workload's pods |
+| `n` / `a` | Select namespace / all namespaces |
+| `i` | Show or hide the info bar |
+| `w` | Toggle wide view (show all columns) |
+| `x` | Decode a secret |
+| `c` | Copy output to the clipboard |
+
+### Log view
+
+| Key | Action |
+| --- | --- |
+| `t` | Toggle timestamps |
+| `w` | Toggle line wrap |
+| `s` | Toggle auto-scroll |
 
 ## Configuration
 
@@ -202,26 +257,13 @@ back to `base` (default `macchiato`):
 ```yaml
 custom_theme:
   base: macchiato
-  accent: "#89B4FA"   # panel borders / primary
+  accent: "#89B4FA" # panel borders / primary
   secondary: "#F9E2AF" # panel titles
-  label: "#94E2D5"     # column labels
-  muted: "#9399B2"     # hints
+  label: "#94E2D5" # column labels
+  muted: "#9399B2" # hints
   highlight: "#F5C2E7" # focused panel border
   bg: "#11111B"
   fg: "#CDD6F4"
-```
-
-The legacy two-theme override format is still supported for backward compatibility —
-the `dark` section tints Macchiato and the `light` section tints Latte:
-
-```yaml
-theme:
-  dark:
-    primary: "#89B4FA"
-    background: "#11111B"
-  light:
-    primary: "#D20F39"
-    background: "#FAF7F0"
 ```
 
 Keybindings are overridden by binding name:
@@ -269,7 +311,7 @@ Built-in labels are: `kubectl client`, `kubectl server`, `docker`, `docker-compo
 
 See the sample config in [assets/kdash.sample-config.yaml](assets/kdash.sample-config.yaml) for a complete example with both custom keybindings and custom light/dark theme overrides.
 
-## FLAGS:
+## Flags
 
 - `-h, --help`: Prints help information
 - `-V, --version`: Prints version information
@@ -287,35 +329,31 @@ See the sample config in [assets/kdash.sample-config.yaml](assets/kdash.sample-c
 
 ## Features
 
-- CLI info
-- Node metrics
-- Resource watch (configurable polling interval with `-p` flag)
-- Custom resource definitions
-- Troubleshoot tab for Pods, PVCs, and ReplicaSets
-- Describe resources & copy the output
-- Get YAML for resources & copy the output
-- Stream container logs
-- Aggregate workload logs
-- Drill down from workloads/nodes to Pods and from Pods to Containers
-- Open a shell in the selected pod container from the Containers view. KDash temporarily suspends the UI while the interactive shell is active and restores it when you exit.
-- Resource management actions, each guarded by a confirmation prompt for impactful changes:
+- **CLI info** shows local tool versions (kubectl, docker, helm, and more). Disable built-in probes or add custom commands with optional regex-based version extraction.
+- **Live resource watch** polls and refreshes Kubernetes resources at a configurable interval (`-p` flag).
+- **Custom resource definitions** are discovered and browsable alongside built-in kinds.
+- **Describe and YAML views** for any resource, with syntax highlighting and copy to clipboard.
+- **Container logs** stream live with toggles for timestamps (`t`) and line wrap (`w`), and can aggregate logs from every pod owned by a workload into one stream.
+- **Deep drill-down navigation** moves from workloads to owned Pods, from Pods to Containers, and from Nodes to the Pods scheduled on them.
+- **Shell into a container** from the Containers view. KDash suspends the UI while the shell is active and restores it when you exit.
+- **Resource management actions**, each guarded by a confirmation prompt for impactful changes:
   - Delete any resource (`Ctrl-d`)
+  - Edit any resource in your `$EDITOR` (`e`)
   - View previous (restarted) container logs (`p`)
   - Rollout restart Deployments/StatefulSets/DaemonSets (`r`)
   - Scale Deployments/StatefulSets/ReplicaSets/ReplicationControllers to a replica count (via the action menu)
   - Cordon/uncordon nodes, suspend/resume/trigger CronJobs (via the action menu)
-- Action menu (`m`) lists every action available for the selected resource; the most-used ones also have dedicated hotkeys shown as hints
-- Context
-  - Context info
-  - Context watch
-  - Change namespace
-  - Context switch
-- Resources utilizations for nodes, pods and namespaces based on metrics server. Requires [metrics-server](https://kubernetes.io/docs/tasks/debug-application-cluster/resource-metrics-pipeline/#metrics-server) to be deployed on the cluster.
-- Five built-in themes (Catppuccin Macchiato/Latte, Gruvbox Dark, Solarized Dark, Mono) plus an optional custom theme, cycled with `t`/`Alt+t`
-- Sensible keyboard shortcuts
-- Configurable keybindings, theme overrides, and log tail defaults
-- Inline filtering across resource views and menus
-- Dynamic menu entries show cached item counts when available and `?` when the count is not cached yet
+- **Port-forward** a Pod or Service (`f`), then list and stop active forwards (`Shift+F`).
+- **Action menu** (`m`) lists every action available for the selected resource; the most-used ones also have dedicated hotkeys shown as hints.
+- **Troubleshoot tab** surfaces severity-ranked findings for Pods, PVCs, and ReplicaSets, then lets you jump straight into containers, logs, describe, and YAML.
+- **Events tab** shows Kubernetes events with namespace, involved kind, reason, count, message, and age, with the same describe/YAML workflows as other resources.
+- **Context management** shows context info, watches for changes, and lets you switch context or change namespace.
+- **Resource metrics and utilization** for nodes, pods, and namespaces, with grouping. Requires [metrics-server](https://kubernetes.io/docs/tasks/debug-application-cluster/resource-metrics-pipeline/#metrics-server) on the cluster.
+- **Resource tables** show counts in tabs and menus (hiding zero-count badges), cache counts with `?` for not-yet-fetched Dynamic kinds, and reveal all columns with `w` when the viewport is wide enough.
+- **Inline `/` filtering** works across resource tables and views, including Contexts, Help, Utilization, Troubleshoot, More, and Dynamic resource menus.
+- **Built-in themes** include Catppuccin Macchiato/Latte, Gruvbox Dark, Solarized Dark, and Mono, plus an optional custom theme, cycled at runtime with `t`/`Alt+t`.
+- **Configurable and keyboard-driven** with sensible default shortcuts you can override, theme overrides, and a configurable initial log history (`log_tail_lines`).
+- **Diagnostics and reliability** include dumping recent errors to a file, live kubeconfig reload, friendlier error messages, and smooth log and render performance.
 
 ## Screenshots
 
@@ -350,14 +388,6 @@ See the sample config in [assets/kdash.sample-config.yaml](assets/kdash.sample-c
 - [serde](https://github.com/serde-rs/serde)
 - [kubectl-view-allocations](https://github.com/davidB/kubectl-view-allocations)
 - [copypasta](https://github.com/alacritty/copypasta)
-
-## How does this compare to K9S?
-
-[K9S](https://github.com/derailed/k9s) is a beast compared to this as it offers way more features including CRUD actions.
-
-KDash only offers a view of the resources with a focus on speed and UX. Really, if something is slow or has bad UX then please raise a bug. Hence the UI/UX is designed to be more user-friendly and easier to navigate with contextual help everywhere and a tab system to switch between different resources easily.
-
-At least for now, there are no plans to add full CRUD for resources but in the future, we might.
 
 ## Licence
 

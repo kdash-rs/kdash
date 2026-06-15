@@ -513,7 +513,10 @@ mod tests {
     // takes effect on the next build).
     if std::env::var("KDASH_GOLDEN").is_ok() {
       std::fs::write(
-        concat!(env!("CARGO_MANIFEST_DIR"), "/test_data/ui-overview-test.txt"),
+        concat!(
+          env!("CARGO_MANIFEST_DIR"),
+          "/test_data/ui-overview-test.txt"
+        ),
         lines.join("\n") + "\n",
       )
       .unwrap();
