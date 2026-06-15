@@ -1,0 +1,146 @@
+comment: KDash hero tour -> screenshots/ui.gif
+comment: run with --cols 150 --rows 30 --cast (see scripts/uat/README.md)
+comment: prereq: kubectl apply -f test_data/gauge-demo.yaml
+
+# let the dashboard connect and paint
+wait: 4
+# focus the kdash-test namespace so the gauge-demo pods are front and centre
+type:n
+settle
+key:down
+settle
+key:enter
+settle
+
+startcast
+settle
+
+# --- 1. pods: scroll, drill into a running pod, view its container logs ---
+# scroll down through the colourful status rows (crashloop, pending, running)
+key:down
+wait: 0.35
+key:down
+wait: 0.35
+key:down
+wait: 0.45
+key:down
+wait: 0.6
+# jump to the bottom, then onto a running multi-container pod
+key:end
+wait: 0.6
+key:up
+wait: 0.3
+key:up
+wait: 0.3
+key:up
+wait: 0.7
+snap: 01_selected
+# drill in -> container list (app + sidecar)
+key:enter
+wait: 1.3
+snap: 02_containers
+# into the container -> logs
+key:enter
+wait: 1.7
+snap: 03_logs
+key:pagedown
+wait: 0.9
+key:pageup
+wait: 0.8
+# back out to the pods list
+key:esc
+wait: 0.5
+key:esc
+wait: 0.7
+
+# --- 2. cycle every resource tab, then show a few actions ---
+type:2
+wait: 0.7
+type:3
+wait: 0.7
+type:4
+wait: 0.7
+type:5
+wait: 0.7
+type:6
+wait: 0.7
+type:7
+wait: 0.7
+type:8
+wait: 0.7
+type:9
+wait: 0.7
+type:0
+wait: 0.7
+type:-
+wait: 0.8
+snap: 04_dynamic
+# back to pods, anchor on a running web pod for the action demos
+type:1
+wait: 0.6
+key:end
+wait: 0.8
+# action menu
+type:m
+wait: 1.6
+snap: 05_menu
+key:esc
+wait: 0.5
+# port-forward the selected pod
+type:f
+wait: 1.0
+type:18080:80
+wait: 1.0
+key:enter
+wait: 1.3
+# list active forwards
+type:F
+wait: 1.7
+snap: 06_forwards
+key:esc
+wait: 0.5
+# try to delete a pod -> confirmation -> cancel
+key:ctrl-d
+wait: 1.6
+snap: 07_delete
+key:esc
+wait: 0.7
+
+# --- 3. cycle main views, pause on Utilization, change grouping ---
+key:ctrl-h
+wait: 0.7
+key:tab
+wait: 1.2
+key:tab
+wait: 1.6
+snap: 08_util
+type:g
+wait: 1.3
+type:g
+wait: 1.3
+type:g
+wait: 1.4
+snap: 09_util_group
+
+# --- 4. cycle themes (5 presses -> back to default) ---
+type:A
+wait: 1.0
+type:t
+wait: 1.1
+type:t
+wait: 1.1
+type:t
+wait: 1.1
+type:t
+wait: 1.1
+type:t
+wait: 1.2
+
+# --- 5. help page ---
+type:?
+wait: 2.0
+snap: 12_help
+key:esc
+wait: 0.8
+
+stopcast

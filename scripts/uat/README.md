@@ -73,15 +73,64 @@ bracket the interesting part with `startcast`/`stopcast` steps:
   redraws changed cells — without that the clip would open on a blank grid.
 - `stopcast` finalizes the recording, so the quit at the end is excluded.
 
-`scripts/uat/demo.prog` is a ready-made tour (Pods, a few resource tabs, the
-help overlay, back to Pods so it loops). It produced `screenshots/demo.gif`:
+Two ready-made programs:
+
+- `scripts/uat/demo.prog` — minimal loopable tour (Pods, a few resource tabs,
+  the help overlay, back to Pods). Good as a small example of the clip controls.
+- `scripts/uat/ui.prog` — the full hero tour behind `screenshots/ui.gif`: drill
+  into a pod's container logs, cycle every resource tab, show the action menu /
+  port-forward / delete confirm, the Utilization gauges, theme cycling, and the
+  help page.
+
+The hero GIF needs the gauge-demo workloads so the Utilization/Context gauges
+show colour, and it records its cast alongside the GIF:
 
 ```bash
-/tmp/kdash-uat-venv/bin/python scripts/uat/harness.py \
-    scripts/uat/demo.prog /tmp/out target/debug/kdash \
-    --cast /tmp/out/kdash.cast --cols 128 --rows 34 -t 200
+kubectl apply -f test_data/gauge-demo.yaml      # green/amber/red gauges
 
-agg --font-size 16 /tmp/out/kdash.cast screenshots/demo.gif
+/tmp/kdash-uat-venv/bin/python scripts/uat/harness.py \
+    scripts/uat/ui.prog /tmp/out target/debug/kdash \
+    --cast /tmp/ui_raw.cast --cols 150 --rows 30 -t 200
+
+# Fast-forward the filler (scrolling, cycling) while leaving the payoff beats at
+# pace. The --seg boundaries are raw timestamps from the recording above; find
+# them by searching the cast for the text the app paints when a section starts.
+python3 scripts/uat/speed_cast.py /tmp/ui_raw.cast screenshots/ui.cast \
+    --seg 0:3 --seg 9.47:2 --seg 19.08:1 --seg 29.70:2 --seg 46.74:3 \
+    --seg 55.14:1 --seg 61.35:2
+
+agg --font-size 14 screenshots/ui.cast screenshots/ui.gif
+
+kubectl delete -f test_data/gauge-demo.yaml     # clean up
+```
+
+The smaller `demo.prog` uses `--cols 128 --rows 34` and `agg --font-size 16`.
+
+## Regenerating the still screenshots
+
+The README's PNG screenshots (`screenshots/overview.png`, `logs.png`,
+`describe.png`, `utilization.png`, `contexts.png`) are pulled from one cast so
+they all share the same theme and geometry. `screens.prog` visits each view in
+turn; `cast_frame.py` renders a single frame at a timestamp by truncating the
+cast to that point, letting `agg` rebuild the screen, and grabbing the last
+frame with `ffmpeg` (so it needs `agg` and `ffmpeg` on PATH).
+
+```bash
+kubectl apply -f test_data/gauge-demo.yaml      # populate kdash-test
+
+/tmp/kdash-uat-venv/bin/python scripts/uat/harness.py \
+    scripts/uat/screens.prog /tmp/sout target/debug/kdash \
+    --cast /tmp/screens.cast --cols 150 --rows 30 -t 200
+
+# Pick a settled timestamp per view (find them by searching the cast for the
+# text the app paints when a view appears, e.g. "Cluster Summary").
+python3 scripts/uat/cast_frame.py /tmp/screens.cast screenshots/overview.png    --at 1.5
+python3 scripts/uat/cast_frame.py /tmp/screens.cast screenshots/logs.png        --at 11.0
+python3 scripts/uat/cast_frame.py /tmp/screens.cast screenshots/describe.png    --at 20.0
+python3 scripts/uat/cast_frame.py /tmp/screens.cast screenshots/utilization.png --at 27.5
+python3 scripts/uat/cast_frame.py /tmp/screens.cast screenshots/contexts.png    --at 32.0
+
+kubectl delete -f test_data/gauge-demo.yaml     # clean up
 ```
 
 [asciinema]: https://asciinema.org/

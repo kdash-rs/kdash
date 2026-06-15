@@ -1,0 +1,65 @@
+comment: Capture the five README screenshots in one cast.
+comment: prereq: kubectl apply -f test_data/gauge-demo.yaml
+comment: record with --cols 150 --rows 30 --cast, then pull stills with cast_frame.py
+comment: (see scripts/uat/README.md). Views: overview, logs, describe, contexts, utilization.
+
+# let the dashboard connect and paint
+wait: 4
+# focus the kdash-test namespace so the gauge-demo workloads are front and centre
+type:n
+settle
+key:down
+settle
+key:enter
+settle
+
+startcast
+settle
+
+# --- 1. overview: the main pods dashboard ---
+snap: overview
+wait: 1
+
+# --- 2. logs: anchor on a running multi-container pod, drill in -> containers -> logs ---
+key:end
+settle
+key:up
+key:up
+key:up
+settle
+key:enter
+wait: 1.5
+key:enter
+wait: 2.0
+snap: logs
+wait: 1
+key:esc
+settle
+key:esc
+settle
+
+# --- 3. describe a running pod ---
+key:end
+settle
+type:d
+wait: 3
+snap: describe
+wait: 1
+key:esc
+settle
+key:esc
+settle
+
+# --- 4. utilization view (gauges need the gauge-demo workloads) ---
+type:U
+wait: 3
+snap: utilization
+wait: 1
+
+# --- 5. all contexts view ---
+type:C
+wait: 2
+snap: contexts
+wait: 1
+
+stopcast
