@@ -507,6 +507,17 @@ mod tests {
 
     let buffer = terminal.backend().buffer();
     let lines = buffer_lines(buffer);
+    // Re-bless the golden fixture from the current render: `KDASH_GOLDEN=1 cargo
+    // test test_draw_overview_full_screen_fixture`, then run once more without
+    // it (include_str! embeds the fixture at compile time, so the rewrite only
+    // takes effect on the next build).
+    if std::env::var("KDASH_GOLDEN").is_ok() {
+      std::fs::write(
+        concat!(env!("CARGO_MANIFEST_DIR"), "/test_data/ui-overview-test.txt"),
+        lines.join("\n") + "\n",
+      )
+      .unwrap();
+    }
     let expected_lines: Vec<String> = OVERVIEW_FIXTURE
       .lines()
       .map(|line| line.to_string())

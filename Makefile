@@ -9,8 +9,13 @@ test:
 	@make lint && cargo test
 
  ## Run all tests with coverage- `cargo install cargo-tarpaulin`
-test-cov:  
+test-cov:
 	@cargo tarpaulin
+
+## Regenerate golden test fixtures (rewrites test_data/ui-overview-test.txt)
+test-golden:
+	@KDASH_GOLDEN=1 cargo test test_draw_overview_full_screen_fixture || true
+	@cargo test test_draw_overview_full_screen_fixture
 
 ## Builds the app for current os-arch
 build:  
