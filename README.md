@@ -103,6 +103,9 @@ choco upgrade kdash --version=2.0.0
 KDash is on the [AUR](https://aur.archlinux.org/packages?K=kdash) in two flavors. Install with an AUR helper like [`yay`](https://github.com/Jguer/yay) or [`paru`](https://github.com/Morganamilo/paru):
 
 ```bash
+# Prebuilt release binary (no compile)
+yay -S kdash-bin
+
 # Build from the released source
 yay -S kdash
 
