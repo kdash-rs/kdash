@@ -98,6 +98,18 @@ To upgrade
 choco upgrade kdash --version=2.0.0
 ```
 
+### Arch Linux (AUR)
+
+KDash is on the [AUR](https://aur.archlinux.org/packages?K=kdash) in two flavors. Install with an AUR helper like [`yay`](https://github.com/Jguer/yay) or [`paru`](https://github.com/Morganamilo/paru):
+
+```bash
+# Build from the released source
+yay -S kdash
+
+# Build from the latest git main
+yay -S kdash-git
+```
+
 ### Cargo
 
 If you have Cargo installed then you install KDash from crates.io

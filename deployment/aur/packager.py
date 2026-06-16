@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
-"""Generate PKGBUILD files for the kdash AUR packages.
+"""Generate the PKGBUILD for the kdash-bin AUR package.
 
 Usage:
-    packager.py kdash <version> <template_path> <output_path> \\
-        <sha_source>
-
     packager.py kdash-bin <version> <template_path> <output_path> \\
         <sha_x86_64_linux_gnu> <sha_aarch64_linux_gnu>
 
-The kdash-git package is static -- it has no version or sha
-placeholders -- so it is not rendered through this script.
+The kdash (source) and kdash-git packages are static PKGBUILDs -- they
+have no template placeholders, so they are not rendered through this
+script. The release jobs bump their `pkgver` and regenerate checksums
+with `updpkgsums` instead.
 
 Mirrors deployment/homebrew/packager.py: same string.Template +
 safe_substitute approach, hardened with input shape checks and a
@@ -90,22 +89,6 @@ def _render_template(template_path: str, output_path: str, mapping: dict) -> str
     return rendered
 
 
-def render_source(
-    version: str,
-    template_path: str,
-    output_path: str,
-    sha_source: str,
-) -> str:
-    """Render the kdash (source) PKGBUILD. Returns the rendered text."""
-    version = _normalize_version(version)
-    _validate_sha("sha_source", sha_source)
-    return _render_template(
-        template_path,
-        output_path,
-        {"version": version, "sha_source": sha_source},
-    )
-
-
 def render_bin(
     version: str,
     template_path: str,
@@ -128,9 +111,8 @@ def render_bin(
     )
 
 
-# argv layouts per subcommand: subcommand + version + template + out + shas...
+# argv layout: subcommand + version + template + out + sha_x86_64 + sha_aarch64
 _EXPECTED_ARGC = {
-    "kdash": 6,
     "kdash-bin": 7,
 }
 
@@ -138,48 +120,33 @@ _EXPECTED_ARGC = {
 def main(argv: list[str]) -> None:
     if len(argv) < 2:
         print(__doc__.strip() if __doc__ else "", file=sys.stderr)
-        _die("missing subcommand (expected `kdash` or `kdash-bin`)")
+        _die("missing subcommand (expected `kdash-bin`)")
 
     sub = argv[1]
     if sub not in _EXPECTED_ARGC:
-        _die(f"unknown subcommand: {sub!r} (expected `kdash` or `kdash-bin`)")
+        _die(f"unknown subcommand: {sub!r} (expected `kdash-bin`)")
 
     expected = _EXPECTED_ARGC[sub]
     if len(argv) != expected:
         print(__doc__.strip() if __doc__ else "", file=sys.stderr)
         _die(f"{sub}: expected {expected - 1} args, got {len(argv) - 1}")
 
-    if sub == "kdash":
-        version = argv[2].strip()
-        template_path = argv[3]
-        output_path = argv[4]
-        sha_source = argv[5].strip()
+    version = argv[2].strip()
+    template_path = argv[3]
+    output_path = argv[4]
+    sha_x86_64 = argv[5].strip()
+    sha_aarch64 = argv[6].strip()
 
-        print("Generating PKGBUILD (kdash, source)")
-        print(f"     VERSION: {version}")
-        print(f"     TEMPLATE PATH: {template_path}")
-        print(f"     SAVING AT: {output_path}")
-        print(f"     SHA source tarball: {sha_source}")
+    print("Generating PKGBUILD (kdash-bin)")
+    print(f"     VERSION: {version}")
+    print(f"     TEMPLATE PATH: {template_path}")
+    print(f"     SAVING AT: {output_path}")
+    print(f"     SHA x86_64-unknown-linux-gnu: {sha_x86_64}")
+    print(f"     SHA aarch64-unknown-linux-gnu: {sha_aarch64}")
 
-        rendered = render_source(version, template_path, output_path, sha_source)
-
-    else:  # kdash-bin
-        version = argv[2].strip()
-        template_path = argv[3]
-        output_path = argv[4]
-        sha_x86_64 = argv[5].strip()
-        sha_aarch64 = argv[6].strip()
-
-        print("Generating PKGBUILD (kdash-bin)")
-        print(f"     VERSION: {version}")
-        print(f"     TEMPLATE PATH: {template_path}")
-        print(f"     SAVING AT: {output_path}")
-        print(f"     SHA x86_64-unknown-linux-gnu: {sha_x86_64}")
-        print(f"     SHA aarch64-unknown-linux-gnu: {sha_aarch64}")
-
-        rendered = render_bin(
-            version, template_path, output_path, sha_x86_64, sha_aarch64
-        )
+    rendered = render_bin(
+        version, template_path, output_path, sha_x86_64, sha_aarch64
+    )
 
     print("\n================== Generated PKGBUILD ==================\n")
     print(rendered)

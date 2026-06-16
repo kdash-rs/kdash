@@ -382,16 +382,24 @@ jobs:
   # ---------------------------------------------------------------------------
   # AUR publishing.
   #
-  # Prerequisites (one-time setup, not handled by this workflow):
-  #   1. Create the three AUR repos owned by the maintainer account:
-  #        ssh://aur@aur.archlinux.org/kdash.git       (source)
-  #        ssh://aur@aur.archlinux.org/kdash-bin.git   (prebuilt)
-  #        ssh://aur@aur.archlinux.org/kdash-git.git   (git main)
+  # Ownership (as of 2026-06): `kdash` (source) and `kdash-bin` are maintained by
+  # other people on the AUR, so pushing needs co-maintainer access on those.
+  # `kdash-git` is ours. The `kdash` job ships a static PKGBUILD kept close to the
+  # upstream maintainer's (@ogarcia), changing only genuine things like making
+  # libxcb an optdepends; the release just bumps pkgver and reruns updpkgsums.
+  # Because it overwrites someone else's package, prefer running it via
+  # publish-aur-manual.yml after coordinating, rather than on every release.
+  #
+  # Prerequisites (one-time, not handled by this workflow):
+  #   1. Push access to each AUR repo you publish:
+  #        ssh://aur@aur.archlinux.org/kdash.git      (co-maintainer; owner @ogarcia)
+  #        ssh://aur@aur.archlinux.org/kdash-bin.git  (co-maintainer)
+  #        ssh://aur@aur.archlinux.org/kdash-git.git  (ours)
   #   2. Add an `AUR_SSH_KEY` repo secret holding the private SSH key whose
-  #      public half is registered on the AUR account.
+  #      public half is registered on your AUR account.
   #
   # These jobs are skipped for pre-release tags (e.g. v2.0.0-rc1) because an
-  # AUR `pkgver` cannot contain `-`; packager.py rejects them as a second guard.
+  # AUR `pkgver` cannot contain `-`.
   # ---------------------------------------------------------------------------
 
   publish-aur-source:
@@ -406,44 +414,29 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - name: Compute source-tarball SHA-256
-        id: shasum
-        shell: bash
-        run: |
-          set -euo pipefail
-          # GitHub auto-generates the source tarball from the tag on push.
-          sha=$(curl -fsSL "https://github.com/kdash-rs/kdash/archive/refs/tags/${RELEASE_VERSION}.tar.gz" | sha256sum | awk '{print $1}')
-          if ! printf '%s' "$sha" | grep -Eq '^[a-f0-9]{64}$'; then
-            echo "::error::source tarball sha-256 did not match expected shape: $sha"
-            exit 1
-          fi
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
-      - name: Run AUR packager unit tests
-        run: python3 deployment/aur/packager_test.py
-      - name: Render PKGBUILD
-        env:
-          SHA_SOURCE: ${{ steps.shasum.outputs.sha }}
+      - name: Stage PKGBUILD + bump pkgver
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p stage
-          python3 deployment/aur/packager.py kdash \
-            "$RELEASE_VERSION" \
-            deployment/aur/kdash/PKGBUILD.template \
-            stage/PKGBUILD \
-            "$SHA_SOURCE"
-      - name: Generate .SRCINFO + namcap (archlinux container)
+          # kdash (source) is a static PKGBUILD kept close to the upstream AUR
+          # maintainer's; the source line pins #tag=v$pkgver, so bumping pkgver
+          # is all that's needed before regenerating checksums.
+          cp deployment/aur/kdash/PKGBUILD stage/PKGBUILD
+          sed -i "s/^pkgver=.*/pkgver=${RELEASE_VERSION#v}/" stage/PKGBUILD
+      - name: Regenerate checksums + .SRCINFO + namcap (archlinux container)
         shell: bash
         run: |
           set -euo pipefail
-          # makepkg refuses to run as root, so provision a build user and hand
-          # it the bind-mount. namcap warnings are advisory (|| true).
+          # updpkgsums (pacman-contrib) clones the pinned tag and refreshes the
+          # b2sums; makepkg refuses root, so a build user owns the bind mount.
+          # namcap is advisory; updpkgsums/makepkg failures must NOT be swallowed.
           docker run --rm -v "$PWD/stage:/w" -w /w archlinux:base-devel bash -c '
             set -euo pipefail
-            pacman -Sy --noconfirm --needed --quiet namcap >/dev/null
+            pacman -Sy --noconfirm --needed --quiet git pacman-contrib namcap >/dev/null
             useradd -m b
             chown -R b /w
-            su -c "cd /w && makepkg --printsrcinfo > .SRCINFO && namcap PKGBUILD || true" b
+            su b -c "cd /w && updpkgsums && makepkg --printsrcinfo > .SRCINFO && { namcap PKGBUILD || true; }"
           '
       - name: Install AUR SSH key
         env:
@@ -484,100 +477,102 @@ jobs:
           echo "::error::AUR push (kdash) failed after 3 attempts"
           exit 1
 
-  publish-aur-bin:
-    needs: [build-release-artifacts]
-    name: Publish AUR (bin)
-    runs-on: ubuntu-latest
-    if: ${{ !contains(github.ref_name, '-') }}
-    env:
-      RELEASE_VERSION: ${{ github.ref_name }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-      - name: Get x86_64 gnu sha artifact
-        uses: actions/download-artifact@v4.1.7
-        with:
-          name: "artifacts-${{ github.run_number }}-linux"
-          path: artifacts
-      - name: Get aarch64 gnu sha artifact
-        uses: actions/download-artifact@v4.1.7
-        with:
-          name: "artifacts-${{ github.run_number }}-aarch64-gnu"
-          path: artifacts
-      - name: Extract per-arch sha256s
-        id: shas
-        shell: bash
-        run: |
-          set -euo pipefail
-          sha_x86="$(awk '{print $1; exit}' artifacts/kdash-linux.sha256)"
-          sha_arm="$(awk '{print $1; exit}' artifacts/kdash-aarch64-gnu.sha256)"
-          echo "sha_x86=$sha_x86" >> "$GITHUB_OUTPUT"
-          echo "sha_arm=$sha_arm" >> "$GITHUB_OUTPUT"
-      - name: Render PKGBUILD
-        env:
-          SHA_X86: ${{ steps.shas.outputs.sha_x86 }}
-          SHA_ARM: ${{ steps.shas.outputs.sha_arm }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p stage
-          python3 deployment/aur/packager.py kdash-bin \
-            "$RELEASE_VERSION" \
-            deployment/aur/kdash-bin/PKGBUILD.template \
-            stage/PKGBUILD \
-            "$SHA_X86" \
-            "$SHA_ARM"
-      - name: Generate .SRCINFO + namcap (archlinux container)
-        shell: bash
-        run: |
-          set -euo pipefail
-          docker run --rm -v "$PWD/stage:/w" -w /w archlinux:base-devel bash -c '
-            set -euo pipefail
-            pacman -Sy --noconfirm --needed --quiet namcap >/dev/null
-            useradd -m b
-            chown -R b /w
-            su -c "cd /w && makepkg --printsrcinfo > .SRCINFO && namcap PKGBUILD || true" b
-          '
-      - name: Install AUR SSH key
-        env:
-          AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -z "${AUR_SSH_KEY:-}" ]; then
-            echo "::error::AUR_SSH_KEY secret is unset; cannot push to AUR"
-            exit 1
-          fi
-          mkdir -p ~/.ssh
-          printf '%s\n' "$AUR_SSH_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -t ed25519,rsa,ecdsa aur.archlinux.org > ~/.ssh/known_hosts 2>/dev/null
-          chmod 600 ~/.ssh/known_hosts
-      - name: Clone + push aur/kdash-bin
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config --global user.email "d4udts@gmail.com"
-          git config --global user.name "deepu105"
-          git clone ssh://aur@aur.archlinux.org/kdash-bin.git aur-pkg
-          cp stage/PKGBUILD stage/.SRCINFO aur-pkg/
-          cd aur-pkg
-          git add PKGBUILD .SRCINFO
-          if git diff-index --quiet HEAD; then
-            echo "aur/kdash-bin already up to date for ${RELEASE_VERSION}; nothing to commit"
-            exit 0
-          fi
-          git commit -m "chore(pkg): bump kdash-bin to ${RELEASE_VERSION}"
-          for attempt in 1 2 3; do
-            if git push origin master; then exit 0; fi
-            echo "push attempt ${attempt} failed; rebasing and retrying"
-            git pull --rebase origin master
-            sleep $((attempt * 5))
-          done
-          echo "::error::AUR push (kdash-bin) failed after 3 attempts"
-          exit 1
+#   publish-aur-bin:
+#     needs: [build-release-artifacts]
+#     name: Publish AUR (bin)
+#     runs-on: ubuntu-latest
+#     if: ${{ !contains(github.ref_name, '-') }}
+#     env:
+#       RELEASE_VERSION: ${{ github.ref_name }}
+#     steps:
+#       - name: Checkout repository
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 1
+#       - name: Get x86_64 gnu sha artifact
+#         uses: actions/download-artifact@v4.1.7
+#         with:
+#           name: "artifacts-${{ github.run_number }}-linux"
+#           path: artifacts
+#       - name: Get aarch64 gnu sha artifact
+#         uses: actions/download-artifact@v4.1.7
+#         with:
+#           name: "artifacts-${{ github.run_number }}-aarch64-gnu"
+#           path: artifacts
+#       - name: Extract per-arch sha256s
+#         id: shas
+#         shell: bash
+#         run: |
+#           set -euo pipefail
+#           sha_x86="$(awk '{print $1; exit}' artifacts/kdash-linux.sha256)"
+#           sha_arm="$(awk '{print $1; exit}' artifacts/kdash-aarch64-gnu.sha256)"
+#           echo "sha_x86=$sha_x86" >> "$GITHUB_OUTPUT"
+#           echo "sha_arm=$sha_arm" >> "$GITHUB_OUTPUT"
+#       - name: Run AUR packager unit tests
+#         run: python3 deployment/aur/packager_test.py
+#       - name: Render PKGBUILD
+#         env:
+#           SHA_X86: ${{ steps.shas.outputs.sha_x86 }}
+#           SHA_ARM: ${{ steps.shas.outputs.sha_arm }}
+#         shell: bash
+#         run: |
+#           set -euo pipefail
+#           mkdir -p stage
+#           python3 deployment/aur/packager.py kdash-bin \
+#             "$RELEASE_VERSION" \
+#             deployment/aur/kdash-bin/PKGBUILD.template \
+#             stage/PKGBUILD \
+#             "$SHA_X86" \
+#             "$SHA_ARM"
+#       - name: Generate .SRCINFO + namcap (archlinux container)
+#         shell: bash
+#         run: |
+#           set -euo pipefail
+#           docker run --rm -v "$PWD/stage:/w" -w /w archlinux:base-devel bash -c '
+#             set -euo pipefail
+#             pacman -Sy --noconfirm --needed --quiet namcap >/dev/null
+#             useradd -m b
+#             chown -R b /w
+#             su -c "cd /w && makepkg --printsrcinfo > .SRCINFO && namcap PKGBUILD || true" b
+#           '
+#       - name: Install AUR SSH key
+#         env:
+#           AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
+#         shell: bash
+#         run: |
+#           set -euo pipefail
+#           if [ -z "${AUR_SSH_KEY:-}" ]; then
+#             echo "::error::AUR_SSH_KEY secret is unset; cannot push to AUR"
+#             exit 1
+#           fi
+#           mkdir -p ~/.ssh
+#           printf '%s\n' "$AUR_SSH_KEY" > ~/.ssh/id_ed25519
+#           chmod 600 ~/.ssh/id_ed25519
+#           ssh-keyscan -t ed25519,rsa,ecdsa aur.archlinux.org > ~/.ssh/known_hosts 2>/dev/null
+#           chmod 600 ~/.ssh/known_hosts
+#       - name: Clone + push aur/kdash-bin
+#         shell: bash
+#         run: |
+#           set -euo pipefail
+#           git config --global user.email "d4udts@gmail.com"
+#           git config --global user.name "deepu105"
+#           git clone ssh://aur@aur.archlinux.org/kdash-bin.git aur-pkg
+#           cp stage/PKGBUILD stage/.SRCINFO aur-pkg/
+#           cd aur-pkg
+#           git add PKGBUILD .SRCINFO
+#           if git diff-index --quiet HEAD; then
+#             echo "aur/kdash-bin already up to date for ${RELEASE_VERSION}; nothing to commit"
+#             exit 0
+#           fi
+#           git commit -m "chore(pkg): bump kdash-bin to ${RELEASE_VERSION}"
+#           for attempt in 1 2 3; do
+#             if git push origin master; then exit 0; fi
+#             echo "push attempt ${attempt} failed; rebasing and retrying"
+#             git pull --rebase origin master
+#             sleep $((attempt * 5))
+#           done
+#           echo "::error::AUR push (kdash-bin) failed after 3 attempts"
+#           exit 1
 
   publish-aur-git:
     needs: [build-release-artifacts]

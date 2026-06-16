@@ -63,41 +63,29 @@ jobs:
         with:
           ref: ${{ inputs.template-ref }}
           fetch-depth: 1
-      - name: Compute source-tarball SHA-256
-        id: shasum
-        shell: bash
-        run: |
-          set -euo pipefail
-          sha=$(curl -fsSL "https://github.com/kdash-rs/kdash/archive/refs/tags/${RELEASE_VERSION}.tar.gz" | sha256sum | awk '{print $1}')
-          if ! printf '%s' "$sha" | grep -Eq '^[a-f0-9]{64}$'; then
-            echo "::error::source tarball sha-256 did not match expected shape: $sha"
-            exit 1
-          fi
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
-      - name: Run AUR packager unit tests
-        run: python3 deployment/aur/packager_test.py
-      - name: Render PKGBUILD
-        env:
-          SHA_SOURCE: ${{ steps.shasum.outputs.sha }}
+      - name: Stage PKGBUILD + bump pkgver
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p stage
-          python3 deployment/aur/packager.py kdash \
-            "$RELEASE_VERSION" \
-            deployment/aur/kdash/PKGBUILD.template \
-            stage/PKGBUILD \
-            "$SHA_SOURCE"
-      - name: Generate .SRCINFO + namcap (archlinux container)
+          # kdash (source) is a static PKGBUILD kept close to the upstream AUR
+          # maintainer's; the source line pins #tag=v$pkgver, so bumping pkgver
+          # is all that's needed before regenerating checksums.
+          cp deployment/aur/kdash/PKGBUILD stage/PKGBUILD
+          sed -i "s/^pkgver=.*/pkgver=${RELEASE_VERSION#v}/" stage/PKGBUILD
+      - name: Regenerate checksums + .SRCINFO + namcap (archlinux container)
         shell: bash
         run: |
           set -euo pipefail
+          # updpkgsums (pacman-contrib) clones the pinned tag and refreshes the
+          # b2sums; makepkg refuses root, so a build user owns the bind mount.
+          # namcap is advisory; updpkgsums/makepkg failures must NOT be swallowed.
           docker run --rm -v "$PWD/stage:/w" -w /w archlinux:base-devel bash -c '
             set -euo pipefail
-            pacman -Sy --noconfirm --needed --quiet namcap >/dev/null
+            pacman -Sy --noconfirm --needed --quiet git pacman-contrib namcap >/dev/null
             useradd -m b
             chown -R b /w
-            su -c "cd /w && makepkg --printsrcinfo > .SRCINFO && namcap PKGBUILD || true" b
+            su b -c "cd /w && updpkgsums && makepkg --printsrcinfo > .SRCINFO && { namcap PKGBUILD || true; }"
           '
       - name: Install AUR SSH key
         env:
@@ -173,6 +161,8 @@ jobs:
           set -euo pipefail
           echo "sha_x86=$(awk '{print $1; exit}' shas/kdash-linux.sha256)" >> "$GITHUB_OUTPUT"
           echo "sha_arm=$(awk '{print $1; exit}' shas/kdash-aarch64-gnu.sha256)" >> "$GITHUB_OUTPUT"
+      - name: Run AUR packager unit tests
+        run: python3 deployment/aur/packager_test.py
       - name: Render PKGBUILD
         env:
           SHA_X86: ${{ steps.shas.outputs.sha_x86 }}

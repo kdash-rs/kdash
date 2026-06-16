@@ -8,6 +8,9 @@ Wired into .github/workflows/ci.yml as a release-readiness step so
 template or argv regressions surface on every PR, not just at release
 time.
 
+The packager now renders only the kdash-bin PKGBUILD; the kdash (source)
+and kdash-git PKGBUILDs are static files, so they have no tests here.
+
 This file is excluded from the published crate via Cargo.toml's
 `exclude = ["deployment/*"]`.
 """
@@ -26,7 +29,6 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import packager  # noqa: E402
 
-SOURCE_TEMPLATE = str(HERE / "kdash" / "PKGBUILD.template")
 BIN_TEMPLATE = str(HERE / "kdash-bin" / "PKGBUILD.template")
 
 
@@ -50,23 +52,30 @@ class _RenderTestBase(unittest.TestCase):
         return out.name
 
 
-class TestRenderSource(_RenderTestBase):
+class TestRenderBin(_RenderTestBase):
     def _render(self, **overrides):
         args = {
             "version": "0.0.1",
-            "template_path": SOURCE_TEMPLATE,
+            "template_path": BIN_TEMPLATE,
             "output_path": self._new_outfile(),
-            "sha_source": "a" * 64,
+            "sha_x86_64_linux_gnu": "a" * 64,
+            "sha_aarch64_linux_gnu": "b" * 64,
         }
         args.update(overrides)
-        return packager.render_source(**args)
+        return packager.render_bin(**args)
 
     # --- happy path -----------------------------------------------------
 
-    def test_substitutes_version_and_sha(self):
-        rendered = self._render(version="1.2.3", sha_source="b" * 64)
+    def test_substitutes_per_arch_shas(self):
+        rendered = self._render(
+            sha_x86_64_linux_gnu="c" * 64, sha_aarch64_linux_gnu="d" * 64
+        )
+        self.assertIn("sha256sums_x86_64=('" + ("c" * 64) + "')", rendered)
+        self.assertIn("sha256sums_aarch64=('" + ("d" * 64) + "')", rendered)
+
+    def test_substitutes_version(self):
+        rendered = self._render(version="1.2.3")
         self.assertIn("pkgver=1.2.3", rendered)
-        self.assertIn("sha256sums=('" + ("b" * 64) + "')", rendered)
 
     def test_leading_v_is_stripped(self):
         rendered = self._render(version="v0.0.1")
@@ -79,17 +88,19 @@ class TestRenderSource(_RenderTestBase):
         # they don't collide with bash's bare `$pkgname` etc. which are
         # legitimate runtime references and MUST remain in the output. We
         # only assert that the braced template placeholders are gone.
-        for placeholder in ("${version}", "${sha_source}"):
+        for placeholder in (
+            "${version}",
+            "${sha_x86_64_linux_gnu}",
+            "${sha_aarch64_linux_gnu}",
+        ):
             self.assertNotIn(placeholder, rendered, f"{placeholder!r} survived")
-        # And, defensively, no other braced placeholder slipped in.
         survivors = re.findall(r"\$\{[a-zA-Z_][a-zA-Z0-9_]*\}", rendered)
         self.assertEqual(survivors, [], f"unresolved braced placeholders: {survivors!r}")
 
     # --- input shape rejection -----------------------------------------
 
     def test_prerelease_version_is_rejected(self):
-        # AUR pkgver disallows `-`, so the packager refuses prerelease
-        # versions even though the homebrew packager accepts them.
+        # AUR pkgver disallows `-`, so the packager refuses prerelease versions.
         for bad in ["0.0.1-rc1", "1.0.0-alpha.1", "0.0.1-beta.0"]:
             with self.subTest(version=bad):
                 with self.assertRaises(SystemExit) as cm:
@@ -103,57 +114,21 @@ class TestRenderSource(_RenderTestBase):
                     self._render(version=bad)
                 self.assertEqual(cm.exception.code, 2)
 
-    def test_invalid_sha256_is_rejected(self):
-        for bad in ["", "tooshort", "a" * 63, "a" * 65, "g" * 64, "a" * 32 + "!" * 32]:
+    def test_bad_x86_sha_rejected(self):
+        for bad in ["", "tooshort", "a" * 63, "a" * 65, "g" * 64]:
             with self.subTest(sha=bad):
                 with self.assertRaises(SystemExit) as cm:
-                    self._render(sha_source=bad)
+                    self._render(sha_x86_64_linux_gnu=bad)
                 self.assertEqual(cm.exception.code, 2)
-
-    def test_missing_template_path_raises(self):
-        with self.assertRaises(FileNotFoundError):
-            self._render(template_path="/nonexistent.template")
-
-
-class TestRenderBin(_RenderTestBase):
-    def _render(self, **overrides):
-        args = {
-            "version": "0.0.1",
-            "template_path": BIN_TEMPLATE,
-            "output_path": self._new_outfile(),
-            "sha_x86_64_linux_gnu": "a" * 64,
-            "sha_aarch64_linux_gnu": "b" * 64,
-        }
-        args.update(overrides)
-        return packager.render_bin(**args)
-
-    def test_substitutes_per_arch_shas(self):
-        rendered = self._render(
-            sha_x86_64_linux_gnu="c" * 64, sha_aarch64_linux_gnu="d" * 64
-        )
-        self.assertIn("sha256sums_x86_64=('" + ("c" * 64) + "')", rendered)
-        self.assertIn("sha256sums_aarch64=('" + ("d" * 64) + "')", rendered)
-
-    def test_no_template_placeholders_survive(self):
-        rendered = self._render()
-        for placeholder in (
-            "${version}",
-            "${sha_x86_64_linux_gnu}",
-            "${sha_aarch64_linux_gnu}",
-        ):
-            self.assertNotIn(placeholder, rendered, f"{placeholder!r} survived")
-        survivors = re.findall(r"\$\{[a-zA-Z_][a-zA-Z0-9_]*\}", rendered)
-        self.assertEqual(survivors, [], f"unresolved braced placeholders: {survivors!r}")
-
-    def test_bad_x86_sha_rejected(self):
-        with self.assertRaises(SystemExit) as cm:
-            self._render(sha_x86_64_linux_gnu="nope")
-        self.assertEqual(cm.exception.code, 2)
 
     def test_bad_aarch64_sha_rejected(self):
         with self.assertRaises(SystemExit) as cm:
             self._render(sha_aarch64_linux_gnu="nope")
         self.assertEqual(cm.exception.code, 2)
+
+    def test_missing_template_path_raises(self):
+        with self.assertRaises(FileNotFoundError):
+            self._render(template_path="/nonexistent.template")
 
 
 class TestLeftoverPlaceholderCatch(_RenderTestBase):
@@ -164,17 +139,19 @@ class TestLeftoverPlaceholderCatch(_RenderTestBase):
         )
         try:
             bad_template.write(
-                "pkgname=kdash\n"
+                "pkgname=kdash-bin\n"
                 "pkgver=${version}\n"
-                "sha256sums=('${sha_unknown_target}')\n"  # not in mapping
+                "sha256sums_x86_64=('${sha_x86_64_linux_gnu}')\n"
+                "sha256sums_aarch64=('${sha_unknown_target}')\n"  # not in mapping
             )
             bad_template.close()
             with self.assertRaises(SystemExit) as cm:
-                packager.render_source(
+                packager.render_bin(
                     version="0.0.1",
                     template_path=bad_template.name,
                     output_path=self._new_outfile(),
-                    sha_source="a" * 64,
+                    sha_x86_64_linux_gnu="a" * 64,
+                    sha_aarch64_linux_gnu="b" * 64,
                 )
             self.assertEqual(cm.exception.code, 2)
         finally:
@@ -188,34 +165,18 @@ class TestArgvHandling(_RenderTestBase):
         self.assertEqual(cm.exception.code, 2)
 
     def test_unknown_subcommand_exits_2(self):
-        with self.assertRaises(SystemExit) as cm:
-            packager.main(["packager.py", "kdash-git", "0.0.1"])
-        self.assertEqual(cm.exception.code, 2)
-
-    def test_source_wrong_argc_exits_2(self):
-        with self.assertRaises(SystemExit) as cm:
-            packager.main(["packager.py", "kdash", "0.0.1"])
-        self.assertEqual(cm.exception.code, 2)
+        # kdash (source) and kdash-git are static now, so they are not valid
+        # subcommands either.
+        for bad in ["kdash", "kdash-git", "nonsense"]:
+            with self.subTest(sub=bad):
+                with self.assertRaises(SystemExit) as cm:
+                    packager.main(["packager.py", bad, "0.0.1"])
+                self.assertEqual(cm.exception.code, 2)
 
     def test_bin_wrong_argc_exits_2(self):
         with self.assertRaises(SystemExit) as cm:
-            packager.main(["packager.py", "kdash-bin", "0.0.1", SOURCE_TEMPLATE])
+            packager.main(["packager.py", "kdash-bin", "0.0.1", BIN_TEMPLATE])
         self.assertEqual(cm.exception.code, 2)
-
-    def test_source_correct_argc_renders(self):
-        out = self._new_outfile()
-        packager.main(
-            [
-                "packager.py",
-                "kdash",
-                "0.0.1",
-                SOURCE_TEMPLATE,
-                out,
-                "a" * 64,
-            ]
-        )
-        rendered = Path(out).read_text()
-        self.assertIn("pkgver=0.0.1", rendered)
 
     def test_bin_correct_argc_renders(self):
         out = self._new_outfile()
