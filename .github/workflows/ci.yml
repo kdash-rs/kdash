@@ -125,3 +125,18 @@ jobs:
       - run: cargo clippy --all --all-features --all-targets --workspace -- -D warnings
         env:
           CARGO_INCREMENTAL: "0"
+
+  packaging:
+    name: Packaging scripts
+    runs-on: ubuntu-latest
+    needs: prepare
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck + bats
+        run: sudo apt-get update && sudo apt-get install -y shellcheck bats
+      - name: Lint install.sh
+        run: shellcheck scripts/install.sh
+      - name: Test install.sh (bats)
+        run: bats scripts/install.test.bats
+      - name: AUR packager unit tests
+        run: python3 deployment/aur/packager_test.py

@@ -1,0 +1,300 @@
+name: publish-aur-manual
+
+# Manual recovery + bootstrap workflow for the publish-aur-* jobs in cd.yml.
+# Use when:
+#   - Bootstrapping AUR publishing for the first time: trigger against an
+#     existing GH Release tag (e.g. v2.0.0) once the three AUR repos and the
+#     AUR_SSH_KEY secret are in place. If the manual run works end to end, the
+#     integrated cd.yml jobs will too.
+#   - A cd.yml AUR job failed but cargo/homebrew already succeeded: re-running
+#     cd.yml would try to re-publish to crates.io (fails on the duplicate
+#     version). This re-does ONLY the AUR push.
+#
+# Reads the per-target .sha256 sidecars (bin) and the source tarball (source)
+# from the already-published release instead of build artifacts.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release-tag:
+        description: "Existing GH Release tag to publish (e.g. v2.0.0)"
+        required: true
+        type: string
+      variant:
+        description: "Which AUR variant to publish"
+        required: true
+        type: choice
+        options:
+          - all
+          - kdash
+          - kdash-bin
+          - kdash-git
+        default: all
+      template-ref:
+        description: "Repo ref for templates + packager.py (default: main)"
+        required: false
+        type: string
+        default: main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-aur-manual-${{ inputs.release-tag }}-${{ inputs.variant }}
+  cancel-in-progress: false
+
+jobs:
+  aur-source:
+    name: Publish AUR (source)
+    if: ${{ inputs.variant == 'all' || inputs.variant == 'kdash' }}
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION: ${{ inputs.release-tag }}
+    steps:
+      - name: Reject prerelease tags
+        shell: bash
+        run: |
+          if [[ "$RELEASE_VERSION" == *-* ]]; then
+            echo "::error::AUR pkgver cannot contain '-'; prerelease tags are unsupported"
+            exit 1
+          fi
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.template-ref }}
+          fetch-depth: 1
+      - name: Compute source-tarball SHA-256
+        id: shasum
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=$(curl -fsSL "https://github.com/kdash-rs/kdash/archive/refs/tags/${RELEASE_VERSION}.tar.gz" | sha256sum | awk '{print $1}')
+          if ! printf '%s' "$sha" | grep -Eq '^[a-f0-9]{64}$'; then
+            echo "::error::source tarball sha-256 did not match expected shape: $sha"
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - name: Run AUR packager unit tests
+        run: python3 deployment/aur/packager_test.py
+      - name: Render PKGBUILD
+        env:
+          SHA_SOURCE: ${{ steps.shasum.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p stage
+          python3 deployment/aur/packager.py kdash \
+            "$RELEASE_VERSION" \
+            deployment/aur/kdash/PKGBUILD.template \
+            stage/PKGBUILD \
+            "$SHA_SOURCE"
+      - name: Generate .SRCINFO + namcap (archlinux container)
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$PWD/stage:/w" -w /w archlinux:base-devel bash -c '
+            set -euo pipefail
+            pacman -Sy --noconfirm --needed --quiet namcap >/dev/null
+            useradd -m b
+            chown -R b /w
+            su -c "cd /w && makepkg --printsrcinfo > .SRCINFO && namcap PKGBUILD || true" b
+          '
+      - name: Install AUR SSH key
+        env:
+          AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${AUR_SSH_KEY:-}" ]; then
+            echo "::error::AUR_SSH_KEY secret is unset; cannot push to AUR"
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$AUR_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -t ed25519,rsa,ecdsa aur.archlinux.org > ~/.ssh/known_hosts 2>/dev/null
+          chmod 600 ~/.ssh/known_hosts
+      - name: Clone + push aur/kdash
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global user.email "d4udts@gmail.com"
+          git config --global user.name "deepu105"
+          git clone ssh://aur@aur.archlinux.org/kdash.git aur-pkg
+          cp stage/PKGBUILD stage/.SRCINFO aur-pkg/
+          cd aur-pkg
+          git add PKGBUILD .SRCINFO
+          if git diff-index --quiet HEAD; then
+            echo "aur/kdash already up to date for ${RELEASE_VERSION}; nothing to commit"
+            exit 0
+          fi
+          git commit -m "chore(pkg): bump kdash to ${RELEASE_VERSION}"
+          for attempt in 1 2 3; do
+            if git push origin master; then exit 0; fi
+            echo "push attempt ${attempt} failed; rebasing and retrying"
+            git pull --rebase origin master
+            sleep $((attempt * 5))
+          done
+          echo "::error::AUR push (kdash) failed after 3 attempts"
+          exit 1
+
+  aur-bin:
+    name: Publish AUR (bin)
+    if: ${{ inputs.variant == 'all' || inputs.variant == 'kdash-bin' }}
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION: ${{ inputs.release-tag }}
+    steps:
+      - name: Reject prerelease tags
+        shell: bash
+        run: |
+          if [[ "$RELEASE_VERSION" == *-* ]]; then
+            echo "::error::AUR pkgver cannot contain '-'; prerelease tags are unsupported"
+            exit 1
+          fi
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.template-ref }}
+          fetch-depth: 1
+      - name: Download per-arch SHA-256 sidecars from the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release download "$RELEASE_VERSION" --dir shas \
+            --pattern 'kdash-linux.sha256' \
+            --pattern 'kdash-aarch64-gnu.sha256'
+      - name: Extract per-arch sha256s
+        id: shas
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "sha_x86=$(awk '{print $1; exit}' shas/kdash-linux.sha256)" >> "$GITHUB_OUTPUT"
+          echo "sha_arm=$(awk '{print $1; exit}' shas/kdash-aarch64-gnu.sha256)" >> "$GITHUB_OUTPUT"
+      - name: Render PKGBUILD
+        env:
+          SHA_X86: ${{ steps.shas.outputs.sha_x86 }}
+          SHA_ARM: ${{ steps.shas.outputs.sha_arm }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p stage
+          python3 deployment/aur/packager.py kdash-bin \
+            "$RELEASE_VERSION" \
+            deployment/aur/kdash-bin/PKGBUILD.template \
+            stage/PKGBUILD \
+            "$SHA_X86" \
+            "$SHA_ARM"
+      - name: Generate .SRCINFO + namcap (archlinux container)
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$PWD/stage:/w" -w /w archlinux:base-devel bash -c '
+            set -euo pipefail
+            pacman -Sy --noconfirm --needed --quiet namcap >/dev/null
+            useradd -m b
+            chown -R b /w
+            su -c "cd /w && makepkg --printsrcinfo > .SRCINFO && namcap PKGBUILD || true" b
+          '
+      - name: Install AUR SSH key
+        env:
+          AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${AUR_SSH_KEY:-}" ]; then
+            echo "::error::AUR_SSH_KEY secret is unset; cannot push to AUR"
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$AUR_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -t ed25519,rsa,ecdsa aur.archlinux.org > ~/.ssh/known_hosts 2>/dev/null
+          chmod 600 ~/.ssh/known_hosts
+      - name: Clone + push aur/kdash-bin
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global user.email "d4udts@gmail.com"
+          git config --global user.name "deepu105"
+          git clone ssh://aur@aur.archlinux.org/kdash-bin.git aur-pkg
+          cp stage/PKGBUILD stage/.SRCINFO aur-pkg/
+          cd aur-pkg
+          git add PKGBUILD .SRCINFO
+          if git diff-index --quiet HEAD; then
+            echo "aur/kdash-bin already up to date for ${RELEASE_VERSION}; nothing to commit"
+            exit 0
+          fi
+          git commit -m "chore(pkg): bump kdash-bin to ${RELEASE_VERSION}"
+          for attempt in 1 2 3; do
+            if git push origin master; then exit 0; fi
+            echo "push attempt ${attempt} failed; rebasing and retrying"
+            git pull --rebase origin master
+            sleep $((attempt * 5))
+          done
+          echo "::error::AUR push (kdash-bin) failed after 3 attempts"
+          exit 1
+
+  aur-git:
+    name: Publish AUR (git)
+    if: ${{ inputs.variant == 'all' || inputs.variant == 'kdash-git' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.template-ref }}
+          fetch-depth: 1
+      - name: Stage PKGBUILD + generate .SRCINFO (archlinux container)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p stage
+          cp deployment/aur/kdash-git/PKGBUILD stage/PKGBUILD
+          docker run --rm -v "$PWD/stage:/w" -w /w archlinux:base-devel bash -c '
+            set -euo pipefail
+            pacman -Sy --noconfirm --needed --quiet namcap >/dev/null
+            useradd -m b
+            chown -R b /w
+            su -c "cd /w && makepkg --printsrcinfo > .SRCINFO && namcap PKGBUILD || true" b
+          '
+      - name: Install AUR SSH key
+        env:
+          AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${AUR_SSH_KEY:-}" ]; then
+            echo "::error::AUR_SSH_KEY secret is unset; cannot push to AUR"
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$AUR_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -t ed25519,rsa,ecdsa aur.archlinux.org > ~/.ssh/known_hosts 2>/dev/null
+          chmod 600 ~/.ssh/known_hosts
+      - name: Clone + push aur/kdash-git (no-op if unchanged)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global user.email "d4udts@gmail.com"
+          git config --global user.name "deepu105"
+          git clone ssh://aur@aur.archlinux.org/kdash-git.git aur-pkg
+          cp stage/PKGBUILD stage/.SRCINFO aur-pkg/
+          cd aur-pkg
+          git add PKGBUILD .SRCINFO
+          if git diff-index --quiet HEAD; then
+            echo "aur/kdash-git already up to date; nothing to commit"
+            exit 0
+          fi
+          git commit -m "chore(pkg): refresh kdash-git PKGBUILD"
+          for attempt in 1 2 3; do
+            if git push origin master; then exit 0; fi
+            echo "push attempt ${attempt} failed; rebasing and retrying"
+            git pull --rebase origin master
+            sleep $((attempt * 5))
+          done
+          echo "::error::AUR push (kdash-git) failed after 3 attempts"
+          exit 1

@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# DEPRECATED: this script is kept for backward compatibility. Prefer
+# scripts/install.sh, which verifies the download against its published
+# SHA-256 checksum and supports --version pinning and --prefix:
+#   curl -fsSL https://raw.githubusercontent.com/kdash-rs/kdash/main/scripts/install.sh | sh
+
 # The install script is licensed under the CC-0 1.0 license.
 
 # See https://github.com/kdash-rs/kdash/blob/main/LICENSE for more details.

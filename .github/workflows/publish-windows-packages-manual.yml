@@ -1,0 +1,85 @@
+name: publish-windows-packages-manual
+
+# Manually re-render and push the Scoop manifest and Chocolatey package for an
+# existing GitHub Release. Mirrors the publish-windows-packages job in cd.yml,
+# but reads the Windows SHA-256 sidecar from the already-published release
+# assets instead of build artifacts. Use to update scoop-kdash / choco-kdash
+# for a past release (e.g. v2.0.0).
+
+on:
+  workflow_dispatch:
+    inputs:
+      release-tag:
+        description: "Existing GH Release tag to publish (e.g. v2.0.0)"
+        required: true
+        type: string
+      template-ref:
+        description: "Repo ref for the templates + packagers (default: main)"
+        required: false
+        type: string
+        default: main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-windows-packages-manual-${{ inputs.release-tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Update Scoop & Chocolatey packages
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION: ${{ inputs.release-tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.template-ref }}
+          fetch-depth: 1
+
+      - name: Download Windows SHA-256 sidecar from the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release download "$RELEASE_VERSION" --dir shas --pattern 'kdash-windows.sha256'
+
+      - name: Set release assets and version
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "WINDOWS_SHA=$(awk '{print $1; exit}' shas/kdash-windows.sha256)" >> "$GITHUB_ENV"
+
+      - name: Execute Chocolatey packaging script
+        run: |
+          python3 "./deployment/chocolatey/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/chocolatey/kdash.nuspec.template" "./kdash.nuspec" ${{ env.WINDOWS_SHA }}
+          python3 "./deployment/chocolatey/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/chocolatey/chocolateyinstall.ps1.template" "./chocolateyinstall.ps1" ${{ env.WINDOWS_SHA }}
+
+          git config --global user.email "d4udts@gmail.com"
+          git config --global user.name "deepu105"
+          git clone https://deepu105:${{ secrets.KDASH_RS_GITHUB_TOKEN }}@github.com/kdash-rs/choco-kdash --branch=main choco
+          rm choco/kdash.nuspec
+          rm choco/tools/chocolateyinstall.ps1
+          cp kdash.nuspec choco/kdash.nuspec
+          cp chocolateyinstall.ps1 choco/tools/chocolateyinstall.ps1
+          cd choco
+          git add .
+          git diff-index --quiet HEAD || git commit -am "Update package for KDash release ${{ env.RELEASE_VERSION }}"
+          git push origin main
+
+      - name: Execute Scoop packaging script
+        run: |
+          python3 "./deployment/scoop/packager.py" ${{ env.RELEASE_VERSION }} "./deployment/scoop/kdash.json.template" "./kdash.json" ${{ env.WINDOWS_SHA }}
+
+          git config --global user.email "d4udts@gmail.com"
+          git config --global user.name "deepu105"
+          git clone https://deepu105:${{ secrets.KDASH_RS_GITHUB_TOKEN }}@github.com/kdash-rs/scoop-kdash --branch=main scoop
+          rm scoop/kdash.json
+          cp kdash.json scoop/kdash.json
+          cd scoop
+          git add .
+          git diff-index --quiet HEAD || git commit -am "Update package for KDash release ${{ env.RELEASE_VERSION }}"
+          git push origin main

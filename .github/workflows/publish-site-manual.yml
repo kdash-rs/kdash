@@ -1,0 +1,95 @@
+name: publish-site-manual
+
+# Manually mirror scripts/install.{sh,ps1} onto the website (kdash-rs.github.io)
+# and bump its version data. Mirrors the publish-site job in cd.yml. Use to
+# retrofit the hosted installers onto a past release (e.g. v2.0.0), or to push
+# a script fix to https://kdash.cli.rs/install.{sh,ps1} between releases.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release-tag:
+        description: "Release tag to record in the site's version.ts (e.g. v2.0.0)"
+        required: true
+        type: string
+      script-ref:
+        description: "Repo ref to take scripts/install.* from (default: main)"
+        required: false
+        type: string
+        default: main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-site-manual
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Mirror install scripts to the website
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.release-tag }}
+      SCRIPT_REF: ${{ inputs.script-ref }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.script-ref }}
+          fetch-depth: 1
+      - name: Mirror install scripts + bump version.ts on the site
+        shell: bash
+        run: |
+          set -euo pipefail
+          released_at=$(date -u +%Y-%m-%d)
+          version="${RELEASE_TAG#v}"
+
+          git config --global user.email "d4udts@gmail.com"
+          git config --global user.name "deepu105"
+          git clone https://deepu105:${{ secrets.KDASH_RS_GITHUB_TOKEN }}@github.com/kdash-rs/kdash-rs.github.io.git --branch=main site
+
+          # Prepend a provenance header to each script, then RECOMPUTE its
+          # sidecar so `curl https://kdash.cli.rs/install.sh.sha256 | shasum -c`
+          # matches the served (header-prefixed) file. '#' is a line comment in
+          # both sh and PowerShell, so the same header works for install.ps1.
+          for s in install.sh install.ps1; do
+            {
+              printf '# Source: github.com/kdash-rs/kdash@%s/scripts/%s\n' "$SCRIPT_REF" "$s"
+              printf '# SHA-256 verified by .github/workflows/publish-site-manual.yml on %s.\n' "$released_at"
+              cat "scripts/$s"
+            } > "site/public/$s"
+          done
+          chmod +x site/public/install.sh
+          ( cd site/public && shasum -a 256 install.sh > install.sh.sha256 && shasum -a 256 install.ps1 > install.ps1.sha256 )
+
+          # Bump the site version data.
+          cat > site/src/data/version.ts <<'TS_EOF'
+          // Bumped on every release by .github/workflows/cd.yml in the main repo.
+          // Do not edit by hand.
+
+          export const VERSION = "__VERSION__";
+          export const TAG = "__TAG__";
+          export const RELEASED_AT = "__RELEASED_AT__";
+          TS_EOF
+          sed -i \
+            -e "s|__VERSION__|${version}|g" \
+            -e "s|__TAG__|${RELEASE_TAG}|g" \
+            -e "s|__RELEASED_AT__|${released_at}|g" \
+            site/src/data/version.ts
+
+          cd site
+          git add public/install.sh public/install.sh.sha256 public/install.ps1 public/install.ps1.sha256 src/data/version.ts
+          if git diff-index --quiet HEAD; then
+            echo "site already up to date for ${RELEASE_TAG}; nothing to commit"
+            exit 0
+          fi
+          git commit -m "chore(release): mirror install scripts for ${RELEASE_TAG}"
+          for attempt in 1 2 3; do
+            if git push origin main; then exit 0; fi
+            echo "push attempt ${attempt} failed; rebasing and retrying"
+            git pull --rebase origin main
+            sleep $((attempt * 5))
+          done
+          echo "::error::site push failed after 3 attempts"
+          exit 1

@@ -1,0 +1,57 @@
+name: publish-install-scripts-manual
+
+# Manually upload scripts/install.sh + install.ps1 (and their .sha256 sidecars)
+# to an existing GitHub Release. Use this to retrofit installers onto releases
+# that were cut before the publish-install-scripts job existed in cd.yml
+# (e.g. v2.0.0), or to refresh the hosted scripts after a fix.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release-tag:
+        description: "Existing GH Release tag to upload to (e.g. v2.0.0)"
+        required: true
+        type: string
+      script-ref:
+        description: "Repo ref to take scripts/install.* from (default: main)"
+        required: false
+        type: string
+        default: main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-install-scripts-manual-${{ inputs.release-tag }}
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    name: Upload install scripts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.script-ref }}
+          fetch-depth: 1
+      - name: Verify the release exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release view "${{ inputs.release-tag }}" --json tagName >/dev/null
+      - name: Generate checksums for the install scripts
+        shell: bash
+        run: |
+          cd scripts
+          shasum -a 256 install.sh > install.sh.sha256
+          shasum -a 256 install.ps1 > install.ps1.sha256
+      - name: Upload install scripts to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          gh release upload "${{ inputs.release-tag }}" --clobber \
+            scripts/install.sh \
+            scripts/install.sh.sha256 \
+            scripts/install.ps1 \
+            scripts/install.ps1.sha256

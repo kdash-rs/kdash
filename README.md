@@ -118,11 +118,39 @@ Try out kdash via `nix run nixpkgs#kdash` or add `kdash` to your
 
 ### Install script
 
-Run the below command to install the latest binary. Run with sudo if you don't have write access to `/usr/local/bin`. Else the script will install to the current directory. Alternatively, set `BIN_DIR` environment variable e.g. `BIN_DIR=~/.local/bin` to override the default install location.
+The quickest way to grab the latest release binary without a package manager. The script downloads the right build for your platform and verifies it against the published SHA-256 checksum before installing.
+
+**Linux and macOS** (installs to `~/.local/bin` by default, no sudo needed):
 
 ```sh
-curl https://raw.githubusercontent.com/kdash-rs/kdash/main/deployment/getLatest.sh | bash
+curl -fsSL https://raw.githubusercontent.com/kdash-rs/kdash/main/scripts/install.sh | sh
 ```
+
+Useful flags:
+
+- `--version vX.Y.Z`: install a specific release instead of the latest
+- `--prefix <dir>`: install somewhere else, e.g. `--prefix /usr/local/bin`
+- `--quiet`: only print errors
+
+Pass flags through the pipe with `sh -s --`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/kdash-rs/kdash/main/scripts/install.sh | sh -s -- --prefix ~/bin
+```
+
+**Windows** (installs to `%LOCALAPPDATA%\Programs\kdash`):
+
+```powershell
+irm https://raw.githubusercontent.com/kdash-rs/kdash/main/scripts/install.ps1 | iex
+```
+
+To also append the install directory to your user `PATH`, run it with `-AddToPath`:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/kdash-rs/kdash/main/scripts/install.ps1))) -AddToPath
+```
+
+> **Note**: The older `deployment/getLatest.sh` script still works but is deprecated in favor of `install.sh`, which adds checksum verification and `--version` pinning.
 
 ### Manual
 

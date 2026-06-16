@@ -1,0 +1,34 @@
+# Maintainer: Deepu K Sasidharan <d4udts@gmail.com>
+#
+# Generated from deployment/aur/kdash-bin/PKGBUILD.template by
+# deployment/aur/packager.py during .github/workflows/cd.yml.
+# Do not edit aur-kdash-bin/PKGBUILD by hand -- it is overwritten
+# on every stable tag.
+pkgname=kdash-bin
+_pkgname=kdash
+pkgver=${version}
+pkgrel=1
+pkgdesc='A fast and simple dashboard for Kubernetes (prebuilt)'
+arch=('x86_64' 'aarch64')
+url='https://github.com/kdash-rs/kdash'
+license=('MIT')
+depends=('gcc-libs')
+optdepends=('libxcb: copy-to-clipboard support')
+provides=('kdash')
+conflicts=('kdash' 'kdash-git')
+
+_release="$url/releases/download/v$pkgver"
+# The release tarballs ship only the kdash binary, so the license is fetched
+# separately from the tagged source tree (SKIP: immutable per tag).
+source=("LICENSE-$pkgname-$pkgver::$url/raw/v$pkgver/LICENSE")
+sha256sums=('SKIP')
+source_x86_64=("$_pkgname-$pkgver-x86_64.tar.gz::$_release/$_pkgname-linux.tar.gz")
+sha256sums_x86_64=('${sha_x86_64_linux_gnu}')
+source_aarch64=("$_pkgname-$pkgver-aarch64.tar.gz::$_release/$_pkgname-aarch64-gnu.tar.gz")
+sha256sums_aarch64=('${sha_aarch64_linux_gnu}')
+
+package() {
+  # Both per-arch tarballs extract the bare `kdash` binary into $srcdir.
+  install -Dm755 "$srcdir/kdash"                    "$pkgdir/usr/bin/kdash"
+  install -Dm644 "$srcdir/LICENSE-$pkgname-$pkgver" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
