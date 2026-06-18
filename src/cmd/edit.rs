@@ -1,6 +1,6 @@
 use std::process::{Command, ExitStatus, Stdio};
 
-use super::is_valid_kubectl_arg;
+use super::{is_valid_kubectl_arg, push_context_arg};
 
 /// The resource to open in `$EDITOR` via `kubectl edit`. `namespace` is `None`
 /// for cluster-scoped kinds (nodes, PVs, cluster roles, …).
@@ -9,6 +9,8 @@ pub struct EditTarget {
   pub namespace: Option<String>,
   pub kind: String,
   pub name: String,
+  /// In-app selected context, or `None` to use the kubeconfig default (#532).
+  pub context: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -23,6 +25,7 @@ pub enum EditPrepareError {
   InvalidNamespace,
   InvalidKind,
   InvalidName,
+  InvalidContext,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -38,6 +41,7 @@ impl std::fmt::Display for EditPrepareError {
       Self::InvalidNamespace => write!(f, "Invalid namespace for edit"),
       Self::InvalidKind => write!(f, "Invalid resource kind for edit"),
       Self::InvalidName => write!(f, "Invalid resource name for edit"),
+      Self::InvalidContext => write!(f, "Invalid context for edit"),
     }
   }
 }
@@ -87,6 +91,11 @@ fn validate_target(target: &EditTarget) -> Result<(), EditPrepareError> {
   if let Some(namespace) = target.namespace.as_ref() {
     validate_component(namespace, EditPrepareError::InvalidNamespace)?;
   }
+  if let Some(context) = target.context.as_deref() {
+    if !is_valid_kubectl_arg(context) {
+      return Err(EditPrepareError::InvalidContext);
+    }
+  }
   Ok(())
 }
 
@@ -104,6 +113,7 @@ fn build_edit_command(target: &EditTarget) -> EditCommand {
     args.push("-n".into());
     args.push(namespace.clone());
   }
+  push_context_arg(&mut args, target.context.as_deref());
   EditCommand {
     program: "kubectl".into(),
     args,
@@ -126,6 +136,7 @@ mod tests {
       namespace: Some("default".into()),
       kind: "deployment".into(),
       name: "web".into(),
+      context: None,
     })
     .expect("edit command should prepare");
 
@@ -142,10 +153,35 @@ mod tests {
       namespace: None,
       kind: "node".into(),
       name: "node-1".into(),
+      context: None,
     })
     .expect("edit command should prepare");
 
     assert_eq!(command.args, vec!["edit", "node", "node-1"]);
+  }
+
+  #[test]
+  fn test_prepare_edit_includes_selected_context() {
+    let command = prepare_edit(&EditTarget {
+      namespace: Some("default".into()),
+      kind: "deployment".into(),
+      name: "web".into(),
+      context: Some("prod".into()),
+    })
+    .expect("edit command should prepare");
+
+    assert_eq!(
+      command.args,
+      vec![
+        "edit",
+        "deployment",
+        "web",
+        "-n",
+        "default",
+        "--context",
+        "prod"
+      ]
+    );
   }
 
   #[test]
@@ -155,6 +191,7 @@ mod tests {
         namespace: Some("default; rm -rf /".into()),
         kind: "deployment".into(),
         name: "web".into(),
+        context: None,
       }),
       Err(EditPrepareError::InvalidNamespace)
     );
@@ -164,6 +201,7 @@ mod tests {
         namespace: Some("default".into()),
         kind: "deploy`whoami`".into(),
         name: "web".into(),
+        context: None,
       }),
       Err(EditPrepareError::InvalidKind)
     );
@@ -173,8 +211,19 @@ mod tests {
         namespace: Some("default".into()),
         kind: "deployment".into(),
         name: String::new(),
+        context: None,
       }),
       Err(EditPrepareError::InvalidName)
+    );
+
+    assert_eq!(
+      prepare_edit(&EditTarget {
+        namespace: Some("default".into()),
+        kind: "deployment".into(),
+        name: "web".into(),
+        context: Some("prod`whoami`".into()),
+      }),
+      Err(EditPrepareError::InvalidContext)
     );
   }
 }

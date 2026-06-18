@@ -59,6 +59,17 @@ pub(crate) fn is_valid_kubectl_arg(s: &str) -> bool {
     && !s.contains('$')
 }
 
+/// Append `--context <name>` when an in-app context is selected, so kubectl
+/// targets the same cluster the `Shift+C` context switch points at rather than
+/// the kubeconfig's `current-context` (#532). No-op when no context is selected,
+/// matching the kube-rs client which then infers from the kubeconfig.
+pub(crate) fn push_context_arg(args: &mut Vec<String>, context: Option<&str>) {
+  if let Some(context) = context {
+    args.push("--context".into());
+    args.push(context.into());
+  }
+}
+
 impl<'a> CmdRunner<'a> {
   pub fn new(app: &'a Arc<Mutex<App>>) -> Self {
     CmdRunner { app }
@@ -263,14 +274,28 @@ impl<'a> CmdRunner<'a> {
       }
     }
 
+    let context = {
+      let app = self.app.lock().await;
+      app.data.selected.context.clone()
+    };
+    if let Some(ref context) = context {
+      if !is_valid_kubectl_arg(context) {
+        self
+          .handle_error(anyhow!("Invalid characters in context"))
+          .await;
+        return;
+      }
+    }
+
     let kind_clone = kind.clone();
     let result = tokio::task::spawn_blocking(move || {
-      let mut args = vec!["describe", kind.as_str(), value.as_str()];
+      let mut args = vec!["describe".to_string(), kind, value];
 
-      if let Some(ns) = ns.as_ref() {
-        args.push("-n");
-        args.push(ns.as_str());
+      if let Some(ns) = ns {
+        args.push("-n".to_string());
+        args.push(ns);
       }
+      push_context_arg(&mut args, context.as_deref());
 
       duct::cmd("kubectl", &args).stderr_null().read()
     })
