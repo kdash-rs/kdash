@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.0.1] - 2026-06-18
+
+### Added
+
+- Official `install.sh` script for Linux and macOS with SHA-256 checksum verification and `--version` pinning, plus an AUR package for Arch Linux.
+
+### Fixed
+
+- Context switching now applies to kubectl-backed actions. After switching context with `Shift+C`, describe, shell exec, edit, and port-forward target the selected context instead of the kubeconfig's current context. [#533](https://github.com/kdash-rs/kdash/pull/533)
+
 ## [2.0.0] - 2026-06-15
 
 KDash 2.0 turns the dashboard from read-only into a tool you can act with. You can now manage resources, port-forward, and edit manifests without leaving the TUI, alongside a refreshed UI and faster rendering.
