@@ -670,12 +670,14 @@ impl<'a> NetworkStream<'a> {
     local_port: u16,
     remote_port: u16,
   ) {
+    let context = self.app.lock().await.data.selected.context.clone();
     let target = PortForwardTarget {
       kind,
       namespace,
       name,
       local_port,
       remote_port,
+      context,
     };
     let command = match prepare_port_forward(&target) {
       Ok(command) => command,

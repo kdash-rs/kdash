@@ -2,7 +2,7 @@ use std::process::{Command, ExitStatus, Stdio};
 
 use anyhow::anyhow;
 
-use super::is_valid_kubectl_arg;
+use super::{is_valid_kubectl_arg, push_context_arg};
 
 const SHELL_CANDIDATES: [&str; 2] = ["/bin/bash", "/bin/sh"];
 
@@ -11,6 +11,8 @@ pub struct ShellExecTarget {
   pub namespace: String,
   pub pod: String,
   pub container: String,
+  /// In-app selected context, or `None` to use the kubeconfig default (#532).
+  pub context: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -32,6 +34,7 @@ pub enum ShellExecPrepareError {
   InvalidNamespace,
   InvalidPod,
   InvalidContainer,
+  InvalidContext,
   UnsupportedShell,
   ProbeFailed(String),
 }
@@ -49,6 +52,7 @@ impl std::fmt::Display for ShellExecPrepareError {
       Self::InvalidNamespace => write!(f, "Invalid namespace for shell exec"),
       Self::InvalidPod => write!(f, "Invalid pod name for shell exec"),
       Self::InvalidContainer => write!(f, "Invalid container name for shell exec"),
+      Self::InvalidContext => write!(f, "Invalid context for shell exec"),
       Self::UnsupportedShell => write!(f, "Unable to find a supported shell in the container"),
       Self::ProbeFailed(message) => write!(f, "Unable to probe container shell support: {message}"),
     }
@@ -117,6 +121,11 @@ fn validate_target(target: &ShellExecTarget) -> Result<(), ShellExecPrepareError
   validate_component(&target.namespace, ShellExecPrepareError::InvalidNamespace)?;
   validate_component(&target.pod, ShellExecPrepareError::InvalidPod)?;
   validate_component(&target.container, ShellExecPrepareError::InvalidContainer)?;
+  if let Some(context) = target.context.as_deref() {
+    if !is_valid_kubectl_arg(context) {
+      return Err(ShellExecPrepareError::InvalidContext);
+    }
+  }
   Ok(())
 }
 
@@ -132,37 +141,41 @@ fn validate_component(
 }
 
 fn build_shell_exec_command(target: &ShellExecTarget, shell: &str) -> ShellExecCommand {
+  let mut args = vec!["exec".into()];
+  push_context_arg(&mut args, target.context.as_deref());
+  args.extend([
+    "-it".into(),
+    "-n".into(),
+    target.namespace.clone(),
+    target.pod.clone(),
+    "-c".into(),
+    target.container.clone(),
+    "--".into(),
+    shell.into(),
+  ]);
   ShellExecCommand {
     program: "kubectl".into(),
-    args: vec![
-      "exec".into(),
-      "-it".into(),
-      "-n".into(),
-      target.namespace.clone(),
-      target.pod.clone(),
-      "-c".into(),
-      target.container.clone(),
-      "--".into(),
-      shell.into(),
-    ],
+    args,
     shell: shell.into(),
   }
 }
 
 fn probe_shell_support(target: &ShellExecTarget, shell: &str) -> ShellProbeResult {
+  let mut args = vec!["exec".to_string()];
+  push_context_arg(&mut args, target.context.as_deref());
+  args.extend([
+    "-n".into(),
+    target.namespace.clone(),
+    target.pod.clone(),
+    "-c".into(),
+    target.container.clone(),
+    "--".into(),
+    shell.into(),
+    "-c".into(),
+    "exit".into(),
+  ]);
   let output = Command::new("kubectl")
-    .args([
-      "exec",
-      "-n",
-      target.namespace.as_str(),
-      target.pod.as_str(),
-      "-c",
-      target.container.as_str(),
-      "--",
-      shell,
-      "-c",
-      "exit",
-    ])
+    .args(&args)
     .stdin(Stdio::null())
     .stdout(Stdio::null())
     .output();
@@ -214,6 +227,7 @@ mod tests {
       namespace: "default".into(),
       pod: "api-123".into(),
       container: "web".into(),
+      context: None,
     }
   }
 
@@ -241,6 +255,41 @@ mod tests {
       ]
     );
     assert_eq!(command.shell, "/bin/bash");
+  }
+
+  #[test]
+  fn test_prepare_shell_exec_includes_context_before_separator() {
+    let mut with_context = target();
+    with_context.context = Some("prod".into());
+    let command = prepare_shell_exec_with_probe(&with_context, |_, _| ShellProbeResult::Supported)
+      .expect("shell command should prepare");
+
+    assert_eq!(
+      command.args,
+      vec![
+        "exec",
+        "--context",
+        "prod",
+        "-it",
+        "-n",
+        "default",
+        "api-123",
+        "-c",
+        "web",
+        "--",
+        "/bin/bash",
+      ]
+    );
+  }
+
+  #[test]
+  fn test_prepare_shell_exec_rejects_invalid_context() {
+    let mut invalid = target();
+    invalid.context = Some("prod; rm -rf /".into());
+    assert_eq!(
+      prepare_shell_exec_with_probe(&invalid, |_, _| ShellProbeResult::Supported),
+      Err(ShellExecPrepareError::InvalidContext)
+    );
   }
 
   #[test]

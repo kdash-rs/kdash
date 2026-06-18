@@ -436,11 +436,13 @@ async fn execute_pending_shell_exec(
   terminal: &mut Terminal<CrosstermBackend<Stdout>>,
   request: app::PendingShellExec,
 ) -> Result<()> {
-  execute_pending_shell_exec_with(app, terminal, request, |request| {
+  let context = app.lock().await.data.selected.context.clone();
+  execute_pending_shell_exec_with(app, terminal, request, move |request| {
     let target = ShellExecTarget {
       namespace: request.namespace,
       pod: request.pod,
       container: request.container,
+      context,
     };
     let command = prepare_shell_exec(&target).map_err(|error| anyhow!(error.to_string()))?;
     let shell = command.shell.clone();
@@ -455,11 +457,13 @@ async fn execute_pending_edit(
   terminal: &mut Terminal<CrosstermBackend<Stdout>>,
   request: app::PendingEdit,
 ) -> Result<()> {
-  execute_pending_edit_with(app, terminal, request, |request| {
+  let context = app.lock().await.data.selected.context.clone();
+  execute_pending_edit_with(app, terminal, request, move |request| {
     let target = EditTarget {
       namespace: request.namespace,
       kind: request.kind,
       name: request.name,
+      context,
     };
     let command = prepare_edit(&target).map_err(|error| anyhow!(error.to_string()))?;
     run_edit(&command).map_err(|error| anyhow!(error.to_string()))?;
