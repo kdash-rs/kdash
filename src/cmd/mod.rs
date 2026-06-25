@@ -2,10 +2,9 @@ pub mod edit;
 pub mod port_forward;
 pub mod shell;
 
-use std::{collections::BTreeSet, io, sync::Arc};
+use std::{collections::BTreeSet, io, process::Stdio, sync::Arc};
 
 use anyhow::anyhow;
-use duct::cmd;
 use log::{error, info};
 use regex::Regex;
 use serde_json::Value as JValue;
@@ -39,15 +38,6 @@ enum CliProbe {
   Version(Option<String>),
 }
 
-impl CliProbe {
-  fn map(self, f: impl FnOnce(Option<String>) -> Option<String>) -> Self {
-    match self {
-      CliProbe::MissingBinary => CliProbe::MissingBinary,
-      CliProbe::Version(version) => CliProbe::Version(f(version)),
-    }
-  }
-}
-
 pub(crate) fn is_valid_kubectl_arg(s: &str) -> bool {
   !s.contains('\n')
     && !s.contains('\r')
@@ -69,6 +59,33 @@ pub(crate) fn push_context_arg(args: &mut Vec<String>, context: Option<&str>) {
     args.push(context.into());
   }
 }
+
+const VERSION_REGEX: &str = r"\b(v[0-9]+\.[0-9]+\.[0-9]+)\b";
+const REGEX_PROBES: [(&str, &[&str], &str); 7] = [
+  (
+    "docker",
+    &["docker", "version", "--format", "v{{.Client.Version}}"],
+    VERSION_REGEX,
+  ),
+  (
+    "docker-compose",
+    &["docker-compose", "version"],
+    r"\b(v?[0-9]+\.[0-9]+\.[0-9]+)\b",
+  ),
+  (
+    "docker compose",
+    &["docker", "compose", "version"],
+    VERSION_REGEX,
+  ),
+  (
+    "podman",
+    &["podman", "version", "--format", "v{{.Client.Version}}"],
+    VERSION_REGEX,
+  ),
+  ("containerd", &["containerd", "--version"], VERSION_REGEX),
+  ("helm", &["helm", "version", "--short"], VERSION_REGEX),
+  ("kind", &["kind", "version"], VERSION_REGEX),
+];
 
 impl<'a> CmdRunner<'a> {
   pub fn new(app: &'a Arc<Mutex<App>>) -> Self {
@@ -101,18 +118,15 @@ impl<'a> CmdRunner<'a> {
       app.config.cli_info.clone().unwrap_or_default()
     };
 
-    let clis = tokio::task::spawn_blocking(move || {
-      let mut clis: Vec<Cli> = vec![];
+    let mut clis: Vec<Cli> = vec![];
+    {
       let disabled_defaults = disabled_default_set(&cli_info_config);
       let hide_missing_binaries = cli_info_config.hide_missing_binaries;
 
       if !disabled_defaults.contains("kubectl client")
         || !disabled_defaults.contains("kubectl server")
       {
-        let kubectl_probe = match cmd!("kubectl", "version", "-o", "json")
-          .stderr_null()
-          .read()
-        {
+        let kubectl_probe = match run_cmd("kubectl", &["version", "-o", "json"]).await {
           Ok(out) => {
             info!("kubectl version: {}", out);
             let v: serde_json::Result<JValue> = serde_json::from_str(&out);
@@ -152,106 +166,42 @@ impl<'a> CmdRunner<'a> {
         }
       }
 
-      if !disabled_defaults.contains("docker") {
-        if let Some(cli) = build_cli_for_probe(
-          "docker",
-          run_cli_entries(&[cli_entry(
-            &["docker", "version", "--format", "v{{.Client.Version}}"],
-            Some(r"\b(v[0-9]+\.[0-9]+\.[0-9]+)\b"),
-          )]),
-          hide_missing_binaries,
-        ) {
-          clis.push(cli);
-        }
+      let mut join_set = tokio::task::JoinSet::new();
+      for (label, command, regex) in REGEX_PROBES
+        .iter()
+        .filter(|(label, _, _)| !disabled_defaults.contains(*label))
+      {
+        let info_entry = CliInfoEntry {
+          label: label.to_string(),
+          command: command.iter().map(|s| s.to_string()).collect(),
+          regex: Some(Regex::new(regex).unwrap()),
+        };
+        //let hide_missing_binaries = hide_missing_binaries;
+        join_set.spawn(async move {
+          build_cli_for_probe(
+            &info_entry.label,
+            run_cli_entry(&info_entry).await,
+            hide_missing_binaries,
+          )
+        });
       }
-
-      if !disabled_defaults.contains("docker-compose") {
-        if let Some(cli) = build_cli_for_probe(
-          "docker-compose",
-          run_cli_entries(&[
-            cli_entry(
-              &["docker-compose", "version"],
-              Some(r"\b(v?[0-9]+\.[0-9]+\.[0-9]+)\b"),
-            ),
-            cli_entry(
-              &["docker", "compose", "version"],
-              Some(r"\b(v?[0-9]+\.[0-9]+\.[0-9]+)\b"),
-            ),
-          ])
-          .map(|version| version.map(normalize_version_prefix)),
-          hide_missing_binaries,
-        ) {
-          clis.push(cli);
-        }
-      }
-
-      if !disabled_defaults.contains("podman") {
-        if let Some(cli) = build_cli_for_probe(
-          "podman",
-          run_cli_entries(&[cli_entry(
-            &["podman", "version", "--format", "v{{.Client.Version}}"],
-            Some(r"\b(v[0-9]+\.[0-9]+\.[0-9]+)\b"),
-          )]),
-          hide_missing_binaries,
-        ) {
-          clis.push(cli);
-        }
-      }
-
-      if !disabled_defaults.contains("containerd") {
-        if let Some(cli) = build_cli_for_probe(
-          "containerd",
-          run_cli_entries(&[cli_entry(
-            &["containerd", "--version"],
-            Some(r"\b(v[0-9]+\.[0-9]+\.[0-9]+)\b"),
-          )]),
-          hide_missing_binaries,
-        ) {
-          clis.push(cli);
-        }
-      }
-
-      if !disabled_defaults.contains("helm") {
-        if let Some(cli) = build_cli_for_probe(
-          "helm",
-          run_cli_entries(&[cli_entry(
-            &["helm", "version", "-c"],
-            Some(r"\b(v[0-9]+\.[0-9]+\.[0-9]+)\b"),
-          )]),
-          hide_missing_binaries,
-        ) {
-          clis.push(cli);
-        }
-      }
-
-      if !disabled_defaults.contains("kind") {
-        if let Some(cli) = build_cli_for_probe(
-          "kind",
-          run_cli_entries(&[cli_entry(
-            &["kind", "version"],
-            Some(r"\b(v[0-9]+\.[0-9]+\.[0-9]+)\b"),
-          )]),
-          hide_missing_binaries,
-        ) {
-          clis.push(cli);
-        }
-      }
-
       for entry in &cli_info_config.custom {
         if entry.command.is_empty() {
           continue;
         }
-        if let Some(cli) =
-          build_cli_for_probe(&entry.label, run_cli_entry(entry), hide_missing_binaries)
-        {
-          clis.push(cli);
-        }
+        let entry = entry.clone();
+        join_set.spawn(async move {
+          build_cli_for_probe(
+            &entry.label,
+            run_cli_entry(&entry).await,
+            hide_missing_binaries,
+          )
+        });
       }
-
-      clis
-    })
-    .await
-    .unwrap_or_default();
+      for cli in join_set.join_all().await.into_iter().flatten() {
+        clis.push(cli);
+      }
+    }
 
     let mut app = self.app.lock().await;
     app.data.clis = clis;
@@ -288,25 +238,29 @@ impl<'a> CmdRunner<'a> {
     }
 
     let kind_clone = kind.clone();
-    let result = tokio::task::spawn_blocking(move || {
-      let mut args = vec!["describe".to_string(), kind, value];
 
-      if let Some(ns) = ns {
-        args.push("-n".to_string());
-        args.push(ns);
-      }
-      push_context_arg(&mut args, context.as_deref());
+    let mut args = vec!["describe".to_string(), kind, value];
 
-      duct::cmd("kubectl", &args).stderr_null().read()
-    })
-    .await;
+    if let Some(ns) = ns {
+      args.push("-n".to_string());
+      args.push(ns);
+    }
+    push_context_arg(&mut args, context.as_deref());
+
+    let result = tokio::process::Command::new("kubectl")
+      .args(&args)
+      .kill_on_drop(true)
+      .stderr(Stdio::null())
+      .output()
+      .await
+      .map(|output| String::from_utf8_lossy(&output.stdout).to_string());
 
     match result {
-      Ok(Ok(out)) => {
+      Ok(out) => {
         let mut app = self.app.lock().await;
         app.data.describe_out = ScrollableTxt::with_string(out);
       }
-      Ok(Err(e)) => {
+      Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
         self
           .handle_error(anyhow!(
             "Error running {} describe. Make sure you have kubectl installed: {:?}",
@@ -354,45 +308,19 @@ fn disabled_default_set(cli_info: &CliInfoConfig) -> BTreeSet<String> {
     .collect()
 }
 
-fn cli_entry(command: &[&str], regex: Option<&str>) -> CliInfoEntry {
-  CliInfoEntry {
-    label: String::new(),
-    command: command.iter().map(|value| (*value).to_string()).collect(),
-    regex: regex.map(str::to_string),
-  }
-}
-
-fn run_cli_entries(entries: &[CliInfoEntry]) -> CliProbe {
-  let mut saw_probeable_command = false;
-
-  for entry in entries {
-    match run_cli_entry(entry) {
-      CliProbe::Version(Some(version)) => return CliProbe::Version(Some(version)),
-      CliProbe::Version(None) => saw_probeable_command = true,
-      CliProbe::MissingBinary => {}
-    }
-  }
-
-  if saw_probeable_command {
-    CliProbe::Version(None)
-  } else {
-    CliProbe::MissingBinary
-  }
-}
-
-fn run_cli_entry(entry: &CliInfoEntry) -> CliProbe {
+async fn run_cli_entry(entry: &CliInfoEntry) -> CliProbe {
   let Some((program, args)) = entry.command.split_first() else {
     return CliProbe::Version(None);
   };
   let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
-  read_command(program, &arg_refs).map(|output| {
-    output.and_then(|value| {
-      if let Some(regex) = entry.regex.as_deref() {
-        return Regex::new(regex).ok().and_then(|re| {
-          re.captures(&value)
-            .and_then(|cap| cap.get(1))
-            .map(|matched| matched.as_str().trim().to_string())
-        });
+  run_cmd(program, &arg_refs)
+    .await
+    .map(|value| {
+      if let Some(ref re) = entry.regex {
+        return re
+          .captures(&value)
+          .and_then(|cap| cap.get(1))
+          .map(|matched| matched.as_str().trim().to_string());
       }
 
       value
@@ -401,27 +329,28 @@ fn run_cli_entry(entry: &CliInfoEntry) -> CliProbe {
         .map(str::trim)
         .map(str::to_string)
     })
-  })
+    .map_or(CliProbe::MissingBinary, |version| {
+      CliProbe::Version(version)
+    })
 }
 
-fn normalize_version_prefix(version: String) -> String {
-  if version.starts_with('v') {
-    version
-  } else {
-    format!("v{}", version)
-  }
-}
-
-fn read_command(command: &str, args: &[&str]) -> CliProbe {
-  match cmd(command, args).stderr_null().read() {
-    Ok(out) => CliProbe::Version(Some(out)),
-    Err(error) if error.kind() == io::ErrorKind::NotFound => CliProbe::MissingBinary,
-    Err(_) => CliProbe::Version(None),
-  }
+async fn run_cmd(cmd: &str, args: &[&str]) -> Result<String, io::Error> {
+  let output = tokio::process::Command::new(cmd)
+    .args(args)
+    .kill_on_drop(true)
+    .stdout(Stdio::piped())
+    .stderr(Stdio::null())
+    .spawn()?
+    .wait_with_output()
+    .await?
+    .stdout;
+  Ok(String::from_utf8_lossy(&output).to_string())
 }
 
 #[cfg(test)]
 mod tests {
+  use regex::Regex;
+
   use super::CliProbe;
   use crate::config::{CliInfoConfig, CliInfoEntry};
 
@@ -471,6 +400,14 @@ mod tests {
     assert!(set.contains("kubectl client"));
   }
 
+  fn sync_probe(entry: &CliInfoEntry) -> CliProbe {
+    tokio::runtime::Builder::new_current_thread()
+      .enable_io()
+      .build()
+      .unwrap()
+      .block_on(super::run_cli_entry(entry))
+  }
+
   #[test]
   fn test_run_custom_cli_command_uses_first_non_empty_line() {
     let entry = CliInfoEntry {
@@ -480,7 +417,7 @@ mod tests {
     };
 
     assert!(matches!(
-      super::run_cli_entry(&entry),
+      sync_probe(&entry),
       CliProbe::Version(Some(version)) if version.starts_with("rustc ")
     ));
   }
@@ -493,7 +430,7 @@ mod tests {
       regex: None,
     };
 
-    assert_eq!(super::run_cli_entry(&entry), CliProbe::Version(None));
+    assert_eq!(sync_probe(&entry), CliProbe::Version(None));
   }
 
   #[test]
@@ -501,13 +438,10 @@ mod tests {
     let entry = CliInfoEntry {
       label: "echo".into(),
       command: vec!["echo".into(), "release=1.2.3".into()],
-      regex: Some(r"release=([0-9.]+)".into()),
+      regex: Some(Regex::new(r"release=([0-9.]+)").unwrap()),
     };
 
-    assert_eq!(
-      super::run_cli_entry(&entry),
-      CliProbe::Version(Some("1.2.3".into()))
-    );
+    assert_eq!(sync_probe(&entry), CliProbe::Version(Some("1.2.3".into())));
   }
 
   #[test]
@@ -515,15 +449,15 @@ mod tests {
     let entry = CliInfoEntry {
       label: "echo".into(),
       command: vec!["echo".into(), "release=1.2.3".into()],
-      regex: Some(r"version=([0-9.]+)".into()),
+      regex: Some(Regex::new(r"version=([0-9.]+)").unwrap()),
     };
 
-    assert_eq!(super::run_cli_entry(&entry), CliProbe::Version(None));
+    assert_eq!(sync_probe(&entry), CliProbe::Version(None));
   }
 
   #[test]
   fn test_run_cli_entries_tries_fallback_commands() {
-    let entries = vec![
+    let entries = [
       CliInfoEntry {
         label: String::new(),
         command: vec!["definitely-not-installed-kdash".into()],
@@ -532,20 +466,14 @@ mod tests {
       CliInfoEntry {
         label: String::new(),
         command: vec!["echo".into(), "release=1.2.3".into()],
-        regex: Some(r"release=([0-9.]+)".into()),
+        regex: Some(Regex::new(r"release=([0-9.]+)").unwrap()),
       },
     ];
 
     assert_eq!(
-      super::run_cli_entries(&entries),
+      sync_probe(&entries[1]),
       CliProbe::Version(Some("1.2.3".into()))
     );
-  }
-
-  #[test]
-  fn test_normalize_version_prefix_adds_missing_v() {
-    assert_eq!(super::normalize_version_prefix("1.2.3".into()), "v1.2.3");
-    assert_eq!(super::normalize_version_prefix("v1.2.3".into()), "v1.2.3");
   }
 
   #[test]

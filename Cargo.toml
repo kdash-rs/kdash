@@ -38,6 +38,7 @@ ratatui = { version = "0.30", default-features = false, features = [
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
+serde_regex = "1.2.0"
 strum = { version = "0.28", features = ["derive"] }
 syntect = { version = "5.3.0", default-features = false, features = [
     "default-fancy",
@@ -58,7 +59,6 @@ tokio-stream = { version = "0.1.18", default-features = false, features = [
     "time",
 ] }
 futures = "0.3.32"
-duct = "1.1.1"
 anyhow = "1.0.102"
 backtrace = "0.3.76"
 textwrap = "0.16.2"
