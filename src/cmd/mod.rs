@@ -2,7 +2,12 @@ pub mod edit;
 pub mod port_forward;
 pub mod shell;
 
-use std::{collections::BTreeSet, io, process::Stdio, sync::Arc};
+use std::{
+  collections::BTreeSet,
+  io,
+  process::{Output, Stdio},
+  sync::Arc,
+};
 
 use anyhow::anyhow;
 use log::{error, info};
@@ -129,22 +134,29 @@ impl<'a> CmdRunner<'a> {
       {
         let kubectl_probe = match run_cmd("kubectl", &["version", "-o", "json"]).await {
           Ok(out) => {
-            info!("kubectl version: {}", out);
-            let v: serde_json::Result<JValue> = serde_json::from_str(&out);
-            match v {
-              Ok(val) => CliProbe::Version(Some(format!(
-                "{}|{}",
-                val["clientVersion"]["gitVersion"]
-                  .to_string()
-                  .replace('"', ""),
-                val["serverVersion"]["gitVersion"]
-                  .to_string()
-                  .replace('"', ""),
-              ))),
-              _ => CliProbe::Version(None),
+            if out.status.success() {
+              let out = String::from_utf8_lossy(&out.stdout);
+              info!("kubectl version: {}", out);
+              let v: serde_json::Result<JValue> = serde_json::from_str(&out);
+              match v {
+                Ok(val) => CliProbe::Version(Some(format!(
+                  "{}|{}",
+                  val["clientVersion"]["gitVersion"]
+                    .to_string()
+                    .replace('"', ""),
+                  val["serverVersion"]["gitVersion"]
+                    .to_string()
+                    .replace('"', ""),
+                ))),
+                _ => CliProbe::Version(None),
+              }
+            } else {
+              let err = String::from_utf8_lossy(&out.stderr);
+              error!("kubectl version failed: {}", err);
+              CliProbe::Version(None)
             }
           }
-          Err(error) if error.kind() == io::ErrorKind::NotFound => CliProbe::MissingBinary,
+
           Err(_) => CliProbe::Version(None),
         };
 
@@ -323,38 +335,48 @@ async fn run_cli_entry(entry: &CliInfoEntry) -> CliProbe {
     return CliProbe::Version(None);
   };
   let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
-  run_cmd(program, &arg_refs)
-    .await
-    .map(|value| {
+  match run_cmd(program, &arg_refs).await {
+    Ok(result) if result.status.success() => {
+      let value = String::from_utf8_lossy(&result.stdout);
       if let Some(ref re) = entry.regex {
-        return re
+        if let Some(re_match) = re
           .captures(&value)
           .and_then(|cap| cap.get(1))
-          .map(|matched| matched.as_str().trim().to_string());
+          .map(|matched| matched.as_str().trim().to_string())
+        {
+          return CliProbe::Version(Some(re_match));
+        }
+      } else {
+        return CliProbe::Version(Some(value.trim().to_string()));
       }
-
-      value
-        .lines()
-        .find(|line| !line.trim().is_empty())
-        .map(str::trim)
-        .map(str::to_string)
-    })
-    .map_or(CliProbe::MissingBinary, |version| {
-      CliProbe::Version(version)
-    })
+    }
+    Ok(result) => {
+      error!(
+        "Command {:?} failed with status {:?}: {}",
+        entry.command,
+        result.status,
+        String::from_utf8_lossy(&result.stderr)
+      );
+    }
+    Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+      return CliProbe::MissingBinary;
+    }
+    Err(e) => {
+      error!("Command {:?} failed: {:?}", entry.command, e);
+    }
+  };
+  CliProbe::Version(None)
 }
 
-async fn run_cmd(cmd: &str, args: &[&str]) -> Result<String, io::Error> {
-  let output = tokio::process::Command::new(cmd)
+async fn run_cmd(cmd: &str, args: &[&str]) -> Result<Output, io::Error> {
+  tokio::process::Command::new(cmd)
     .args(args)
     .kill_on_drop(true)
     .stdout(Stdio::piped())
-    .stderr(Stdio::null())
+    .stderr(Stdio::piped())
     .spawn()?
     .wait_with_output()
-    .await?
-    .stdout;
-  Ok(String::from_utf8_lossy(&output).to_string())
+    .await
 }
 
 #[cfg(test)]
