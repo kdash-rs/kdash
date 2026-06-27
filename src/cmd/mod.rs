@@ -119,6 +119,7 @@ impl<'a> CmdRunner<'a> {
     };
 
     let mut clis: Vec<Cli> = vec![];
+    let mut cli_index = 0u8;
     {
       let disabled_defaults = disabled_default_set(&cli_info_config);
       let hide_missing_binaries = cli_info_config.hide_missing_binaries;
@@ -158,10 +159,12 @@ impl<'a> CmdRunner<'a> {
 
         if let Some((version_c, version_s)) = versions {
           if !disabled_defaults.contains("kubectl client") {
-            clis.push(build_cli("kubectl client", version_c));
+            clis.push(build_cli("kubectl client", version_c, cli_index));
+            cli_index += 1;
           }
           if !disabled_defaults.contains("kubectl server") {
-            clis.push(build_cli("kubectl server", version_s));
+            clis.push(build_cli("kubectl server", version_s, cli_index));
+            cli_index += 1;
           }
         }
       }
@@ -176,14 +179,16 @@ impl<'a> CmdRunner<'a> {
           command: command.iter().map(|s| s.to_string()).collect(),
           regex: Some(Regex::new(regex).unwrap()),
         };
-        //let hide_missing_binaries = hide_missing_binaries;
+
         join_set.spawn(async move {
           build_cli_for_probe(
             &info_entry.label,
             run_cli_entry(&info_entry).await,
             hide_missing_binaries,
+            cli_index,
           )
         });
+        cli_index += 1;
       }
       for entry in &cli_info_config.custom {
         if entry.command.is_empty() {
@@ -195,12 +200,15 @@ impl<'a> CmdRunner<'a> {
             &entry.label,
             run_cli_entry(&entry).await,
             hide_missing_binaries,
+            cli_index,
           )
         });
+        cli_index += 1;
       }
       for cli in join_set.join_all().await.into_iter().flatten() {
         clis.push(cli);
       }
+      clis.sort_unstable_by_key(|cli| cli.index);
     }
 
     let mut app = self.app.lock().await;
@@ -280,11 +288,12 @@ impl<'a> CmdRunner<'a> {
 
 // utils
 
-fn build_cli(name: &str, version: Option<String>) -> app::Cli {
+fn build_cli(name: &str, version: Option<String>, index: u8) -> app::Cli {
   app::Cli {
     name: name.to_owned(),
     status: version.is_some(),
     version: version.unwrap_or_else(|| NOT_FOUND.into()),
+    index,
   }
 }
 
@@ -292,11 +301,12 @@ fn build_cli_for_probe(
   name: &str,
   probe: CliProbe,
   hide_missing_binaries: bool,
+  index: u8,
 ) -> Option<app::Cli> {
   match probe {
     CliProbe::MissingBinary if hide_missing_binaries => None,
-    CliProbe::MissingBinary => Some(build_cli(name, None)),
-    CliProbe::Version(version) => Some(build_cli(name, version)),
+    CliProbe::MissingBinary => Some(build_cli(name, None, index)),
+    CliProbe::Version(version) => Some(build_cli(name, version, index)),
   }
 }
 
@@ -478,12 +488,12 @@ mod tests {
 
   #[test]
   fn test_build_cli_for_probe_hides_missing_binary_by_default() {
-    assert!(super::build_cli_for_probe("docker", CliProbe::MissingBinary, true).is_none());
+    assert!(super::build_cli_for_probe("docker", CliProbe::MissingBinary, true, 0u8).is_none());
   }
 
   #[test]
   fn test_build_cli_for_probe_can_show_missing_binary() {
-    let cli = super::build_cli_for_probe("docker", CliProbe::MissingBinary, false)
+    let cli = super::build_cli_for_probe("docker", CliProbe::MissingBinary, false, 0u8)
       .expect("missing binary should still render");
 
     assert_eq!(cli.name, "docker");
