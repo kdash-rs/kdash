@@ -2,7 +2,7 @@
 
 ## [unreleased]
 
-- regular expressions in `cli_info.custom` are now evaluated immeediately while loading the configuration, not when parsing the version output
+- regular expressions in `cli_info.custom` are now evaluated immediately while loading the configuration, not when parsing the version output
 
 ## [2.0.1] - 2026-06-18
 
