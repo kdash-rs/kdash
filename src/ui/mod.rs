@@ -814,36 +814,43 @@ mod tests {
         name: "kubectl client".into(),
         version: "v1.35.3".into(),
         status: true,
+        index: 0u8,
       },
       Cli {
         name: "kubectl server".into(),
         version: "v1.33.6+k3s1".into(),
         status: true,
+        index: 0u8,
       },
       Cli {
         name: "docker".into(),
         version: "v29.3.1".into(),
         status: true,
+        index: 0u8,
       },
       Cli {
         name: "docker-compose".into(),
         version: "v5.1.1".into(),
         status: true,
+        index: 0u8,
       },
       Cli {
         name: "kind".into(),
         version: "v0.31.0".into(),
         status: true,
+        index: 0u8,
       },
       Cli {
         name: "helm".into(),
         version: "Not found".into(),
         status: false,
+        index: 0u8,
       },
       Cli {
         name: "istioctl".into(),
         version: "Not found".into(),
         status: false,
+        index: 0u8,
       },
     ];
 

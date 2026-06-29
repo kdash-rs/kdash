@@ -228,6 +228,7 @@ pub struct Cli {
   pub name: String,
   pub version: String,
   pub status: bool,
+  pub index: u8,
 }
 
 /// Holds data state for various views

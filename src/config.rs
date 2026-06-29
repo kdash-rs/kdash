@@ -8,9 +8,10 @@ use std::{
 };
 
 use log::warn;
+use regex::Regex;
 use serde::Deserialize;
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct KdashConfig {
   pub keybindings: Option<KeybindingOverrides>,
@@ -41,7 +42,7 @@ pub struct ThemeConfig {
   pub light: Option<BTreeMap<String, String>>,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct CliInfoConfig {
   pub hide_missing_binaries: bool,
@@ -59,15 +60,22 @@ impl Default for CliInfoConfig {
   }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Deserialize)]
 #[serde(default)]
 pub struct CliInfoEntry {
   pub label: String,
   pub command: Vec<String>,
-  pub regex: Option<String>,
+  #[serde(with = "serde_regex")]
+  pub regex: Option<Regex>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+impl PartialEq for CliInfoEntry {
+  fn eq(&self, other: &Self) -> bool {
+    self.label == other.label && self.command == other.command
+  }
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct LoadedConfig {
   pub config: KdashConfig,
   pub warning: Option<String>,
@@ -230,7 +238,7 @@ mod tests {
         custom: vec![CliInfoEntry {
           label: "istioctl".to_string(),
           command: vec!["istioctl".to_string(), "version".to_string()],
-          regex: Some("\\b(v?[0-9]+\\.[0-9]+\\.[0-9]+)\\b".to_string()),
+          regex: None, // regex is excluded from PartialEq
         }],
       })
     );
