@@ -1,8 +1,18 @@
 # Changelog
 
-## [unreleased]
+## [2.0.2] - 2026-06-29
 
-- regular expressions in `cli_info.custom` are now evaluated immediately while loading the configuration, not when parsing the version output
+### Changed
+
+- CLI version info is now gathered concurrently with `tokio::process`, so a config with several slow custom probes no longer blocks startup. Regular expressions in `cli_info.custom` are also compiled when the configuration loads, so a broken regex is reported at startup instead of being silently ignored when parsing version output. [#538](https://github.com/kdash-rs/kdash/pull/538)
+
+### Fixed
+
+- `kubectl describe` failures now surface the underlying kubectl error, and the "make sure you have kubectl installed" hint only shows when kubectl is actually missing.
+
+### Security
+
+- Updated vulnerable transitive dependencies to their patched versions: `rustls-webpki`, `ring`, `idna`, `eyre`, `rand`, and `tracing-subscriber`.
 
 ## [2.0.1] - 2026-06-18
 
