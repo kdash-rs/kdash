@@ -66,30 +66,31 @@ pub(crate) fn push_context_arg(args: &mut Vec<String>, context: Option<&str>) {
 }
 
 const VERSION_REGEX: &str = r"\b(v[0-9]+\.[0-9]+\.[0-9]+)\b";
-const REGEX_PROBES: [(&str, &[&str], &str); 7] = [
+// Each probe lists one or more commands tried in order; the first that yields a
+// version wins, so a single label (e.g. `docker-compose`) covers the standalone
+// binary and the `docker compose` plugin without showing two rows.
+const REGEX_PROBES: [(&str, &[&[&str]], &str); 6] = [
   (
     "docker",
-    &["docker", "version", "--format", "v{{.Client.Version}}"],
+    &[&["docker", "version", "--format", "v{{.Client.Version}}"]],
     VERSION_REGEX,
   ),
   (
     "docker-compose",
-    &["docker-compose", "version"],
+    &[
+      &["docker-compose", "version"],
+      &["docker", "compose", "version"],
+    ],
     r"\b(v?[0-9]+\.[0-9]+\.[0-9]+)\b",
   ),
   (
-    "docker compose",
-    &["docker", "compose", "version"],
-    VERSION_REGEX,
-  ),
-  (
     "podman",
-    &["podman", "version", "--format", "v{{.Client.Version}}"],
+    &[&["podman", "version", "--format", "v{{.Client.Version}}"]],
     VERSION_REGEX,
   ),
-  ("containerd", &["containerd", "--version"], VERSION_REGEX),
-  ("helm", &["helm", "version", "--short"], VERSION_REGEX),
-  ("kind", &["kind", "version"], VERSION_REGEX),
+  ("containerd", &[&["containerd", "--version"]], VERSION_REGEX),
+  ("helm", &[&["helm", "version", "--short"]], VERSION_REGEX),
+  ("kind", &[&["kind", "version"]], VERSION_REGEX),
 ];
 
 impl<'a> CmdRunner<'a> {
@@ -182,22 +183,21 @@ impl<'a> CmdRunner<'a> {
       }
 
       let mut join_set = tokio::task::JoinSet::new();
-      for (label, command, regex) in REGEX_PROBES
+      for (label, commands, regex) in REGEX_PROBES
         .iter()
         .filter(|(label, _, _)| !disabled_defaults.contains(*label))
       {
-        let info_entry = CliInfoEntry {
-          label: label.to_string(),
-          command: command.iter().map(|s| s.to_string()).collect(),
-          regex: Some(Regex::new(regex).unwrap()),
-        };
+        let label = *label;
+        let commands = *commands;
+        let regex = Regex::new(regex).unwrap();
+        let index = cli_index;
 
         join_set.spawn(async move {
           build_cli_for_probe(
-            &info_entry.label,
-            run_cli_entry(&info_entry).await,
+            label,
+            run_default_probe(commands, &regex).await,
             hide_missing_binaries,
-            cli_index,
+            index,
           )
         });
         cli_index += 1;
@@ -267,18 +267,22 @@ impl<'a> CmdRunner<'a> {
     }
     push_context_arg(&mut args, context.as_deref());
 
-    let result = tokio::process::Command::new("kubectl")
-      .args(&args)
-      .kill_on_drop(true)
-      .stderr(Stdio::null())
-      .output()
-      .await
-      .map(|output| String::from_utf8_lossy(&output.stdout).to_string());
+    let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
 
-    match result {
-      Ok(out) => {
+    match run_cmd("kubectl", &arg_refs).await {
+      Ok(output) if output.status.success() => {
+        let out = String::from_utf8_lossy(&output.stdout).to_string();
         let mut app = self.app.lock().await;
         app.data.describe_out = ScrollableTxt::with_string(out);
+      }
+      Ok(output) => {
+        self
+          .handle_error(anyhow!(
+            "Error running {} describe: {}",
+            kind_clone,
+            String::from_utf8_lossy(&output.stderr).trim()
+          ))
+          .await
       }
       Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
         self
@@ -291,7 +295,7 @@ impl<'a> CmdRunner<'a> {
       }
       Err(e) => {
         self
-          .handle_error(anyhow!("Describe task panicked: {:?}", e))
+          .handle_error(anyhow!("Error running {} describe: {:?}", kind_clone, e))
           .await
       }
     }
@@ -328,6 +332,45 @@ fn disabled_default_set(cli_info: &CliInfoConfig) -> BTreeSet<String> {
     .iter()
     .map(|label| label.trim().to_lowercase())
     .collect()
+}
+
+/// Try each command in order, returning the first that yields a version. Falls
+/// back to `MissingBinary` only when no command's binary was found, so a probe
+/// whose binary exists but errors still reports `Not found` rather than being
+/// hidden.
+async fn run_default_probe(commands: &[&[&str]], regex: &Regex) -> CliProbe {
+  let mut saw_binary = false;
+  for command in commands {
+    let entry = CliInfoEntry {
+      label: String::new(),
+      command: command.iter().map(|s| s.to_string()).collect(),
+      regex: Some(regex.clone()),
+    };
+    match run_cli_entry(&entry).await {
+      CliProbe::Version(Some(version)) => {
+        return CliProbe::Version(Some(normalize_version_prefix(version)))
+      }
+      CliProbe::Version(None) => saw_binary = true,
+      CliProbe::MissingBinary => {}
+    }
+  }
+
+  if saw_binary {
+    CliProbe::Version(None)
+  } else {
+    CliProbe::MissingBinary
+  }
+}
+
+/// Prefix a bare version with `v` so probes that may omit it (docker-compose can
+/// report `5.1.4`) line up with the `v`-prefixed defaults. No-op for the other
+/// defaults, whose regexes already require the `v`.
+fn normalize_version_prefix(version: String) -> String {
+  if version.starts_with('v') {
+    version
+  } else {
+    format!("v{version}")
+  }
 }
 
 async fn run_cli_entry(entry: &CliInfoEntry) -> CliProbe {
