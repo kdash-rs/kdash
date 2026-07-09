@@ -45,7 +45,7 @@ keybindings:
   toggle_info: i
   log_auto_scroll: s
   select_all_namespace: a
-  jump_to_namespace: n
+  jump_to_namespace: "n" # needs to be quoted to avoid being interpreted as a boolean
   describe_resource: d
   resource_yaml: "y"
   decode_secret: x

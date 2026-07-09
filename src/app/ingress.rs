@@ -141,7 +141,7 @@ fn get_rules(i_rules: &Option<Vec<IngressRule>>) -> Option<String> {
             rule = format!(
               "{}{}►{}",
               rule,
-              &path.path.clone().unwrap_or("/*".to_string()),
+              path.path.as_deref().unwrap_or("/*"),
               format_backend(&Some(path.backend.clone()))
             );
           });

@@ -96,7 +96,7 @@ pub fn config_path() -> Option<PathBuf> {
 }
 
 fn parse_config(contents: &str, path: &Path) -> LoadedConfig {
-  match serde_yaml::from_str::<KdashConfig>(contents) {
+  match serde_saphyr::from_str::<KdashConfig>(contents) {
     Ok(config) => LoadedConfig {
       config,
       warning: None,
@@ -297,7 +297,7 @@ mod tests {
   #[test]
   fn test_cli_info_defaults_hide_missing_binaries() {
     let config: KdashConfig =
-      serde_yaml::from_str("cli_info:\n  disable_defaults:\n    - docker\n")
+      serde_saphyr::from_str("cli_info:\n  disable_defaults:\n    - docker\n")
         .expect("config should parse");
 
     assert_eq!(
@@ -312,7 +312,7 @@ mod tests {
 
   #[test]
   fn test_cli_info_can_show_missing_binaries() {
-    let config: KdashConfig = serde_yaml::from_str("cli_info:\n  hide_missing_binaries: false\n")
+    let config: KdashConfig = serde_saphyr::from_str("cli_info:\n  hide_missing_binaries: false\n")
       .expect("config should parse");
 
     assert_eq!(
@@ -344,7 +344,7 @@ mod tests {
 
   #[test]
   fn test_default_theme_and_custom_theme_parse() {
-    let config: KdashConfig = serde_yaml::from_str(
+    let config: KdashConfig = serde_saphyr::from_str(
       "default_theme: gruvbox\ncustom_theme:\n  base: latte\n  accent: \"#FF00AA\"\n",
     )
     .expect("config should parse");
@@ -356,7 +356,7 @@ mod tests {
 
   #[test]
   fn test_hide_logo_and_info_default_to_false() {
-    let config: KdashConfig = serde_yaml::from_str("").expect("empty config should parse");
+    let config: KdashConfig = serde_saphyr::from_str("").expect("empty config should parse");
 
     assert!(!config.hide_logo);
     assert!(!config.hide_info_on_start);
@@ -364,7 +364,7 @@ mod tests {
 
   #[test]
   fn test_hide_logo_and_info_can_be_enabled() {
-    let config: KdashConfig = serde_yaml::from_str("hide_logo: true\nhide_info_on_start: true\n")
+    let config: KdashConfig = serde_saphyr::from_str("hide_logo: true\nhide_info_on_start: true\n")
       .expect("config should parse");
 
     assert!(config.hide_logo);
@@ -374,7 +374,7 @@ mod tests {
   #[test]
   fn test_cli_info_custom_regex_defaults_to_none() {
     let config: KdashConfig =
-      serde_yaml::from_str(
+      serde_saphyr::from_str(
         "cli_info:\n  custom:\n    - label: containerd\n      command: [\"containerd\", \"--version\"]\n",
       )
       .expect("config should parse");

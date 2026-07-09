@@ -193,6 +193,7 @@ mod tests {
         namespace: namespace.map(String::from),
         ..Default::default()
       }),
+      ..Default::default()
     }
   }
 
