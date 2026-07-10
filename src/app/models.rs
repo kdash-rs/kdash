@@ -46,7 +46,7 @@ pub trait KubeResource<T: Serialize>: Named {
 
   /// generate YAML from the original kubernetes resource
   fn resource_to_yaml(&self) -> String {
-    match serde_yaml::to_string(&self.get_k8s_obj()) {
+    match serde_saphyr::to_string(&self.get_k8s_obj()) {
       Ok(yaml) => yaml,
       Err(_) => "".into(),
     }

@@ -1,5 +1,11 @@
 # Changelog
 
+## [unreleased]
+
+### Changed
+
+- Kubernetes dependency updates
+
 ## [2.0.2] - 2026-06-29
 
 ### Changed

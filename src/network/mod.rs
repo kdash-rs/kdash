@@ -1131,7 +1131,7 @@ users:
     let _proxy_env = ProxyEnvGuard::capture();
     clear_https_proxy_env();
 
-    let kubeconfig: Kubeconfig = serde_yaml::from_str(&kubeconfig_with_proxy(Some(
+    let kubeconfig: Kubeconfig = serde_saphyr::from_str(&kubeconfig_with_proxy(Some(
       "http://cluster-proxy.internal:8443",
     )))
     .expect("proxy kubeconfig should deserialize");
@@ -1157,7 +1157,7 @@ users:
     clear_https_proxy_env();
     env::set_var("HTTPS_PROXY", "http://env-proxy.internal:8080");
 
-    let kubeconfig: Kubeconfig = serde_yaml::from_str(&kubeconfig_with_proxy(None))
+    let kubeconfig: Kubeconfig = serde_saphyr::from_str(&kubeconfig_with_proxy(None))
       .expect("base kubeconfig should deserialize");
 
     let config = tokio::runtime::Runtime::new()
@@ -1181,7 +1181,7 @@ users:
     clear_https_proxy_env();
     env::set_var("Https_PrOxY", "http://env-proxy.internal:8080");
 
-    let kubeconfig: Kubeconfig = serde_yaml::from_str(&kubeconfig_with_proxy(None))
+    let kubeconfig: Kubeconfig = serde_saphyr::from_str(&kubeconfig_with_proxy(None))
       .expect("base kubeconfig should deserialize");
 
     let config = tokio::runtime::Runtime::new()
@@ -1207,7 +1207,7 @@ users:
     clear_https_proxy_env();
     env::set_var("HTTPS_PROXY", "http://env-proxy.internal:8080");
 
-    let kubeconfig: Kubeconfig = serde_yaml::from_str(&kubeconfig_with_proxy(Some(
+    let kubeconfig: Kubeconfig = serde_saphyr::from_str(&kubeconfig_with_proxy(Some(
       "http://cluster-proxy.internal:8443",
     )))
     .expect("proxy kubeconfig should deserialize");
@@ -1232,7 +1232,7 @@ users:
     let _proxy_env = ProxyEnvGuard::capture();
     clear_https_proxy_env();
 
-    let kubeconfig: Kubeconfig = serde_yaml::from_str(&kubeconfig_with_proxy(Some(
+    let kubeconfig: Kubeconfig = serde_saphyr::from_str(&kubeconfig_with_proxy(Some(
       "http://cluster-proxy.internal:8443",
     )))
     .expect("proxy kubeconfig should deserialize");

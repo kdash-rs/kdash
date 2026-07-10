@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
-use base64::{engine::general_purpose, Engine};
 use chrono::Utc;
 use k8s_openapi::{api::core::v1::Secret, ByteString};
 use ratatui::{
@@ -44,13 +43,7 @@ impl KubeSecret {
 
     // decode each of the key/values in the secret
     for (key_name, encoded_bytes) in self.data.iter() {
-      let decoded_str = match serde_yaml::to_string(encoded_bytes) {
-        Ok(encoded_str) => match general_purpose::STANDARD.decode(encoded_str.trim()) {
-          Ok(decoded_bytes) => String::from_utf8_lossy(&decoded_bytes).into_owned(),
-          Err(_) => format!("cannot decode value: {}", encoded_str.trim()),
-        },
-        Err(_) => String::from("cannot deserialize value"),
-      };
+      let decoded_str = String::from_utf8_lossy(&encoded_bytes.0);
       let decoded_kv = format!("{}: {}\n", key_name, decoded_str);
       out.push_str(decoded_kv.as_str());
     }

@@ -279,6 +279,7 @@ mod tests {
           namespace: Some("from-kubeconfig".into()),
           ..Default::default()
         }),
+        ..Default::default()
       }],
       ..Default::default()
     });
