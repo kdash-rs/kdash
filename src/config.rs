@@ -99,9 +99,8 @@ fn parse_config(contents: &str, path: &Path) -> LoadedConfig {
   // Restrict boolean resolution to `true`/`false` (YAML 1.2 core schema, matching
   // the old serde_yaml). Without this, serde_saphyr resolves bare `n`/`y`/`t`/`f`
   // as booleans, breaking existing unquoted single-letter keybindings.
-  let options = serde_saphyr::Options {
-    strict_booleans: true,
-    ..Default::default()
+  let options = serde_saphyr::options! {
+    strict_booleans: true
   };
   match serde_saphyr::from_str_with_options::<KdashConfig>(contents, options) {
     Ok(config) => LoadedConfig {

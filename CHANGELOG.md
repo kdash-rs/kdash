@@ -5,7 +5,6 @@
 ### Changed
 
 - Kubernetes dependency updates
-- Configuration file parsing is handled by `serde_saphyr`. Keybindings need to quote `"n"`, `"y"`, `"t"` and `"f"`.
 
 ## [2.0.2] - 2026-06-29
 
