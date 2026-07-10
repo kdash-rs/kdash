@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
-use base64::{engine::general_purpose, Engine};
 use chrono::Utc;
 use k8s_openapi::{api::core::v1::Secret, ByteString};
 use ratatui::{
