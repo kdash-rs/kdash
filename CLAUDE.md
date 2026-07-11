@@ -106,6 +106,14 @@ The app follows an async event-driven architecture with three main communication
 - **Value input:** actions that need a value (scale) open a single-line input overlay (`actions::InputModal` + `InputAction`, stored as `App.input_modal`, drawn by `ui::draw_input_modal`). It captures keys after the confirm modal but before the action menu. `InputModal::validate` parses the buffer and, on success, returns the confirmation `Modal` to chain into (so impactful changes still confirm); on failure it sets an inline error and stays open. Scale reuses the generic `ResourcePatch::SetReplicas` via `patch_resource`.
 - The help page (`ui/help.rs`) is derived automatically from `generate_keybindings!`, grouped by each binding's `HContext` (`get_help_sections` in `app/key_binding.rs`) into balanced columns. Adding a keybinding shows up there with no fixture bump; its `desc`/`context` decide the row text and section.
 
+## Changelog
+
+Every noteworthy change must add a `CHANGELOG.md` entry in the same PR/commit as the change.
+
+- **What counts as noteworthy:** anything user-facing — new features, behavior changes, bug fixes, security fixes, new or changed CLI flags/config/keybindings. Skip internal-only refactors, test-only changes, docs, CI, and chores.
+- **Where:** under an `## [Unreleased]` section at the top of `CHANGELOG.md` (add that section if it is missing; releases move it into a dated version section). Group entries under `### Added`, `### Changed`, `### Fixed`, or `### Security`, following the [Keep a Changelog](https://keepachangelog.com) format the file already uses.
+- **How:** one line describing the user-facing effect (not the implementation), linking the PR or issue, e.g. `[#545](https://github.com/kdash-rs/kdash/pull/545)`.
+
 ## Pre-commit Hooks
 
 cargo-husky runs pre-commit (format + test + lint) and pre-push (lint + test) hooks. Run `cargo test` once after clone to set them up.
