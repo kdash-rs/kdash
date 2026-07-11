@@ -2,6 +2,10 @@
 
 ## [unreleased]
 
+### Added
+
+- `--namespace`/`-n` and `--context`/`-c` flags to pre-scope the TUI to a namespace and kubeconfig context at startup, matching the equivalent k9s flags. [#545](https://github.com/kdash-rs/kdash/issues/545)
+
 ### Changed
 
 - Kubernetes dependency updates

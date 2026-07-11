@@ -361,6 +361,8 @@ See the sample config in [assets/kdash.sample-config.yaml](assets/kdash.sample-c
 - `-t, --tick-rate <tick-rate>`: Set the tick rate (milliseconds): the lower the number the higher the FPS.
 - `-p, --poll-rate <poll-rate>`: Set the network call polling rate (milliseconds, should be multiples of tick-rate): the lower the number the higher the network calls.
 - `--log-tail-lines <log-tail-lines>`: Set how many historical log lines to fetch before live streaming starts.
+- `-n, --namespace <name>`: Pre-select a namespace on startup (same as pressing `n` and picking the namespace).
+- `-c, --context <name>`: Pre-select a kubeconfig context on startup (same as picking it from the Contexts view).
 - `-d, --debug[=<debug>]`: Enables debug mode and writes logs to `kdash-debug-<timestamp>.log` file in the current directory. Default behavior is to write INFO logs. Pass a log level to overwrite the default [possible values: info, debug, trace, warn, error]
 
 ## Limitations/Known issues

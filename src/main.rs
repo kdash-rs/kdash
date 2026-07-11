@@ -77,6 +77,12 @@ pub struct Cli {
   /// Set how many historical log lines to fetch before live streaming starts.
   #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
   pub log_tail_lines: Option<u32>,
+  /// Pre-select a namespace on startup (same as pressing `n` and picking the namespace).
+  #[arg(short = 'n', long, value_parser)]
+  pub namespace: Option<String>,
+  /// Pre-select a kubeconfig context on startup (same as picking it from the Contexts view).
+  #[arg(short = 'c', long, value_parser)]
+  pub context: Option<String>,
 }
 
 #[tokio::main]
@@ -132,7 +138,10 @@ async fn main() -> Result<()> {
   )));
 
   {
-    let app = app.lock().await;
+    let mut app = app.lock().await;
+    // Seed startup scoping from CLI flags so the first client connection and the
+    // UI reflect the requested namespace/context (#545).
+    seed_startup_selection(&mut app, cli.namespace.clone(), cli.context.clone());
     if app.config.keybindings.is_some() || app.config.theme.is_some() {
       info!("Loaded config overrides from file");
     }
@@ -149,6 +158,7 @@ async fn main() -> Result<()> {
   let app_nw = Arc::clone(&app);
   let app_stream = Arc::clone(&app);
   let app_cli = Arc::clone(&app);
+  let network_context = cli.context.clone();
 
   std::thread::spawn(move || {
     let rt = tokio::runtime::Builder::new_multi_thread()
@@ -158,14 +168,15 @@ async fn main() -> Result<()> {
       .expect("Failed to create network runtime");
 
     rt.block_on(async move {
+      let stream_context = network_context.clone();
       tokio::spawn(async move {
         info!("Starting network task");
-        start_network(sync_io_rx, &app_nw).await;
+        start_network(sync_io_rx, &app_nw, network_context).await;
       });
 
       tokio::spawn(async move {
         info!("Starting network stream task");
-        start_stream_network(sync_io_stream_rx, &app_stream).await;
+        start_stream_network(sync_io_stream_rx, &app_stream, stream_context).await;
       });
 
       tokio::spawn(async move {
@@ -188,8 +199,12 @@ async fn main() -> Result<()> {
   Ok(())
 }
 
-async fn start_network(mut io_rx: mpsc::Receiver<IoEvent>, app: &Arc<Mutex<App>>) {
-  match get_client(None).await {
+async fn start_network(
+  mut io_rx: mpsc::Receiver<IoEvent>,
+  app: &Arc<Mutex<App>>,
+  context: Option<String>,
+) {
+  match get_client(context).await {
     Ok(client) => {
       let mut network = Network::new(client, app);
 
@@ -211,8 +226,20 @@ fn resolve_log_tail_lines(cli_value: Option<u32>, config: &config::KdashConfig) 
     .unwrap_or(DEFAULT_LOG_TAIL_LINES)
 }
 
-async fn start_stream_network(mut io_rx: mpsc::Receiver<IoStreamEvent>, app: &Arc<Mutex<App>>) {
-  match get_client(None).await {
+/// Seed the selected namespace/context from CLI flags. Mirrors the in-TUI
+/// handlers so `--namespace`/`--context` land in the same `data.selected` fields
+/// the `n` and Contexts keybindings mutate.
+fn seed_startup_selection(app: &mut App, namespace: Option<String>, context: Option<String>) {
+  app.data.selected.ns = namespace;
+  app.data.selected.context = context;
+}
+
+async fn start_stream_network(
+  mut io_rx: mpsc::Receiver<IoStreamEvent>,
+  app: &Arc<Mutex<App>>,
+  context: Option<String>,
+) {
+  match get_client(context).await {
     Ok(client) => {
       let mut network = NetworkStream::new(client, app);
 
@@ -649,9 +676,13 @@ fn get_panic_info(info: &PanicHookInfo<'_>) -> (String, String) {
 
 #[cfg(test)]
 mod tests {
-  use super::{execute_pending_shell_exec_with, process_event, resolve_log_tail_lines};
+  use super::{
+    execute_pending_shell_exec_with, process_event, resolve_log_tail_lines, seed_startup_selection,
+    Cli,
+  };
   use crate::{app::App, config::KdashConfig, event};
   use anyhow::anyhow;
+  use clap::Parser;
   use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
   use std::sync::Arc;
   use tokio::sync::Mutex;
@@ -691,6 +722,47 @@ mod tests {
     };
 
     assert_eq!(resolve_log_tail_lines(Some(500), &config), 500);
+  }
+
+  #[test]
+  fn test_cli_parses_namespace_and_context_long_flags() {
+    let cli = Cli::try_parse_from(["kdash", "--namespace", "team-a", "--context", "prod"]).unwrap();
+    assert_eq!(cli.namespace.as_deref(), Some("team-a"));
+    assert_eq!(cli.context.as_deref(), Some("prod"));
+  }
+
+  #[test]
+  fn test_cli_parses_namespace_and_context_short_flags() {
+    let cli = Cli::try_parse_from(["kdash", "-n", "team-a", "-c", "prod"]).unwrap();
+    assert_eq!(cli.namespace.as_deref(), Some("team-a"));
+    assert_eq!(cli.context.as_deref(), Some("prod"));
+  }
+
+  #[test]
+  fn test_cli_defaults_namespace_and_context_to_none() {
+    let cli = Cli::try_parse_from(["kdash"]).unwrap();
+    assert_eq!(cli.namespace, None);
+    assert_eq!(cli.context, None);
+  }
+
+  #[test]
+  fn test_seed_startup_selection_sets_selected_fields() {
+    let mut app = App::default();
+
+    seed_startup_selection(&mut app, Some("team-a".into()), Some("prod".into()));
+
+    assert_eq!(app.data.selected.ns.as_deref(), Some("team-a"));
+    assert_eq!(app.data.selected.context.as_deref(), Some("prod"));
+  }
+
+  #[test]
+  fn test_seed_startup_selection_leaves_fields_unset_without_flags() {
+    let mut app = App::default();
+
+    seed_startup_selection(&mut app, None, None);
+
+    assert_eq!(app.data.selected.ns, None);
+    assert_eq!(app.data.selected.context, None);
   }
 
   #[tokio::test]
