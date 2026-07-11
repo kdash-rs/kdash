@@ -1,6 +1,6 @@
 # Changelog
 
-## [unreleased]
+## [2.1.0] - 2026-07-11
 
 ### Added
 
@@ -8,7 +8,11 @@
 
 ### Changed
 
-- Kubernetes dependency updates
+- Replaced the deprecated `serde_yaml` with `serde_saphyr` for config parsing and updated the Kubernetes client and other dependencies. Thanks to [@tstenner](https://github.com/tstenner) for the contribution! [#543](https://github.com/kdash-rs/kdash/pull/543)
+
+### Fixed
+
+- Config files keep parsing unquoted single-letter keybindings such as `n`, `y`, `t`, and `f` as strings instead of booleans, so existing keybinding overrides keep working after the YAML parser change. Thanks to [@tstenner](https://github.com/tstenner) for the contribution! [#543](https://github.com/kdash-rs/kdash/pull/543)
 
 ## [2.0.2] - 2026-06-29
 

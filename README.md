@@ -89,13 +89,13 @@ Since validation of the package takes forever, it may take a long while to becom
 choco install kdash
 
 # Version number may be required for newer releases, if available:
-choco install kdash --version=2.0.2
+choco install kdash --version=2.1.0
 ```
 
 To upgrade
 
 ```bash
-choco upgrade kdash --version=2.0.2
+choco upgrade kdash --version=2.1.0
 ```
 
 ### Arch Linux (AUR)
