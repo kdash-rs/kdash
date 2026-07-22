@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Selecting a namespace after filtering now jumps to the highlighted namespace instead of the first one in the unfiltered list. [#551](https://github.com/kdash-rs/kdash/issues/551)
+
 ## [2.1.0] - 2026-07-11
 
 ### Added

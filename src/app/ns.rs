@@ -21,7 +21,7 @@ use crate::{
     utils::{
       action_hint, filter_by_resource_name, filter_cursor_position, filter_status_parts, help_part,
       layout_block_default_line, loading, mixed_bold_line, style_highlight, style_secondary,
-      style_text, table_header_style, title_with_dual_style,
+      style_text, table_header_style, text_matches_filter, title_with_dual_style,
     },
     HIGHLIGHT,
   },
@@ -161,6 +161,32 @@ impl AppResource for NamespaceResource {
     }
 
     if !app.data.namespaces.items.is_empty() {
+      // Map the visible (filtered) row index back to the real `items` index so
+      // selecting/pressing enter jumps to the highlighted namespace rather than
+      // the first item of the unfiltered list. Mirrors `draw_resource_table`.
+      let filtered_indices: Vec<usize> = if app.ns_filter.is_empty() {
+        Vec::new()
+      } else {
+        app
+          .data
+          .namespaces
+          .items
+          .iter()
+          .enumerate()
+          .filter(|(_, s)| text_matches_filter(&app.ns_filter, &s.name))
+          .map(|(idx, _)| idx)
+          .collect()
+      };
+      if !app.ns_filter.is_empty() {
+        let max = filtered_indices.len().saturating_sub(1);
+        if let Some(sel) = app.data.namespaces.state.selected() {
+          if sel > max {
+            app.data.namespaces.state.select(Some(max));
+          }
+        }
+      }
+      app.data.namespaces.filtered_indices = filtered_indices;
+
       let rows = app.data.namespaces.items.iter().filter_map(|s| {
         let style = if Some(s.name.clone()) == app.data.selected.ns {
           style_secondary(app.palette)
@@ -322,6 +348,56 @@ mod tests {
     assert!(!apply_namespace_list_fallback(&mut app, &error));
     assert!(app.data.namespaces.items.is_empty());
     assert!(app.data.selected.ns.is_none());
+  }
+
+  fn render_namespaces(app: &mut App) {
+    let backend = TestBackend::new(60, 10);
+    let mut terminal = Terminal::new(backend).unwrap();
+    terminal
+      .draw(|f| {
+        let size = f.area();
+        NamespaceResource::render(ActiveBlock::Namespaces, f, app, size);
+      })
+      .unwrap();
+  }
+
+  #[test]
+  fn test_filtered_namespace_selection_maps_to_visible_row() {
+    let mut app = App::default();
+    app.push_navigation_stack(crate::app::RouteId::Home, ActiveBlock::Namespaces);
+    app.data.namespaces.set_items(vec![
+      KubeNs {
+        name: "default".into(),
+        status: "Active".into(),
+        ..Default::default()
+      },
+      KubeNs {
+        name: "kube-system".into(),
+        status: "Active".into(),
+        ..Default::default()
+      },
+      KubeNs {
+        name: "prod".into(),
+        status: "Active".into(),
+        ..Default::default()
+      },
+      KubeNs {
+        name: "staging".into(),
+        status: "Active".into(),
+        ..Default::default()
+      },
+    ]);
+    // Filtering resets the selection to the first *visible* row (index 0).
+    app.ns_filter = "prod".into();
+    app.ns_filter_active = true;
+    app.data.namespaces.state.select(Some(0));
+
+    render_namespaces(&mut app);
+
+    // The visible row maps back to the real item, not items[0] ("default").
+    assert_eq!(app.data.namespaces.filtered_indices, vec![2]);
+    let selected = app.data.namespaces.get_selected_item_copy().unwrap();
+    assert_eq!(selected.name, "prod");
   }
 
   #[test]
