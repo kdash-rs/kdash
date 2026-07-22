@@ -63,7 +63,7 @@ anyhow = "1.0.102"
 backtrace = "0.3.76"
 textwrap = "0.16.2"
 regex = "1.12.4"
-kube = { version = "4.0.0", default-features = false, features = [
+kube = { version = "4.2.0", default-features = false, features = [
     "socks5",
     "http-proxy",
     "client",
