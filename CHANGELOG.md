@@ -1,11 +1,15 @@
 # Changelog
 
-## [Unreleased]
+## [2.1.1] - 2026-07-22
 
 ### Fixed
 
 - Selecting a namespace after filtering now jumps to the highlighted namespace instead of the first one in the unfiltered list. [#551](https://github.com/kdash-rs/kdash/issues/551)
 - Updated the Kubernetes client to kube 4.2.0, so relative paths in a kubeconfig `exec` credential command now resolve against the kubeconfig location. [#541](https://github.com/kdash-rs/kdash/issues/541)
+
+### Changed
+
+- Updated dependencies: anyhow, async-trait, clap, regex, and serde-saphyr to their latest patch versions.
 
 ## [2.1.0] - 2026-07-11
 
