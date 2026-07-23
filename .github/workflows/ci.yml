@@ -86,6 +86,8 @@ jobs:
       - name: Push grcov results to Coveralls
         if: matrix.os == 'ubuntu-latest' && matrix.rust == 'nightly'
         uses: coverallsapp/github-action@v2
+        # Coverage reporting is informational; a Coveralls outage must not fail CI.
+        continue-on-error: true
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           file: ./target/debug/coverage/coveralls
