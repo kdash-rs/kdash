@@ -37,7 +37,7 @@ ratatui = { version = "0.30", default-features = false, features = [
 ] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
-serde-saphyr = "0.0.29"
+serde-saphyr = "1.0.1"
 serde_regex = "1.2.0"
 strum = { version = "0.28", features = ["derive"] }
 syntect = { version = "5.3.0", default-features = false, features = [
